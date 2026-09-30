@@ -1,0 +1,70 @@
+[gd_scene load_steps=14 format=3]
+
+[ext_resource type="Script" path="res://core/RangeMain.cs" id="1_main"]
+[ext_resource type="Script" path="res://core/SimDriver.cs" id="2_driver"]
+[ext_resource type="Script" path="res://world/RangeBuilder.cs" id="3_world"]
+[ext_resource type="Script" path="res://player/PlayerController.cs" id="4_player"]
+[ext_resource type="Script" path="res://ballistics/BallRenderer.cs" id="5_balls"]
+[ext_resource type="Script" path="res://ballistics/SplatSystem.cs" id="6_splats"]
+[ext_resource type="Script" path="res://ballistics/ImpactFx.cs" id="7_fx"]
+[ext_resource type="Script" path="res://ballistics/ArcPreview.cs" id="8_arc"]
+[ext_resource type="Script" path="res://audio/AudioDirector.cs" id="9_audio"]
+[ext_resource type="Script" path="res://ui/Hud.cs" id="10_hud"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_material"]
+sky_top_color = Color(0.3, 0.5, 0.8, 1)
+sky_horizon_color = Color(0.7, 0.78, 0.86, 1)
+ground_bottom_color = Color(0.2, 0.26, 0.18, 1)
+ground_horizon_color = Color(0.7, 0.78, 0.86, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_material")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+ambient_light_energy = 0.9
+tonemap_mode = 2
+fog_enabled = true
+fog_light_color = Color(0.72, 0.79, 0.86, 1)
+fog_density = 0.0015
+
+[node name="Range" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.69912, 0.55645, -0.44899, 0, 0.62795, 0.77825, 0.71501, -0.54409, 0.43901, 0, 30, 0)
+light_energy = 1.25
+shadow_enabled = true
+directional_shadow_max_distance = 90.0
+
+[node name="World" type="Node3D" parent="."]
+script = ExtResource("3_world")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+script = ExtResource("4_player")
+
+[node name="Balls" type="MultiMeshInstance3D" parent="."]
+script = ExtResource("5_balls")
+
+[node name="Splats" type="Node3D" parent="."]
+script = ExtResource("6_splats")
+
+[node name="ImpactFx" type="Node3D" parent="."]
+script = ExtResource("7_fx")
+
+[node name="ArcPreview" type="MeshInstance3D" parent="."]
+script = ExtResource("8_arc")
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("9_audio")
+
+[node name="SimDriver" type="Node" parent="."]
+script = ExtResource("2_driver")
+
+[node name="Hud" type="CanvasLayer" parent="."]
+script = ExtResource("10_hud")

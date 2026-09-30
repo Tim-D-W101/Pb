@@ -1,0 +1,80 @@
+// How things look and feel (not gameplay). Player-changeable values here are only defaults;
+// changes made in game are saved to user://settings.json.
+{
+  // Team colours. Orange vs blue is a colourblind-safe pair; more palettes arrive with the settings menu.
+  "teamColors": ["#ff6a1a", "#2f8cff"],
+
+  "ball": {
+    // A 17.3 mm ball is under 1 px beyond ~17 m at 1080p / 90° FOV. Balls are drawn at least this
+    // many pixels wide so incoming paint stays readable. Cosmetic only: hits use the true size.
+    "minPixels": 3.0,
+    // Faint motion streak: the trailing half is stretched by speed × this time.
+    "streak_s": 0.004,
+    // Your own balls start at the drawn barrel and blend into their true path over this time.
+    "visualBlend_s": 0.12
+  },
+
+  "splat": {
+    // Decal pool cap (spec: 2,000). When full, the oldest `fadeWindow` splats fade out first.
+    "cap": 2000,
+    "fadeWindow": 64,
+    "sizeMin_m": 0.14,
+    "sizeMax_m": 0.26,
+    "depth_m": 0.14,
+    "normalFade": 0.35,
+    "distanceFadeBegin_m": 70,
+    "distanceFadeLength_m": 25
+  },
+
+  "fx": { "maxBurstsPerFrame": 12, "breakParticles": 14, "bounceParticles": 5 },
+
+  "camera": {
+    // Horizontal field of view at 16:9 (spec: default 90°, adjustable 70–110°). Wider screens see more.
+    "fov_deg": 90,
+    "fovMin_deg": 70,
+    "fovMax_deg": 110,
+    "fovStep_deg": 5,
+    "nearClip_m": 0.03,
+    // Minimal head-bob (spec §1.5).
+    "headBob": true,
+    "headBobAmplitude_m": 0.01,
+    "headBobStride_m": 1.8
+  },
+
+  "viewModel": {
+    // The marker is drawn with its own vertical FOV so it looks the same at any FOV setting
+    // and never clips into a bunker you hug.
+    "fov_deg": 62,
+    // Marker position in camera space: [right, up, forward].
+    "offset_m": [0.23, -0.23, 0.52],
+    // Tilt [pitch up, yaw left, roll] in degrees: angles the barrel slightly toward the crosshair.
+    "rotation_deg": [1.5, 3.0, 0.0],
+    // Barrel tip relative to the marker: [right, up, forward].
+    "muzzleTip_m": [0.0, 0.02, 0.43],
+    "kickBack_m": 0.012,
+    "kickRecover_s": 0.08
+  },
+
+  "look": {
+    "mouseSensitivity_degPerCount": 0.06,
+    "sensitivityStep": 0.005,
+    "stickSpeed_degps": 220,
+    "stickExponent": 1.6,
+    "invertY": false
+  },
+
+  "crosshair": { "enabled": true, "size_px": 6, "gap_px": 4, "thickness_px": 2, "color": "#f2f2f2" },
+
+  // Debug arc (F2): predicted path and drop at these distances.
+  "arcPreview": { "enabledOnStart": false, "maxTime_s": 4.0, "probes_m": [10, 20, 30, 40] },
+
+  "audio": {
+    "voices": 24,
+    "maxSoundsPerFrame": 6,
+    "volume_db": -6,
+    // The shot sound's pitch follows tank pressure (spec §8): empty tank → low, full → high.
+    "shotPitchEmpty": 0.82,
+    "shotPitchFull": 1.05,
+    "maxDistance_m": 140
+  }
+}

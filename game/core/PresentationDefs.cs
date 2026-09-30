@@ -1,0 +1,320 @@
+using Pb.Sim.Data;
+
+namespace Pb.Game.Core;
+
+// Game-side data files (presentation.jsonc, input.jsonc). Same loader and rules as the sim's data:
+// unit-suffixed keys, unknown keys rejected, every key required unless [Optional].
+#pragma warning disable CA1707
+
+public sealed class PresentationDef : IValidatable
+{
+    public const string File = "presentation.jsonc";
+
+    public string[] TeamColors { get; set; } = System.Array.Empty<string>();
+
+    public BallViewDef Ball { get; set; } = new();
+
+    public SplatDef Splat { get; set; } = new();
+
+    public FxDef Fx { get; set; } = new();
+
+    public CameraDef Camera { get; set; } = new();
+
+    public ViewModelDef ViewModel { get; set; } = new();
+
+    public LookDef Look { get; set; } = new();
+
+    public CrosshairDef Crosshair { get; set; } = new();
+
+    public ArcPreviewDef ArcPreview { get; set; } = new();
+
+    public AudioDef Audio { get; set; } = new();
+
+    public void Validate(Validator v)
+    {
+        if (TeamColors.Length < 2)
+        {
+            v.Error(nameof(TeamColors), "needs at least two colours");
+        }
+
+        foreach (string c in TeamColors)
+        {
+            if (!Godot.Color.HtmlIsValid(c))
+            {
+                v.Error(nameof(TeamColors), $"'{c}' is not a valid colour");
+            }
+        }
+
+        Ball.Validate(v.Scope(nameof(Ball)));
+        Splat.Validate(v.Scope(nameof(Splat)));
+        Fx.Validate(v.Scope(nameof(Fx)));
+        Camera.Validate(v.Scope(nameof(Camera)));
+        ViewModel.Validate(v.Scope(nameof(ViewModel)));
+        Look.Validate(v.Scope(nameof(Look)));
+        Crosshair.Validate(v.Scope(nameof(Crosshair)));
+        ArcPreview.Validate(v.Scope(nameof(ArcPreview)));
+        Audio.Validate(v.Scope(nameof(Audio)));
+    }
+}
+
+public sealed class BallViewDef : IValidatable
+{
+    public float MinPixels { get; set; }
+
+    public float Streak_s { get; set; }
+
+    public float VisualBlend_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(MinPixels), MinPixels, 0, 20);
+        v.InRange(nameof(Streak_s), Streak_s, 0, 0.05);
+        v.InRange(nameof(VisualBlend_s), VisualBlend_s, 0, 1);
+    }
+}
+
+public sealed class SplatDef : IValidatable
+{
+    public int Cap { get; set; }
+
+    public int FadeWindow { get; set; }
+
+    public float SizeMin_m { get; set; }
+
+    public float SizeMax_m { get; set; }
+
+    public float Depth_m { get; set; }
+
+    public float NormalFade { get; set; }
+
+    public float DistanceFadeBegin_m { get; set; }
+
+    public float DistanceFadeLength_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Cap), Cap, 0, 20000);
+        v.InRange(nameof(FadeWindow), FadeWindow, 1, 5000);
+        v.InRange(nameof(SizeMin_m), SizeMin_m, 0.01, 2);
+        v.InRange(nameof(SizeMax_m), SizeMax_m, SizeMin_m, 2);
+        v.InRange(nameof(Depth_m), Depth_m, 0.01, 2);
+        v.InRange(nameof(NormalFade), NormalFade, 0, 1);
+        v.InRange(nameof(DistanceFadeBegin_m), DistanceFadeBegin_m, 1, 1000);
+        v.InRange(nameof(DistanceFadeLength_m), DistanceFadeLength_m, 0.1, 1000);
+    }
+}
+
+public sealed class FxDef : IValidatable
+{
+    public int MaxBurstsPerFrame { get; set; }
+
+    public int BreakParticles { get; set; }
+
+    public int BounceParticles { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(MaxBurstsPerFrame), MaxBurstsPerFrame, 0, 200);
+        v.InRange(nameof(BreakParticles), BreakParticles, 1, 200);
+        v.InRange(nameof(BounceParticles), BounceParticles, 1, 200);
+    }
+}
+
+public sealed class CameraDef : IValidatable
+{
+    /// <summary>Horizontal field of view at 16:9 (wider screens see more).</summary>
+    public float Fov_deg { get; set; }
+
+    public float FovMin_deg { get; set; }
+
+    public float FovMax_deg { get; set; }
+
+    public float FovStep_deg { get; set; }
+
+    public float NearClip_m { get; set; }
+
+    public bool HeadBob { get; set; }
+
+    public float HeadBobAmplitude_m { get; set; }
+
+    public float HeadBobStride_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(FovMin_deg), FovMin_deg, 30, 150);
+        v.InRange(nameof(FovMax_deg), FovMax_deg, FovMin_deg, 150);
+        v.InRange(nameof(Fov_deg), Fov_deg, FovMin_deg, FovMax_deg);
+        v.InRange(nameof(FovStep_deg), FovStep_deg, 0.5, 20);
+        v.InRange(nameof(NearClip_m), NearClip_m, 0.005, 0.5);
+        v.InRange(nameof(HeadBobAmplitude_m), HeadBobAmplitude_m, 0, 0.1);
+        v.InRange(nameof(HeadBobStride_m), HeadBobStride_m, 0.2, 5);
+    }
+}
+
+public sealed class ViewModelDef : IValidatable
+{
+    /// <summary>Vertical FOV the marker is drawn with, independent of the camera FOV.</summary>
+    public float Fov_deg { get; set; }
+
+    /// <summary>Marker position in camera space: [right, up, forward] (m).</summary>
+    public float[] Offset_m { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>Marker tilt: [pitch up, yaw left, roll] (degrees), e.g. to angle the barrel toward the crosshair.</summary>
+    public float[] Rotation_deg { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>Barrel tip relative to the marker root: [right, up, forward] (m).</summary>
+    public float[] MuzzleTip_m { get; set; } = System.Array.Empty<float>();
+
+    public float KickBack_m { get; set; }
+
+    public float KickRecover_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Fov_deg), Fov_deg, 20, 120);
+        v.Vector(nameof(Offset_m), Offset_m);
+        v.Vector(nameof(Rotation_deg), Rotation_deg);
+        v.Vector(nameof(MuzzleTip_m), MuzzleTip_m);
+        v.InRange(nameof(KickBack_m), KickBack_m, 0, 0.2);
+        v.InRange(nameof(KickRecover_s), KickRecover_s, 0.01, 2);
+    }
+}
+
+public sealed class LookDef : IValidatable
+{
+    public float MouseSensitivity_degPerCount { get; set; }
+
+    public float SensitivityStep { get; set; }
+
+    public float StickSpeed_degps { get; set; }
+
+    public float StickExponent { get; set; }
+
+    public bool InvertY { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(MouseSensitivity_degPerCount), MouseSensitivity_degPerCount, 0.001, 2);
+        v.InRange(nameof(SensitivityStep), SensitivityStep, 0.0005, 0.5);
+        v.InRange(nameof(StickSpeed_degps), StickSpeed_degps, 10, 2000);
+        v.InRange(nameof(StickExponent), StickExponent, 0.5, 5);
+    }
+}
+
+public sealed class CrosshairDef : IValidatable
+{
+    public bool Enabled { get; set; }
+
+    public float Size_px { get; set; }
+
+    public float Gap_px { get; set; }
+
+    public float Thickness_px { get; set; }
+
+    public string Color { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Size_px), Size_px, 1, 100);
+        v.InRange(nameof(Gap_px), Gap_px, 0, 100);
+        v.InRange(nameof(Thickness_px), Thickness_px, 0.5, 20);
+        if (!Godot.Color.HtmlIsValid(Color))
+        {
+            v.Error(nameof(Color), $"'{Color}' is not a valid colour");
+        }
+    }
+}
+
+public sealed class ArcPreviewDef : IValidatable
+{
+    public bool EnabledOnStart { get; set; }
+
+    public float MaxTime_s { get; set; }
+
+    public float[] Probes_m { get; set; } = System.Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(MaxTime_s), MaxTime_s, 0.1, 20);
+        if (Probes_m.Length > 8)
+        {
+            v.Error(nameof(Probes_m), "at most 8 probe distances");
+        }
+    }
+}
+
+public sealed class AudioDef : IValidatable
+{
+    public int Voices { get; set; }
+
+    public int MaxSoundsPerFrame { get; set; }
+
+    public float Volume_db { get; set; }
+
+    /// <summary>Shot pitch scale at an empty and a full tank (the sound tracks tank pressure).</summary>
+    public float ShotPitchEmpty { get; set; }
+
+    public float ShotPitchFull { get; set; }
+
+    public float MaxDistance_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Voices), Voices, 1, 128);
+        v.InRange(nameof(MaxSoundsPerFrame), MaxSoundsPerFrame, 1, 128);
+        v.InRange(nameof(Volume_db), Volume_db, -60, 12);
+        v.InRange(nameof(ShotPitchEmpty), ShotPitchEmpty, 0.25, 4);
+        v.InRange(nameof(ShotPitchFull), ShotPitchFull, 0.25, 4);
+        v.InRange(nameof(MaxDistance_m), MaxDistance_m, 1, 1000);
+    }
+}
+
+public sealed class InputDef : IValidatable
+{
+    public const string File = "input.jsonc";
+
+    public float Deadzone { get; set; }
+
+    public InputActionDef[] Actions { get; set; } = System.Array.Empty<InputActionDef>();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Deadzone), Deadzone, 0, 0.95);
+        for (int i = 0; i < Actions.Length; i++)
+        {
+            Actions[i].Validate(v.Item(nameof(Actions), i));
+        }
+    }
+}
+
+public sealed class InputActionDef : IValidatable
+{
+    public string Name { get; set; } = "";
+
+    /// <summary>Godot key names (physical, layout-independent), e.g. "W", "Shift", "F1".</summary>
+    [Optional]
+    public string[]? Keys { get; set; }
+
+    /// <summary>Mouse buttons: "Left", "Right", "Middle", "WheelUp"…</summary>
+    [Optional]
+    public string[]? Mouse { get; set; }
+
+    /// <summary>Gamepad buttons (SDL layout, so Xbox and PlayStation both work): "A", "Y", "LeftStick", "DpadUp"…</summary>
+    [Optional]
+    public string[]? Buttons { get; set; }
+
+    /// <summary>Gamepad axes with direction: "LeftY-", "TriggerRight+"…</summary>
+    [Optional]
+    public string[]? Axes { get; set; }
+
+    [Optional]
+    public float Deadzone { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Name), Name);
+        v.InRange(nameof(Deadzone), Deadzone, 0, 0.95);
+    }
+}
+
+#pragma warning restore CA1707
