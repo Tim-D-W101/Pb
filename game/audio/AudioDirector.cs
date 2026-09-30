@@ -91,6 +91,28 @@ public partial class AudioDirector : Node, ISimEventListener
 
     public override void _Process(double delta) => _budget = _def?.MaxSoundsPerFrame ?? 0;
 
+    public override void _ExitTree()
+    {
+        // Release playbacks and the synthesised streams so nothing is left alive at shutdown.
+        foreach (AudioStreamPlayer3D voice in _voices)
+        {
+            voice.Stop();
+            voice.Stream = null;
+        }
+
+        if (_local is not null)
+        {
+            _local.Stop();
+            _local.Stream = null;
+            _ui.Stop();
+            _ui.Stream = null;
+            foreach (AudioStreamWav stream in new[] { _shot, _splat, _bounce, _dry, _refill })
+            {
+                stream.Dispose();
+            }
+        }
+    }
+
     private void Play3D(AudioStream stream, Vector3 position, float volumeOffsetDb, float pitch)
     {
         if (_budget <= 0 || _voices.Length == 0)
