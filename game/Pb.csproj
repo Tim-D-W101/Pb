@@ -1,0 +1,12 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <!-- Godot game project (presentation, input, engine glue). Gameplay rules live in src/Pb.Sim. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>Pb.Game</RootNamespace>
+    <AssemblyName>Pb</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\src\Pb.Sim\Pb.Sim.csproj" />
+  </ItemGroup>
+</Project>
