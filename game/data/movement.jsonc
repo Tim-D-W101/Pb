@@ -1,0 +1,26 @@
+// Player movement (spec §1.5). Lean, slide/dive and shoulder-swap arrive in Phase 2.
+{
+  "walkSpeed_mps": 3.0,
+  "runSpeed_mps": 5.5,
+  "sprintSpeed_mps": 7.0,
+  "crouchSpeed_mps": 2.0,
+
+  "groundAccel_mps2": 30,
+  "groundDecel_mps2": 40,
+  "airAccel_mps2": 4,
+
+  "standEyeHeight_m": 1.62,
+  "crouchEyeHeight_m": 1.05,
+  // How fast the eye moves between stances.
+  "stanceTransitionSpeed_mps": 5.0,
+
+  "standCapsuleHeight_m": 1.8,
+  "crouchCapsuleHeight_m": 1.2,
+  "capsuleRadius_m": 0.3,
+
+  // Sprint needs at least this much forward input (0..1). Sprinting blocks firing.
+  "sprintMinForwardInput": 0.5,
+
+  "maxPitch_deg": 89,
+  "gravity_mps2": 9.81
+}

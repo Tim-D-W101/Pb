@@ -1,0 +1,13 @@
+// Standard .68 calibre paintball (spec §1.1 defaults).
+// With these values: drag factor k = 0.5·ρ·Cd·A/m ≈ 0.0211 /m, terminal velocity ≈ 21.5 m/s.
+{
+  "id": "paintball_68",
+  "diameter_mm": 17.3,
+  "mass_g": 3.2,
+  "dragCoefficient": 0.47,
+  "airDensity_kgm3": 1.225,
+  "gravity_mps2": 9.81,
+
+  // Safety net: a ball still alive after this long is removed.
+  "maxLifetime_s": 8.0
+}

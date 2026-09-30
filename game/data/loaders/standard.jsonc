@@ -1,0 +1,13 @@
+// Loader on the marker plus pods on the harness (spec §1.4).
+{
+  "id": "loader.standard",
+  "capacity": 200,
+  "pods": { "count": 3, "capacity": 140 },
+
+  // Refilling the loader from the next non-empty pod. Firing is blocked while refilling.
+  "refillTime_s": 2.5,
+  "cancelOnFire": true,
+  "cancelOnSprint": true,
+  // false: a cancelled refill moves no paint; true: moves a share proportional to elapsed time.
+  "partialOnInterrupt": false
+}

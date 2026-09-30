@@ -1,0 +1,20 @@
+// Break vs bounce (spec §1.1). On impact, vn = impact speed along the surface normal:
+//   P(break) = 1 / (1 + exp(-(vn − break50_mps) / breakWidth_mps))
+// so fast head-on hits almost always break and slow or glancing ones mostly bounce.
+// A bounce keeps `restitution` of the normal speed and `tangentRetain` of the sliding speed.
+// Bounced balls never eliminate. Examples with the inflatable row:
+//   head-on at 20 m (58 m/s) ≈ 100 % break · 15° glancing at 20 m (vn ≈ 15) ≈ 20 % · head-on at 22 m/s = 50 %
+{
+  "surfaces": [
+    { "name": "turf",       "break50_mps": 38, "breakWidth_mps": 8, "restitution": 0.30, "tangentRetain": 0.55 },
+    { "name": "inflatable", "break50_mps": 22, "breakWidth_mps": 5, "restitution": 0.45, "tangentRetain": 0.80 },
+    { "name": "player",     "break50_mps": 17, "breakWidth_mps": 4, "restitution": 0.35, "tangentRetain": 0.70 },
+    { "name": "wood",       "break50_mps": 14, "breakWidth_mps": 4, "restitution": 0.40, "tangentRetain": 0.75 },
+    { "name": "panel",      "break50_mps": 14, "breakWidth_mps": 4, "restitution": 0.40, "tangentRetain": 0.75 }
+  ],
+
+  // A bounced ball slower than this is treated as at rest and removed.
+  "restSpeed_mps": 1.5,
+  // A ball is removed after this many bounces.
+  "maxBounces": 4
+}
