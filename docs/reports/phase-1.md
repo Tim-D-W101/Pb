@@ -123,6 +123,8 @@ These were rendered with a CPU software renderer in the cloud (no GPU), so they 
 
 ## What's next: Phase 2, offline speedball vertical slice
 
+> **Update (2026-09-30):** you've since changed direction to explorable compound levels. The proposed replacement is [phase-2.md](../phase-2.md); the speedball plan below is kept for the record.
+
 From the spec:
 
 - **Field:** a greybox 45 × 36 m field loaded from data, with a bunker catalogue (Dorito, Snake, Can, Temple, Cake, Brick), auto-mirrored layouts, and start boxes with a buzzer.

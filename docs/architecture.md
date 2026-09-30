@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **Status: approved (defaults accepted 2026-09-30); Phase 1 implemented.** Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
+> **Status: approved (defaults accepted 2026-09-30); Phase 1 implemented.** On 2026-09-30 the owner changed direction to explorable compound levels. The proposal is in [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md), and is waiting for approval. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
@@ -315,6 +315,8 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 ## 13. Roadmap: what each phase adds to this architecture
 
+> Superseded by the proposed roadmap in [§14.8](#148-revised-roadmap-proposed) once the owner approves it.
+
 | Phase | Adds |
 |---|---|
 | 1 Ballistics sandbox | `Pb.Sim` ballistics, collision, gear, data layer, tests. Range scene, ball rendering, splats, basic controller, perf tools. |
@@ -323,3 +325,112 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 | 4 Modes and maps | CTF/Arcade/co-op rule classes, second layout, scenario map (engine-collision adapter, terrain, props). |
 | 5 Customisation and art | Gear locker, fictional brands, gear models, splat shaders, audio pass, full settings and rebinding UI. |
 | 6 Progression (optional) | XP/levels, seasonal track, soft and premium currency (premium name is yours to choose), mock store behind `IStoreService`. |
+
+## 14. Direction change (2026-09-30): the compound
+
+> **Status: proposed with the [Phase 2 plan](phase-2.md), waiting for the owner's OK.** The owner's direction, verbatim: "…use Higgsfield to design the graphics and make it more realistic. I want the setting to be like old abandoned buildings in a compound. We can go around exploring and then you fight different people. You may have up to 10 people in one level, in one round, and then you have different levels depending on the difficulty."
+
+### 14.1 What changes, what stays
+
+- **Stays:**
+  - the principles (§1);
+  - everything built in Phase 1: ballistics, collision, gear, data layer, tests, CI;
+  - the data conventions (§8);
+  - the netcode design (§6), now Phase 4.
+- **Changes:**
+  - The main game becomes solo elimination in explorable compound levels, which grows out of the spec's scenario map (§2.2).
+  - Speedball (§4.8) and its breakout/hang bot behaviours (§7) become an optional Phase 5 mode.
+  - The roadmap (§13) is replaced by §14.8.
+
+### 14.2 Levels from a kit
+
+- **Files.** `levels/*.jsonc` places buildings, props, pickups, spawns, patrol routes and named areas. `kit/*.jsonc` defines building templates, prop types and the material library.
+- **Buildings.** A building is:
+  - floors (height, slab thickness);
+  - wall runs (a polyline in plan, thickness, material, door and window openings);
+  - floor holes, stairs, roof (flat or pitched, with holes) and columns.
+- **`Pb.Sim/Level` turns a building into primitives the collision world already supports:**
+  - a wall with openings becomes boxes (piers, lintels, sills);
+  - a slab becomes boxes around its holes;
+  - stairs become stepped boxes for paint plus one ramp for walking;
+  - a pitched roof becomes rotated boxes.
+  
+  No mesh colliders are needed, so paint collision stays analytic, allocation-free and testable.
+- **One primitive list feeds everything:**
+  - render meshes (merged per material per building, with world-scale UVs);
+  - `StaticBody3D` shapes for walking;
+  - the sim `CollisionWorld` for paint;
+  - `BoxOccluder3D` occluders;
+  - navigation-mesh source geometry.
+- **Props.** Each prop is a GLB model plus a list of proxy colliders in data (an oil drum is a cylinder of 0.58 × 0.88 m; a car wreck is three boxes). Proxies are fitted to the model's measured bounds at import.
+- **Cover points** are generated from the same data at load: wall ends, opening edges and prop sides, tagged with peek side and cover height (standing or crouched).
+- **Named areas** (boxes in the level file) carry a callout name, an indoor flag and a light level, which bots use for callouts, searching and sight.
+- **Broadphase.** The XZ grid stays as it is. Multi-storey columns simply hold more candidates. If the benchmark shows a cost, the grid gains Y bands.
+- **The Phase 1 range** stays as the training level, with its own loader unchanged.
+
+### 14.3 Rendering for realism
+
+- **Material library.** Each entry gives albedo, normal and roughness textures, tile size in metres, a surface ID (for paint physics now and footsteps later), and a weathering amount.
+- **`weathered.gdshader`** is one shader for all kit surfaces: base PBR plus grime by height above the floor, noise-driven stains and moss, and per-material strength.
+- **Presets in `graphics.jsonc`:**
+  - **Low:** no GI, no SSAO.
+  - **Medium:** SSAO, per-room ambient probes and unshadowed fill lights at windows.
+  - **High:** adds SSIL, SDFGI, volumetric fog and SSR.
+  
+  Shadow sizes and every toggle are data.
+- **Culling:**
+  - occluders generated from walls and slabs;
+  - `visibility_range` on small props and weeds;
+  - automatic mesh LODs from GLB import;
+  - MultiMesh for weeds and rubble.
+- **Budget** (GTX 1070, 1080p, Medium): scene ≤ 10 ms, 10 characters ≤ 1.5 ms, sim ≤ 1 ms, AI ≤ 1 ms.
+
+### 14.4 Characters
+
+- **Source.** GLB models from Higgsfield: Meshy image-to-3D with humanoid auto-rig and PBR, about 25k triangles.
+- **Import.** Characters are imported against Godot's humanoid skeleton profile, so animation clips retarget between characters.
+- **Animation.** An `AnimationTree` blends locomotion by speed and stance. The upper body is posed procedurally:
+  - hands on the marker grips by IK;
+  - spine turned to the aim pitch;
+  - lean as a spine bend that matches the hitbox rig.
+- **Attachments.** The marker, armband and paint splats attach to bones (`BoneAttachment3D`), so splats move with the character.
+- **Hitboxes** come from the sim's `HitboxRig`, never from the mesh, so animation can't change outcomes.
+
+### 14.5 Match rules
+
+- **`Pb.Sim/Match`** holds `MatchState` (Briefing → Live → RoundEnd(reason) → Summary) and `IGameModeRules`.
+- **Phase 2 ships `EliminationRules`:** the player's team against the bot team; the level is cleared when every opponent is out. Players already carry a team, so free-for-all and squads are rule variants.
+- **Level flow and difficulty live in `levels/ladder.jsonc`:** order, tiers, roster per tier, time limit, starting gear and pickups.
+
+### 14.6 AI
+
+- **Brain.** The state machine, target selection, aim and difficulty are plain C# in `Pb.Sim/AI`. A brain emits `InputCommand`s, exactly like a human.
+- **Interfaces.** The brain sees the world only through two interfaces, and is unit-tested with fakes of both:
+  - `IBotSenses`: line-of-sight queries against the sim collision world, plus events heard from the event queue;
+  - `IBotNavigation`: path queries.
+- **`game/ai`:**
+  - a `NavigationRegion3D` baked at level load from kit geometry, with agent radius, step height and slope from data;
+  - `BotController` is a `CharacterBody3D` with a character scene that follows paths with simple avoidance.
+- **Sight.** Rays run from the eyes to the head, torso and marker of each candidate target. A detection meter fills according to distance, the area's light level, the target's stance and speed, and difficulty.
+- **Hearing.** Shots, breaks and footsteps are heard within data ranges, which are halved when a wall is in the way.
+- **Data.** Behaviours (Sentry, Patroller, Rusher; later Marksman, Flanker) live in `bots/archetypes.jsonc`, and tiers in `bots/difficulty.jsonc`.
+- **Determinism.** Brains draw randomness from per-bot PCG32 streams seeded from the match seed. Headless tests swap the navigation mesh for a grid navigator.
+
+### 14.7 Asset pipeline
+
+- **Flow.** A finished Higgsfield job becomes a project asset in three steps:
+  1. `tools/art` downloads the files by job ID.
+  2. A headless Godot script uses the `Image` API to make textures tileable, derive normal maps from height, derive roughness, and resize to at most 2K.
+  3. Outputs are written to `game/assets/…`, and `game/data/assets.jsonc` records each asset's file, source job ID, prompt and date.
+- **Storage.** Binaries go in Git LFS, using the patterns already in `.gitattributes`. CI checks out without LFS, to spare the bandwidth quota, and so it exercises the greybox fallback every run.
+- **Original IP.** Prompts never name real brands, products, fields or games. Generated images are checked for logos and legible text before use.
+
+### 14.8 Revised roadmap (proposed)
+
+| Phase | Adds |
+|---|---|
+| 2 The compound | Level kit and loader, Level 1, realism pass (materials, lighting, props, characters), hitbox rig, lean/slide/shoulder-swap/jump, `EliminationRules`, bots (Sentry, Patroller, Rusher; three tiers), menus, match HUD |
+| 3 Level ladder | 3–4 more levels, unlocks and local save, Marksman and Flanker, objectives, audio pass with voiced callouts, doors, full settings and rebinding |
+| 4 Multiplayer | `Pb.Net`, dedicated and listen server, lobby, lag compensation, co-op vs bots and PvP for up to 10 players |
+| 5 Locker and extras | Gear locker, fictional brands, gear models, splat shaders; speedball field, CTF and Arcade as optional modes |
+| 6 Progression (optional) | As before |
