@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  sim:
+    name: Build, sim tests, benchmark
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build solution (sim, tests, bench, game)
+        run: dotnet build Pb.sln -c Release
+      - name: Sim tests
+        run: dotnet test tests/Pb.Sim.Tests -c Release --no-build --logger "console;verbosity=normal"
+      - name: Ballistics report and tick benchmark (reported, not gating)
+        run: dotnet run -c Release --no-build --project tools/Pb.Bench -- --quick | tee -a "$GITHUB_STEP_SUMMARY"
+
+  godot-smoke:
+    name: Godot headless smoke test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux-x86_64
+      - name: Install Godot ${{ env.GODOT_VERSION }} (.NET)
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: tools/ci/install-godot.sh "$GODOT_VERSION" ~/.local/godot
+      - name: Build game assembly
+        run: dotnet build game/Pb.csproj -c Debug
+      - name: Import project
+        run: tools/ci/import.sh ~/.local/godot/godot
+      - name: Smoke test (autopilot + 1,000-ball stress mode through the real scene)
+        run: tools/ci/smoke-test.sh ~/.local/godot/godot

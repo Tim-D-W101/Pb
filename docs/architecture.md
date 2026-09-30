@@ -1,10 +1,10 @@
 # Architecture plan
 
-> **Status: draft for review.** Nothing is built yet. Requirements are in [spec.md](spec.md); this file explains how they'll be met. Items marked *(Q1–Q5)* depend on the open questions in §0.
+> **Status: approved (defaults accepted 2026-09-30); Phase 1 implemented.** Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
-### Open questions (defaults apply unless answered)
+### Questions from planning (owner accepted all defaults)
 
 | # | Question | Default |
 |---|---|---|
@@ -19,8 +19,8 @@
 | Topic | Decision |
 |---|---|
 | Engine | Godot **4.7.2** (latest stable), .NET build, Forward+ renderer, Jolt physics. Exact version pinned in the repo and CI. |
-| Language | C# *(Q1)*, using the .NET SDK version the pinned Godot requires. |
-| Names | Code prefix `Pb` (`Pb.Sim`, `Pb.Game`, …). The display title is a data value, so the game can be renamed at any time. |
+| Language | C# on .NET 8 (what Godot 4.7.2's C# layer targets). |
+| Names | Code prefix `Pb`: `Pb.Sim` (engine-free core), `Pb.Game` namespaces in the Godot project (assembly `Pb`, `game/Pb.csproj`). The display title is a project setting, so the game can be renamed any time. |
 | Tick rates | 120 Hz simulation (= Godot physics tick), 60 Hz network send, rendering interpolated between ticks. |
 | Integrator | RK2 (midpoint). Numbers are in §4.2. |
 | Data format | JSON with comments (`.jsonc`), with units in key names (§8). |
@@ -71,7 +71,7 @@ The spec asks for decoupled systems: ballistics, weapons, player controller, mat
 
 | Module | Location | Responsibility | Phase |
 |---|---|---|---|
-| Math | `Pb.Sim/Math` | `System.Numerics` vectors, unit conversion, PCG32 RNG, seed hashing | 1 |
+| Core | `Pb.Sim/Core` | `System.Numerics` helpers, unit conversion, PCG32 RNG, seed hashing, view angles | 1 |
 | Data | `Pb.Sim/Data` | JSONC → typed definitions, validation (errors name file + field), SI conversion | 1 |
 | Ballistics | `Pb.Sim/Ballistics` | Ball pool, RK2 integrator, sweep and resolve, break/bounce, dispersion | 1 |
 | Collision | `Pb.Sim/Collision` | Sweep tests vs primitives, grid broadphase, `ICollisionWorld` | 1 |
@@ -261,7 +261,7 @@ The RTX 3080 target is 144 fps. Install size target is under 10 GB, which is eas
 Pb/
 ├─ Pb.sln
 ├─ README.md
-├─ CLAUDE.md                     conventions for AI agents (P1)
+├─ CLAUDE.md                     conventions for AI agents
 ├─ docs/
 │  ├─ spec.md                    the build prompt (source of truth)
 │  ├─ architecture.md            this file
@@ -269,13 +269,13 @@ Pb/
 │  └─ reports/                   end-of-phase reports
 ├─ game/                         Godot project: open game/project.godot
 │  ├─ project.godot
-│  ├─ Pb.Game.csproj             references src/Pb.Sim (+ Pb.Net in P3)
+│  ├─ Pb.csproj                  assembly "Pb", namespaces Pb.Game.*; references src/Pb.Sim (+ Pb.Net in P3)
 │  ├─ data/                      every tunable (.jsonc)
 │  │  ├─ projectiles/ markers/ air/ loaders/
 │  │  ├─ break_model.jsonc movement.jsonc stress.jsonc debug.jsonc
 │  │  ├─ bunkers.jsonc fields/ ranges/
 │  │  └─ modes/ bots/ gear/ brands/ progression/    (later phases)
-│  ├─ core/                      bootstrap, SimDriver, hot-reload, adapters
+│  ├─ core/                      RangeMain (composition root), SimDriver, data/settings/input, autopilot, smoke test
 │  ├─ player/                    controller, camera, input → InputCommand, viewmodel
 │  ├─ ballistics/                ball renderer + shader, splats, impact FX, arc debug
 │  ├─ world/                     FieldBuilder, procedural bunkers, range, targets
@@ -288,14 +288,14 @@ Pb/
 │  └─ assets/                    models, textures, audio (Git LFS)
 ├─ src/
 │  ├─ Pb.Sim/                    engine-free simulation core
-│  │  └─ Math/ Data/ Ballistics/ Collision/ Gear/ Players/ Match/ AI/ Events/
+│  │  └─ Core/ Data/ Ballistics/ Collision/ Gear/ Players/ Range/ Events/  (+ Match/ AI/ later)
 │  └─ Pb.Net/                    (P3) protocol, snapshots, prediction, transport API
 ├─ tests/
 │  ├─ Pb.Sim.Tests/              xUnit
 │  └─ Pb.Net.Tests/              (P3)
 ├─ tools/
-│  ├─ Pb.Bench/                  headless ball-count benchmark
-│  └─ ci/                        engine download / version pin scripts
+│  ├─ Pb.Bench/                  ballistics report + headless ball-count benchmark
+│  └─ ci/                        Godot install, import and smoke-test scripts
 └─ .github/workflows/ci.yml
 ```
 
