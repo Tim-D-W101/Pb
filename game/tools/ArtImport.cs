@@ -16,7 +16,7 @@ namespace Pb.Game.Tools;
 /// runs this scene headless.
 /// <list type="bullet">
 /// <item><c>--texture</c>: a picture becomes a tiling material (albedo plus normal and roughness maps derived from it) in <c>art/textures/</c>.</item>
-/// <item><c>--model</c>: a GLB goes into <c>art/models/</c>, and its measured size is printed so the prop's colliders can be fitted to it.</item>
+/// <item><c>--model</c>: a GLB is tidied (smaller JPEG textures, no baked glow) and goes into <c>art/models/</c>, optionally scaled to a real height; its measured size is printed so the prop's colliders can be fitted to it.</item>
 /// <item><c>--selftest</c>: runs the texture steps on a generated picture and checks the result (CI).</item>
 /// </list>
 /// Every import records the job, prompt, generator and download URL in <c>data/assets.jsonc</c>: the
@@ -50,7 +50,8 @@ public partial class ArtImport : Node
     private static int Usage()
     {
         GD.PushError("ART usage: --texture|--model|--selftest --id=… --source=FILE --job=… --generator=… --prompt=… --url=… " +
-                     "[--size=1024 --flatten=0.8 --band=0.12 --normal-strength=2 --roughness=0.9 --roughness-variation=0.15]");
+                     "[texture: --size=1024 --flatten=0.8 --band=0.12 --normal-strength=2 --roughness=0.9 --roughness-variation=0.15] " +
+                     "[model: --max-texture=1024 --roughness=R --height=M]");
         return 2;
     }
 
@@ -80,10 +81,15 @@ public partial class ArtImport : Node
         DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(folder));
         var files = new List<string>
         {
-            Save(tiled, $"{folder}/{id}_albedo.png"),
-            Save(normal, $"{folder}/{id}_normal.png"),
-            Save(Grey(roughness, size, size), $"{folder}/{id}_roughness.png"),
+            Save(tiled, $"{folder}/{id}_albedo.jpg", 0.92f),
+            Save(normal, $"{folder}/{id}_normal.jpg", 0.95f),
+            Save(Grey(roughness, size, size), $"{folder}/{id}_roughness.jpg", 0.9f),
         };
+        for (int i = 0; i < files.Count; i++)
+        {
+            WriteImportSettings(files[i], normalMap: i == 1);
+        }
+
         Record("texture", id, files, string.Create(CultureInfo.InvariantCulture,
             $"{size} px, flatten {flatten}, seam band {band}, normal strength {strength}, roughness {roughnessBase} ± {variation}"));
         GD.Print(string.Create(CultureInfo.InvariantCulture,
@@ -92,32 +98,69 @@ public partial class ArtImport : Node
         return 0;
     }
 
+    /// <summary>
+    /// A generated GLB, tidied (see <see cref="GlbTidy"/>) and optionally scaled to <c>--height</c> metres
+    /// and stood on the origin, then measured so the prop's colliders can be fitted to it.
+    /// </summary>
     private static int ImportModel()
     {
         string id = Required("--id");
         string source = Required("--source");
-        var document = new GltfDocument();
-        var state = new GltfState();
-        Error error = document.AppendFromFile(source, state);
-        if (error != Error.Ok)
+        float? roughness = Args.Value("--roughness") is { } r ? float.Parse(r, CultureInfo.InvariantCulture) : null;
+        byte[] model = GlbTidy.Tidy(File.ReadAllBytes(source), Number("--max-texture", 1024), roughness, out string tidied);
+        Aabb bounds = Measure(model);
+        string placed = "";
+        if (Args.Value("--height") is { } h)
         {
-            throw new InvalidOperationException($"can't read {source} as glTF ({error})");
+            float height = float.Parse(h, CultureInfo.InvariantCulture);
+            float scale = height / bounds.Size.Y;
+            Vector3 centre = bounds.GetCenter();
+            model = GlbTidy.Place(model, scale, new Vector3(-centre.X, -bounds.Position.Y, -centre.Z) * scale);
+            bounds = Measure(model);
+            placed = string.Create(CultureInfo.InvariantCulture, $", scaled ×{scale:0.###} to {height} m tall and stood on the origin");
         }
-
-        Node scene = document.GenerateScene(state);
-        Aabb bounds = Bounds(scene, Transform3D.Identity) ?? throw new InvalidOperationException($"{source} has no meshes");
-        scene.Free();
 
         const string folder = "res://art/models";
         string target = $"{folder}/{id}.glb";
         DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(folder));
-        File.Copy(source, ProjectSettings.GlobalizePath(target), overwrite: true);
-        Vector3 size = bounds.Size, centre = bounds.GetCenter();
+        File.WriteAllBytes(ProjectSettings.GlobalizePath(target), model);
+        Vector3 size = bounds.Size, middle = bounds.GetCenter();
         string measured = string.Create(CultureInfo.InvariantCulture,
-            $"{size.X:0.00} × {size.Y:0.00} × {size.Z:0.00} m (x × y × z), base at y = {bounds.Position.Y:0.00}, centre ({centre.X:0.00}, {centre.Z:0.00})");
-        Record("model", id, new List<string> { target }, measured);
-        GD.Print($"ART model {id}: {measured}. In kit/props.jsonc, fit the prop's colliders to that and set model to {target}");
+            $"{size.X:0.00} × {size.Y:0.00} × {size.Z:0.00} m (x × y × z), base at y = {bounds.Position.Y:0.00}, centre ({middle.X:0.00}, {middle.Z:0.00})");
+        Record("model", id, new List<string> { target }, $"{measured}; {tidied}{placed}");
+        GD.Print($"ART model {id}: {measured}; {tidied}{placed}. In kit/props.jsonc, fit the prop's colliders to that and set model to {target}");
         return 0;
+    }
+
+    /// <summary>
+    /// Godot's import settings for a material texture: mipmaps (or it shimmers at a distance), VRAM
+    /// compression, and the normal-map flag for normal maps. Godot fills in the rest on import.
+    /// </summary>
+    private static void WriteImportSettings(string path, bool normalMap)
+    {
+        string text = "[remap]\n\nimporter=\"texture\"\ntype=\"CompressedTexture2D\"\n\n[params]\n\n" +
+                      "compress/mode=2\ncompress/high_quality=false\ncompress/lossy_quality=0.7\ncompress/hdr_compression=1\n" +
+                      $"compress/normal_map={(normalMap ? 1 : 2)}\ncompress/channel_pack=0\nmipmaps/generate=true\nmipmaps/limit=-1\n" +
+                      "roughness/mode=0\nroughness/src_normal=\"\"\nprocess/fix_alpha_border=true\nprocess/premult_alpha=false\n" +
+                      "process/normal_map_invert_y=false\nprocess/hdr_as_srgb=false\nprocess/hdr_clamp_exposure=false\nprocess/size_limit=0\n" +
+                      "detect_3d/compress_to=0\n";
+        File.WriteAllText(ProjectSettings.GlobalizePath(path) + ".import", text);
+    }
+
+    private static Aabb Measure(byte[] glb)
+    {
+        var document = new GltfDocument();
+        var state = new GltfState();
+        Error error = document.AppendFromBuffer(glb, "", state);
+        if (error != Error.Ok)
+        {
+            throw new InvalidOperationException($"can't read the model as glTF ({error})");
+        }
+
+        Node scene = document.GenerateScene(state);
+        Aabb bounds = Bounds(scene, Transform3D.Identity) ?? throw new InvalidOperationException("the model has no meshes");
+        scene.Free();
+        return bounds;
     }
 
     /// <summary>The texture steps on a picture that doesn't tile, plus exact checks on flat and bumped pictures.</summary>
@@ -234,7 +277,10 @@ public partial class ArtImport : Node
     private static Aabb? Bounds(Node node, Transform3D parent)
     {
         Transform3D transform = node is Node3D spatial ? parent * spatial.Transform : parent;
-        Aabb? box = node is MeshInstance3D { Mesh: { } mesh } ? transform * mesh.GetAabb() : null;
+        // A skinned mesh ignores its node's transform: its vertices are already in model space.
+        Aabb? box = node is MeshInstance3D { Mesh: { } mesh } instance
+            ? instance.Skin is not null ? mesh.GetAabb() : transform * mesh.GetAabb()
+            : null;
         foreach (Node child in node.GetChildren())
         {
             if (Bounds(child, transform) is { } inner)
@@ -269,7 +315,7 @@ public partial class ArtImport : Node
         return grey;
     }
 
-    private static string Save(RgbImage rgb, string path)
+    private static string Save(RgbImage rgb, string path, float quality)
     {
         var bytes = new byte[rgb.Data.Length];
         for (int i = 0; i < bytes.Length; i++)
@@ -277,7 +323,7 @@ public partial class ArtImport : Node
             bytes[i] = (byte)Math.Clamp((int)(rgb.Data[i] * 255f + 0.5f), 0, 255);
         }
 
-        Error error = Image.CreateFromData(rgb.Width, rgb.Height, false, Image.Format.Rgb8, bytes).SavePng(ProjectSettings.GlobalizePath(path));
+        Error error = Image.CreateFromData(rgb.Width, rgb.Height, false, Image.Format.Rgb8, bytes).SaveJpg(ProjectSettings.GlobalizePath(path), quality);
         return error == Error.Ok ? path : throw new IOException($"can't write {path} ({error})");
     }
 
