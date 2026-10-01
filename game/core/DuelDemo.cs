@@ -10,7 +10,7 @@ namespace Pb.Game.Core;
 
 /// <summary>
 /// <c>-- --duel-demo</c>: a short scripted scene for checking eliminations by eye (or with
-/// <c>--write-movie</c>). You stand in front of a practice opponent and shoot them: they call "Hit!",
+/// <c>--write-movie</c>). You stand in front of a passive bot and shoot them: they call "Hit!",
 /// raise their marker, wear the splat and walk off. Then a ball from another opponent breaks on your
 /// mask: paint sprays your goggles and the spectator view shows who got you. Prints the tick of each
 /// step and quits.
@@ -36,7 +36,7 @@ public sealed class DuelDemo : ICommandSource
         _opponents = opponents;
     }
 
-    /// <summary>Puts <paramref name="player"/> six metres in front of a practice opponent out in the open, facing them.</summary>
+    /// <summary>Puts <paramref name="player"/> six metres in front of a bot out in the open, facing them.</summary>
     public void Setup(PlayerController player)
     {
         foreach (OpponentPawn o in _opponents)

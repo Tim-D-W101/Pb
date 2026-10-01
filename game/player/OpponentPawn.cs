@@ -6,8 +6,8 @@ using Pb.Sim.Players;
 namespace Pb.Game.Player;
 
 /// <summary>
-/// An opponent on the field: a <see cref="PawnBody"/> driven by a pilot (a practice dummy now, a bot
-/// from M2.5), drawn by a <see cref="CharacterVisual"/>. When hit it calls "Hit!" and, once it has
+/// An opponent on the field: a <see cref="PawnBody"/> driven by a pilot (a bot's brain, through
+/// <c>BotPilot</c>), drawn by a <see cref="CharacterVisual"/>. When hit it calls "Hit!" and, once it has
 /// walked off, stops colliding.
 /// </summary>
 public partial class OpponentPawn : PawnBody, IPlayerDriver

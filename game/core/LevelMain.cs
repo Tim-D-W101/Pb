@@ -1,14 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using Godot;
+using Pb.Game.Ai;
 using Pb.Game.Audio;
 using Pb.Game.Ballistics;
 using Pb.Game.Player;
 using Pb.Game.Ui;
 using Pb.Game.World;
 using Pb.Sim;
+using Pb.Sim.AI;
 using Pb.Sim.Data;
 using Pb.Sim.Events;
 using Pb.Sim.Level;
@@ -28,8 +31,10 @@ namespace Pb.Game.Core;
 ///   --posture-demo        scripted lean / shoulder swap / muzzle-in-cover sequence at a wall corner
 ///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
-/// Scripted runs skip the briefing and the summary. Until the bots of M2.5, practice opponents
-/// (bots/practice.jsonc) stand at the spawns the tier lists.
+///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
+/// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
+/// them. Bots stand at the spawns the tier lists, with the behaviour their spawn's roles name and the
+/// tier's difficulty; F3 shows what they're thinking.
 /// </summary>
 public partial class LevelMain : Node3D, ISimEventListener
 {
@@ -54,8 +59,9 @@ public partial class LevelMain : Node3D, ISimEventListener
     private WorldEnvironment _environment = null!;
     private DirectionalLight3D _sun = null!;
     private readonly List<OpponentPawn> _opponents = new();
-    private readonly List<DummyPilot> _pilots = new();
-    private PracticeDef _practice = null!;
+    private readonly List<BotBrain> _bots = new();
+    private BotSquad _squad = null!;
+    private BotDebugOverlay _botDebug = null!;
     private LevelSmokeTest? _smoke;
     private SpectatorView? _spectator;
     private PickupVisuals _pickups = null!;
@@ -85,7 +91,6 @@ public partial class LevelMain : Node3D, ISimEventListener
             _data = GameData.Load(source);
             _view = Jsonc.Load<PresentationDef>(source, PresentationDef.File);
             InputSetup.Apply(Jsonc.Load<InputDef>(source, InputDef.File));
-            _practice = Jsonc.Load<PracticeDef>(source, PracticeDef.File);
             (_entry, _tier) = PickLevelAndTier(_data);
             _level = _data.Levels[_entry.Id];
         }
@@ -107,6 +112,9 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _sim = new SimWorld(_data.Config);
         _sim.LoadLevel(_level);
+        var navWatch = Stopwatch.StartNew();
+        _squad = BotSquad.ForLevel(_sim, _data.Bots, _level);
+        double navMs = navWatch.Elapsed.TotalMilliseconds;
         PlayerState state = _sim.AddPlayer(0, 0, _level.PlayerSpawn, _level.PlayerSpawnYaw);
         state.Name = "You";
         Color teamColor = Color.FromHtml(_view.TeamColors[state.Team % _view.TeamColors.Length]);
@@ -118,9 +126,13 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _player.Initialize(_sim, state, _view, _settings, teamColor);
         // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
-        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test");
+        bool botDemo = Args.Has("--bot-demo");
+        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo;
         bool roundTour = Args.Has("--round-tour");
-        SpawnOpponents(state, hostile: !_scripted && !roundTour);
+        SpawnOpponents(hostile: botDemo || (!_scripted && !roundTour));
+        _botDebug = new BotDebugOverlay { Name = "BotDebug" };
+        AddChild(_botDebug);
+        _botDebug.Initialize(_squad);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
         _splats.Initialize(_view, SplatParent);
         var fx = GetNode<ImpactFx>("ImpactFx");
@@ -180,7 +192,7 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         if (Args.Ticks("--smoke-test", 1800) is { } ticks)
         {
-            _smoke = new LevelSmokeTest(this, _sim, _driver, _player, _world, ticks, _opponents, _pilots);
+            _smoke = new LevelSmokeTest(this, _sim, _driver, _player, _world, ticks, _opponents, _bots);
             _player.AutoPilot = _smoke.Pilot;
         }
         else if (Args.Has("--posture-demo"))
@@ -204,6 +216,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(tour);
             tour.Start(_level, _hud, _player.ViewModel, _view.Camera.FarClip_m);
         }
+        else if (botDemo)
+        {
+            var demo = new BotDemo { Name = "BotDemo" };
+            AddChild(demo);
+            demo.Start(_sim, _player, _opponents, _botDebug, _hud, _view.Camera.FarClip_m);
+        }
         else if (roundTour)
         {
             ShowOverlay(RoundScreens.Briefing(_level, _tier, BeginRound, BackToLevelSelect));
@@ -223,14 +241,15 @@ public partial class LevelMain : Node3D, ISimEventListener
             ShowOverlay(RoundScreens.Briefing(_level, _tier, BeginRound, BackToLevelSelect));
         }
 
-        GD.Print($"Level {_level.Id} ({_tier.Id}, {_opponents.Count} opponents): {_level.Primitives.Count} primitives, " +
+        GD.Print($"Level {_level.Id} ({_tier.Id}, {_opponents.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
                  $"{_world.MeshCount} meshes, {_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
-                 $"preset {preset.Name}");
+                 $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}");
         _ready = true;
     }
 
     public void OnSimEvent(in SimEvent e)
     {
+        _squad.Hear(e);
         if (e.Type == SimEventType.ShotFired && e.PlayerId == _player.State.Id)
         {
             _player.ViewModel.Kick();
@@ -247,8 +266,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         _smoke?.OnSimEvent(e);
     }
 
-    /// <summary>Practice opponents (team 1) at the spawns the tier lists; sentries shoot back when hostile.</summary>
-    private void SpawnOpponents(PlayerState you, bool hostile)
+    /// <summary>Bots (team 1) at the spawns the tier lists, each with its spawn's behaviour at the tier's difficulty.</summary>
+    private void SpawnOpponents(bool hostile)
     {
         var parent = new Node3D { Name = "Opponents" };
         AddChild(parent);
@@ -258,13 +277,13 @@ public partial class LevelMain : Node3D, ISimEventListener
             OpponentSpawn spawn = _level.OpponentSpawns.First(s => s.Id == _tier.Opponents[i]);
             PlayerState state = _sim.AddPlayer(i + 1, 1, spawn.Position, spawn.Yaw);
             state.Name = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(spawn.Id.Replace('_', ' '));
-            bool sentry = spawn.Roles.Contains("sentry");
-            var pilot = new DummyPilot(_sim, state, you, _practice, sentry, _level.DeadZone) { Hostile = hostile };
+            BotBrain brain = _squad.Add(state, _data.Bots.ArchetypeFor(spawn.Roles)!, _data.Bots.Difficulty[_tier.Bots], spawn);
+            brain.Passive = !hostile;
             var pawn = new OpponentPawn { Name = $"Opponent_{spawn.Id}" };
             parent.AddChild(pawn);
-            pawn.Initialize(_sim, state, jersey, pilot);
+            pawn.Initialize(_sim, state, jersey, new BotPilot(brain));
             _opponents.Add(pawn);
-            _pilots.Add(pilot);
+            _bots.Add(brain);
         }
     }
 
@@ -436,6 +455,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         else if (e.IsActionPressed("debug_help"))
         {
             _hud.ShowHelp = !_hud.ShowHelp;
+        }
+        else if (e.IsActionPressed("debug_stress"))
+        {
+            _botDebug.Visible = !_botDebug.Visible;
+            _hud.Toast(_botDebug.Visible ? "Bot debug overlay on" : "Bot debug overlay off");
         }
         else if (e.IsActionPressed("debug_arc"))
         {

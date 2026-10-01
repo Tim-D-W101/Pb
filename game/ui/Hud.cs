@@ -24,7 +24,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         "R refill from pod · B semi/ramping · Esc release mouse (click to capture)\n" +
         "Gamepad: sticks · RT fire · L3 sprint · B crouch · A jump · LB/RB lean · R3 swap · X refill · Y fire mode\n\n" +
         "DEBUG\n" +
-        "F1 help · F2 arc preview · F3 stress mode (range) · F4 perf overlay\n" +
+        "F1 help · F2 arc preview · F3 stress mode (range) / bot debug (compound) · F4 perf overlay\n" +
         "F5 head-bob · F6 reset gear (range) · F7 crosshair · F8 vsync\n" +
         "F9 reload data files · F10 invert Y · F11 fullscreen · F12 graphics preset\n" +
         "[ ] field of view · - = mouse sensitivity";

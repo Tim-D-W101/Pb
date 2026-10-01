@@ -3,6 +3,7 @@ using Godot;
 using Pb.Game.Player;
 using Pb.Game.World;
 using Pb.Sim;
+using Pb.Sim.AI;
 using Pb.Sim.Collision;
 using Pb.Sim.Core;
 using Pb.Sim.Events;
@@ -20,7 +21,7 @@ namespace Pb.Game.Core;
 /// <item>the autopilot walks in through the main gate, sweeping its aim and firing;</item>
 /// <item>it climbs every flight of stairs in the level, starting at the foot of each;</item>
 /// <item>back at the spawn, it sprints, slides into a crouch, stands and jumps;</item>
-/// <item>it shoots a practice opponent, who must go out and walk off;</item>
+/// <item>it shoots a passive bot, who must go out and walk off;</item>
 /// <item>it stands in front of a sentry, now hostile, until it's eliminated and spectating, and the round ends as eliminated.</item>
 /// </list>
 /// It passes only if every step worked and nothing threw.
@@ -58,7 +59,7 @@ public sealed class LevelSmokeTest
     private readonly PlayerController _player;
     private readonly LevelBuilder _world;
     private readonly IReadOnlyList<OpponentPawn> _opponents;
-    private readonly IReadOnlyList<DummyPilot> _pilots;
+    private readonly IReadOnlyList<BotBrain> _bots;
     private readonly int _walkTicks;
     private readonly SVector3 _start;
     private readonly List<Climb> _climbs;
@@ -89,7 +90,7 @@ public sealed class LevelSmokeTest
     private RoundOutcome _outcome;
 
     public LevelSmokeTest(LevelMain host, SimWorld sim, SimDriver driver, PlayerController player, LevelBuilder world, int ticks,
-        IReadOnlyList<OpponentPawn> opponents, IReadOnlyList<DummyPilot> pilots)
+        IReadOnlyList<OpponentPawn> opponents, IReadOnlyList<BotBrain> bots)
     {
         _host = host;
         _sim = sim;
@@ -97,14 +98,14 @@ public sealed class LevelSmokeTest
         _player = player;
         _world = world;
         _opponents = opponents;
-        _pilots = pilots;
+        _bots = bots;
         _walkTicks = ticks;
         _start = player.State.Position;
         _climbs = sim.Level is { } level ? FindClimbs(level) : new List<Climb>();
         _pilot = new ScriptedPilot(sim);
         driver.Ticked += _ => AfterTick();
         GD.Print($"SMOKE start: level {sim.Level?.Id}, {ticks} ticks walking in at {sim.Config.TickRate} Hz, " +
-                 $"then {_climbs.Count} flights of stairs, a slide and a jump, and a duel with {opponents.Count} practice opponents");
+                 $"then {_climbs.Count} flights of stairs, a slide and a jump, and a duel with {opponents.Count} bots");
     }
 
     public ICommandSource Pilot => _pilot;
@@ -253,18 +254,18 @@ public sealed class LevelSmokeTest
         };
     }
 
-    /// <summary>Stands a few metres in front of a quiet practice opponent and shoots them in the chest.</summary>
+    /// <summary>Stands a few metres in front of a passive bot and shoots them in the chest.</summary>
     private void StartShoot()
     {
         _phase = Phase.Shoot;
         _phaseStart = _elapsed;
-        // Anyone will do while nobody shoots back; plain targets first.
+        // Anyone will do while nobody shoots back; leave the sentries for the next phase.
         foreach (bool sentries in new[] { false, true })
         {
             for (int i = 0; i < _opponents.Count && _victim is null; i++)
             {
                 PlayerState o = _opponents[i].State;
-                if (_pilots[i].IsSentry == sentries && o.Alive && ScenePositions.FindSpot(_sim, o, 7f, out SVector3 spot))
+                if (IsSentry(_bots[i]) == sentries && o.Alive && ScenePositions.FindSpot(_sim, o, 7f, out SVector3 spot))
                 {
                     _victim = o;
                     _victimStart = o.Position;
@@ -286,20 +287,20 @@ public sealed class LevelSmokeTest
         };
     }
 
-    /// <summary>Turns the sentries hostile and stands in front of one until it gets us.</summary>
+    /// <summary>Wakes the bots and stands in front of a sentry until it (or another bot) gets us.</summary>
     private void StartGetShot()
     {
         _phase = Phase.GetShot;
         _phaseStart = _elapsed;
-        foreach (DummyPilot pilot in _pilots)
+        foreach (BotBrain bot in _bots)
         {
-            pilot.Hostile = true;
+            bot.Passive = false;
         }
 
         for (int i = 0; i < _opponents.Count; i++)
         {
             PlayerState o = _opponents[i].State;
-            if (_pilots[i].IsSentry && o.Alive && ScenePositions.FindSpot(_sim, o, 9f, out SVector3 spot))
+            if (IsSentry(_bots[i]) && o.Alive && ScenePositions.FindSpot(_sim, o, 9f, out SVector3 spot))
             {
                 _shotNote = $"facing {o.Name}";
                 _player.Teleport(spot, ScenePositions.Facing(spot, o.Position));
@@ -309,6 +310,8 @@ public sealed class LevelSmokeTest
 
         _pilot.Script = (_, me) => new InputCommand { Yaw = me.Yaw, Pitch = 0f };
     }
+
+    private static bool IsSentry(BotBrain bot) => bot.Archetype.Id == "sentry";
 
     private void Finish(PlayerState state)
     {
