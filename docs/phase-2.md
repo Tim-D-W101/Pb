@@ -23,7 +23,7 @@ One complete level that looks the part: an abandoned industrial compound you exp
 
 ## What you'll be able to do
 
-- Choose **Level 1** and a difficulty: Easy (4 opponents), Normal (6) or Hard (9, so ten people in the round).
+- Choose **Level 1** and a difficulty: Easy (4 opponents), Normal (6) or Hard (9, so ten people in the round). *Since M2.10 you pick a mode (solo, free-for-all or teams) and how many play separately; the difficulty sets only how good the bots are.*
 - Start at the main gate and explore at your own pace: guardhouse, a yard with rusted containers and a burnt-out car, a two-storey office block, a warehouse with a mezzanine, a pump house.
 - Find paint pods along the way. Opponents carry limited paint too and have to refill.
 - Sneak (crouching is quieter), lean around door frames, swap shoulders, slide into cover, climb stairs, hop small obstacles.
@@ -185,7 +185,7 @@ Until the bots of M2.5, practice opponents stood at the opponent spawns, and the
   - briefing card;
   - pause menu (Esc or Start) with basic settings (FOV, sensitivity, invert Y, graphics preset, v-sync, volume);
   - summary screen (Retry, Level select, Main menu).
-- [x] Level ladder file (`levels/ladder.jsonc`) listing levels, difficulty tiers, opponent rosters, time limits, starting gear and pickups. Phase 2 ships Level 1 and shows later levels as locked. Easy has 4 opponents, Normal 6 and Hard 9 (ten players in the round, counting you).
+- [x] Level ladder file (`levels/ladder.jsonc`) listing levels, difficulty tiers, opponent rosters, time limits, starting gear and pickups. Phase 2 ships Level 1 and shows later levels as locked. Easy has 4 opponents, Normal 6 and Hard 9 (ten players in the round, counting you). *Since M2.10 the number is picked separately, and the rosters became one level roster for scripted runs.*
 
 F5 now opens the main menu (`scenes/Main.tscn`). Seven sim tests cover the round flow: the briefing gate, each outcome, the stats, the settle window, time up, pickups, tier rosters, and a live round's tick not allocating. The level smoke test now also checks that being hit ends the round as eliminated. CI gains a menu smoke run that checks every playable tier is offered. Opponents are still the practice dummies until M2.5 replaces them with bots.
 
@@ -287,33 +287,48 @@ Callsigns, callout lines and the HUD's timings are in `presentation.jsonc` ("hud
   - every opponent starts at least 28 m from you, out of your sight, and 10 m from the others;
   - each plays a random role: one of its spawn's roles, or by chance at a cover point (half guards, the rest patrollers on the nearest route or rushers).
 
-  The numbers are in `rules.jsonc` ("spawning") and the entry points in the level file (`playerSpawns`). Scripted runs keep the data's seed and the tier's roster, so they play out the same every time; `--seed=N` replays a round and `--random-spawns` deals random starts in a scripted run (CI's bot match). Four sim tests: the same seed deals the same starts, every round starts differently (12 rounds: 12 line-ups, 47 start places, all three entry points), starts are fair (distance, sight, spacing, inside the compound), and roles are mixed with patrollers on routes.
+  The numbers are in `rules.jsonc` ("spawning") and the entry points in the level file (`playerSpawns`). Scripted runs keep the data's seed and the level's roster, so they play out the same every time; `--seed=N` replays a round and `--random-spawns` deals random starts in a scripted run (CI's bot match). Four sim tests: the same seed deals the same starts, every round starts differently (12 rounds: 12 line-ups, 47 start places, all three entry points), starts are fair (distance, sight, spacing, inside the compound), and roles are mixed with patrollers on routes.
 - [x] **A ready-to-run Windows build** from every CI run, and a **launcher that updates itself**:
   - CI publishes each build as the "test-build" release, so one link always has the newest version;
-  - `Play.bat` checks it, downloads only what changed (the game's own files, about 20 MB, or the whole game when the engine changes), then starts the game;
+  - `Play.bat` checks it, downloads only what changed, then starts the game;
   - without internet, it just starts the game.
+- [x] **Smaller updates.** You asked not to download the whole game for every change.
+  - **Art in its own pack.** The art was 21 of the game's 22.6 MB, so it now ships in a pack of its own, `Pb-art.pck` (`tools/package/art-pack.sh`), which the game mounts when it starts.
+  - **Only changed files.** The release lists each game file with its SHA-256, and `Play.bat` downloads only the files that differ from yours. Each is checked against its fingerprint before it replaces yours.
 
-### M2.10 Modes: free-for-all and teams (planned, waiting for your OK)
+  A code or data change is now under 1 MB (the game's own pack is about 150 KB, and its two code files about 700 KB). The art comes down again only when it changes, and the whole game only when the engine does. A fresh import doesn't give byte-identical art, so CI reuses the published art pack while the art is unchanged. Launchers from before this change still update through `Pb-update.zip`, which brings the new launcher with it. Tested with PowerShell 7 against a local copy of the release:
+  - an old install got just the changed files;
+  - a corrupted download was refused and nothing was replaced;
+  - an install that was already up to date downloaded nothing but the manifest.
 
-You asked for opponents who fight each other as well as you, team games such as 3 against 3, and difficulty that doesn't depend on the number of players. The plan, with defaults you can change:
+### M2.10 Modes: free-for-all and teams
 
-- **Menu:** level → mode → size → difficulty.
-- **Free-for-all:**
-  - 4, 6, 8 or 10 players, everyone against everyone; bots hunt each other as well as you;
-  - the last one standing wins;
-  - each player has their own paint colour;
-  - when you're out, you watch the rest, or skip straight to the summary.
-- **Teams:**
-  - 2v2, 3v3, 4v4 or 5v5: you and bot teammates against a bot team;
-  - the teams start on opposite sides, at random places on each;
-  - when you're out, you watch your teammates until a team is wiped out;
-  - a hit from a teammate puts you out, as in real paintball (bots already hold fire when a teammate is in the way).
-- **Difficulty** (Easy, Normal, Hard) sets only how good the bots are: reaction, aim, tracking, boldness. The number of players never depends on it.
-- **In the sim:**
-  - a "last team standing" mode replaces `solo`, and free-for-all is everyone on a team of their own;
-  - sizes, time limits and pods live in the ladder data;
-  - match-rule tests cover each outcome.
-- **On screen:** the top bar shows each team (or every player in free-for-all), teammates wear your armband colour, and the kill feed reports bots putting each other out.
+**Built (2026-10-01), as planned and approved.** You asked for opponents who fight each other as well as you, team games such as 3 against 3, and difficulty that doesn't depend on the number of players.
+
+- [x] **Menu.** Each level offers a mode, a size and a difficulty, then Start; it remembers your last choices.
+- [x] **Modes** (`rules.jsonc` → `modes`):
+  - **Solo**: the original game, you against a squad holding the compound (3, 4, 6 or 9 opponents);
+  - **Free-for-all**: 4, 6, 8 or 10 players, everyone against everyone, each in their own paint colour;
+  - **Teams**: 2 v 2 up to 5 v 5, you and bot teammates against a bot team.
+- [x] **Difficulty** (Easy, Normal, Hard) now sets only how good the bots are, how long the round lasts and what everyone carries. It never sets how many there are: the tiers no longer list opponents.
+- [x] **Who wins.** One rule for every mode: the last team standing wins. Free-for-all is everyone on a team of their own.
+  - **Teams:** the round goes on while your team still has someone in, so your teammates can win it without you.
+  - **Free-for-all:** the rest play on after you're out, and the summary gives your placing ("3rd of 8").
+  - **Friendly fire:** a hit from a teammate puts you out, as in real paintball. It doesn't count as an elimination.
+- [x] **Starts** (`rules.jsonc` → `spawning`):
+  - **Free-for-all:** everyone at least 16 m apart and, where the level allows, out of each other's sight. In tests, no pair of players could see each other at the start over ten rounds of every size.
+  - **Teams:** your teammates start within 12 m of you, facing the way you do. The other team starts grouped round a spot on the far side, out of sight of your whole team; in tests, the nearest opponent was at least 40 m away.
+- [x] **Bots that go looking for a fight.** In free-for-all and teams, bots are dealt behaviours from the mode's chances, mostly hunters who roam the compound. A bot that has had nothing to go on for 40 s starts hunting too, so a round can't stall with everyone holding a corner. Hunters pick their next spot at random from the three nearest, so they don't all sweep the same way.
+- [x] **When you're out.** You see who got you as before. Then, while your team (or, in free-for-all, anyone) is still in, a camera follows one of them: **Next player** (Space or a click) switches, and **Skip to summary** (Enter) leaves. If you skip, the summary updates when the round ends.
+- [x] **On screen:**
+  - the top bar shows your team on the left and everyone else on the right, each in their team's colour;
+  - teammates wear your armband colour;
+  - the kill feed reports bots putting each other out;
+  - putting out a teammate says so.
+- [x] **Tests:**
+  - 20 new sim tests: outcomes for each mode, placings and ties, friendly fire, a free-for-all round that steps without allocating, starts for every mode and size, data checks, a restless bot going hunting, and whole free-for-all and team rounds played by bots;
+  - CI's smoke test now also plays a 3 v 3 and an eight-player free-for-all with bots in every slot.
+- [x] **Cost.** Nine Hard bots in a free-for-all, each watching all the others, take 0.08 ms of brain time per tick on average (0.02 ms in solo), about 0.16 ms per 60 fps frame.
 
 ### M2.8 Verify and report
 

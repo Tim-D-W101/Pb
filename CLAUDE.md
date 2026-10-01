@@ -35,13 +35,15 @@ dotnet build Pb.sln                                   # everything, including th
 dotnet test                                           # Pb.Sim tests (fast, no engine)
 dotnet run -c Release --project tools/Pb.Bench        # ballistics report + tick cost
 tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end check
-tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows")
+tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in Pb-art.pck
 tools/package/godot-project.sh                        # self-contained project zip for Godot's Import
 ```
 
 The Windows build needs the export templates: `tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe
 windows_release_x86_64_console.exe` pulls just those from the 1.2 GB release archive. Exported builds always
-start on the main menu; `-- --level=ID` (with the level's other options) skips it once.
+start on the main menu; `-- --level=ID` (with the level's other options) skips it once. The game's own pack leaves
+`art/` out: `tools/package/art-pack.sh` exports it to `Pb-art.pck`, which `ArtFiles` mounts in exported builds, and
+the release lists every game file's SHA-256 so `Play.bat` downloads only what changed.
 
 Godot 4.7.2 .NET is expected on PATH as `godot` (CI installs it with `tools/ci/install-godot.sh`).
 Build `game/Pb.csproj` before running Godot headless.
@@ -83,7 +85,8 @@ live in the level file (`viewpoints`). On `Level.tscn`, through the player's own
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay. `-- --bot-match` (CI) has a bot play your slot until
-the round ends. `-- --menu-tour` on the
+the round ends. `--mode=solo|ffa|teams` and `--size=N` pick the mode and size (the menu's choices; the
+modes are in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's
 hardware can confirm the 60 fps target.
 

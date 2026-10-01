@@ -412,15 +412,21 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 ### 14.5 Match rules
 
 - **`Pb.Sim/Match`** holds `MatchState` (Briefing → Live → Ended(outcome), with a settle window for balls still in the air) and `IMatchMode`. The summary screen is presentation.
-- **Phase 2 ships `SoloMode`** (`rules.jsonc`: `"mode": "solo"`): you against every opponent; the level is cleared when every opponent is out. Players already carry a team, so free-for-all and squads are mode variants.
+- **Modes (as built, M2.10).** `rules.jsonc` → `modes` lists what the menu offers: solo (you against a squad), free-for-all (everyone a team of their own) and teams (you and bot teammates against a bot team), each with the sizes on offer and, for the open modes, the behaviours bots are dealt. One rule decides every round, `LastTeamStandingMode`:
+  - the round goes on while your team and another are both in, or, once yours is out, while two others still are;
+  - `Cleared` means your team is the last one standing, `Eliminated` that another is, `Traded` that nobody is.
+
+  `MatchState` records the tick each player went out, so free-for-all placings fall out of it, and only opponents count as eliminations (friendly fire still puts you out). The difficulty tier never sets the number of players.
 - **Pickups** (`PickupSet`) are part of the sim, so bots and remote players take them by the same rules.
 - **Random starts (as built).** `SimWorld` takes a match seed per round: the host deals a new one each round, and tests and scripted runs keep the data's. `SpawnPlanner` uses the seed to deal the starts:
   - your entry point;
   - opponents at a mix of the level's opponent spawns and cover points inside its spawn area, a fair distance from you, out of your sight and spread out;
-  - a random role for each (`rules.jsonc` → `spawning`).
+  - in free-for-all, everyone further apart and out of each other's sight where the level allows;
+  - in teams, your teammates near you and the other team grouped on the far side, out of sight of your whole team;
+  - a random role for each (`rules.jsonc` → `spawning`, or the mode's `roles`).
 
   The same seed always deals the same starts, so a round can be replayed with `--seed`.
-- **Level flow and difficulty live in `levels/ladder.jsonc`:** order, tiers, roster per tier, time limit, starting gear and pickups.
+- **Level flow and difficulty live in `levels/ladder.jsonc`:** order, tiers (bot difficulty, time limit, starting gear, pickups) and the roster scripted solo runs fill.
 
 ### 14.6 AI
 
@@ -448,6 +454,11 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     - optionally scaled to a real height.
   - **Provenance.** `assets.jsonc` records the job, generator, prompt, source URL, files and import settings. A sim test fails if any art the kit or `presentation.jsonc` names has no record.
   - **Fallbacks.** The game loads art through `ArtFiles`, and anything missing falls back: materials to the procedural look, props to greybox, opponents to their hitbox boxes. `-- --no-art` ignores all the art, and CI's bot match runs that way.
+- **Shipping (as built).** CI exports the Windows build on every run and publishes it as the rolling "test-build" release (`tools/package/windows-build.sh`):
+  - **Art in its own pack.** The game's pack leaves `art/` out (`export_presets.cfg`), and `tools/package/art-pack.sh` exports it into `Pb-art.pck`, which `ArtFiles` mounts the first time anything asks for art. A code or data change then costs under 1 MB, not the art's 21 MB.
+    - **Mounting.** The pack is mounted without replacing files, so its own copies of the project settings and the UID list don't override the game's. `ArtFiles` then registers each art file's UID, read from its `.import` file, so models find their textures by UID.
+    - **Reuse.** A fresh import doesn't produce byte-identical files, and CI imports from scratch on every run. So the manifest records an art stamp (a hash of the art files, the project settings and the Godot version), and while it matches the published release, the build reuses the published `Pb-art.pck` byte for byte, after checking it against the published SHA-256.
+  - **Per-file updates.** The release carries each game file under its own name, the whole game as `Pb-windows.zip`, and `manifest.txt`: version, date, an engine stamp, and each game file's SHA-256 and size. `Play.bat` runs `update.ps1`, which downloads the files whose hash differs from the local copy, checks each against its hash, then swaps them in; a new engine stamp means the whole game. CI uploads the manifest last, so a launcher never reads a manifest whose files aren't up yet. `Pb-update.zip` (all the game's own files) keeps launchers from before per-file updates working: it brings the new launcher with it.
 - **Storage.** Binaries go in Git LFS, using the patterns already in `.gitattributes`. CI checks out without LFS, to spare the bandwidth quota, and so it exercises the greybox fallback every run.
   - **As built:** the imported art is small so far (13 MB), so it's committed as plain files marked binary. The container has no Git LFS, and CI tests the fallback with `--no-art` instead.
 - **Original IP.** Prompts never name real brands, products, fields or games. Generated images are checked for logos and legible text before use.

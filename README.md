@@ -9,9 +9,11 @@ sandbox, a range with real paintball ballistics, break/bounce, splats, a marker 
 pods and air, and a 1,000-ball stress mode ([report](docs/reports/phase-1.md)). Phase 2 has
 started with the first compound, **Oxbarrow Works**: a walkable greybox of a derelict
 works yard with a warehouse, offices, pump house and guardhouse, built from a data kit.
-You pick it and a difficulty (4, 6 or 9 opponents) from the menu, read the briefing, and
-clear the compound against the clock, picking up paint and air on the way. The opponents are
-bots that hold posts, patrol and rush, notice you by sight and sound, and fight from cover.
+You pick it, a mode, how many play and a difficulty from the menu, read the briefing, and play:
+**solo** (clear the compound of a squad against the clock), **free-for-all** (up to ten players,
+everyone against everyone) or **teams** (you and bot teammates against a bot team, up to 5 v 5),
+picking up paint and air on the way. The bots hold posts, patrol, hunt and rush, notice you by
+sight and sound, and fight from cover; in free-for-all and teams they fight each other too.
 The match HUD is in, and generated art is arriving: the first photographic textures, an oil
 drum, and a rigged character model for the opponents. More textures, props and characters follow.
 
@@ -20,7 +22,8 @@ drum, and a rigged character model for the opponents. More textures, props and c
 **Just want to play (Windows)?** Download the latest test build,
 [Pb-windows.zip](https://github.com/Tim-D-W101/Pb/releases/download/test-build/Pb-windows.zip), unzip it
 and double-click `Play.bat`. No Godot or .NET needed. `Play.bat` keeps the game up to date: each time,
-it downloads only what changed since your version (usually a small update), then starts the game.
+it downloads only the files that changed since your version (under 1 MB for a code change; the art is
+a file of its own, so it comes down again only when it changes), then starts the game.
 Windows may ask you to confirm ("More info" → "Run anyway") because the game isn't signed. Every CI
 run publishes the build there (and as the run's "Pb-windows" artifact); `tools/package/windows-build.sh`
 makes the same build locally.
@@ -30,8 +33,9 @@ To run it from Godot:
 1. Install **Godot 4.7.2 – .NET** (the ".NET" download, not the standard one) and the
    **.NET 8 SDK** (or newer).
 2. Open `game/project.godot` in Godot. The first open imports the project and builds the C# code.
-3. Press **F5** (Run Project) for the main menu. **Play** → Oxbarrow Works → a difficulty, then
-   **Start** on the briefing card. **Training ground** is the Phase 1 range.
+3. Press **F5** (Run Project) for the main menu. **Play**, then for Oxbarrow Works pick a mode, how
+   many play and a difficulty, **Start**, and **Start** again on the briefing card. **Training
+   ground** is the Phase 1 range.
 
 Only want to play it? `tools/package/godot-project.sh` packs the game as one self-contained
 project zip (`builds/Pb-godot-project.zip`). In Godot's Project Manager, click **Import**, choose
@@ -139,7 +143,7 @@ reported with the file and key; the game won't silently use a wrong value.
 | `ranges/phase1.jsonc` | Range layout: targets, props, distance markers |
 | `kit/*.jsonc` | Level kit: surface materials, props, building templates |
 | `levels/*.jsonc` | Compound levels (layout, spawns, patrols, pickups) |
-| `levels/ladder.jsonc` | Level order and difficulty tiers: opponent rosters, bot difficulty, time limits, starting pods, pickups |
+| `levels/ladder.jsonc` | Level order and difficulty tiers: bot difficulty, time limits, starting pods, pickups; each level's roster for scripted runs |
 | `rules.jsonc` | Round rules: mode, settle window for balls in the air, trades, pickup radius |
 | `stress.jsonc` | Stress-mode ball count and cannons |
 | `presentation.jsonc` | Team colours, FOV, ball visibility, splats, HUD, audio, lighting, weeds, sunbeams, dust, window light, graphics presets, character models and posing |
