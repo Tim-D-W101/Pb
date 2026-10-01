@@ -46,18 +46,21 @@ A cloud container can render with Mesa's software Vulkan (lavapipe) under Xvfb. 
 Maker writes frames you can inspect:
 
 ```bash
-# The compound level (main scene): hold each of the level's viewpoints for 10 frames, then quit.
+# The compound level: hold each of the level's viewpoints for 10 frames, then quit.
 xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan \
-  --write-movie /tmp/cap/f.png --fixed-fps 30 -- --shots=10
+  --write-movie /tmp/cap/f.png --fixed-fps 30 res://scenes/Level.tscn -- --shots=10
 # The Phase 1 range: a scripted tour (game/core/DemoTour.cs).
 xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan \
   --write-movie /tmp/cap/f.png --fixed-fps 30 --quit-after 450 res://scenes/Range.tscn -- --demo
 ```
 
-Viewpoints live in the level file (`viewpoints`). Through the player's own camera, `-- --posture-demo`
-runs a short scripted shoulder swap / lean / muzzle-in-cover sequence, and `-- --duel-demo` an
-elimination each way (callout, splat on a character, mask spray, spectator view). Frame rates under
-lavapipe mean nothing; only the owner's hardware can confirm the 60 fps target.
+The main scene is the menu (`scenes/Main.tscn`), so name the scene for anything else. Viewpoints
+live in the level file (`viewpoints`). On `Level.tscn`, through the player's own camera,
+`-- --posture-demo` runs a short scripted shoulder swap / lean / muzzle-in-cover sequence,
+`-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
+view), and `-- --round-tour` a round's screens from briefing to summary. `-- --menu-tour` on the
+main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's
+hardware can confirm the 60 fps target.
 
 ## Conventions
 

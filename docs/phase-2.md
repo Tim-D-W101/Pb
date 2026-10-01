@@ -163,7 +163,7 @@ Bots will use the same body as the player (`PawnBody`), so they move by exactly 
   - a break on any lethal part eliminates (`lethalParts`; all of them by default);
   - bounces never do;
   - balls already in the air still count after their shooter is hit, as in real paintball (`ballsInFlightCount`).
-- [x] Eliminated opponents call "Hit!", raise their marker and walk out; a toast tells you who you got, where and from how far. When you're hit, a short spectator view shows who got you, the part and the distance. Until the round summary of M2.4, the level then restarts.
+- [x] Eliminated opponents call "Hit!", raise their marker and walk out; a toast tells you who you got, where and from how far. When you're hit, a short spectator view shows who got you, the part and the distance. Since M2.4, the round summary follows.
 - [x] Mask spray when a ball breaks within 0.5 m of your face (spec §1.3): drops of that paint colour on your goggles, as strong as the break was close, clearing over 2.5 s.
 - [x] Splats stick to characters as they move, on the part they hit.
 
@@ -171,15 +171,23 @@ Until the bots of M2.5, practice opponents (`bots/practice.jsonc`) stand at the 
 
 ### M2.4 Round rules and level flow
 
-- [ ] Round flow in `Pb.Sim/Match`: briefing → live → round end (cleared, eliminated or time up) → summary. Mode rules plug in, so free-for-all or squads are data changes later.
-- [ ] Time limit, paint pickups, and stats (time, shots, hits, accuracy, eliminations).
-- [ ] Menus:
-  - main menu;
-  - level select with difficulty;
+**Done 2026-10-01.** [Screenshots](reports/phase-2/) of the menus (`-- --menu-tour`) and of a round from briefing to summary (`-- --round-tour`).
+
+- [x] Round flow in `Pb.Sim/Match`: briefing → live → round end (cleared, eliminated, traded or time up) → summary. Mode rules plug in through `IMatchMode`; Phase 2's `solo` mode is you against everyone (`rules.jsonc`), so free-for-all or squads are data changes later.
+  - When an end condition is reached, the round waits up to 1.5 s for balls still in the air, so a shot fired as you go down still counts. You and the last opponent out together is a trade (`tradeCountsAsClear` decides whether that's a clear).
+  - During the briefing you can look around, but you can't move or fire, and the clock doesn't run.
+- [x] Time limit, paint pickups, and stats (time, shots, hits, accuracy, eliminations, pickups).
+  - Pods go into an empty pod slot only, so you never carry more than the harness holds. Air tops up a tank that's below 90 %. Oxbarrow Works has seven pickups (six pods, one tank).
+  - In a round there's no gear reset (F6 now works on the range only): you find pickups instead, and the HUD says so when you run dry.
+- [x] Menus, built in code from one shared kit, usable with mouse, keyboard or pad:
+  - main menu (Play, Training ground, Settings, Quit);
+  - level select with difficulty, showing what each tier means (clock, pods, pickups);
   - briefing card;
-  - pause menu with basic settings (FOV, sensitivity, graphics preset, volume);
-  - summary screen.
-- [ ] Level ladder file (`levels/ladder.jsonc`) listing levels, difficulty tiers, opponent rosters, time limits, starting gear and pickups. Phase 2 ships Level 1 and shows later levels as locked.
+  - pause menu (Esc or Start) with basic settings (FOV, sensitivity, invert Y, graphics preset, v-sync, volume);
+  - summary screen (Retry, Level select, Main menu).
+- [x] Level ladder file (`levels/ladder.jsonc`) listing levels, difficulty tiers, opponent rosters, time limits, starting gear and pickups. Phase 2 ships Level 1 and shows later levels as locked. Easy has 4 opponents, Normal 6 and Hard 9 (ten players in the round, counting you).
+
+F5 now opens the main menu (`scenes/Main.tscn`). Seven sim tests cover the round flow: the briefing gate, each outcome, the stats, the settle window, time up, pickups, tier rosters, and a live round's tick not allocating. The level smoke test now also checks that being hit ends the round as eliminated. CI gains a menu smoke run that checks every playable tier is offered. Opponents are still the practice dummies until M2.5 replaces them with bots.
 
 ### M2.5 Opponents
 

@@ -9,16 +9,18 @@ sandbox, a range with real paintball ballistics, break/bounce, splats, a marker 
 pods and air, and a 1,000-ball stress mode ([report](docs/reports/phase-1.md)). Phase 2 has
 started with the first compound, **Oxbarrow Works**: a walkable greybox of a derelict
 works yard with a warehouse, offices, pump house and guardhouse, built from a data kit.
-Practice opponents stand around the compound and the sentries among them shoot back. Proper bots,
-round rules, menus and models arrive in later milestones.
+You pick it and a difficulty (4, 6 or 9 opponents) from the menu, read the briefing, and
+clear the compound against the clock, picking up paint and air on the way. For now the
+opponents are practice dummies, and the sentries among them shoot back. Proper bots, the match
+HUD and models arrive in later milestones.
 
 ## Run it
 
 1. Install **Godot 4.7.2 – .NET** (the ".NET" download, not the standard one) and the
    **.NET 8 SDK** (or newer).
 2. Open `game/project.godot` in Godot. The first open imports the project and builds the C# code.
-3. Press **F5** (Run Project) to walk around Oxbarrow Works. Click the window to capture the mouse.
-   For the Phase 1 range, open `scenes/Range.tscn` and press **F6** (Run Current Scene).
+3. Press **F5** (Run Project) for the main menu. **Play** → Oxbarrow Works → a difficulty, then
+   **Start** on the briefing card. **Training ground** is the Phase 1 range.
 
 For the most accurate frame rate, export a release build: Project → Export → Windows Desktop.
 The export presets already include the data files. The editor's F5 run uses a Debug build.
@@ -38,7 +40,7 @@ The export presets already include the data files. The editor's F5 run uses a De
 | Slide (from a run; ends crouched) | V, or crouch while sprinting | B while sprinting |
 | Refill loader from a pod (2.5 s) | R | X / Square |
 | Semi ↔ ramping | B | Y / Triangle |
-| Release mouse | Esc | – |
+| Pause menu (settings, restart, quit) | Esc | Start / Options |
 
 A ball fired while your barrel is behind a wall edge breaks on that wall, as it would in real
 life: to shoot round a left-hand edge, swap to your left shoulder first. A break on any part of
@@ -47,12 +49,21 @@ you (mask, head, body, arms, legs, marker, loader or tank) puts you out; a bounc
 **Debug keys:**
 
 - F1 help, F2 arc preview (predicted path and drop), F3 stress mode (1,000 live balls), F4 performance overlay.
-- F5 head-bob, F6 reset gear and hit counters, F7 crosshair, F8 v-sync.
+- F5 head-bob, F6 reset gear and hit counters (range only), F7 crosshair, F8 v-sync.
 - F9 reload data files, F10 invert Y, F11 fullscreen.
 - `[` `]` field of view (70–110°), `-` `=` mouse sensitivity.
 
-In the compound, F3 (stress mode) and F6's hit counters don't apply, and F9 rebuilds the level
-from its data files. **F12** cycles graphics presets (low / medium / high).
+In the compound, F3 (stress mode) and F6 don't apply: a round has no gear reset, so you find
+pods and air lying around instead. F9 restarts the level from its data files. **F12** cycles
+graphics presets (low / medium / high).
+
+### A round
+
+Clear the compound: eliminate every opponent before the clock runs out. One hit and you're out,
+and so are they. When the last opponent or you go out, the round waits a moment (at most 1.5 s)
+for balls still in the air, so going out together is a trade. You start with a full loader and a
+few spare pods; walk over a pod to put it in an empty pod slot, or over an air tank to refill
+yours. The summary shows your time, shots, hits, accuracy, eliminations and pickups.
 
 Settings changed in game are saved to `user://settings.json`.
 
@@ -75,7 +86,9 @@ reported with the file and key; the game won't silently use a wrong value.
 | `bots/practice.jsonc` | Practice opponents (until the bots arrive) |
 | `ranges/phase1.jsonc` | Range layout: targets, props, distance markers |
 | `kit/*.jsonc` | Level kit: surface materials, props, building templates |
-| `levels/*.jsonc` | Compound levels (layout, spawns, patrols, pickups) and the level ladder |
+| `levels/*.jsonc` | Compound levels (layout, spawns, patrols, pickups) |
+| `levels/ladder.jsonc` | Level order and difficulty tiers: opponent rosters, time limits, starting pods, pickups |
+| `rules.jsonc` | Round rules: mode, settle window for balls in the air, trades, pickup radius |
 | `stress.jsonc` | Stress-mode ball count and cannons |
 | `presentation.jsonc` | Team colours, FOV, ball visibility, splats, HUD, audio, lighting, graphics presets |
 | `input.jsonc` | Key and gamepad bindings |
@@ -83,9 +96,9 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 84 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes…) — no Godot needed
+dotnet test                                          # 91 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes, rounds…) — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report + sim cost at 1k/2k/5k live balls
-tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the range and the compound (Linux/macOS)
+tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range and the compound (Linux/macOS)
 ```
 
 CI (GitHub Actions) runs all three on every pull request.
@@ -98,9 +111,10 @@ game/        Godot project (open game/project.godot). Scenes, presentation, inpu
   core/      composition root, SimDriver (fixed 120 Hz tick), data loading, settings, input map
   player/    first-person controller, viewmodel
   ballistics/ ball renderer, splat decals, impact FX, arc preview
-  world/     range builder, targets, compound level builder, materials, lighting
-  ui/ audio/ shaders/ scenes/
-src/Pb.Sim/  engine-free simulation: ballistics, collision, gear, level kit, data loading (plain C#, no Godot)
+  world/     range builder, targets, compound level builder, materials, lighting, pickups
+  ui/        menus, briefing and summary screens, pause menu, HUD
+  audio/ shaders/ scenes/
+src/Pb.Sim/  engine-free simulation: ballistics, collision, gear, players, level kit, rounds, data loading (plain C#, no Godot)
 tests/       xUnit tests for Pb.Sim
 tools/       Pb.Bench benchmark, CI scripts
 docs/        spec, architecture, phase plans and reports

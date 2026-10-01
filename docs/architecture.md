@@ -398,8 +398,9 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 ### 14.5 Match rules
 
-- **`Pb.Sim/Match`** holds `MatchState` (Briefing → Live → RoundEnd(reason) → Summary) and `IGameModeRules`.
-- **Phase 2 ships `EliminationRules`:** the player's team against the bot team; the level is cleared when every opponent is out. Players already carry a team, so free-for-all and squads are rule variants.
+- **`Pb.Sim/Match`** holds `MatchState` (Briefing → Live → Ended(outcome), with a settle window for balls still in the air) and `IMatchMode`. The summary screen is presentation.
+- **Phase 2 ships `SoloMode`** (`rules.jsonc`: `"mode": "solo"`): you against every opponent; the level is cleared when every opponent is out. Players already carry a team, so free-for-all and squads are mode variants.
+- **Pickups** (`PickupSet`) are part of the sim, so bots and remote players take them by the same rules.
 - **Level flow and difficulty live in `levels/ladder.jsonc`:** order, tiers, roster per tier, time limit, starting gear and pickups.
 
 ### 14.6 AI
