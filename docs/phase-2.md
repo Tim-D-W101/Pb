@@ -221,7 +221,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
 ### M2.6 Art pass (Higgsfield)
 
-**In progress.** The parts that needed no downloads came first, while the container couldn't reach Higgsfield's file host. Now that it can, real art is coming in, at up to five generations a day (the account's daily cap). [Screenshots](reports/phase-2/) from `-- --shots` and `-- --duel-demo`.
+**In progress.** The parts that needed no downloads came first, while the container couldn't reach Higgsfield's file host. Now that it can, real art is coming in, at up to five generations a day (the account's daily cap). [Screenshots](reports/phase-2/) from `-- --shots`, `-- --duel-demo` and `-- --bot-demo`.
 
 - [x] Import pipeline (`tools/art/import.sh`, which runs `game/tools/ArtImport` headless). It has brought in the first real files: four textures, the oil drum and the first opponent. Its steps:
   - pull a finished Higgsfield job, make textures tileable, derive normal and roughness maps, and resize;
