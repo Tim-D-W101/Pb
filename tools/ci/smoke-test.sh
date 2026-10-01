@@ -4,7 +4,8 @@
 #   menu   (game/ui/MainMenu.cs): builds every screen and checks the ladder's levels and tiers are offered
 #   range  (game/core/SmokeTest.cs): autopilot, 1,000-ball stress mode and a hot reload
 #   level  (game/core/LevelSmokeTest.cs): walk in through the compound gate, sweeping and firing
-#   match  (--bot-match): a bot plays your slot against the Normal tier's bots until the round ends
+#   match  (--bot-match): a bot plays your slot against the Normal tier's bots until the round ends,
+#          with the art ignored (--no-art), so the procedural and greybox fallbacks keep working
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -35,6 +36,6 @@ run() {
 run menu res://scenes/Main.tscn -- --smoke-test
 run range res://scenes/Range.tscn -- "--smoke-test=$range_ticks"
 run level res://scenes/Level.tscn -- "--smoke-test=$level_ticks"
-run match res://scenes/Level.tscn -- --bot-match --time-limit=240
+run match res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art
 run art res://tools/ArtImport.tscn -- --selftest
 exit "$failed"

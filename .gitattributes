@@ -22,3 +22,8 @@ game/assets/**/*.blend filter=lfs diff=lfs merge=lfs -text
 game/assets/**/*.fbx filter=lfs diff=lfs merge=lfs -text
 game/assets/**/*.ttf filter=lfs diff=lfs merge=lfs -text
 game/assets/**/*.otf filter=lfs diff=lfs merge=lfs -text
+
+# Art imported by tools/art/import.sh is small so far and committed as plain files, so CI needs no LFS.
+game/art/**/*.jpg binary
+game/art/**/*.png binary
+game/art/**/*.glb binary

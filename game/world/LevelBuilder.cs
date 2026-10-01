@@ -298,7 +298,7 @@ public partial class LevelBuilder : Node3D
     private bool TryPlaceModel(PropInstance prop)
     {
         string? path = prop.Type.Def.Model;
-        if (string.IsNullOrWhiteSpace(path) || !ResourceLoader.Exists(path) || GD.Load<PackedScene>(path) is not { } scene)
+        if (ArtFiles.Load<PackedScene>(path) is not { } scene)
         {
             return false;
         }

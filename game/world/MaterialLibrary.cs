@@ -76,6 +76,5 @@ public sealed class MaterialLibrary
         return material;
     }
 
-    private static Texture2D? LoadTexture(string? path) =>
-        !string.IsNullOrWhiteSpace(path) && ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
+    private static Texture2D? LoadTexture(string? path) => ArtFiles.Load<Texture2D>(path);
 }
