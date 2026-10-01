@@ -23,7 +23,8 @@ namespace Pb.Game.Core;
 /// Composition root of a compound level: loads data, builds the sim and the level, wires every
 /// presentation system to them, and runs the round (briefing card → live → summary). The level and
 /// difficulty come from the menus (<see cref="GameSession"/>) or, run directly, from user args after "--":
-///   --level=ID            which level to load (default: the first playable one in the ladder)
+///   --level=ID            which level to load (default: the first playable one in the ladder); given to
+///                         the main scene, it skips the menu once (exported builds always start there)
 ///   --tier=ID             which difficulty tier (default: "normal", or the level's first)
 ///   --smoke-test[=ticks]  headless CI check: walk in through the gate firing, exit code 0/1
 ///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie)

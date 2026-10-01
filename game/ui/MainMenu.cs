@@ -12,7 +12,9 @@ namespace Pb.Game.Ui;
 /// settings and quit. Picking a level and tier stores them in <see cref="GameSession"/> and loads
 /// the level, where the briefing card takes over. <c>-- --smoke-test</c> builds every screen, checks
 /// the ladder is shown, and quits; <c>-- --menu-tour</c> shows each screen in turn (for screenshots
-/// with <c>--write-movie</c>) and quits.
+/// with <c>--write-movie</c>) and quits. <c>-- --level=ID</c> (with <c>--tier</c> and the level's other
+/// options) skips the menu once and goes straight to the level: exported builds can't be told which
+/// scene to run, so that's how a build starts a round, or a scripted run, from the command line.
 /// </summary>
 public partial class MainMenu : Control
 {
@@ -23,6 +25,7 @@ public partial class MainMenu : Control
     private Control _levels = null!;
     private Control _settingsScreen = null!;
     private int _tourFrame = -1;
+    private static bool _skippedToLevel;
 
     public override void _Ready()
     {
@@ -71,6 +74,12 @@ public partial class MainMenu : Control
         else if (Args.Has("--menu-tour"))
         {
             _tourFrame = 0;
+        }
+        else if (Args.Has("--level") && !_skippedToLevel)
+        {
+            // The level reads --level and --tier itself. Only once, so the menu works after the round.
+            _skippedToLevel = true;
+            Callable.From(() => GetTree().ChangeSceneToFile(GameSession.LevelScene)).CallDeferred();
         }
     }
 
