@@ -50,7 +50,7 @@ public partial class ArtImport : Node
     private static int Usage()
     {
         GD.PushError("ART usage: --texture|--model|--selftest --id=… --source=FILE --job=… --generator=… --prompt=… --url=… " +
-                     "[texture: --size=1024 --flatten=0.8 --band=0.12 --normal-strength=2 --roughness=0.9 --roughness-variation=0.15] " +
+                     "[texture: --size=1024 --region=x,y,w,h --flatten=0.8 --band=0.12 --normal-strength=2 --roughness=0.9 --roughness-variation=0.15] " +
                      "[model: --max-texture=1024 --roughness=R --height=M]");
         return 2;
     }
@@ -67,6 +67,19 @@ public partial class ArtImport : Node
 
         Image picture = Image.LoadFromFile(Required("--source")) ?? throw new InvalidOperationException("can't read the source picture");
         picture.Convert(Image.Format.Rgb8);
+        if (Args.Value("--region") is { } region)
+        {
+            // One tile of a picture holding several: x, y, width, height as fractions of the picture.
+            float[] r = Array.ConvertAll(region.Split(','), f => float.Parse(f, CultureInfo.InvariantCulture));
+            if (r.Length != 4)
+            {
+                throw new ArgumentException("--region=x,y,w,h takes four fractions");
+            }
+
+            int w = picture.GetWidth(), h = picture.GetHeight();
+            picture = picture.GetRegion(new Rect2I((int)(r[0] * w), (int)(r[1] * h), (int)(r[2] * w), (int)(r[3] * h)));
+        }
+
         int side = Math.Min(picture.GetWidth(), picture.GetHeight());
         picture = picture.GetRegion(new Rect2I((picture.GetWidth() - side) / 2, (picture.GetHeight() - side) / 2, side, side));
         picture.Resize(size, size, Image.Interpolation.Lanczos);
@@ -91,7 +104,7 @@ public partial class ArtImport : Node
         }
 
         Record("texture", id, files, string.Create(CultureInfo.InvariantCulture,
-            $"{size} px, flatten {flatten}, seam band {band}, normal strength {strength}, roughness {roughnessBase} ± {variation}"));
+            $"{size} px{(Args.Value("--region") is { } cut ? $", region {cut}" : "")}, flatten {flatten}, seam band {band}, normal strength {strength}, roughness {roughnessBase} ± {variation}"));
         GD.Print(string.Create(CultureInfo.InvariantCulture,
             $"ART texture {id}: seam ratio {TextureMaker.SeamRatio(source):0.00} → {TextureMaker.SeamRatio(tiled):0.00}. ") +
             $"In kit/materials.jsonc, set albedo, normal and roughnessMap to {string.Join(", ", files)}");

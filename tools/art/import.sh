@@ -4,8 +4,9 @@
 #   tools/art/import.sh texture <material-id> <job-id> <generator> <url> "<prompt>" [extra ArtImport flags]
 #   tools/art/import.sh model <prop-id> <job-id> <generator> <url> "<prompt>"
 # Textures are made tileable and get normal and roughness maps (art/textures/, JPEG). Extra texture
-# flags: --size=1024 --flatten=0.8 (even out broad shading) --band=0.12 (seam blend width)
-# --normal-strength=2 --roughness=0.9 --roughness-variation=0.15.
+# flags: --size=1024 --region=x,y,w,h (one tile of a picture holding several, as fractions)
+# --flatten=0.8 (even out broad shading) --band=0.12 (seam blend width) --normal-strength=2
+# --roughness=0.9 --roughness-variation=0.15.
 # Models are tidied (textures shrunk to JPEG, the baked glow removed) into art/models/ and measured.
 # Extra model flags: --max-texture=1024, --roughness=R (untextured materials), --height=M (scale to M
 # metres tall and stand it on the origin).

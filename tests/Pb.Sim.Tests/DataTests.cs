@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Pb.Sim.Data;
 
 namespace Pb.Sim.Tests;
@@ -16,13 +17,21 @@ public class DataTests
     }
 
     /// <summary>
-    /// Spec: original IP only. Every texture and model the kit uses needs a provenance record in
-    /// assets.jsonc (written by tools/art/import.sh): the Higgsfield job, prompt and download URL.
+    /// Spec: original IP only. Every texture and model the kit or the characters use needs a provenance
+    /// record in assets.jsonc (written by tools/art/import.sh): the Higgsfield job, prompt and download URL.
     /// </summary>
     [Fact]
     public void Every_kit_texture_and_model_has_a_provenance_record()
     {
         Assert.Empty(Unrecorded(TestData.Data, TestData.Source));
+    }
+
+    [Fact]
+    public void A_character_model_without_a_provenance_record_is_caught()
+    {
+        var source = new EditedDataSource(TestData.Source).Edit("presentation.jsonc", t => t.Replace("\"models\": [",
+            "\"models\": [\"res://art/models/unrecorded.glb\", "));
+        Assert.Equal(new[] { "res://art/models/unrecorded.glb" }, Unrecorded(GameData.Load(source), source));
     }
 
     [Fact]
@@ -94,13 +103,17 @@ public class DataTests
         Assert.Contains("line", ex.Message);
     }
 
-    /// <summary>Textures and models the kit uses that assets.jsonc has no record of.</summary>
+    /// <summary>Textures and models the kit or the characters use that assets.jsonc has no record of.</summary>
     private static List<string> Unrecorded(GameData data, IDataSource source)
     {
         ProvenanceFile provenance = Jsonc.Load<ProvenanceFile>(source, "assets.jsonc");
         var recorded = provenance.Assets.SelectMany(a => a.Files).ToHashSet(StringComparer.Ordinal);
+        // presentation.jsonc is the game's file, not the sim's: every art path in it counts.
+        IEnumerable<string> presentation = Regex.Matches(source.ReadAllText("presentation.jsonc"), "\"(res://art/[^\"]+)\"")
+            .Select(m => m.Groups[1].Value);
         return data.Kit.Materials.SelectMany(m => new[] { m.Def.Albedo, m.Def.Normal, m.Def.RoughnessMap })
             .Concat(data.Kit.Props.Values.Select(p => p.Def.Model))
+            .Concat(presentation)
             .Where(path => !string.IsNullOrWhiteSpace(path) && !recorded.Contains(path))
             .Select(path => path!)
             .ToList();
