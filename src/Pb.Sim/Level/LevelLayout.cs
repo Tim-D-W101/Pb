@@ -32,6 +32,9 @@ public sealed class AreaSpec
     public float Volume => (Box.Max.X - Box.Min.X) * (Box.Max.Y - Box.Min.Y) * (Box.Max.Z - Box.Min.Z);
 }
 
+/// <summary>A place to start, facing <see cref="Yaw"/>.</summary>
+public readonly record struct SpawnPoint(Vector3 Position, float Yaw);
+
 public sealed class OpponentSpawn
 {
     public required string Id { get; init; }
@@ -97,9 +100,15 @@ public sealed class LevelLayout
     /// <summary>Debug names for primitive owners ("warehouse#0", "prop:oil_drum#3", "wall#1").</summary>
     public required IReadOnlyList<string> Owners { get; init; }
 
-    public required Vector3 PlayerSpawn { get; init; }
+    /// <summary>Where you can come in (one at random each round); the first is the default.</summary>
+    public required IReadOnlyList<SpawnPoint> PlayerSpawns { get; init; }
 
-    public required float PlayerSpawnYaw { get; init; }
+    public Vector3 PlayerSpawn => PlayerSpawns[0].Position;
+
+    public float PlayerSpawnYaw => PlayerSpawns[0].Yaw;
+
+    /// <summary>Opponents dealt random starts begin inside this box.</summary>
+    public required Aabb SpawnArea { get; init; }
 
     public required Vector3 DeadZone { get; init; }
 

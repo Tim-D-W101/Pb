@@ -164,8 +164,15 @@ public static class LevelFactory
             pickups.Add(new PickupSpec { Id = p.Id, Kind = p.Kind, Position = position });
         }
 
-        Vector3 playerSpawn = Validator.ToVector3(def.PlayerSpawn.Position_m);
-        CheckInside(errors.Scope(nameof(LevelDef.PlayerSpawn)), nameof(SpawnDef.Position_m), playerSpawn, bounds);
+        var playerSpawns = new List<SpawnPoint>();
+        for (int i = 0; i < def.PlayerSpawns.Length; i++)
+        {
+            Vector3 position = Validator.ToVector3(def.PlayerSpawns[i].Position_m);
+            CheckInside(errors.Item(nameof(LevelDef.PlayerSpawns), i), nameof(SpawnDef.Position_m), position, bounds);
+            playerSpawns.Add(new SpawnPoint(position, def.PlayerSpawns[i].Yaw_deg * Units.DegreesToRadians));
+        }
+
+        AreaSpec spawnArea = areas.First(a => a.Name == def.SpawnArea);
         errors.ThrowIfErrors();
 
         return new LevelLayout
@@ -180,8 +187,8 @@ public static class LevelFactory
             Apertures = sink.Apertures,
             Props = props,
             Owners = owners,
-            PlayerSpawn = playerSpawn,
-            PlayerSpawnYaw = def.PlayerSpawn.Yaw_deg * Units.DegreesToRadians,
+            PlayerSpawns = playerSpawns,
+            SpawnArea = spawnArea.Box,
             DeadZone = Validator.ToVector3(def.DeadZone_m),
             Areas = areas,
             OpponentSpawns = spawns,

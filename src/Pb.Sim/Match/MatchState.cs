@@ -38,6 +38,23 @@ public sealed class MatchRules
     public required float PickupRadius { get; init; }
 
     public required float AirPickupBelow { get; init; }
+
+    public required SpawnRules Spawning { get; init; }
+}
+
+/// <summary>How a round deals random starts (<see cref="SpawnPlanner"/>), in metres.</summary>
+public sealed class SpawnRules
+{
+    public required float MinDistanceFromYou { get; init; }
+
+    public required float MinSpacing { get; init; }
+
+    public required float CoverShare { get; init; }
+
+    /// <summary>Behaviours for opponents placed at cover points, with their relative chances.</summary>
+    public required IReadOnlyList<(string Role, float Weight)> CoverRoles { get; init; }
+
+    public required float PatrolReach { get; init; }
 }
 
 /// <summary>One round's settings: who the hero is, plus a difficulty tier from the ladder.</summary>

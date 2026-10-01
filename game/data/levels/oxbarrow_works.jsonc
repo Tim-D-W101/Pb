@@ -22,7 +22,15 @@
     { "rect_m": [-54.8, -10, -48, 39.8], "material": "dirt" },
     { "rect_m": [-34, -11.8, 6, -7], "material": "gravel" }
   ],
-  "playerSpawn": { "position_m": [8, 0, 45], "yaw_deg": 0 },
+  // Where you come in: one of these at random each round (scripted runs use the first): outside the
+  // main gate, the breach in the west wall, or the collapse in the north-east corner, facing in.
+  "playerSpawns": [
+    { "position_m": [8, 0, 45], "yaw_deg": 0 },
+    { "position_m": [-60, 0, -20], "yaw_deg": -90 },
+    { "position_m": [42, 0, -45], "yaw_deg": 180 }
+  ],
+  // Opponents dealt random starts (rules.jsonc "spawning") start inside this area.
+  "spawnArea": "the compound",
   "deadZone_m": [17, 0, 46],
   "buildings": [
     { "building": "warehouse", "position_m": [-34, 0, -36] },

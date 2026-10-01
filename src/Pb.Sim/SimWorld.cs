@@ -32,9 +32,12 @@ public sealed class SimWorld
     private readonly List<PlayerState> _players = new();
     private readonly ShotRequest[] _shots = new ShotRequest[8];
 
-    public SimWorld(SimConfig config)
+    /// <param name="matchSeed">Seeds the round's randomness (shots, bots); the data's seed when null. A host deals
+    /// a new one each round so rounds differ; tests and scripted runs keep the data's for repeatable results.</param>
+    public SimWorld(SimConfig config, ulong? matchSeed = null)
     {
         Config = config;
+        MatchSeed = matchSeed ?? config.MatchSeed;
         PlayerHits = new PlayerHitboxes(this);
         Receivers = new HitReceivers(Targets, PlayerHits);
         Ballistics = new BallisticsWorld(config.BallPoolCapacity, config.Projectile, config.BreakModel)
@@ -45,6 +48,9 @@ public sealed class SimWorld
     }
 
     public SimConfig Config { get; private set; }
+
+    /// <summary>Seeds every random choice in the round: shot dispersion and breaks, bots, random starts.</summary>
+    public ulong MatchSeed { get; }
 
     public int Tick { get; private set; }
 
@@ -217,7 +223,7 @@ public sealed class SimWorld
             Pickups.Update(this, Config.Rules);
         }
 
-        Stress?.Update(Ballistics, Config.MatchSeed, Config.Shot.MuzzleVelocity, Config.Shot.VelocityVariance, Tick, dt, Events);
+        Stress?.Update(Ballistics, MatchSeed, Config.Shot.MuzzleVelocity, Config.Shot.VelocityVariance, Tick, dt, Events);
         Ballistics.Tick(Tick, dt, Events);
         SprayMasks(firstEvent);
         Match?.Update(this, firstEvent);
@@ -294,7 +300,7 @@ public sealed class SimWorld
     {
         ShotParams p = Config.Shot;
         ShotSolution solution = SolveShot(player);
-        var rng = new Pcg32(SeedHash.Shot(Config.MatchSeed, player.Id, shot.Sequence));
+        var rng = new Pcg32(SeedHash.Shot(MatchSeed, player.Id, shot.Sequence));
         Vector3 direction = Dispersion.SampleCone(solution.Direction, DispersionFor(player.HorizontalSpeed), ref rng);
         float speed = MathF.Max(0.5f, shot.MuzzleSpeed + rng.Symmetric(p.VelocityVariance));
         Vector3 velocity = direction * speed + player.Velocity * p.InheritShooterVelocity;

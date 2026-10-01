@@ -36,6 +36,9 @@ namespace Pb.Game.Core;
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
 ///   --preset=NAME         uses that graphics preset instead of the saved one (for comparing their cost)
+///   --seed=N              deals round N's starts and randomness (rounds normally get a new random seed; scripted
+///                         runs use the data's seed and the tier's roster, so they play out the same every time)
+///   --random-spawns       deals random starts in a scripted run too (CI's bot match)
 /// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
 /// them. Bots stand at the spawns the tier lists, with the behaviour their spawn's roles name and the
 /// tier's difficulty; F3 shows what they're thinking.
@@ -75,6 +78,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private string? _hitBy;
     private bool _scripted;
     private bool _botMatch;
+    private SpawnPlan? _starts;
     private bool _summaryShown;
     private bool _ready;
 
@@ -118,12 +122,34 @@ public partial class LevelMain : Node3D, ISimEventListener
         _settings.ApplyVolume();
         DisplayServer.WindowSetVsyncMode(_settings.Vsync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
 
-        _sim = new SimWorld(_data.Config);
+        // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
+        bool botDemo = Args.Has("--bot-demo");
+        _botMatch = Args.Has("--bot-match");
+        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo || _botMatch;
+        bool roundTour = Args.Has("--round-tour");
+
+        // Every round deals a new seed and random starts, so you can't learn where everyone is. Scripted
+        // runs keep the data's seed and the tier's roster, so they play out the same every time.
+        bool repeatable = _scripted || roundTour;
+        ulong seed = ulong.TryParse(Args.Value("--seed"), out ulong given) ? given
+            : repeatable ? _data.Config.MatchSeed
+            : (ulong)System.Random.Shared.NextInt64();
+        _sim = new SimWorld(_data.Config, seed);
         _sim.LoadLevel(_level);
         var navWatch = Stopwatch.StartNew();
         _squad = BotSquad.ForLevel(_sim, _data.Bots, _level);
         double navMs = navWatch.Elapsed.TotalMilliseconds;
-        PlayerState state = _sim.AddPlayer(0, 0, _level.PlayerSpawn, _level.PlayerSpawnYaw);
+        _starts = !repeatable || Args.Has("--random-spawns")
+            ? SpawnPlanner.Plan(_level, _squad.Cover, _sim.Collision, _data.Config.Rules.Spawning, _data.Bots,
+                _tier.Opponents.Length, _data.Config.Movement.StandEyeHeight, seed)
+            : null;
+        SpawnPoint start = _starts?.You ?? _level.PlayerSpawns[0];
+        if (_starts is not null)
+        {
+            GD.Print($"Starts (seed {seed}): you at {start.Position}; " +
+                     string.Join(", ", _starts.Opponents.Select(o => $"{o.Id} {o.Roles[0]}{(o.Patrol is null ? "" : " on " + o.Patrol.Id)}")));
+        }
+        PlayerState state = _sim.AddPlayer(0, 0, start.Position, start.Yaw);
         state.Name = "You";
         Color teamColor = Color.FromHtml(_view.TeamColors[state.Team % _view.TeamColors.Length]);
 
@@ -142,11 +168,6 @@ public partial class LevelMain : Node3D, ISimEventListener
         ApplyGraphics(preset);
 
         _player.Initialize(_sim, state, _view, _settings, teamColor);
-        // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
-        bool botDemo = Args.Has("--bot-demo");
-        _botMatch = Args.Has("--bot-match");
-        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo || _botMatch;
-        bool roundTour = Args.Has("--round-tour");
         SpawnOpponents(hostile: botDemo || _botMatch || (!_scripted && !roundTour));
         _botDebug = new BotDebugOverlay { Name = "BotDebug" };
         AddChild(_botDebug);
@@ -245,7 +266,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (_botMatch)
         {
-            var you = new OpponentSpawn { Id = "you", Position = _level.PlayerSpawn, Yaw = _level.PlayerSpawnYaw, Roles = new[] { "hunter" } };
+            var you = new OpponentSpawn { Id = "you", Position = start.Position, Yaw = start.Yaw, Roles = new[] { "hunter" } };
             BotBrain brain = _squad.Add(state, _data.Bots.Archetypes["hunter"], _data.Bots.Difficulty[_tier.Bots], you);
             _player.AutoPilot = new BotPilot(brain);
             _hud.ShowPerf = false;
@@ -302,16 +323,19 @@ public partial class LevelMain : Node3D, ISimEventListener
         _smoke?.OnSimEvent(e);
     }
 
-    /// <summary>Bots (team 1) at the spawns the tier lists, each with its spawn's behaviour at the tier's difficulty.</summary>
+    /// <summary>
+    /// Bots (team 1), as many as the tier lists, at the round's random starts (or, in scripted runs, at the
+    /// spawns the tier lists), each with its start's behaviour at the tier's difficulty.
+    /// </summary>
     private void SpawnOpponents(bool hostile)
     {
         var parent = new Node3D { Name = "Opponents" };
         AddChild(parent);
-        string[] callsigns = DealCallsigns(_view.Hud.Callsigns, _data.Config.MatchSeed);
+        string[] callsigns = DealCallsigns(_view.Hud.Callsigns, _sim.MatchSeed);
         Color jersey = Color.FromHtml(_view.TeamColors[1 % _view.TeamColors.Length]);
         for (int i = 0; i < _tier.Opponents.Length; i++)
         {
-            OpponentSpawn spawn = _level.OpponentSpawns.First(s => s.Id == _tier.Opponents[i]);
+            OpponentSpawn spawn = _starts?.Opponents[i] ?? _level.OpponentSpawns.First(s => s.Id == _tier.Opponents[i]);
             PlayerState state = _sim.AddPlayer(i + 1, 1, spawn.Position, spawn.Yaw);
             state.Name = callsigns[i % callsigns.Length];
             BotBrain brain = _squad.Add(state, _data.Bots.ArchetypeFor(spawn.Roles)!, _data.Bots.Difficulty[_tier.Bots], spawn);
@@ -620,6 +644,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private void ApplyGraphics(GraphicsPresetDef preset)
     {
         Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), preset);
+        Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
         _weeds.ApplyPreset(preset);
         _shafts.ApplyPreset(preset);
     }

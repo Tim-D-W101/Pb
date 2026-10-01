@@ -647,7 +647,11 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public GroundPatchDef[]? GroundPatches { get; set; }
 
-    public SpawnDef PlayerSpawn { get; set; } = new();
+    /// <summary>Where you come in: one at random each round (scripted runs use the first).</summary>
+    public SpawnDef[] PlayerSpawns { get; set; } = Array.Empty<SpawnDef>();
+
+    /// <summary>The area (by name) inside which opponents dealt random starts begin.</summary>
+    public string SpawnArea { get; set; } = "";
 
     /// <summary>Where eliminated opponents walk to before leaving the level.</summary>
     public float[] DeadZone_m { get; set; } = Array.Empty<float>();
@@ -690,7 +694,21 @@ public sealed class LevelDef : IValidatable
 
         v.NotEmpty(nameof(GroundMaterial), GroundMaterial);
         LevelDefChecks.Items(v, nameof(GroundPatches), GroundPatches);
-        PlayerSpawn.Validate(v.Scope(nameof(PlayerSpawn)));
+        if (PlayerSpawns.Length == 0)
+        {
+            v.Error(nameof(PlayerSpawns), "needs at least one spawn");
+        }
+
+        for (int i = 0; i < PlayerSpawns.Length; i++)
+        {
+            PlayerSpawns[i].Validate(v.Item(nameof(PlayerSpawns), i));
+        }
+
+        v.NotEmpty(nameof(SpawnArea), SpawnArea);
+        if (SpawnArea.Length > 0 && Areas?.Any(a => a.Name == SpawnArea) != true)
+        {
+            v.Error(nameof(SpawnArea), $"names no area of this level ('{SpawnArea}')");
+        }
         v.Vector(nameof(DeadZone_m), DeadZone_m);
         for (int i = 0; i < Buildings.Length; i++)
         {

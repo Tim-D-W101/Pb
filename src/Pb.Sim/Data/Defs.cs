@@ -876,10 +876,57 @@ public sealed class RulesDef : IValidatable
 
     public float AirPickupBelow { get; set; }
 
+    public SpawningDef Spawning { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(SettleTime_s), SettleTime_s, 0, 10);
         v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.1, 5);
         v.InRange(nameof(AirPickupBelow), AirPickupBelow, 0, 1);
+        Spawning.Validate(v.Scope(nameof(Spawning)));
+    }
+}
+
+/// <summary>How a round deals random starts (see rules.jsonc "spawning").</summary>
+public sealed class SpawningDef : IValidatable
+{
+    public float MinDistanceFromYou_m { get; set; }
+
+    public float MinSpacing_m { get; set; }
+
+    public float CoverShare { get; set; }
+
+    public RoleWeightDef[] CoverRoles { get; set; } = Array.Empty<RoleWeightDef>();
+
+    public float PatrolReach_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(MinDistanceFromYou_m), MinDistanceFromYou_m, 0, 500);
+        v.InRange(nameof(MinSpacing_m), MinSpacing_m, 0, 100);
+        v.InRange(nameof(CoverShare), CoverShare, 0, 1);
+        v.InRange(nameof(PatrolReach_m), PatrolReach_m, 0, 500);
+        if (CoverRoles.Length == 0)
+        {
+            v.Error(nameof(CoverRoles), "needs at least one role");
+        }
+
+        for (int i = 0; i < CoverRoles.Length; i++)
+        {
+            CoverRoles[i].Validate(v.Item(nameof(CoverRoles), i));
+        }
+    }
+}
+
+public sealed class RoleWeightDef : IValidatable
+{
+    public string Role { get; set; } = "";
+
+    public float Weight { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Role), Role);
+        v.InRange(nameof(Weight), Weight, 0.001, 1000);
     }
 }

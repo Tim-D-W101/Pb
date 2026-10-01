@@ -164,7 +164,7 @@ public sealed class BotBrain
         Home = spawn.Position;
         HomeYaw = spawn.Yaw;
         Route = archetype.Idle == BotIdle.Patrol ? spawn.Patrol : null;
-        ulong seed = SeedHash.Combine(_sim.Config.MatchSeed, (ulong)(0xB07 + self.Id * 7919));
+        ulong seed = SeedHash.Combine(_sim.MatchSeed, (ulong)(0xB07 + self.Id * 7919));
         _rng = new Pcg32(seed);
         Senses = new BotSenses(_sim, self, squad.Config.Senses, tier, seed ^ 0x5EED5EED);
         _yaw = _wantYaw = self.Yaw;

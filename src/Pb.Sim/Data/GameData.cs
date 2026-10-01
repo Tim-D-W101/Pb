@@ -95,8 +95,24 @@ public sealed class GameData
                 TradeCountsAsClear = rules.TradeCountsAsClear,
                 PickupRadius = rules.PickupRadius_m,
                 AirPickupBelow = rules.AirPickupBelow,
+                Spawning = new SpawnRules
+                {
+                    MinDistanceFromYou = rules.Spawning.MinDistanceFromYou_m,
+                    MinSpacing = rules.Spawning.MinSpacing_m,
+                    CoverShare = rules.Spawning.CoverShare,
+                    CoverRoles = rules.Spawning.CoverRoles.Select(r => (r.Role, r.Weight)).ToArray(),
+                    PatrolReach = rules.Spawning.PatrolReach_m,
+                },
             },
         };
+        for (int i = 0; i < rules.Spawning.CoverRoles.Length; i++)
+        {
+            if (!bots.Archetypes.ContainsKey(rules.Spawning.CoverRoles[i].Role))
+            {
+                throw new DataException(files.Rules,
+                    $"spawning.coverRoles[{i}].role: '{rules.Spawning.CoverRoles[i].Role}' is not a bot behaviour (known: {string.Join(", ", bots.Archetypes.Keys)})");
+            }
+        }
 
         KitCatalog kit = KitCatalog.Load(source, files.Kit, surfaces);
         LadderDef ladder = Jsonc.Load<LadderDef>(source, files.Ladder);
@@ -225,6 +241,20 @@ public sealed class GameData
     private static void CheckTiers(LadderLevelDef entry, LevelLayout level, string ladderFile, BotConfig bots)
     {
         var spawns = level.OpponentSpawns.ToDictionary(s => s.Id, StringComparer.Ordinal);
+
+        // Random starts pick any of a spawn's roles, so every one must be a behaviour.
+        foreach (OpponentSpawn spawn in level.OpponentSpawns)
+        {
+            foreach (string role in spawn.Roles)
+            {
+                if (!bots.Archetypes.ContainsKey(role))
+                {
+                    throw new DataException(entry.File!,
+                        $"opponentSpawns.{spawn.Id}.roles: '{role}' is not a bot behaviour (known: {string.Join(", ", bots.Archetypes.Keys)})");
+                }
+            }
+        }
+
         foreach (LadderTierDef tier in entry.Tiers ?? Array.Empty<LadderTierDef>())
         {
             string at = $"levels.{entry.Id}.tiers.{tier.Id}";

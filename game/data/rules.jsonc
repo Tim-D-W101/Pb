@@ -14,5 +14,27 @@
   "pickupRadius_m": 1.0,
 
   // An air pickup refills a tank that's below this share of full; fuller tanks leave it.
-  "airPickupBelow": 0.9
+  "airPickupBelow": 0.9,
+
+  // Where everyone starts. Each round deals a new random seed, so starts change every time: you come
+  // in at one of the level's player spawns, and opponents start at a random mix of the level's
+  // opponent spawns and cover points (anywhere the level offers cover) inside its spawn area, spread
+  // out, away from you and out of your sight. Scripted runs (smoke tests, demos) keep the data's seed
+  // and the tier's roster.
+  "spawning": {
+    "minDistanceFromYou_m": 28,
+    // Opponents start at least this far apart (relaxed if the level can't fit them).
+    "minSpacing_m": 10,
+    // Share of opponents placed at cover points rather than the level's opponent spawns.
+    "coverShare": 0.5,
+    // Behaviour of an opponent placed at a cover point, by chance (opponent spawns pick one of their
+    // own roles). A patroller walks the nearest patrol route within patrolReach_m, or keeps watch
+    // where it stands if there is none.
+    "coverRoles": [
+      { "role": "sentry", "weight": 5 },
+      { "role": "patroller", "weight": 3 },
+      { "role": "rusher", "weight": 2 }
+    ],
+    "patrolReach_m": 25
+  }
 }
