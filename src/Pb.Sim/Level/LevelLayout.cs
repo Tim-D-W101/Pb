@@ -89,6 +89,9 @@ public sealed class LevelLayout
 
     public required IReadOnlyList<LevelPrimitive> Primitives { get; init; }
 
+    /// <summary>Windows, doors, gaps and roof holes, in world space.</summary>
+    public required IReadOnlyList<Aperture> Apertures { get; init; }
+
     public required IReadOnlyList<PropInstance> Props { get; init; }
 
     /// <summary>Debug names for primitive owners ("warehouse#0", "prop:oil_drum#3", "wall#1").</summary>

@@ -213,6 +213,77 @@ public class LevelKitTests
         Assert.Equal("the yard", level.AreaAt(new Vector3(0f, 1f, 10f))?.Name);
     }
 
+    [Fact]
+    public void ApertureIsRecordedWhereTheWallOpeningIs()
+    {
+        var sink = new PrimitiveSink();
+        var frame = new PlanFrame(new Vector3(10f, 0f, 5f), MathF.PI / 2f);
+        KitGeometry.Wall(sink, frame, new[] { new Vector2(0, 0), new Vector2(6, 0) }, false, 0.3f, 1f, 3f, Concrete,
+            new[] { new OpeningSpec(0, 2f, 1.4f, 0.9f, 1.2f, OpeningKind.Window) }, 7);
+
+        Aperture window = Assert.Single(sink.Apertures);
+        Assert.Equal(ApertureKind.Window, window.Kind);
+        Assert.Equal(7, window.Owner);
+        // 2 m along local +x, which a quarter turn left points at world −z; from 1.9 m to 3.1 m up.
+        Assert.Equal(10f, window.Center.X, 3);
+        Assert.Equal(3f, window.Center.Z, 3);
+        Assert.Equal(2.5f, window.Center.Y, 3);
+        Assert.Equal(0.7f, window.HalfWidth, 3);
+        Assert.Equal(0.6f, window.HalfHeight, 3);
+        Assert.Equal(1f, MathF.Abs(window.Normal.X), 3);
+
+        CollisionWorld world = WorldOf(sink.Items);
+        Vector3 n = window.Normal;
+        Assert.False(world.SweepSphere(window.Center - n, window.Center + n, BallRadius, out _), "through the middle");
+        foreach (Vector3 beside in new[] { window.At(1.15f, 0f), window.At(-1.15f, 0f), window.At(0f, 1.2f), window.At(0f, -1.2f) })
+        {
+            Assert.True(world.SweepSphere(beside - n, beside + n, BallRadius, out _), $"beside the window at {beside}");
+        }
+    }
+
+    /// <summary>
+    /// Every window, door, gap and roof hole in Oxbarrow Works is clear of walls and roofs, and a few
+    /// are checked against their files.
+    /// </summary>
+    [Fact]
+    public void LevelOneAperturesMatchTheFilesAndAreOpen()
+    {
+        LevelLayout level = Level;
+        var shell = new CollisionWorld();
+        foreach (LevelPrimitive p in level.Primitives.Where(p => p.Has(PrimitiveFlags.Paint) && p.Role is PrimitiveRole.Wall or PrimitiveRole.Roof))
+        {
+            shell.Add(p.CreateShape(), p.Surface, level.Owners[p.Owner]);
+        }
+
+        shell.Build();
+        foreach (Aperture a in level.Apertures)
+        {
+            Vector3 n = a.Normal * 0.4f;
+            Assert.False(shell.SweepSphere(a.Center - n, a.Center + n, BallRadius, out SweepHit hit),
+                $"{a.Kind} of {level.Owners[a.Owner]} at {a.Center} is blocked by {(hit.ColliderId >= 0 ? shell.Colliders[hit.ColliderId].Name : "?")}");
+        }
+
+        // Perimeter wall, north: a 5 m stretch knocked down to 1.3 m (of 3 m) at x = −20.
+        Aperture knocked = Assert.Single(level.Apertures, a => a.Kind == ApertureKind.Window && MathF.Abs(a.Center.Z + 40f) < 0.01f);
+        Assert.Equal(-20f, knocked.Center.X, 3);
+        Assert.Equal(2.15f, knocked.Center.Y, 3);
+        Assert.Equal(2.5f, knocked.HalfWidth, 3);
+        Assert.Equal(0.85f, knocked.HalfHeight, 3);
+
+        // The warehouse (placed at x −34, z −36): twelve clerestory windows and two holes in the roof.
+        Aperture[] warehouse = level.Apertures.Where(a => level.Owners[a.Owner] == "warehouse#0").ToArray();
+        Assert.Equal(12, warehouse.Count(a => a.Kind == ApertureKind.Window));
+        Aperture[] holes = warehouse.Where(a => a.Kind == ApertureKind.RoofHole).OrderBy(a => a.Area).ToArray();
+        Assert.Equal(2, holes.Length);
+        Assert.True(Vector3.Distance(new Vector3(-1f, 8.075f, -19f), holes[0].Center) < 0.001f, $"small hole at {holes[0].Center}");
+        Assert.True(Vector3.Distance(new Vector3(-14f, 8.075f, -25f), holes[1].Center) < 0.001f, $"large hole at {holes[1].Center}");
+        Assert.Equal(6f, holes[1].HalfWidth, 3);
+        Assert.Equal(5f, holes[1].HalfHeight, 3);
+        Assert.All(holes, h => Assert.Equal(1f, h.Normal.Y, 3));
+        Vector3 roofBeside = holes[1].At(1.2f, 0f);
+        Assert.True(shell.SweepSphere(roofBeside + Vector3.UnitY, roofBeside - Vector3.UnitY, BallRadius, out _), "roof beside the hole");
+    }
+
     /// <summary>Spawns, patrol points and pickups must be in open space and standing on something.</summary>
     [Fact]
     public void LevelOnePointsAreInOpenSpaceOnAFloor()

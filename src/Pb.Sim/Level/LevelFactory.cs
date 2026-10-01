@@ -177,6 +177,7 @@ public static class LevelFactory
             GroundMaterial = ground,
             Materials = kit.Materials,
             Primitives = sink.Items,
+            Apertures = sink.Apertures,
             Props = props,
             Owners = owners,
             PlayerSpawn = playerSpawn,
@@ -241,6 +242,19 @@ public static class LevelFactory
             else
             {
                 KitGeometry.Slab(sink, frame, rect, holes, top, thickness, Material(roof.Material), roofFlags, PrimitiveRole.Roof, owner);
+            }
+
+            foreach (Vector4 h in holes)
+            {
+                float x0 = MathF.Max(h.X, rect.X), z0 = MathF.Max(h.Y, rect.Y), x1 = MathF.Min(h.Z, rect.Z), z1 = MathF.Min(h.W, rect.W);
+                if (x1 > x0 && z1 > z0)
+                {
+                    // U along the building's x, V along its −z, so U × V points up.
+                    sink.Apertures.Add(new Aperture(ApertureKind.RoofHole,
+                        frame.PlanToWorld(new Vector2((x0 + x1) * 0.5f, (z0 + z1) * 0.5f), top - thickness * 0.5f),
+                        Vector3.Transform(Vector3.UnitX, frame.Rotation), Vector3.Transform(-Vector3.UnitZ, frame.Rotation),
+                        (x1 - x0) * 0.5f, (z1 - z0) * 0.5f, owner));
+                }
             }
             if (roof.Parapet_m > 0f)
             {

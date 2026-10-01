@@ -44,6 +44,9 @@ public sealed class PrimitiveSink
 
     public List<LevelPrimitive> Items { get; } = new();
 
+    /// <summary>Openings through walls and roofs, in world space.</summary>
+    public List<Aperture> Apertures { get; } = new();
+
     public void AddBox(PlanFrame frame, Vector3 center, Quaternion rotation, Vector3 half, MaterialRef material,
         PrimitiveFlags flags, PrimitiveRole role, int owner)
     {
@@ -281,11 +284,24 @@ public static class KitGeometry
                 Piece(o0, o1, baseY, sillTop);
                 Piece(o0, o1, openingTop, topY);
                 cursor = o1;
+                if (openingTop - sillTop > Epsilon && o.Width > Epsilon)
+                {
+                    Vector3 axis = Vector3.Transform(new Vector3(u.X, 0f, u.Y), frame.Rotation);
+                    sink.Apertures.Add(new Aperture(ApertureOf(o.Kind), frame.PlanToWorld(a + u * o.At, (sillTop + openingTop) * 0.5f),
+                        axis, Vector3.UnitY, o.Width * 0.5f, (openingTop - sillTop) * 0.5f, owner));
+                }
             }
 
             Piece(cursor, length + extEnd, baseY, topY);
         }
     }
+
+    private static ApertureKind ApertureOf(OpeningKind kind) => kind switch
+    {
+        OpeningKind.Door => ApertureKind.Door,
+        OpeningKind.Window => ApertureKind.Window,
+        _ => ApertureKind.Gap,
+    };
 
     /// <summary>
     /// Splits <paramref name="rect"/> minus <paramref name="holes"/> into rectangles: vertical strips at
