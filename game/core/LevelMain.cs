@@ -20,6 +20,7 @@ namespace Pb.Game.Core;
 ///   --level=ID            which level to load (default: the first playable one in the ladder)
 ///   --smoke-test[=ticks]  headless CI check: walk in through the gate firing, exit code 0/1
 ///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie)
+///   --posture-demo        scripted lean / shoulder swap / muzzle-in-cover sequence at a wall corner
 /// </summary>
 public partial class LevelMain : Node3D, ISimEventListener
 {
@@ -119,6 +120,13 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             _smoke = new LevelSmokeTest(this, _sim, _driver, _player, _world, ticks);
             _player.AutoPilot = _smoke.Pilot;
+        }
+        else if (Args.Has("--posture-demo"))
+        {
+            _player.Teleport(PostureDemo.Position, PostureDemo.Yaw);
+            _player.AutoPilot = new PostureDemo(this, _sim);
+            _hud.ShowHelp = false;
+            _hud.ShowPerf = false;
         }
         else if (Args.Has("--shots"))
         {

@@ -16,16 +16,24 @@ namespace Pb.Game.Core;
 /// the real scene, walking collision and presentation code:
 /// <list type="number">
 /// <item>the autopilot walks in through the main gate, sweeping its aim and firing;</item>
-/// <item>then it climbs every flight of stairs in the level, starting at the foot of each.</item>
+/// <item>it climbs every flight of stairs in the level, starting at the foot of each;</item>
+/// <item>back at the spawn, it sprints, slides into a crouch, stands and jumps.</item>
 /// </list>
 /// It passes only if the player walked well into the compound without falling through the world,
-/// paint flew and broke on level geometry, every flight was climbed to its landing, and nothing
-/// threw.
+/// paint flew and broke on level geometry, every flight was climbed to its landing, the slide and
+/// the jump worked, and nothing threw.
 /// </summary>
 public sealed class LevelSmokeTest
 {
     /// <summary>Ticks allowed per flight of stairs (4 s at 120 Hz).</summary>
     private const int ClimbTicks = 480;
+
+    // The moves script, in ticks from its start: sprint, then crouch while sprinting (a slide)
+    // and hold the crouch, then stand, then jump.
+    private const int SlideAt = 96;
+    private const int StandAt = 276;
+    private const int JumpAt = 330;
+    private const int MovesTicks = 480;
 
     private readonly Node _host;
     private readonly SimWorld _sim;
@@ -37,6 +45,7 @@ public sealed class LevelSmokeTest
     private readonly List<Climb> _climbs;
     private readonly ScriptedPilot _pilot;
     private int _elapsed;
+    private int _phaseStart;
     private int _shots;
     private int _breaks;
     private int _bounces;
@@ -45,6 +54,11 @@ public sealed class LevelSmokeTest
     private int _climb = -1;
     private float _climbHighest;
     private int _climbsFailed;
+    private bool _moves;
+    private bool _slid;
+    private bool _slideEndedCrouched;
+    private float _jumpBaseY;
+    private float _jumpHeight;
 
     public LevelSmokeTest(Node host, SimWorld sim, SimDriver driver, PlayerController player, LevelBuilder world, int ticks)
     {
@@ -58,7 +72,8 @@ public sealed class LevelSmokeTest
         _climbs = sim.Level is { } level ? FindClimbs(level) : new List<Climb>();
         _pilot = new ScriptedPilot(sim);
         driver.Ticked += _ => AfterTick();
-        GD.Print($"SMOKE start: level {sim.Level?.Id}, {ticks} ticks walking in at {sim.Config.TickRate} Hz, then {_climbs.Count} flights of stairs");
+        GD.Print($"SMOKE start: level {sim.Level?.Id}, {ticks} ticks walking in at {sim.Config.TickRate} Hz, " +
+                 $"then {_climbs.Count} flights of stairs, then a slide and a jump");
     }
 
     public ICommandSource Pilot => _pilot;
@@ -81,45 +96,92 @@ public sealed class LevelSmokeTest
 
     private void AfterTick()
     {
-        SVector3 p = _player.State.Position;
+        PlayerState state = _player.State;
+        SVector3 p = state.Position;
         _elapsed++;
-        if (_climb < 0)
+        int t = _elapsed - _phaseStart;
+        if (_moves)
+        {
+            _slid |= state.Stance == Stance.Sliding;
+            _slideEndedCrouched |= _slid && state.Stance == Stance.Crouching && t < StandAt;
+            if (t == JumpAt)
+            {
+                _jumpBaseY = p.Y;
+            }
+            else if (t > JumpAt)
+            {
+                _jumpHeight = System.MathF.Max(_jumpHeight, p.Y - _jumpBaseY);
+            }
+
+            if (t >= MovesTicks)
+            {
+                Finish(state);
+            }
+        }
+        else if (_climb < 0)
         {
             _travelled = System.MathF.Max(_travelled, SVector3.Distance(new SVector3(p.X, 0f, p.Z), new SVector3(_start.X, 0f, _start.Z)));
             _lowestY = System.MathF.Min(_lowestY, p.Y);
-            if (_elapsed >= _walkTicks)
+            if (t >= _walkTicks)
             {
                 NextClimb();
             }
-
-            return;
         }
-
-        _climbHighest = System.MathF.Max(_climbHighest, p.Y);
-        if (_elapsed >= _walkTicks + (_climb + 1) * ClimbTicks)
+        else
         {
-            Climb c = _climbs[_climb];
-            bool reached = _climbHighest >= c.TopY - 0.2f;
-            _climbsFailed += reached ? 0 : 1;
-            GD.Print($"SMOKE climb {c.Name}: from y={c.Start.Y:0.00} to the landing at {c.TopY:0.00}, reached {_climbHighest:0.00} " +
-                     (reached ? "ok" : "FAILED"));
-            NextClimb();
+            _climbHighest = System.MathF.Max(_climbHighest, p.Y);
+            if (t >= ClimbTicks)
+            {
+                Climb c = _climbs[_climb];
+                bool reached = _climbHighest >= c.TopY - 0.2f;
+                _climbsFailed += reached ? 0 : 1;
+                GD.Print($"SMOKE climb {c.Name}: from y={c.Start.Y:0.00} to the landing at {c.TopY:0.00}, reached {_climbHighest:0.00} " +
+                         (reached ? "ok" : "FAILED"));
+                NextClimb();
+            }
         }
     }
 
     private void NextClimb()
     {
+        _phaseStart = _elapsed;
         _climb++;
         if (_climb < _climbs.Count)
         {
             Climb c = _climbs[_climb];
             _player.Teleport(c.Start, c.Yaw);
-            _pilot.ClimbYaw = c.Yaw;
+            _pilot.Script = (_, _) => new InputCommand { Move = new System.Numerics.Vector2(0f, 1f), Yaw = c.Yaw };
             _climbHighest = float.MinValue;
             return;
         }
 
-        bool ok = _travelled > 15f && _lowestY > -0.5f && _shots > 0 && _breaks > 0 && _climbsFailed == 0 &&
+        // Back to the spawn, facing into the compound, for the moves.
+        LevelLayout level = _sim.Level!;
+        _moves = true;
+        _player.Teleport(level.PlayerSpawn, level.PlayerSpawnYaw);
+        float yaw = level.PlayerSpawnYaw;
+        _pilot.Script = (_, _) =>
+        {
+            int t = _elapsed - _phaseStart;
+            var forward = new System.Numerics.Vector2(0f, 1f);
+            return t switch
+            {
+                < SlideAt => new InputCommand { Move = forward, Yaw = yaw, Buttons = InputButtons.Sprint },
+                < StandAt => new InputCommand { Move = forward, Yaw = yaw, Buttons = InputButtons.Sprint | InputButtons.Crouch },
+                >= JumpAt and < JumpAt + 4 => new InputCommand { Yaw = yaw, Buttons = InputButtons.Jump },
+                _ => new InputCommand { Yaw = yaw },
+            };
+        };
+    }
+
+    private void Finish(PlayerState state)
+    {
+        bool slideOk = _slid && _slideEndedCrouched;
+        bool jumpOk = _jumpHeight >= 0.35f && state.Grounded && state.Stance == Stance.Standing;
+        GD.Print($"SMOKE moves: slide {(slideOk ? "ok" : "FAILED")} (slid={_slid}, ended crouched={_slideEndedCrouched}), " +
+                 $"jump {(jumpOk ? "ok" : "FAILED")} (height {_jumpHeight:0.00} m, landed={state.Grounded})");
+
+        bool ok = _travelled > 15f && _lowestY > -0.5f && _shots > 0 && _breaks > 0 && _climbsFailed == 0 && slideOk && jumpOk &&
                   _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: ticks={_elapsed} travelled={_travelled:0.0}m lowestY={_lowestY:0.00} " +
                  $"shots={_shots} breaks={_breaks} bounces={_bounces} climbs={_climbs.Count - _climbsFailed}/{_climbs.Count} " +
@@ -159,8 +221,8 @@ public sealed class LevelSmokeTest
     private readonly record struct Climb(string Name, SVector3 Start, float Yaw, float TopY);
 
     /// <summary>
-    /// Walks north from the spawn through the gate road, sweeping its aim and pulling the trigger;
-    /// once <see cref="ClimbYaw"/> is set, walks straight ahead along it without firing.
+    /// Walks north from the spawn through the gate road, sweeping its aim and pulling the trigger,
+    /// until a <see cref="Script"/> takes over.
     /// </summary>
     private sealed class ScriptedPilot : ICommandSource
     {
@@ -171,13 +233,15 @@ public sealed class LevelSmokeTest
             _sim = sim;
         }
 
-        public float? ClimbYaw { get; set; }
+        public System.Func<int, PlayerState, InputCommand>? Script { get; set; }
 
         public InputCommand Next(int tick, PlayerState state)
         {
-            if (ClimbYaw is { } climbYaw)
+            if (Script is not null)
             {
-                return new InputCommand { Tick = tick, Move = new System.Numerics.Vector2(0f, 1f), Yaw = climbYaw, Pitch = 0f };
+                InputCommand scripted = Script(tick, state);
+                scripted.Tick = tick;
+                return scripted;
             }
 
             float t = tick / _sim.Config.TickRate;

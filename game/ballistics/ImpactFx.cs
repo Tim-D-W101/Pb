@@ -15,6 +15,7 @@ public partial class ImpactFx : Node3D, ISimEventListener
     private int _nextBounce;
     private int _budget;
     private int _maxPerFrame;
+    private float _minCameraDistance;
 
     public void Initialize(PresentationDef view)
     {
@@ -25,6 +26,7 @@ public partial class ImpactFx : Node3D, ISimEventListener
         }
 
         _maxPerFrame = view.Fx.MaxBurstsPerFrame;
+        _minCameraDistance = view.Fx.MinCameraDistance_m;
         _breaks = CreatePool(24, view.Fx.BreakParticles, 0.45f, 2.5f, 5f, 0.014f, 70f);
         _bounces = CreatePool(24, view.Fx.BounceParticles, 0.3f, 0.6f, 1.6f, 0.012f, 50f);
     }
@@ -50,6 +52,11 @@ public partial class ImpactFx : Node3D, ISimEventListener
 
     private void Emit(CpuBurst[] pool, ref int next, Vector3 position, Vector3 normal, Color color)
     {
+        if (GetViewport().GetCamera3D() is { } camera && camera.GlobalPosition.DistanceTo(position) < _minCameraDistance)
+        {
+            return;
+        }
+
         _budget--;
         CpuBurst burst = pool[next];
         next = (next + 1) % pool.Length;

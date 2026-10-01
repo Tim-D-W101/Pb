@@ -8,28 +8,23 @@ using Pb.Sim.Players;
 namespace Pb.Game.Player;
 
 /// <summary>
-/// First-person controller for one sim player. Every physics tick it samples devices (or an
-/// <see cref="ICommandSource"/>) into an <see cref="InputCommand"/>, applies the sim's movement
-/// rules and does Godot's collide-and-slide. The camera turns at render rate for responsiveness
-/// and its position is interpolated between ticks, so 120 Hz physics looks smooth at 144 Hz.
+/// First-person controller for the local player: a <see cref="PawnBody"/> driven by devices (or an
+/// <see cref="ICommandSource"/>), with the camera and viewmodel. The camera turns at render rate for
+/// responsiveness, and its position and lean roll are interpolated between ticks, so 120 Hz physics
+/// looks smooth at 144 Hz.
 /// </summary>
-public partial class PlayerController : CharacterBody3D, IPlayerDriver
+public partial class PlayerController : PawnBody, IPlayerDriver
 {
-    private SimWorld _sim = null!;
-    private MovementParams _move = null!;
     private PresentationDef _view = null!;
     private GameSettings _settings = null!;
-    private CollisionShape3D _collider = null!;
-    private CapsuleShape3D _capsule = null!;
     private Node3D _head = null!;
     private float _yaw;
     private float _pitch;
     private Vector3 _previousEye;
     private Vector3 _currentEye;
+    private float _previousRoll;
+    private float _currentRoll;
     private float _bobPhase;
-    private bool _wasCrouching;
-
-    public PlayerState State { get; private set; } = null!;
 
     public Camera3D Camera { get; private set; } = null!;
 
@@ -44,21 +39,11 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
 
     public void Initialize(SimWorld sim, PlayerState state, PresentationDef view, GameSettings settings, Color teamColor)
     {
-        _sim = sim;
-        State = state;
-        _move = sim.Config.Movement;
+        InitializeBody(sim, state);
         _view = view;
         _settings = settings;
         _yaw = state.Yaw;
         _pitch = state.Pitch;
-
-        GlobalPosition = state.Position.ToGodot();
-        FloorSnapLength = 0.2f;
-        FloorMaxAngle = Mathf.DegToRad(50f);
-
-        _capsule = new CapsuleShape3D { Radius = _move.CapsuleRadius, Height = _move.StandCapsuleHeight };
-        _collider = new CollisionShape3D { Shape = _capsule, Position = new Vector3(0, _move.StandCapsuleHeight * 0.5f, 0) };
-        AddChild(_collider);
 
         // The head is top-level so it can be interpolated independently of the body's tick steps.
         _head = new Node3D { Name = "Head", TopLevel = true };
@@ -70,17 +55,13 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
         ViewModel.Build(view.ViewModel, teamColor);
 
         _currentEye = _previousEye = state.EyePosition.ToGodot();
+        _currentRoll = _previousRoll = state.LeanRoll;
         ApplyCamera(0f, 1f);
     }
 
-    public void ApplyMovementParams(MovementParams movement) => _move = movement;
-
-    public void Teleport(System.Numerics.Vector3 position, float yaw)
+    public override void Teleport(System.Numerics.Vector3 position, float yaw)
     {
-        GlobalPosition = position.ToGodot();
-        Velocity = Vector3.Zero;
-        State.Position = position;
-        State.Velocity = System.Numerics.Vector3.Zero;
+        base.Teleport(position, yaw);
         _yaw = yaw;
         _pitch = 0f;
         _currentEye = _previousEye = State.EyePosition.ToGodot();
@@ -95,34 +76,12 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
             _pitch = cmd.Pitch;
         }
 
-        bool grounded = IsOnFloor();
-        MovementResult result = MovementModel.Step(State, cmd, _move, dt, grounded);
-
-        Vector3 velocity = Velocity;
-        velocity.X = result.HorizontalVelocity.X;
-        velocity.Z = result.HorizontalVelocity.Z;
-        velocity.Y = grounded ? Mathf.Min(velocity.Y, 0f) : velocity.Y - _move.Gravity * dt;
-        Velocity = velocity;
-
-        bool crouching = result.Stance == Stance.Crouching;
-        if (crouching != _wasCrouching)
-        {
-            float height = crouching ? _move.CrouchCapsuleHeight : _move.StandCapsuleHeight;
-            _capsule.Height = height;
-            _collider.Position = new Vector3(0, height * 0.5f, 0);
-            _wasCrouching = crouching;
-        }
-
-        MoveAndSlide();
-
-        State.Position = GlobalPosition.ToSim();
-        State.Velocity = Velocity.ToSim();
-        State.Stance = result.Stance;
-        State.EyeHeight = result.EyeHeight;
-        State.Sprinting = result.Sprinting;
+        ApplyCommand(cmd, dt);
 
         _previousEye = _currentEye;
         _currentEye = State.EyePosition.ToGodot();
+        _previousRoll = _currentRoll;
+        _currentRoll = State.LeanRoll;
         return cmd;
     }
 
@@ -133,7 +92,7 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
             float sensitivity = _settings.MouseSensitivityDegPerCount * Units.DegreesToRadians;
             _yaw -= motion.Relative.X * sensitivity;
             _pitch -= motion.Relative.Y * sensitivity * (_settings.InvertY ? -1f : 1f);
-            _pitch = Math.Clamp(_pitch, -_move.MaxPitch, _move.MaxPitch);
+            _pitch = Math.Clamp(_pitch, -Move.MaxPitch, Move.MaxPitch);
         }
     }
 
@@ -154,12 +113,12 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
                 Vector2 look = stick / magnitude * curved * _view.Look.StickSpeed_degps * Units.DegreesToRadians * (float)delta;
                 _yaw -= look.X;
                 _pitch -= look.Y * (_settings.InvertY ? -1f : 1f);
-                _pitch = Math.Clamp(_pitch, -_move.MaxPitch, _move.MaxPitch);
+                _pitch = Math.Clamp(_pitch, -Move.MaxPitch, Move.MaxPitch);
             }
         }
 
         float speed = State.HorizontalSpeed;
-        if (_settings.HeadBob && IsOnFloor() && speed > 0.5f)
+        if (_settings.HeadBob && IsOnFloor() && speed > 0.5f && State.Stance != Stance.Sliding)
         {
             _bobPhase += speed * (float)delta / _view.Camera.HeadBobStride_m * Mathf.Tau;
         }
@@ -168,7 +127,8 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
             _bobPhase = Mathf.MoveToward(_bobPhase % Mathf.Tau, 0f, (float)delta * 4f);
         }
 
-        ApplyCamera((float)Engine.GetPhysicsInterpolationFraction(), Mathf.Min(1f, speed / Mathf.Max(0.1f, _move.RunSpeed)));
+        ViewModel.Side = State.Shoulder;
+        ApplyCamera((float)Engine.GetPhysicsInterpolationFraction(), Mathf.Min(1f, speed / Mathf.Max(0.1f, Move.RunSpeed)));
     }
 
     /// <summary>World position where the drawn barrel tip appears (for the ball's visual blend).</summary>
@@ -179,7 +139,9 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
         Vector3 eye = _previousEye.Lerp(_currentEye, alpha);
         float bob = _settings.HeadBob ? Mathf.Sin(_bobPhase) * _view.Camera.HeadBobAmplitude_m * bobWeight : 0f;
         _head.GlobalPosition = eye + new Vector3(0f, bob, 0f);
-        _head.Rotation = new Vector3(_pitch, _yaw, 0f);
+        // Leaning right rolls the view clockwise (negative about the view axis), by part of the body's roll.
+        float roll = Mathf.Lerp(_previousRoll, _currentRoll, alpha) * _view.Camera.LeanRoll;
+        _head.Rotation = new Vector3(_pitch, _yaw, -roll);
 
         // Settings store horizontal FOV at 16:9; Godot's camera FOV is vertical. Wider screens gain width (Hor+).
         float horizontal = Mathf.DegToRad(_settings.FovDeg);
@@ -196,34 +158,12 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
         InputButtons buttons = InputButtons.None;
         if (acceptInput)
         {
-            if (Input.IsActionPressed("fire"))
+            foreach ((string action, InputButtons button) in Bindings)
             {
-                buttons |= InputButtons.Fire;
-            }
-
-            if (Input.IsActionPressed("sprint"))
-            {
-                buttons |= InputButtons.Sprint;
-            }
-
-            if (Input.IsActionPressed("crouch"))
-            {
-                buttons |= InputButtons.Crouch;
-            }
-
-            if (Input.IsActionPressed("walk"))
-            {
-                buttons |= InputButtons.Walk;
-            }
-
-            if (Input.IsActionPressed("refill"))
-            {
-                buttons |= InputButtons.Refill;
-            }
-
-            if (Input.IsActionPressed("fire_mode"))
-            {
-                buttons |= InputButtons.ToggleFireMode;
+                if (Input.IsActionPressed(action))
+                {
+                    buttons |= button;
+                }
             }
         }
 
@@ -236,4 +176,20 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
             Buttons = buttons,
         };
     }
+
+    /// <summary>Input actions (input.jsonc) and the command buttons they hold down.</summary>
+    private static readonly (string Action, InputButtons Button)[] Bindings =
+    {
+        ("fire", InputButtons.Fire),
+        ("sprint", InputButtons.Sprint),
+        ("crouch", InputButtons.Crouch),
+        ("walk", InputButtons.Walk),
+        ("refill", InputButtons.Refill),
+        ("fire_mode", InputButtons.ToggleFireMode),
+        ("lean_left", InputButtons.LeanLeft),
+        ("lean_right", InputButtons.LeanRight),
+        ("swap_shoulder", InputButtons.SwapShoulder),
+        ("slide", InputButtons.Slide),
+        ("jump", InputButtons.Jump),
+    };
 }

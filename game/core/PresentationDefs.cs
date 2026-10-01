@@ -121,9 +121,12 @@ public sealed class FxDef : IValidatable
 
     public int BounceParticles { get; set; }
 
+    public float MinCameraDistance_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MaxBurstsPerFrame), MaxBurstsPerFrame, 0, 200);
+        v.InRange(nameof(MinCameraDistance_m), MinCameraDistance_m, 0, 10);
         v.InRange(nameof(BreakParticles), BreakParticles, 1, 200);
         v.InRange(nameof(BounceParticles), BounceParticles, 1, 200);
     }
@@ -146,6 +149,9 @@ public sealed class CameraDef : IValidatable
 
     public bool HeadBob { get; set; }
 
+    /// <summary>Share of the body's lean roll the camera follows (0 = stays level).</summary>
+    public float LeanRoll { get; set; }
+
     public float HeadBobAmplitude_m { get; set; }
 
     public float HeadBobStride_m { get; set; }
@@ -158,6 +164,7 @@ public sealed class CameraDef : IValidatable
         v.InRange(nameof(FovStep_deg), FovStep_deg, 0.5, 20);
         v.InRange(nameof(NearClip_m), NearClip_m, 0.005, 0.5);
         v.InRange(nameof(FarClip_m), FarClip_m, 50, 10000);
+        v.InRange(nameof(LeanRoll), LeanRoll, 0, 1);
         v.InRange(nameof(HeadBobAmplitude_m), HeadBobAmplitude_m, 0, 0.1);
         v.InRange(nameof(HeadBobStride_m), HeadBobStride_m, 0.2, 5);
     }

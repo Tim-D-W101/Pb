@@ -54,8 +54,9 @@ xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulk
   --write-movie /tmp/cap/f.png --fixed-fps 30 --quit-after 450 res://scenes/Range.tscn -- --demo
 ```
 
-Viewpoints live in the level file (`viewpoints`). Frame rates under lavapipe mean nothing; only
-the owner's hardware can confirm the 60 fps target.
+Viewpoints live in the level file (`viewpoints`). `-- --posture-demo` instead runs a short scripted
+shoulder swap / lean / muzzle-in-cover sequence through the player's own camera. Frame rates under
+lavapipe mean nothing; only the owner's hardware can confirm the 60 fps target.
 
 ## Conventions
 

@@ -11,20 +11,21 @@ using Pb.Sim.Players;
 namespace Pb.Game.Ui;
 
 /// <summary>
-/// Phase 1 HUD: crosshair, gear panel (loader, pods, air in bar, fire mode, refill), perf overlay,
-/// help, target hit tally and toasts. It reads sim state for display only.
+/// HUD (until the match HUD in M2.7): crosshair, gear panel (loader, pods, air in bar, fire mode,
+/// refill), perf overlay, help, range target hit tally and toasts. It reads sim state for display only.
 /// </summary>
 public partial class Hud : CanvasLayer, ISimEventListener
 {
     private const string HelpText =
         "CONTROLS\n" +
-        "WASD move · Mouse look · LMB fire · Shift sprint · Ctrl/C crouch · Alt walk\n" +
+        "WASD move · Mouse look · LMB fire · Shift sprint · Ctrl/C crouch · Alt walk · Space jump\n" +
+        "Q/E lean · X or MMB swap shoulder · V slide (or crouch while sprinting)\n" +
         "R refill from pod · B semi/ramping · Esc release mouse (click to capture)\n" +
-        "Gamepad: sticks · RT fire · L3 sprint · B crouch · X refill · Y fire mode\n\n" +
-        "SANDBOX\n" +
-        "F1 help · F2 arc preview · F3 stress mode (1,000 balls) · F4 perf overlay\n" +
-        "F5 head-bob · F6 reset gear + hit counters · F7 crosshair · F8 vsync\n" +
-        "F9 reload data files · F10 invert Y · F11 fullscreen\n" +
+        "Gamepad: sticks · RT fire · L3 sprint · B crouch · A jump · LB/RB lean · R3 swap · X refill · Y fire mode\n\n" +
+        "DEBUG\n" +
+        "F1 help · F2 arc preview · F3 stress mode (range) · F4 perf overlay\n" +
+        "F5 head-bob · F6 reset gear (+ range hit counters) · F7 crosshair · F8 vsync\n" +
+        "F9 reload data files · F10 invert Y · F11 fullscreen · F12 graphics preset\n" +
         "[ ] field of view · - = mouse sensitivity";
 
     private readonly StringBuilder _text = new();

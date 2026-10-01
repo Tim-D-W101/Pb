@@ -26,7 +26,9 @@
     "distanceFadeLength_m": 25
   },
 
-  "fx": { "maxBurstsPerFrame": 12, "breakParticles": 14, "bounceParticles": 5 },
+  // Impact bursts. Bursts nearer the camera than minCameraDistance_m are skipped: point-blank spray
+  // would fill the screen with flecks (paint on your mask is a separate effect).
+  "fx": { "maxBurstsPerFrame": 12, "breakParticles": 14, "bounceParticles": 5, "minCameraDistance_m": 1.0 },
 
   "camera": {
     // Horizontal field of view at 16:9 (spec: default 90°, adjustable 70–110°). Wider screens see more.
@@ -37,6 +39,8 @@
     "nearClip_m": 0.03,
     // Far enough to reach the edge of the scrubland around a level, where fog has swallowed it.
     "farClip_m": 1500,
+    // How much of the body's lean the view rolls with (0 = the horizon stays level, 1 = full lean).
+    "leanRoll": 0.5,
     // Minimal head-bob (spec §1.5).
     "headBob": true,
     "headBobAmplitude_m": 0.01,

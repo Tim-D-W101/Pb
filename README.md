@@ -29,13 +29,20 @@ The export presets already include the data files. The editor's F5 run uses a De
 | Move / look | WASD / mouse | Left / right stick |
 | Fire | Left mouse | RT / R2 |
 | Sprint (blocks firing) | Shift | L3 |
-| Crouch | Ctrl or C | B / Circle |
+| Crouch (stands up only where there's headroom) | Ctrl or C | B / Circle |
 | Walk | Alt | – |
+| Jump (a small hop) | Space | A / Cross |
+| Lean left / right (stops at walls) | Q / E | LB / RB (L1 / R1) |
+| Swap shoulder (the muzzle moves to the other side) | X or middle mouse | R3 |
+| Slide (from a run; ends crouched) | V, or crouch while sprinting | B while sprinting |
 | Refill loader from a pod (2.5 s) | R | X / Square |
 | Semi ↔ ramping | B | Y / Triangle |
 | Release mouse | Esc | – |
 
-**Sandbox keys:**
+A ball fired while your barrel is behind a wall edge breaks on that wall, as it would in real
+life: to shoot round a left-hand edge, swap to your left shoulder first.
+
+**Debug keys:**
 
 - F1 help, F2 arc preview (predicted path and drop), F3 stress mode (1,000 live balls), F4 performance overlay.
 - F5 head-bob, F6 reset gear and hit counters, F7 crosshair, F8 v-sync.
@@ -72,7 +79,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 69 sim tests (ballistics vs spec, collision, gear, level kit…) — no Godot needed
+dotnet test                                          # 77 sim tests (ballistics vs spec, collision, gear, level kit, movement…) — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report + sim cost at 1k/2k/5k live balls
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the range and the compound (Linux/macOS)
 ```

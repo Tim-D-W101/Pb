@@ -137,14 +137,18 @@ Also: a distant tree line and fog-matched sky so the horizon never shows an edge
 
 ### M2.2 Movement
 
-- [ ] Lean left and right, with a wall check.
-- [ ] Shoulder swap. The muzzle genuinely moves to the other side.
-- [ ] Slide or dive into a crouch.
-- [ ] Snap-shooting timings.
-- [ ] A small jump, stairs, and a headroom check before standing up from a crouch.
-- [ ] Muzzle-in-cover rule: a ball fired while the barrel is behind a wall edge breaks on that wall.
-- [ ] The surface underfoot is tracked, for footstep noise now and footstep audio later.
-- [ ] All values in `movement.jsonc`.
+**Done 2026-10-01.** [Screenshots](reports/phase-2/) of the shoulder swap and lean at a wall corner (`-- --posture-demo`).
+
+- [x] Lean left and right (Q/E), with a wall check: the head is a sphere swept from upright to leaned, and the lean stops short of whatever it would hit. The eye and the marker move with the body; the view rolls with part of the lean.
+- [x] Shoulder swap (X or middle mouse). The muzzle genuinely moves to the other side, and the marker can't fire while it's crossing over.
+- [x] Slide into a crouch (V, or crouch while sprinting): a burst of speed, friction, a little steering, and you can shoot once the marker is up.
+- [x] Snap-shooting timings: lean out 0.16 s and back 0.12 s, swap 0.3 s, and 0.15 s from sprint to firing.
+- [x] A small jump (Space, about 0.5 m), stairs (climbed end to end in CI), and a headroom check before standing up from a crouch.
+- [x] Muzzle-in-cover rule: a ball fired while the barrel is behind a wall edge breaks on that wall. To shoot round a left-hand edge, swap to the left shoulder.
+- [x] The surface underfoot is tracked, and footsteps, slides, jumps and landings emit noise events whose hearing radius depends on pace and surface (metal and gravel carry, grass and dirt don't). Bots will listen for them in M2.5; footstep audio comes later.
+- [x] All values in `movement.jsonc`.
+
+Bots will use the same body as the player (`PawnBody`), so they move by exactly these rules. The sim tests cover every rule above, and the level smoke test now also sprints, slides and jumps in the real scene.
 
 ### M2.3 Players, hitboxes, eliminations
 

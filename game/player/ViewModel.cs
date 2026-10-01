@@ -53,6 +53,9 @@ public partial class ViewModel : Node3D
             tank, new Vector3(0, -0.09f, -0.04f), new Vector3(Mathf.Pi / 2, 0, 0));
     }
 
+    /// <summary>Which shoulder the marker is on: +1 right, −1 left, in between mid-swap (follows the sim).</summary>
+    public float Side { get; set; } = 1f;
+
     /// <summary>Small recoil kick when the local player fires.</summary>
     public void Kick() => _kick = 1f;
 
@@ -63,7 +66,21 @@ public partial class ViewModel : Node3D
             _kick = Mathf.Max(0f, _kick - (float)delta / _kickRecover);
         }
 
-        Position = _rest + new Vector3(0, 0, _kickBack * _kick * _kick);
+        Position = Rest + new Vector3(0, 0, _kickBack * _kick * _kick);
+        Basis = Tilt;
+    }
+
+    /// <summary>Rest position, mirrored across the face for a left-shoulder hold (and dipped mid-swap).</summary>
+    private Vector3 Rest => new(_rest.X * Side, _rest.Y - 0.06f * (1f - Mathf.Abs(Side)), _rest.Z);
+
+    /// <summary>The barrel's yaw toward the crosshair flips with the side.</summary>
+    private Basis Tilt
+    {
+        get
+        {
+            Vector3 euler = _tilt.GetEuler();
+            return Basis.FromEuler(new Vector3(euler.X, euler.Y * Side, euler.Z * Side));
+        }
     }
 
     /// <summary>
@@ -72,7 +89,7 @@ public partial class ViewModel : Node3D
     /// </summary>
     public Vector3 ApparentMuzzle(Camera3D camera)
     {
-        Vector3 tipInCamera = _rest + _tilt * _muzzleTip;
+        Vector3 tipInCamera = Rest + Tilt * _muzzleTip;
         float scale = Mathf.Tan(Mathf.DegToRad(camera.Fov) * 0.5f) / Mathf.Tan(Mathf.DegToRad(_viewFov) * 0.5f);
         var apparent = new Vector3(tipInCamera.X * scale, tipInCamera.Y * scale, tipInCamera.Z);
         return camera.GlobalTransform * apparent;
