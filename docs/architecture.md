@@ -405,17 +405,15 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 ### 14.6 AI
 
-- **Brain.** The state machine, target selection, aim and difficulty are plain C# in `Pb.Sim/AI`. A brain emits `InputCommand`s, exactly like a human.
-- **Interfaces.** The brain sees the world only through two interfaces, and is unit-tested with fakes of both:
-  - `IBotSenses`: line-of-sight queries against the sim collision world, plus events heard from the event queue;
-  - `IBotNavigation`: path queries.
-- **`game/ai`:**
-  - a `NavigationRegion3D` baked at level load from kit geometry, with agent radius, step height and slope from data;
-  - `BotController` is a `CharacterBody3D` with a character scene that follows paths with simple avoidance.
-- **Sight.** Rays run from the eyes to the head, torso and marker of each candidate target. A detection meter fills according to distance, the area's light level, the target's stance and speed, and difficulty.
-- **Hearing.** Shots, breaks and footsteps are heard within data ranges, which are halved when a wall is in the way.
-- **Data.** Behaviours (Sentry, Patroller, Rusher; later Marksman, Flanker) live in `bots/archetypes.jsonc`, and tiers in `bots/difficulty.jsonc`.
-- **Determinism.** Brains draw randomness from per-bot PCG32 streams seeded from the match seed. Headless tests swap the navigation mesh for a grid navigator.
+- **Brain.** The state machine, target selection, aim and difficulty are plain C# in `Pb.Sim/AI` (`BotBrain`). A brain emits `InputCommand`s, exactly like a human, and its body is the same `PawnBody` the player uses.
+- **Squad.** `BotSquad` holds what the bots share: the navigation grid, the cover points (with claims, so two bots don't take one spot), the last step's events, and a budget of path searches per tick. The host feeds it each step's events after stepping.
+- **Navigation (as built).** `NavGrid` is built in `Pb.Sim` at level load from the walkable primitives (plus stair steps): columns of 0.25 m, a "span" wherever a bot can stand with headroom and clear of walls by the agent radius, joined to neighbours within a step. A* (weighted) finds paths, which are then straightened. It replaced the planned Godot `NavigationRegion3D`: an engine-free grid is deterministic and lets CI check paths on the real level and run whole fights in sim tests. `IBotNavigation` is the interface the brain uses.
+- **Cover.** `CoverSet` generates points behind cover-flagged primitives (wall ends, door and window frames, props), full height if they hide a standing head and half if they hide a crouched one, each with the edge to peek round.
+- **Sight.** Rays run from the eyes to the head, chest and hips of each enemy. A detection meter fills according to distance, the area's light level, the target's stance and speed, where in the view they are, and difficulty.
+- **Hearing.** Shots, breaks and footsteps are heard within data ranges, halved when a wall is in the way.
+- **Data.** Behaviours (Sentry, Patroller, Rusher; later Marksman, Flanker) live in `bots/archetypes.jsonc`, tiers in `bots/difficulty.jsonc`, senses in `bots/senses.jsonc`, shared timings in `bots/brain.jsonc` and the grid in `bots/navigation.jsonc`.
+- **`game/ai`.** `BotPilot` drives an `OpponentPawn` with a brain, and `BotDebugOverlay` draws what bots think (F3).
+- **Determinism and tests.** Brains draw randomness from per-bot PCG32 streams seeded from the match seed. Headless tests move bodies over the grid (`NavGridMover`) instead of Godot's collide-and-slide, so a whole round with bots runs in a unit test.
 
 ### 14.7 Asset pipeline
 

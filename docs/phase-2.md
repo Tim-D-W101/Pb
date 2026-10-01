@@ -167,7 +167,7 @@ Bots will use the same body as the player (`PawnBody`), so they move by exactly 
 - [x] Mask spray when a ball breaks within 0.5 m of your face (spec §1.3): drops of that paint colour on your goggles, as strong as the break was close, clearing over 2.5 s.
 - [x] Splats stick to characters as they move, on the part they hit.
 
-Until the bots of M2.5, practice opponents (`bots/practice.jsonc`) stand at the first nine opponent spawns. Those marked as sentries shoot back once they see you, slowly and not very accurately. The level smoke test now also shoots one (it must go out and walk off) and lets a sentry eliminate the player (the spectator view must start). Known gap: opponents walk off in a straight line toward the dead zone, and can bump into walls until M2.5's navigation. Player hitboxes are off on the Phase 1 range, as before.
+Until the bots of M2.5, practice opponents stood at the opponent spawns, and the sentries among them shot back. The level smoke test now also shoots one (it must go out and walk off) and lets a sentry eliminate the player (the spectator view must start). Player hitboxes are off on the Phase 1 range, as before.
 
 ### M2.4 Round rules and level flow
 
@@ -191,20 +191,33 @@ F5 now opens the main menu (`scenes/Main.tscn`). Seven sim tests cover the round
 
 ### M2.5 Opponents
 
-- [ ] Bots produce `InputCommand`s and use the same marker, paint, ballistics and rules as you.
-- [ ] Senses:
-  - sight: a vision cone plus a detection meter that fills faster up close, in the light, and when you stand or move;
-  - hearing: shots, breaks and sprinting footsteps, muffled by walls;
-  - memory of your last known position.
-- [ ] Behaviour: patrol → suspicious → investigate → engage from cover → flank or push → search. Engaging means peeking, snap-shooting and refilling behind cover.
-- [ ] Three behaviours in data:
+**Done 2026-10-01.** [Screenshots](reports/phase-2/) from `-- --bot-demo`: bots fighting from cover, seen with the debug overlay and through your own eyes.
+
+- [x] Bots produce `InputCommand`s and use the same marker, paint, ballistics and rules as you. They move with the same body (`PawnBody`) and can pick up pods when they run dry.
+- [x] Senses (`bots/senses.jsonc`):
+  - sight: a 150° vision cone plus a detection meter that fills faster up close, in the light, in the middle of the view, and when you stand or move; partly hidden counts for less;
+  - hearing: shots, balls breaking close by (they're under fire), and footsteps (each carries its own range from `movement.jsonc`), muffled by walls;
+  - memory of your last known position, forgotten after 25 s;
+  - someone already spotted who reappears within 4 s (a peek round cover) takes a third of the reaction time.
+- [x] Behaviour: patrol or post → suspicious → investigate → engage from cover → flank or push → search → return.
+  - Engaging means shooting from the open on first sight, then moving to cover and cycling: hide (crouch, refill), then peek and snap-shoot.
+  - Peeking stands up over low cover, or steps past an edge, leaning and swapping to that shoulder so the muzzle-in-cover rule doesn't stop the shot.
+  - They won't fire into cover, through a teammate, or before they've reacted.
+  - Eliminated, they walk to the dead zone along a path.
+- [x] Three behaviours in data:
   - **Sentry** holds a post;
   - **Patroller** walks a route;
   - **Rusher** is aggressive and fires on the move.
-- [ ] Aim uses the shared trajectory solver: it leads moving targets and allows for drop, plus difficulty-based error.
-- [ ] Behaviours in `bots/archetypes.jsonc`. Difficulty tiers (Easy, Normal, Hard) in `bots/difficulty.jsonc`: reaction time, aim error, tracking lag, decision speed, sight range and aggression. Opponent counts per level and tier are in the ladder file.
-- [ ] Navigation mesh baked when the level loads. Cover points are generated from the level geometry: door frames, window edges, wall ends and props.
-- [ ] Debug overlay: sight cones, detection meters, states, paths, cover points.
+- [x] Aim uses the shared flat-fire maths: it leads moving targets by the time of flight and holds over for drop. Difficulty adds an error that starts as a snap shot and settles while the target stays steady.
+- [x] Behaviours in `bots/archetypes.jsonc`. Difficulty tiers (Easy, Normal, Hard) in `bots/difficulty.jsonc`: reaction time, aim error, tracking lag, decision speed, sight range, detection, hearing, turn speed, trigger rate and aggression. Shared timings are in `bots/brain.jsonc`. Each ladder tier names its bot difficulty, and opponent counts per level and tier are in the ladder file.
+- [x] A navigation grid is built when the level loads (about 0.2 s), and cover points are generated from the level geometry: door frames, window edges, wall ends and props. Oxbarrow Works has 891 cover points.
+  - The grid is built in `Pb.Sim` from the same walkable primitives as everything else, instead of a Godot navigation mesh. It's engine-free and deterministic, so CI checks paths on the real level and whole fights run in sim tests without Godot.
+  - It reaches every spawn, patrol point and pickup, both upper floors and the 0.9 m guardhouse door.
+- [x] Debug overlay (F3 in a level): sight cones coloured by the detection meter, mode labels, paths, held cover, and every cover point.
+
+Thirty new sim tests cover the grid on the real level, cover generation, and bots in headless fights: spotting, hearing (and not through walls), investigating, patrolling, fighting from cover, refilling, rushing, difficulty, walking off, determinism, and a nine-bot squad thinking without allocating. They include the plan's criteria: the aim solver lands within 5 cm of a still target at 10–40 m, nobody is seen through a wall, detection is slower at range, in the dark, crouched and still, and each tier is at least as good as the one below. The level smoke test now runs against real bots. Nine Hard bots in a fight cost about 0.02 ms of brain time per tick (`tools/Pb.Bench`).
+
+Known gaps: bots don't jump, slide or climb anything but stairs, and their teamwork stops at not taking each other's cover. A long cross-map path search can take around 10 ms in the cloud container, so searches are spread out to one per tick.
 
 ### M2.6 Art pass (Higgsfield)
 
