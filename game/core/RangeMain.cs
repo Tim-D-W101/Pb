@@ -80,7 +80,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         _world.Build(_data.Range);
         _player.Initialize(_sim, state, _view, _settings, teamColor);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
-        _splats.Initialize(_view, (i, _) => _world.TargetNode(i));
+        _splats.Initialize(_view, (i, _, _) => _world.TargetNode(i) is { } target ? new SplatAnchor(target) : null);
         GetNode<ImpactFx>("ImpactFx").Initialize(_view);
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;

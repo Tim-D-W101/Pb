@@ -218,6 +218,33 @@
     "bounceRange_m": 6
   },
 
+  // Opponents are rigged models from the art pipeline, posed every frame to match the sim's hitbox
+  // rig (stance, lean, aim, hands on the marker). A missing model falls back to drawing the hitboxes.
+  "characters": {
+    // Models, dealt to opponents in turn, and tints for their colours, so copies of one model differ.
+    "models": ["res://art/models/opponent_a.glb"],
+    "tints": ["#ffffff", "#c8ccd4", "#e8dcc0"],
+    // The team-colour armband on each upper arm.
+    "armbandRadius_m": 0.068,
+    "armbandWidth_m": 0.09,
+    // Steps while moving (until walk clips arrive): stride, foot lift, the speed of a full stride and
+    // how long steps take to reach it from a standstill, and how far the hips bob at each footfall.
+    "stride_m": 0.75,
+    "stepLift_m": 0.12,
+    "fullStrideSpeed_mps": 3.0,
+    "strideEase_s": 0.25,
+    "hipBob_m": 0.025,
+    // How far the hips drop for each metre the eye drops when crouching.
+    "hipDropPerEyeDrop": 0.85,
+    // Shares of the aim pitch the chest and the head take.
+    "chestPitch": 0.3,
+    "headPitch": 0.6,
+    // Where the wrists sit on the marker: along it from the back (0) to the front (1), and below it.
+    "triggerGrip": 0.3,
+    "supportGrip": 0.85,
+    "gripDrop_m": 0.03
+  },
+
   // Paint on your mask when a ball breaks near your face (spec §1.3): drops of the ball's colour that
   // block part of the view and clear over duration_s.
   "maskSpray": { "duration_s": 2.5, "maxOpacity": 0.85, "drops": 6, "minSize": 0.12, "maxSize": 0.45 },

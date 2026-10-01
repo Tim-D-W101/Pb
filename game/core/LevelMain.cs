@@ -275,7 +275,8 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         GD.Print($"Level {_level.Id} ({_tier.Id}, {_opponents.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
                  $"{_world.MeshCount} meshes, {_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
-                 $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}");
+                 $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
+                 $"art {(ArtFiles.Disabled ? "off" : "on")} ({_opponents.Count(o => o.Visual.HasModel)} opponents drawn as models)");
         _ready = true;
     }
 
@@ -314,7 +315,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             brain.Passive = !hostile;
             var pawn = new OpponentPawn { Name = $"Opponent_{spawn.Id}" };
             parent.AddChild(pawn);
-            pawn.Initialize(_sim, state, jersey, new BotPilot(brain));
+            pawn.Initialize(_sim, state, jersey, new BotPilot(brain), _view.Characters, i);
             _opponents.Add(pawn);
             _bots.Add(brain);
         }
@@ -336,7 +337,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         return dealt;
     }
 
-    private Node3D? SplatParent(int receiverId, int part)
+    private SplatAnchor? SplatParent(int receiverId, int part, Vector3 point)
     {
         if (!PlayerHitboxes.IsPlayer(receiverId))
         {
@@ -345,7 +346,7 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         int id = PlayerHitboxes.PlayerIdOf(receiverId);
         OpponentPawn? pawn = _opponents.FirstOrDefault(o => o.State.Id == id);
-        return pawn?.Visual.PartNode((Pb.Sim.Collision.HitboxPart)part);
+        return pawn?.Visual.PartNode((Pb.Sim.Collision.HitboxPart)part, point);
     }
 
     private void OnEliminated(in SimEvent e)

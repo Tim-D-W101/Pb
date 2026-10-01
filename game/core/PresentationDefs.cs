@@ -46,6 +46,8 @@ public sealed class PresentationDef : IValidatable
 
     public WindowLightDef WindowLight { get; set; } = new();
 
+    public CharactersDef Characters { get; set; } = new();
+
     public MaskSprayViewDef MaskSpray { get; set; } = new();
 
     public SpectatorDef Spectator { get; set; } = new();
@@ -83,6 +85,7 @@ public sealed class PresentationDef : IValidatable
         Shafts.Validate(v.Scope(nameof(Shafts)));
         Dust.Validate(v.Scope(nameof(Dust)));
         WindowLight.Validate(v.Scope(nameof(WindowLight)));
+        Characters.Validate(v.Scope(nameof(Characters)));
         MaskSpray.Validate(v.Scope(nameof(MaskSpray)));
         Spectator.Validate(v.Scope(nameof(Spectator)));
         Hud.Validate(v.Scope(nameof(Hud)));
@@ -658,6 +661,77 @@ public sealed class WindowLightDef : IValidatable
                 v.Error(key, $"'{value}' is not a valid colour");
             }
         }
+    }
+}
+
+/// <summary>
+/// How opponents are drawn: rigged models from the art pipeline, posed to the sim's hitbox rig. A
+/// missing model falls back to drawing the hitboxes themselves.
+/// </summary>
+public sealed class CharactersDef : IValidatable
+{
+    /// <summary>Models, dealt to opponents in turn.</summary>
+    public string[] Models { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Tints for the models' colours, dealt in turn, so copies of one model differ.</summary>
+    public string[] Tints { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>The team-colour armband on each upper arm.</summary>
+    public float ArmbandRadius_m { get; set; }
+
+    public float ArmbandWidth_m { get; set; }
+
+    /// <summary>Steps while moving: stride length and how high a foot lifts.</summary>
+    public float Stride_m { get; set; }
+
+    public float StepLift_m { get; set; }
+
+    /// <summary>Speed at which steps reach their full stride, and how long they take to get there from a standstill.</summary>
+    public float FullStrideSpeed_mps { get; set; }
+
+    public float StrideEase_s { get; set; }
+
+    /// <summary>How far the hips bob down at each footfall.</summary>
+    public float HipBob_m { get; set; }
+
+    /// <summary>How far the hips drop for each metre the eye drops (crouching).</summary>
+    public float HipDropPerEyeDrop { get; set; }
+
+    /// <summary>Shares of the aim pitch the chest and the head take.</summary>
+    public float ChestPitch { get; set; }
+
+    public float HeadPitch { get; set; }
+
+    /// <summary>Where the wrists sit on the marker: along it from the back (0) to the front (1), and below it.</summary>
+    public float TriggerGrip { get; set; }
+
+    public float SupportGrip { get; set; }
+
+    public float GripDrop_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        foreach (string tint in Tints)
+        {
+            if (!Godot.Color.HtmlIsValid(tint))
+            {
+                v.Error(nameof(Tints), $"'{tint}' is not a valid colour");
+            }
+        }
+
+        v.InRange(nameof(ArmbandRadius_m), ArmbandRadius_m, 0.01, 0.3);
+        v.InRange(nameof(ArmbandWidth_m), ArmbandWidth_m, 0.01, 0.5);
+        v.InRange(nameof(Stride_m), Stride_m, 0.1, 2);
+        v.InRange(nameof(StepLift_m), StepLift_m, 0, 0.5);
+        v.InRange(nameof(FullStrideSpeed_mps), FullStrideSpeed_mps, 0.1, 20);
+        v.InRange(nameof(StrideEase_s), StrideEase_s, 0.01, 5);
+        v.InRange(nameof(HipBob_m), HipBob_m, 0, 0.2);
+        v.InRange(nameof(HipDropPerEyeDrop), HipDropPerEyeDrop, 0, 1.5);
+        v.InRange(nameof(ChestPitch), ChestPitch, 0, 1);
+        v.InRange(nameof(HeadPitch), HeadPitch, 0, 1);
+        v.InRange(nameof(TriggerGrip), TriggerGrip, 0, 1);
+        v.InRange(nameof(SupportGrip), SupportGrip, 0, 1);
+        v.InRange(nameof(GripDrop_m), GripDrop_m, -0.3, 0.3);
     }
 }
 

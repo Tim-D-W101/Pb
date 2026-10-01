@@ -21,13 +21,15 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
 
     public ICommandSource Pilot => _pilot;
 
-    public void Initialize(SimWorld sim, PlayerState state, Color jersey, ICommandSource pilot)
+    /// <param name="characters">How opponents look (models and tints); null draws the hitbox boxes.</param>
+    /// <param name="look">Which model and tint this opponent gets, dealt in turn.</param>
+    public void Initialize(SimWorld sim, PlayerState state, Color jersey, ICommandSource pilot, CharactersDef? characters = null, int look = 0)
     {
         InitializeBody(sim, state);
         _pilot = pilot;
         Visual = new CharacterVisual { Name = "Visual" };
         AddChild(Visual);
-        Visual.Build(sim, state, jersey);
+        Visual.Build(sim, state, jersey, characters, look);
         _callout = new Label3D
         {
             Name = "Callout",
