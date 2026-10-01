@@ -13,6 +13,9 @@ public sealed class GameSettings
 {
     private const string Path = "user://settings.json";
 
+    /// <summary>Bumped when a default changes for players who already saved settings (1: v-sync on).</summary>
+    private const int CurrentVersion = 1;
+
     private static readonly JsonSerializerOptions Json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -37,6 +40,9 @@ public sealed class GameSettings
     /// <summary>Master volume, 0..1.</summary>
     public float Volume { get; set; } = 0.8f;
 
+    /// <summary>Which defaults these settings have caught up with (<see cref="CurrentVersion"/>).</summary>
+    public int Version { get; set; }
+
     /// <summary>Applies the master volume to the audio bus.</summary>
     public void ApplyVolume() =>
         AudioServer.SetBusVolumeDb(0, Volume <= 0.001f ? -80f : Mathf.LinearToDb(Volume));
@@ -50,8 +56,9 @@ public sealed class GameSettings
             InvertY = defaults.Look.InvertY,
             Crosshair = defaults.Crosshair.Enabled,
             HeadBob = defaults.Camera.HeadBob,
-            Vsync = false,
+            Vsync = defaults.Graphics.Vsync,
             GraphicsPreset = defaults.Graphics.DefaultPreset,
+            Version = CurrentVersion,
         };
 
         if (!FileAccess.FileExists(Path))
@@ -77,6 +84,14 @@ public sealed class GameSettings
         {
             settings.GraphicsPreset = defaults.Graphics.DefaultPreset;
         }
+
+        // Settings saved before v-sync defaulted on had it off without anyone choosing that.
+        if (settings.Version < 1)
+        {
+            settings.Vsync = defaults.Graphics.Vsync;
+        }
+
+        settings.Version = CurrentVersion;
 
         settings.FovDeg = Math.Clamp(settings.FovDeg, defaults.Camera.FovMin_deg, defaults.Camera.FovMax_deg);
         settings.MouseSensitivityDegPerCount = Math.Clamp(settings.MouseSensitivityDegPerCount, 0.001f, 2f);

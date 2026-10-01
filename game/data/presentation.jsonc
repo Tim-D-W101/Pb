@@ -84,6 +84,9 @@
   // fake beams down and drops the fill lights.
   "graphics": {
     "defaultPreset": "medium",
+    // V-sync on by default: no tearing, and frames paced to the monitor. F8 (or the pause menu) turns
+    // it off, to see the uncapped frame rate.
+    "vsync": true,
     "presets": [
       { "name": "low", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
         "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0, "screenAa": "fxaa",

@@ -319,6 +319,9 @@ public sealed class GraphicsDef : IValidatable
 {
     public string DefaultPreset { get; set; } = "";
 
+    /// <summary>Whether v-sync starts on (players can turn it off).</summary>
+    public bool Vsync { get; set; }
+
     public GraphicsPresetDef[] Presets { get; set; } = System.Array.Empty<GraphicsPresetDef>();
 
     public GraphicsPresetDef Find(string name)
