@@ -26,6 +26,16 @@ public enum SimEventType : byte
     /// <summary>Tank pressure dropped below the regulator output; velocity now falls off. Value = pressure (Pa).</summary>
     AirLow,
     GearReset,
+    /// <summary>Movement noise. Position = feet, Surface = underfoot, Value = hearing radius (m), Extra = <see cref="FootstepKind"/>.</summary>
+    Footstep,
+}
+
+public enum FootstepKind : byte
+{
+    Step,
+    Slide,
+    Jump,
+    Land,
 }
 
 public enum DespawnReason : byte

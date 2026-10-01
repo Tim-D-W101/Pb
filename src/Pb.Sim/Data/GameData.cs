@@ -72,7 +72,7 @@ public sealed class GameData
             Fire = ToFire(marker),
             Loader = ToLoader(loader),
             Air = ToAir(air),
-            Movement = ToMovement(movement),
+            Movement = ToMovement(movement, surfaces, files.Movement),
         };
 
         KitCatalog kit = KitCatalog.Load(source, files.Kit, surfaces);
@@ -116,6 +116,7 @@ public sealed class GameData
         MaxDispersion = d.MaxDispersion_deg * Units.DegreesToRadians,
         InheritShooterVelocity = d.InheritShooterVelocity,
         MuzzleOffset = Validator.ToVector3(d.MuzzleOffset_m),
+        MuzzleBlockedBreaks = d.MuzzleBlockedBreaks,
         ConvergenceDistance = d.ConvergenceDistance_m,
         MinAimDistance = d.MinAimDistance_m,
         MaxAimDistance = d.MaxAimDistance_m,
@@ -152,7 +153,7 @@ public sealed class GameData
         LowWarningPressure = d.LowWarning_bar * Units.BarToPascals,
     };
 
-    public static MovementParams ToMovement(MovementDef d) => new()
+    public static MovementParams ToMovement(MovementDef d, SurfaceRegistry surfaces, string file) => new()
     {
         WalkSpeed = d.WalkSpeed_mps,
         RunSpeed = d.RunSpeed_mps,
@@ -170,7 +171,56 @@ public sealed class GameData
         SprintMinForwardInput = d.SprintMinForwardInput,
         MaxPitch = d.MaxPitch_deg * Units.DegreesToRadians,
         Gravity = d.Gravity_mps2,
+        LeanAngle = d.LeanAngle_deg * Units.DegreesToRadians,
+        LeanPivotBelowEye = d.LeanPivotBelowEye_m,
+        LeanInTime = d.LeanInTime_s,
+        LeanReturnTime = d.LeanReturnTime_s,
+        HeadRadius = d.HeadRadius_m,
+        ShoulderSwapTime = d.ShoulderSwapTime_s,
+        SlideMinSpeed = d.SlideMinSpeed_mps,
+        SlideBoost = d.SlideBoost_mps,
+        SlideMaxSpeed = d.SlideMaxSpeed_mps,
+        SlideFriction = d.SlideFriction_mps2,
+        SlideEndSpeed = d.SlideEndSpeed_mps,
+        SlideMaxTime = d.SlideMaxTime_s,
+        SlideCooldown = d.SlideCooldown_s,
+        SlideSteering = d.SlideSteering,
+        SlideEyeHeight = d.SlideEyeHeight_m,
+        SlideCapsuleHeight = d.SlideCapsuleHeight_m,
+        JumpSpeed = d.JumpSpeed_mps,
+        JumpCooldown = d.JumpCooldown_s,
+        SprintRecoveryTime = d.SprintRecoveryTime_s,
+        Footsteps = ToFootsteps(d.Footsteps, surfaces, file),
     };
+
+    private static FootstepParams ToFootsteps(FootstepsDef d, SurfaceRegistry surfaces, string file)
+    {
+        var loudness = new float[surfaces.Count];
+        Array.Fill(loudness, 1f);
+        foreach ((string name, float value) in d.SurfaceLoudness)
+        {
+            if (!surfaces.TryGet(name, out SurfaceId id))
+            {
+                throw new DataException(file, $"footsteps.surfaceLoudness: unknown surface '{name}' (known: {string.Join(", ", surfaces.Names)})");
+            }
+
+            loudness[id.Value] = value;
+        }
+
+        return new FootstepParams
+        {
+            Stride = d.Stride_m,
+            CrouchRadius = d.CrouchRadius_m,
+            WalkRadius = d.WalkRadius_m,
+            RunRadius = d.RunRadius_m,
+            SprintRadius = d.SprintRadius_m,
+            SlideRadius = d.SlideRadius_m,
+            JumpRadius = d.JumpRadius_m,
+            LandRadius = d.LandRadius_m,
+            LandMinSpeed = d.LandMinSpeed_mps,
+            SurfaceLoudness = loudness,
+        };
+    }
 
     public static StressSettings ToStress(StressDef d) => new()
     {

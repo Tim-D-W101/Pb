@@ -16,8 +16,9 @@ public struct ShotSolution
     public Vector3 Origin;
     public Vector3 Direction;
     public Vector3 AimPoint;
-    /// <summary>The muzzle was on the far side of a wall; the ball starts at the wall.</summary>
+    /// <summary>The muzzle was on the far side of a wall from the eye; <see cref="Block"/> is where.</summary>
     public bool MuzzleBlocked;
+    public SweepHit Block;
 }
 
 /// <summary>
@@ -71,6 +72,7 @@ public sealed class SimWorld
         var player = new PlayerState(id, team, marker)
         {
             Position = position,
+            LastPosition = position,
             Yaw = yaw,
             EyeHeight = Config.Movement.StandEyeHeight,
         };
@@ -130,9 +132,10 @@ public sealed class SimWorld
                 InputCommand cmd = commands[i];
                 player.Yaw = cmd.Yaw;
                 player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
+                UpdateFootsteps(player);
                 var input = new MarkerInput(
                     cmd.Has(InputButtons.Fire), cmd.Has(InputButtons.Refill), cmd.Has(InputButtons.ToggleFireMode),
-                    player.Sprinting, player.Alive);
+                    player.Sprinting, player.Alive, player.MarkerReady);
                 int count = player.Marker.Update(t0, dt, input, _shots, Events, player.Id, player.Team, Tick);
                 for (int k = 0; k < count; k++)
                 {
@@ -169,7 +172,8 @@ public sealed class SimWorld
         ShotParams p = Config.Shot;
         Vector3 eye = player.EyePosition;
         Vector3 forward = ViewAngles.Forward(player.Yaw, player.Pitch);
-        Vector3 muzzle = eye + ViewAngles.ViewToWorld(p.MuzzleOffset, player.Yaw, player.Pitch);
+        Vector3 muzzle = eye + ViewAngles.ViewToWorld(PlayerPose.MuzzleOffset(p.MuzzleOffset, player.Shoulder, player.LeanRoll),
+            player.Yaw, player.Pitch);
 
         Vector3 far = eye + forward * p.MaxAimDistance;
         float nearest = float.MaxValue;
@@ -191,11 +195,13 @@ public sealed class SimWorld
 
         var solution = new ShotSolution { Origin = muzzle, AimPoint = aim };
 
-        // Don't let the barrel poke through a wall: start the ball where the eye→muzzle line meets it.
+        // The barrel can't poke through a wall: if the eye→muzzle line meets one, the shot starts
+        // there (and, with the muzzle-in-cover rule, breaks on it).
         if (Collision.SweepSphere(eye, muzzle, 0f, out SweepHit block) && block.T < 1f)
         {
             solution.Origin = Vector3.Lerp(eye, muzzle, MathF.Max(0f, block.T - 0.02f));
             solution.MuzzleBlocked = true;
+            solution.Block = block;
         }
 
         solution.Direction = VectorMath.NormalizeOr(aim - solution.Origin, forward);
@@ -217,7 +223,82 @@ public sealed class SimWorld
         Vector3 direction = Dispersion.SampleCone(solution.Direction, DispersionFor(player.HorizontalSpeed), ref rng);
         float speed = MathF.Max(0.5f, shot.MuzzleSpeed + rng.Symmetric(p.VelocityVariance));
         Vector3 velocity = direction * speed + player.Velocity * p.InheritShooterVelocity;
+        if (solution.MuzzleBlocked && p.MuzzleBlockedBreaks)
+        {
+            Ballistics.BreakAtMuzzle(solution.Origin, velocity, solution.Block, player.Id, shot.Sequence, player.Team, Tick, Events);
+            return;
+        }
+
         float firstStep = MathF.Max(1e-5f, Dt - shot.TimeOffset);
         Ballistics.Spawn(solution.Origin, velocity, player.Id, shot.Sequence, player.Team, rng, firstStep, Tick, Events);
     }
+
+    /// <summary>
+    /// Tracks the surface underfoot and emits footstep noise (steps, slides, jumps, landings) from
+    /// how the host moved the player since the last tick. Bots listen for these.
+    /// </summary>
+    private void UpdateFootsteps(PlayerState player)
+    {
+        MovementParams m = Config.Movement;
+        FootstepParams f = m.Footsteps;
+        Vector3 position = player.Position;
+        Vector3 moved = position - player.LastPosition;
+        float distance = MathF.Sqrt(moved.X * moved.X + moved.Z * moved.Z);
+        if (distance > 2f)
+        {
+            distance = 0f; // teleported
+            player.StrideDistance = 0f;
+        }
+
+        if (player.Grounded &&
+            Collision.SweepSphere(position + new Vector3(0f, 0.2f, 0f), position - new Vector3(0f, 0.3f, 0f), 0f, out SweepHit ground))
+        {
+            player.GroundSurface = ground.Surface;
+        }
+
+        if (player.Alive)
+        {
+            if (player.Grounded && !player.LastGrounded && -player.LastVelocity.Y >= f.LandMinSpeed)
+            {
+                Footstep(player, FootstepKind.Land, f.LandRadius);
+            }
+            else if (!player.Grounded && player.LastGrounded && player.Velocity.Y > 0.5f)
+            {
+                Footstep(player, FootstepKind.Jump, f.JumpRadius);
+            }
+
+            if (player.Stance == Stance.Sliding && player.LastStance != Stance.Sliding)
+            {
+                Footstep(player, FootstepKind.Slide, f.SlideRadius);
+            }
+
+            if (player.Grounded && player.Stance != Stance.Sliding)
+            {
+                player.StrideDistance += distance;
+                if (player.StrideDistance >= f.Stride)
+                {
+                    player.StrideDistance %= f.Stride;
+                    float speed = player.HorizontalSpeed;
+                    float radius = player.Stance == Stance.Crouching ? f.CrouchRadius
+                        : player.Sprinting ? f.SprintRadius
+                        : speed <= (m.WalkSpeed + m.RunSpeed) * 0.5f ? f.WalkRadius
+                        : f.RunRadius;
+                    Footstep(player, FootstepKind.Step, radius);
+                }
+            }
+        }
+
+        player.LastPosition = position;
+        player.LastVelocity = player.Velocity;
+        player.LastGrounded = player.Grounded;
+        player.LastStance = player.Stance;
+    }
+
+    private void Footstep(PlayerState player, FootstepKind kind, float radius) =>
+        Events.Add(new SimEvent
+        {
+            Type = SimEventType.Footstep, Tick = Tick, PlayerId = player.Id, Team = player.Team, Position = player.Position,
+            Surface = player.GroundSurface, Value = radius * Config.Movement.Footsteps.Loudness(player.GroundSurface),
+            Extra = (int)kind, TargetId = -1, ColliderId = -1,
+        });
 }

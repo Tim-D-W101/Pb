@@ -66,6 +66,27 @@ public sealed class BallisticsWorld
         return true;
     }
 
+    /// <summary>
+    /// The muzzle-in-cover rule: a shot fired with the barrel behind a wall breaks on that wall at
+    /// once. Emits the shot and its break without a ball ever flying.
+    /// </summary>
+    public void BreakAtMuzzle(Vector3 origin, Vector3 velocity, in SweepHit wall, int owner, uint sequence, byte team, int tick,
+        SimEventQueue events)
+    {
+        SpawnedTotal++;
+        events.Add(new SimEvent
+        {
+            Type = SimEventType.ShotFired, Tick = tick, PlayerId = owner, ShotSequence = sequence, Team = team,
+            Position = origin, Velocity = velocity, TargetId = -1, ColliderId = -1,
+        });
+        events.Add(new SimEvent
+        {
+            Type = SimEventType.BallBroke, Tick = tick, PlayerId = owner, ShotSequence = sequence, Team = team,
+            Surface = wall.Surface, Position = wall.Point, Normal = wall.Normal, Velocity = velocity, Value = velocity.Length(),
+            TargetId = -1, ColliderId = wall.ColliderId,
+        });
+    }
+
     public void Tick(int tick, float dt, SimEventQueue events)
     {
         float k = Projectile.DragFactor;

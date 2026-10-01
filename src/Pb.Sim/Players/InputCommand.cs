@@ -17,6 +17,7 @@ public enum InputButtons : ushort
     LeanRight = 1 << 8,
     SwapShoulder = 1 << 9,
     Slide = 1 << 10,
+    Jump = 1 << 11,
 }
 
 /// <summary>

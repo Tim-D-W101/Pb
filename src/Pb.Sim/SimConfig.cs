@@ -23,8 +23,11 @@ public sealed class ShotParams
     /// <summary>0 = ball ignores the shooter's velocity, 1 = physically inherits it.</summary>
     public required float InheritShooterVelocity { get; init; }
 
-    /// <summary>Muzzle position relative to the eye, view space (x right, y up, z forward).</summary>
+    /// <summary>Muzzle position relative to the eye, view space (x right, y up, z forward), right-shoulder hold.</summary>
     public required Vector3 MuzzleOffset { get; init; }
+
+    /// <summary>A shot whose barrel is behind a wall the eye sees past breaks on that wall.</summary>
+    public required bool MuzzleBlockedBreaks { get; init; }
 
     /// <summary>Aim point distance when nothing is under the crosshair.</summary>
     public required float ConvergenceDistance { get; init; }

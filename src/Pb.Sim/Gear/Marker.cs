@@ -3,7 +3,8 @@ using Pb.Sim.Events;
 namespace Pb.Sim.Gear;
 
 /// <summary>Per-tick marker controls, taken from the player's input command and state.</summary>
-public readonly record struct MarkerInput(bool Trigger, bool Refill, bool ToggleMode, bool Sprinting, bool Alive);
+/// <param name="Ready">The marker is up and settled (not mid shoulder swap or coming out of a sprint).</param>
+public readonly record struct MarkerInput(bool Trigger, bool Refill, bool ToggleMode, bool Sprinting, bool Alive, bool Ready = true);
 
 /// <summary>A shot the marker fired this tick; the sim turns it into a ball.</summary>
 public struct ShotRequest
@@ -77,7 +78,7 @@ public sealed class Marker
         UpdateRefill(dt, input, pull, refillPressed, events, playerId, team, tick);
 
         bool empty = Paint.Loader == 0 || !Air.CanFire;
-        if (pull && empty && !Refill.Active && !input.Sprinting)
+        if (pull && empty && !Refill.Active && !input.Sprinting && input.Ready)
         {
             events.Add(new SimEvent
             {
@@ -85,7 +86,7 @@ public sealed class Marker
             });
         }
 
-        bool blocked = input.Sprinting || Refill.Active || empty;
+        bool blocked = input.Sprinting || !input.Ready || Refill.Active || empty;
         Span<float> offsets = stackalloc float[Math.Min(shots.Length, 8)];
         int wanted = Fire.Update(t0, dt, input.Trigger, blocked, offsets);
 

@@ -27,8 +27,12 @@
   // Pulls arriving while the cap blocks are queued (then fired as soon as allowed).
   "bufferedPulls": 1,
 
-  // Muzzle position relative to the eye: [right, up, forward] in metres.
+  // Muzzle position relative to the eye: [right, up, forward] in metres, for a right-shoulder
+  // hold. A shoulder swap mirrors it, and a lean carries it with the body.
   "muzzleOffset_m": [0.13, -0.11, 0.55],
+  // Muzzle-in-cover rule: if the barrel is behind a wall edge your eye can see past, the ball
+  // breaks on that wall, as it would in real life. Swap shoulders to shoot round left-hand edges.
+  "muzzleBlockedBreaks": true,
 
   // Balls fly from the muzzle toward the point under the crosshair. If nothing is under it,
   // they converge at this distance.

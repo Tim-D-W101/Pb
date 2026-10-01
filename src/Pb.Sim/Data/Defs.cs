@@ -120,6 +120,8 @@ public sealed class MarkerDef : IValidatable
 
     public float[] MuzzleOffset_m { get; set; } = Array.Empty<float>();
 
+    public bool MuzzleBlockedBreaks { get; set; }
+
     public float ConvergenceDistance_m { get; set; }
 
     public float MinAimDistance_m { get; set; }
@@ -314,6 +316,46 @@ public sealed class MovementDef : IValidatable
 
     public float Gravity_mps2 { get; set; }
 
+    public float LeanAngle_deg { get; set; }
+
+    public float LeanPivotBelowEye_m { get; set; }
+
+    public float LeanInTime_s { get; set; }
+
+    public float LeanReturnTime_s { get; set; }
+
+    public float HeadRadius_m { get; set; }
+
+    public float ShoulderSwapTime_s { get; set; }
+
+    public float SlideMinSpeed_mps { get; set; }
+
+    public float SlideBoost_mps { get; set; }
+
+    public float SlideMaxSpeed_mps { get; set; }
+
+    public float SlideFriction_mps2 { get; set; }
+
+    public float SlideEndSpeed_mps { get; set; }
+
+    public float SlideMaxTime_s { get; set; }
+
+    public float SlideCooldown_s { get; set; }
+
+    public float SlideSteering { get; set; }
+
+    public float SlideEyeHeight_m { get; set; }
+
+    public float SlideCapsuleHeight_m { get; set; }
+
+    public float JumpSpeed_mps { get; set; }
+
+    public float JumpCooldown_s { get; set; }
+
+    public float SprintRecoveryTime_s { get; set; }
+
+    public FootstepsDef Footsteps { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(WalkSpeed_mps), WalkSpeed_mps, 0.1, 20);
@@ -332,6 +374,71 @@ public sealed class MovementDef : IValidatable
         v.InRange(nameof(SprintMinForwardInput), SprintMinForwardInput, 0, 1);
         v.InRange(nameof(MaxPitch_deg), MaxPitch_deg, 10, 89.9);
         v.InRange(nameof(Gravity_mps2), Gravity_mps2, 0, 50);
+        v.InRange(nameof(LeanAngle_deg), LeanAngle_deg, 0, 45);
+        v.InRange(nameof(LeanPivotBelowEye_m), LeanPivotBelowEye_m, 0.1, CrouchEyeHeight_m);
+        v.InRange(nameof(LeanInTime_s), LeanInTime_s, 0.01, 2);
+        v.InRange(nameof(LeanReturnTime_s), LeanReturnTime_s, 0.01, 2);
+        v.InRange(nameof(HeadRadius_m), HeadRadius_m, 0.05, 0.3);
+        v.InRange(nameof(ShoulderSwapTime_s), ShoulderSwapTime_s, 0.01, 3);
+        v.InRange(nameof(SlideMinSpeed_mps), SlideMinSpeed_mps, 0.5, 20);
+        v.InRange(nameof(SlideBoost_mps), SlideBoost_mps, 0, 10);
+        v.InRange(nameof(SlideMaxSpeed_mps), SlideMaxSpeed_mps, SlideMinSpeed_mps, 25);
+        v.InRange(nameof(SlideFriction_mps2), SlideFriction_mps2, 0.1, 100);
+        v.InRange(nameof(SlideEndSpeed_mps), SlideEndSpeed_mps, 0, SlideMinSpeed_mps);
+        v.InRange(nameof(SlideMaxTime_s), SlideMaxTime_s, 0.1, 5);
+        v.InRange(nameof(SlideCooldown_s), SlideCooldown_s, 0, 10);
+        v.InRange(nameof(SlideSteering), SlideSteering, 0, 1);
+        v.InRange(nameof(SlideEyeHeight_m), SlideEyeHeight_m, 0.2, CrouchEyeHeight_m);
+        v.InRange(nameof(SlideCapsuleHeight_m), SlideCapsuleHeight_m, Math.Max(0.2, 2 * CapsuleRadius_m), CrouchCapsuleHeight_m);
+        v.InRange(nameof(JumpSpeed_mps), JumpSpeed_mps, 0, 10);
+        v.InRange(nameof(JumpCooldown_s), JumpCooldown_s, 0, 5);
+        v.InRange(nameof(SprintRecoveryTime_s), SprintRecoveryTime_s, 0, 2);
+        Footsteps.Validate(v.Scope(nameof(Footsteps)));
+    }
+}
+
+/// <summary>Footstep noise: what bots can hear, and later what footstep audio plays.</summary>
+public sealed class FootstepsDef : IValidatable
+{
+    public float Stride_m { get; set; }
+
+    public float CrouchRadius_m { get; set; }
+
+    public float WalkRadius_m { get; set; }
+
+    public float RunRadius_m { get; set; }
+
+    public float SprintRadius_m { get; set; }
+
+    public float SlideRadius_m { get; set; }
+
+    public float JumpRadius_m { get; set; }
+
+    public float LandRadius_m { get; set; }
+
+    public float LandMinSpeed_mps { get; set; }
+
+    /// <summary>Loudness by surface name (break_model.jsonc); surfaces not listed count as 1.</summary>
+    public Dictionary<string, float> SurfaceLoudness { get; set; } = new();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Stride_m), Stride_m, 0.2, 5);
+        foreach ((string key, float value) in new[]
+                 {
+                     (nameof(CrouchRadius_m), CrouchRadius_m), (nameof(WalkRadius_m), WalkRadius_m), (nameof(RunRadius_m), RunRadius_m),
+                     (nameof(SprintRadius_m), SprintRadius_m), (nameof(SlideRadius_m), SlideRadius_m), (nameof(JumpRadius_m), JumpRadius_m),
+                     (nameof(LandRadius_m), LandRadius_m),
+                 })
+        {
+            v.InRange(key, value, 0, 200);
+        }
+
+        v.InRange(nameof(LandMinSpeed_mps), LandMinSpeed_mps, 0, 50);
+        foreach ((string surface, float loudness) in SurfaceLoudness)
+        {
+            v.InRange($"{Jsonc.KeyOf(nameof(SurfaceLoudness))}.{surface}", loudness, 0, 10);
+        }
     }
 }
 
