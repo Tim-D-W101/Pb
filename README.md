@@ -118,13 +118,14 @@ reported with the file and key; the game won't silently use a wrong value.
 | `stress.jsonc` | Stress-mode ball count and cannons |
 | `presentation.jsonc` | Team colours, FOV, ball visibility, splats, HUD, audio, lighting, weeds, sunbeams, dust, window light, graphics presets |
 | `input.jsonc` | Key and gamepad bindings |
+| `assets.jsonc` | Provenance of imported art: the Higgsfield job, prompt and source of each texture and model (written by `tools/art/import.sh`) |
 
 ## Test it
 
 ```bash
-dotnet test                                          # 124 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes, rounds, bots…) — no Godot needed
+dotnet test                                          # 126 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes, rounds, bots…) — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost
-tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound and a bot match (Linux/macOS)
+tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, a bot match and the art import (Linux/macOS)
 ```
 
 CI (GitHub Actions) runs all three on every pull request.
@@ -140,10 +141,11 @@ game/        Godot project (open game/project.godot). Scenes, presentation, inpu
   ballistics/ ball renderer, splat decals, impact FX, arc preview
   world/     range builder, targets, compound level builder, materials, lighting, pickups
   ui/        menus, briefing and summary screens, pause menu, HUD
+  tools/     the art import (run headless; left out of exports)
   audio/ shaders/ scenes/
 src/Pb.Sim/  engine-free simulation: ballistics, collision, gear, players, level kit, rounds, bots, data loading (plain C#, no Godot)
 tests/       xUnit tests for Pb.Sim
-tools/       Pb.Bench benchmark, CI scripts
+tools/       Pb.Bench benchmark, CI scripts, art import (tools/art/import.sh)
 docs/        spec, architecture, phase plans and reports
 ```
 

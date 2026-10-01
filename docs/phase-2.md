@@ -223,9 +223,14 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
 **In progress.** The container still can't reach Higgsfield's file host, so the parts that need no downloads came first. [Screenshots](reports/phase-2/) from `-- --shots`.
 
-- [ ] Import pipeline (`tools/art`):
+- [x] Import pipeline (`tools/art/import.sh`, which runs `game/tools/ArtImport` headless). It's ready, but hasn't run on real Higgsfield files yet, since their host is blocked:
   - pull a finished Higgsfield job, make textures tileable, derive normal and roughness maps, and resize;
-  - record the job ID and prompt in `game/data/assets.jsonc`, as a provenance record that the art is original.
+    - the picture is cropped square and resized;
+    - broad uneven lighting is evened out, so tiles don't repeat a light and dark pattern;
+    - seams are blended away within a band at each edge, keeping the contrast;
+    - normal and roughness maps are derived from the brightness;
+    - models are copied in and measured, so the prop's colliders can be fitted to them;
+  - record the job ID and prompt in `game/data/assets.jsonc`, as a provenance record that the art is original. A sim test fails if the kit uses a texture or model without a record. CI runs the texture steps on a generated picture (`--selftest`).
 - [ ] Photographic materials across the whole level. Until they arrive, the procedural weathering shader covers every surface.
 - [x] Lighting presets, dust, light shafts and weeds (`presentation.jsonc`: "weeds", "shafts", "dust", "windowLight" and the graphics presets):
   - **Weeds and dry grass** wherever rain falls: about 50,000 tufts in Oxbarrow Works, placed at load from the level and seeded by its id. They're thick on the scrubland, patchy on dirt and gravel, in a network of cracks on asphalt and concrete, along the foot of walls and props, and under the holes in the warehouse roof. They sway in rolling gusts, shrink into the ground with distance, and never grow over a pickup.

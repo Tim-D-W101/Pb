@@ -40,6 +40,20 @@ tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end
 Godot 4.7.2 .NET is expected on PATH as `godot` (CI installs it with `tools/ci/install-godot.sh`).
 Build `game/Pb.csproj` before running Godot headless.
 
+## Importing art
+
+Art is generated with Higgsfield, then the finished result is imported:
+
+```bash
+tools/art/import.sh texture <material-id> <job-id> <generator> <url> "<prompt>"   # tiling albedo + normal + roughness maps
+tools/art/import.sh model <prop-id> <job-id> <generator> <url> "<prompt>"         # GLB; prints its measured size
+```
+
+Each import records its provenance (job, generator, prompt, URL, files) in `game/data/assets.jsonc`, and a
+sim test fails if the kit uses a texture or model without a record. Then point the material's `albedo`,
+`normal` and `roughnessMap` (`kit/materials.jsonc`) or the prop's `model` (`kit/props.jsonc`) at the files.
+Anything missing falls back to the procedural look or greybox, so the game and CI never depend on art.
+
 ## Verifying visuals without a GPU
 
 A cloud container can render with Mesa's software Vulkan (lavapipe) under Xvfb. Godot's Movie
