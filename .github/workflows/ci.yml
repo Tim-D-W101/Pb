@@ -92,6 +92,8 @@ jobs:
         run: tools/package/windows-build.sh ~/.local/godot/godot builds/windows "$(echo "$HEAD_SHA" | cut -c1-7)"
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Reuse the published art pack while the art is unchanged, so players don't download it again.
+          PB_RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/test-build
       - name: Offer it for download
         uses: actions/upload-artifact@v4
         with:
@@ -106,8 +108,11 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           notes="The newest build of Pb ($(grep '^version=' builds/windows/release/manifest.txt | cut -d= -f2), $(grep '^date=' builds/windows/release/manifest.txt | cut -d= -f2)).
-          First time: download Pb-windows.zip, unzip it and double-click Play.bat. Play.bat keeps the game up to date: it downloads only what changed (Pb-update.zip) before starting the game."
+          First time: download Pb-windows.zip, unzip it and double-click Play.bat. Play.bat keeps the game up to date: before starting the game it downloads only the files that changed (the art is a file of its own, Pb-art.pck)."
           gh release view test-build --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
             gh release create test-build --repo "$GITHUB_REPOSITORY" --prerelease --target "$HEAD_SHA" --title "Pb: latest test build" --notes "$notes"
-          gh release upload test-build builds/windows/release/* --repo "$GITHUB_REPOSITORY" --clobber
+          # The files first and the manifest last, so a launcher never reads a manifest whose files aren't up yet.
+          find builds/windows/release -maxdepth 1 -type f ! -name manifest.txt -print0 |
+            xargs -0 gh release upload test-build --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload test-build builds/windows/release/manifest.txt --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit test-build --repo "$GITHUB_REPOSITORY" --notes "$notes"

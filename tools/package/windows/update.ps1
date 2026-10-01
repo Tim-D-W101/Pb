@@ -1,6 +1,7 @@
 # Pb launcher (Play.bat runs this): brings the game up to date with the latest test build, then starts it.
-# Only what changed is downloaded: the small update pack (the game itself), or the whole game when the
-# engine changed too. Any problem (offline, GitHub down) just starts the version you have.
+# Only what changed is downloaded: each of the game's own files whose fingerprint (SHA-256) differs from
+# the newest build's (the art is a file of its own, so it only comes down when it changed), or the whole
+# game when the engine changed. Any problem (offline, GitHub down) just starts the version you have.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'  # the progress bar makes downloads several times slower
 # GitHub needs TLS 1.2, which Windows PowerShell 5.1 doesn't always offer by default.
@@ -8,35 +9,74 @@ $ProgressPreference = 'SilentlyContinue'  # the progress bar makes downloads sev
 $base = 'https://github.com/Tim-D-W101/Pb/releases/download/test-build'
 $here = $PSScriptRoot
 
-function Read-Manifest([string] $text) {
-    $values = @{}
-    foreach ($line in $text -split "`r?`n") {
-        if ($line -match '^\s*([A-Za-z]+)\s*=\s*(.*?)\s*$') { $values[$Matches[1]] = $Matches[2] }
+# key=value lines, and "file=<sha256> <bytes> <path>" lines listing the game's own files.
+function Read-Manifest([string] $path) {
+    $values = @{ files = @() }
+    if (-not (Test-Path $path)) { return $values }
+    foreach ($line in (Get-Content $path)) {
+        if ($line -match '^\s*file\s*=\s*([0-9a-fA-F]{64})\s+(\d+)\s+(.+?)\s*$') {
+            $values.files += [pscustomobject]@{ Hash = $Matches[1].ToLower(); Size = [long]$Matches[2]; Path = $Matches[3] }
+        } elseif ($line -match '^\s*([A-Za-z]+)\s*=\s*(.*?)\s*$') {
+            $values[$Matches[1]] = $Matches[2]
+        }
     }
     return $values
+}
+
+function Get-Sha256([string] $path) {
+    if (-not (Test-Path $path)) { return '' }
+    return (Get-FileHash $path -Algorithm SHA256).Hash.ToLower()
 }
 
 try {
     # Saved to a file and read back: GitHub serves it as binary, which older PowerShell won't hand back as text.
     $remoteFile = Join-Path $env:TEMP 'Pb-manifest.txt'
     Invoke-WebRequest "$base/manifest.txt" -OutFile $remoteFile -UseBasicParsing -TimeoutSec 15
-    $remote = Read-Manifest (Get-Content $remoteFile -Raw)
+    $remote = Read-Manifest $remoteFile
     $localFile = Join-Path $here 'manifest.txt'
-    $local = if (Test-Path $localFile) { Read-Manifest (Get-Content $localFile -Raw) } else { @{} }
+    $local = Read-Manifest $localFile
     if ($remote.version -and $remote.version -ne $local.version) {
-        $pack = if ($remote.engine -eq $local.engine) { 'Pb-update.zip' } else { 'Pb-windows.zip' }
-        Write-Host "Updating Pb to $($remote.version) ($($remote.date)): downloading $pack..."
-        $zip = Join-Path $env:TEMP "Pb-$($remote.version).zip"
-        $unpacked = Join-Path $env:TEMP "Pb-$($remote.version)"
-        Invoke-WebRequest "$base/$pack" -OutFile $zip -UseBasicParsing
-        if (Test-Path $unpacked) { Remove-Item $unpacked -Recurse -Force }
-        Expand-Archive $zip -DestinationPath $unpacked -Force
-        # The whole game comes in a Pb folder; the update pack holds the files themselves.
-        $from = if (Test-Path (Join-Path $unpacked 'Pb')) { Join-Path $unpacked 'Pb' } else { $unpacked }
-        robocopy $from $here /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-        if ($LASTEXITCODE -ge 8) { throw "couldn't copy the new files in (is the game still running?)" }
-        Remove-Item $zip, $unpacked -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "Updated."
+        if ($remote.engine -ne $local.engine -or $remote.files.Count -eq 0) {
+            # The engine changed: the whole game.
+            Write-Host "Updating Pb to $($remote.version) ($($remote.date)): downloading the whole game..."
+            $zip = Join-Path $env:TEMP "Pb-$($remote.version).zip"
+            $unpacked = Join-Path $env:TEMP "Pb-$($remote.version)"
+            Invoke-WebRequest "$base/Pb-windows.zip" -OutFile $zip -UseBasicParsing
+            if (Test-Path $unpacked) { Remove-Item $unpacked -Recurse -Force }
+            Expand-Archive $zip -DestinationPath $unpacked -Force
+            robocopy (Join-Path $unpacked 'Pb') $here /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+            if ($LASTEXITCODE -ge 8) { throw "couldn't copy the new files in (is the game still running?)" }
+            Remove-Item $zip, $unpacked -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "Updated."
+        } else {
+            # Just the files that differ, each checked against its fingerprint before it replaces yours.
+            $changed = @($remote.files | Where-Object { (Get-Sha256 (Join-Path $here $_.Path)) -ne $_.Hash })
+            if ($changed.Count -gt 0) {
+                $bytes = ($changed | Measure-Object -Property Size -Sum).Sum
+                $amount = if ($bytes -ge 1MB) { '{0:N1} MB' -f ($bytes / 1MB) } else { '{0:N0} KB' -f [math]::Max(1, $bytes / 1KB) }
+                Write-Host ("Updating Pb to {0} ({1}): {2} file(s), {3}..." -f $remote.version, $remote.date, $changed.Count, $amount)
+                $staging = Join-Path $env:TEMP "Pb-$($remote.version)"
+                if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+                New-Item -ItemType Directory -Path $staging | Out-Null
+                foreach ($f in $changed) {
+                    $name = Split-Path $f.Path -Leaf
+                    $download = Join-Path $staging $name
+                    Invoke-WebRequest "$base/$name" -OutFile $download -UseBasicParsing
+                    if ((Get-Sha256 $download) -ne $f.Hash) { throw "$name didn't download properly" }
+                }
+
+                foreach ($f in $changed) {
+                    $target = Join-Path $here $f.Path
+                    New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force | Out-Null
+                    Move-Item (Join-Path $staging (Split-Path $f.Path -Leaf)) $target -Force
+                }
+
+                Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "Updated."
+            }
+
+            Copy-Item $remoteFile $localFile -Force
+        }
     }
 } catch {
     Write-Host "Couldn't update ($($_.Exception.Message)). Starting the version you have."
