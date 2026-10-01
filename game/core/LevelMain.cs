@@ -35,6 +35,7 @@ namespace Pb.Game.Core;
 ///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
+///   --preset=NAME         uses that graphics preset instead of the saved one (for comparing their cost)
 /// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
 /// them. Bots stand at the spawns the tier lists, with the behaviour their spawn's roles name and the
 /// tier's difficulty; F3 shows what they're thinking.
@@ -126,7 +127,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         state.Name = "You";
         Color teamColor = Color.FromHtml(_view.TeamColors[state.Team % _view.TeamColors.Length]);
 
-        GraphicsPresetDef preset = _view.Graphics.Find(_settings.GraphicsPreset);
+        GraphicsPresetDef preset = _view.Graphics.Find(Args.Value("--preset") ?? _settings.GraphicsPreset);
         _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon);
         var dressWatch = Stopwatch.StartNew();
         _weeds = new WeedField { Name = "Weeds" };

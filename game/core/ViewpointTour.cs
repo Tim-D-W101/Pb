@@ -7,7 +7,9 @@ namespace Pb.Game.Core;
 /// <summary>
 /// <c>-- --shots</c>: shows each of the level's viewpoints in turn through a free camera, then quits.
 /// Run with Godot's <c>--write-movie</c> and <c>--fixed-fps</c> to capture screenshots; frames are
-/// counted, so the result is the same at any rendering speed.
+/// counted, so the result is the same at any rendering speed. Without <c>--write-movie</c>, each view's
+/// average frame time is printed too (after a few frames to settle), for comparing presets with
+/// <c>--preset</c>.
 /// </summary>
 public partial class ViewpointTour : Node
 {
@@ -17,6 +19,10 @@ public partial class ViewpointTour : Node
     private Camera3D _camera = null!;
     private LevelLayout _level = null!;
     private int _frame;
+    private ulong _lastUsec;
+    private double _viewUsec;
+    private int _viewFrames;
+    private const int SettleFrames = 3;
 
     public void Start(LevelLayout level, Hud hud, Node3D viewModel, float farClip)
     {
@@ -38,6 +44,21 @@ public partial class ViewpointTour : Node
         }
 
         int index = _frame / _framesPerView;
+        ulong now = Time.GetTicksUsec();
+        if (_frame % _framesPerView >= SettleFrames + 1)
+        {
+            _viewUsec += now - _lastUsec;
+            _viewFrames++;
+        }
+
+        _lastUsec = now;
+        if (_frame > 0 && _frame % _framesPerView == 0 && _viewFrames > 0)
+        {
+            GD.Print($"TOUR view {index - 1}: {_viewUsec / _viewFrames / 1000.0:0.0} ms per frame");
+            _viewUsec = 0;
+            _viewFrames = 0;
+        }
+
         if (index >= _level.Viewpoints.Count)
         {
             GetTree().Quit();
