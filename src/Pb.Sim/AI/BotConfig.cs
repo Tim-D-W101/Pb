@@ -65,6 +65,8 @@ public sealed class BrainParams
     public required float AimTolerance { get; init; }
 
     public required float WalkOffTime { get; init; }
+
+    public required float CalloutCooldown { get; init; }
 }
 
 /// <summary>Sight, hearing and memory (SI, angles in radians), from bots/senses.jsonc.</summary>
@@ -211,6 +213,7 @@ public sealed class BotConfig
             AimSettleTime = brain.AimSettleTime_s,
             AimTolerance = brain.AimTolerance_deg * Units.DegreesToRadians,
             WalkOffTime = brain.WalkOffTime_s,
+            CalloutCooldown = brain.CalloutCooldown_s,
         },
         Navigation = new NavParams
         {

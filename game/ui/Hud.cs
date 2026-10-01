@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text;
 using Godot;
 using Pb.Game.Core;
@@ -12,8 +13,10 @@ using Pb.Sim.Players;
 namespace Pb.Game.Ui;
 
 /// <summary>
-/// HUD (until the match HUD in M2.7): crosshair, gear panel (loader, pods, air in bar, fire mode,
-/// refill), perf overlay, help, range target hit tally and toasts. It reads sim state for display only.
+/// The HUD: crosshair, gear panel (loader, pods, air in bar, fire mode, refill), perf overlay, help and
+/// toasts; on the range the target hit tally, and in a round the match HUD (spec §6): the top bar with
+/// the clock and everyone's in/out icon, the kill feed, subtitles for callouts, pickup prompts and the
+/// hit marker. It reads sim state for display only.
 /// </summary>
 public partial class Hud : CanvasLayer, ISimEventListener
 {
@@ -21,7 +24,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         "CONTROLS\n" +
         "WASD move · Mouse look · LMB fire · Shift sprint · Ctrl/C crouch · Alt walk · Space jump\n" +
         "Q/E lean · X or MMB swap shoulder · V slide (or crouch while sprinting)\n" +
-        "R refill from pod · B semi/ramping · Esc release mouse (click to capture)\n" +
+        "R refill from pod · B semi/ramping · Esc pause menu (settings, restart, quit)\n" +
         "Gamepad: sticks · RT fire · L3 sprint · B crouch · A jump · LB/RB lean · R3 swap · X refill · Y fire mode\n\n" +
         "DEBUG\n" +
         "F1 help · F2 arc preview · F3 stress mode (range) / bot debug (compound) · F4 perf overlay\n" +
@@ -47,6 +50,12 @@ public partial class Hud : CanvasLayer, ISimEventListener
     private ProgressBar _air = null!;
     private ProgressBar _refill = null!;
     private Label _error = null!;
+    private TopBar? _topBar;
+    private KillFeed? _feed;
+    private Subtitles? _subtitles;
+    private Label _prompt = null!;
+    private HudDef? _hudDef;
+    private Color[] _teams = Array.Empty<Color>();
     private double _uiTimer;
     private double _toastTimer;
     private double _helpTimer = 12;
@@ -88,6 +97,10 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _refill = MakeBar(root, new Vector2(-284, -24), new Color(0.95f, 0.8f, 0.2f));
         _refill.Visible = false;
 
+        _prompt = MakeLabel(root, 20, Control.LayoutPreset.Center, new Vector2(0, 46), HorizontalAlignment.Center);
+        _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
+        _prompt.Visible = false;
+
         _error = MakeLabel(root, 20, Control.LayoutPreset.Center, new Vector2(-560, -200));
         _error.Modulate = new Color(1f, 0.5f, 0.45f);
         _error.CustomMinimumSize = new Vector2(1120, 0);
@@ -106,6 +119,34 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _splats = splats;
         ApplyView(view);
     }
+
+    /// <summary>Switches to the match HUD: top bar (with <paramref name="clock"/>), kill feed, subtitles and pickup prompts.</summary>
+    public void InitializeMatch(PresentationDef view, Func<string> clock)
+    {
+        _hudDef = view.Hud;
+        _teams = view.TeamColors.Select(c => Color.FromHtml(c)).ToArray();
+        _hits.Visible = false;
+        Control root = GetNode<Control>("Root");
+        _topBar = new TopBar { Name = "TopBar" };
+        root.AddChild(_topBar);
+        _topBar.Initialize(_sim, _player, _teams, _hudDef.IconSize_px, clock);
+
+        _feed = new KillFeed { Name = "KillFeed" };
+        root.AddChild(_feed);
+        _feed.Configure(_hudDef.KillFeedLines, _hudDef.KillFeedTime_s);
+        Place(_feed, Control.LayoutPreset.TopRight, new Vector2(-24, 64), Vector2.Zero);
+        _feed.GrowHorizontal = Control.GrowDirection.Begin;
+
+        _subtitles = new Subtitles { Name = "Subtitles" };
+        root.AddChild(_subtitles);
+        _subtitles.Configure(_hudDef.SubtitleTime_s);
+        Place(_subtitles, Control.LayoutPreset.CenterBottom, new Vector2(-450, -330), new Vector2(900, 80));
+        _subtitles.GrowVertical = Control.GrowDirection.Begin;
+    }
+
+    /// <summary>A subtitle for something a player shouted.</summary>
+    public void Subtitle(string speaker, int team, string line) =>
+        _subtitles?.Show(speaker, _teams.Length > 0 ? _teams[team % _teams.Length] : Colors.White, line);
 
     public void ApplyView(PresentationDef view)
     {
@@ -129,6 +170,11 @@ public partial class Hud : CanvasLayer, ISimEventListener
 
     public void OnSimEvent(in SimEvent e)
     {
+        if (e.Type == SimEventType.PlayerEliminated && _feed is not null)
+        {
+            Eliminated(e);
+        }
+
         if (e.PlayerId != _player?.Id)
         {
             return;
@@ -154,6 +200,26 @@ public partial class Hud : CanvasLayer, ISimEventListener
         }
     }
 
+    /// <summary>A kill feed line, and the hit marker if it was your ball.</summary>
+    private void Eliminated(in SimEvent e)
+    {
+        PlayerState? victim = _sim.FindPlayer(e.TargetId);
+        PlayerState? shooter = _sim.FindPlayer(e.PlayerId);
+        if (victim is null)
+        {
+            return;
+        }
+
+        string part = SpectatorView.PartName((Pb.Sim.Collision.HitboxPart)e.Extra);
+        string distance = shooter is null ? "" : $" · {System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition):0} m";
+        Color Of(PlayerState p) => _teams[p.Team % _teams.Length];
+        _feed!.Add(shooter?.Name ?? "Stray ball", shooter is null ? Colors.White : Of(shooter), victim.Name, Of(victim), part + distance);
+        if (shooter == _player)
+        {
+            _crosshair.Flash(_hudDef!.HitMarkerTime_s, Color.FromHtml(_hudDef.HitMarkerColor));
+        }
+    }
+
     public override void _Process(double delta)
     {
         if (_sim is null)
@@ -162,6 +228,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         }
 
         _crosshair.Visible = _settings.Crosshair;
+        UpdatePrompt();
         if (_toastTimer > 0 && (_toastTimer -= delta) <= 0)
         {
             _toast.Visible = false;
@@ -224,7 +291,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _gear.Text = _text.ToString();
 
         // In a round there's no gear reset: you find pickups instead.
-        bool round = _roundInfo is not null;
+        bool round = _hudDef is not null;
         _warning.Text = !m.Air.CanFire ? (round ? "TANK EMPTY - find an air tank" : "TANK EMPTY - F6 to reset gear")
             : m.Paint.Loader == 0 ? (m.Paint.PodsRemaining > 0 ? "LOADER EMPTY - press R to refill"
                 : round ? "OUT OF PAINT - find a pod" : "OUT OF PAINT - F6 to reset gear")
@@ -260,24 +327,59 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _perf.Text = _text.ToString();
     }
 
-    /// <summary>In a round: time left and opponents left, shown top right instead of the range's hit tally.</summary>
-    public Func<string>? RoundInfo
+    /// <summary>The nearest pickup within reach, under the crosshair: what it is, how far, and whether you've room for it.</summary>
+    private void UpdatePrompt()
     {
-        get => _roundInfo;
-        set
+        Pb.Sim.Match.PickupSet pickups = _sim.Pickups;
+        if (_hudDef is null || !pickups.Active || !_player.Alive)
         {
-            _roundInfo = value;
-            _hits.AddThemeFontSizeOverride("font_size", 26);
+            _prompt.Visible = false;
+            return;
         }
+
+        int best = -1;
+        float bestDistance = _hudDef.PickupPromptRange_m;
+        for (int i = 0; i < pickups.Items.Count; i++)
+        {
+            System.Numerics.Vector3 d = pickups.Items[i].Position - _player.Position;
+            float flat = MathF.Sqrt(d.X * d.X + d.Z * d.Z);
+            if (!pickups.IsTaken(i) && MathF.Abs(d.Y) < 1.5f && flat <= bestDistance)
+            {
+                best = i;
+                bestDistance = flat;
+            }
+        }
+
+        _prompt.Visible = best >= 0;
+        if (best < 0)
+        {
+            return;
+        }
+
+        bool air = pickups.Items[best].Kind == PickupKind.Air;
+        bool room = air ? _player.Marker.Air.FillFraction < _sim.Config.Rules.AirPickupBelow : HasEmptyPod();
+        string what = air ? "Air tank" : "Paint pod";
+        _prompt.Text = room ? $"{what} · {bestDistance:0.0} m · walk over it" : $"{what} · {(air ? "your tank's still full" : "no empty pod slot")}";
+        _prompt.Modulate = room ? new Color(0.95f, 0.92f, 0.8f) : new Color(0.7f, 0.7f, 0.68f);
     }
 
-    private Func<string>? _roundInfo;
+    private bool HasEmptyPod()
+    {
+        foreach (int pod in _player.Marker.Paint.Pods)
+        {
+            if (pod == 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private void UpdateHitsText()
     {
-        if (_roundInfo is not null)
+        if (_hudDef is not null)
         {
-            _hits.Text = _roundInfo();
             return;
         }
 

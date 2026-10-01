@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using Godot;
 using Pb.Game.Ai;
@@ -60,6 +59,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private DirectionalLight3D _sun = null!;
     private readonly List<OpponentPawn> _opponents = new();
     private readonly List<BotBrain> _bots = new();
+    private int[] _calloutsSeen = Array.Empty<int>();
     private BotSquad _squad = null!;
     private BotDebugOverlay _botDebug = null!;
     private LevelSmokeTest? _smoke;
@@ -148,7 +148,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
-        _hud.RoundInfo = RoundInfo;
+        _hud.InitializeMatch(_view, MatchClock);
         _hud.ShowHelp = false;
         _match = _sim.StartMatch(MatchSetup.From(_tier, state.Id));
         _pickups = new PickupVisuals { Name = "Pickups" };
@@ -271,12 +271,13 @@ public partial class LevelMain : Node3D, ISimEventListener
     {
         var parent = new Node3D { Name = "Opponents" };
         AddChild(parent);
+        string[] callsigns = DealCallsigns(_view.Hud.Callsigns, _data.Config.MatchSeed);
         Color jersey = Color.FromHtml(_view.TeamColors[1 % _view.TeamColors.Length]);
         for (int i = 0; i < _tier.Opponents.Length; i++)
         {
             OpponentSpawn spawn = _level.OpponentSpawns.First(s => s.Id == _tier.Opponents[i]);
             PlayerState state = _sim.AddPlayer(i + 1, 1, spawn.Position, spawn.Yaw);
-            state.Name = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(spawn.Id.Replace('_', ' '));
+            state.Name = callsigns[i % callsigns.Length];
             BotBrain brain = _squad.Add(state, _data.Bots.ArchetypeFor(spawn.Roles)!, _data.Bots.Difficulty[_tier.Bots], spawn);
             brain.Passive = !hostile;
             var pawn = new OpponentPawn { Name = $"Opponent_{spawn.Id}" };
@@ -285,6 +286,22 @@ public partial class LevelMain : Node3D, ISimEventListener
             _opponents.Add(pawn);
             _bots.Add(brain);
         }
+
+        _calloutsSeen = Enumerable.Repeat(-1, _bots.Count).ToArray();
+    }
+
+    /// <summary>The callsigns in a shuffled order for this round (the same order for the same match seed).</summary>
+    private static string[] DealCallsigns(string[] callsigns, ulong seed)
+    {
+        string[] dealt = (string[])callsigns.Clone();
+        var rng = new Pb.Sim.Core.Pcg32(seed ^ 0xCA115165);
+        for (int i = dealt.Length - 1; i > 0; i--)
+        {
+            int j = (int)(rng.NextUInt() % (uint)(i + 1));
+            (dealt[i], dealt[j]) = (dealt[j], dealt[i]);
+        }
+
+        return dealt;
     }
 
     private Node3D? SplatParent(int receiverId, int part)
@@ -416,12 +433,35 @@ public partial class LevelMain : Node3D, ISimEventListener
         _overlay = null;
     }
 
-    private string RoundInfo()
+    /// <summary>The top bar's clock: the full time limit during the briefing, then the time left.</summary>
+    private string MatchClock() =>
+        RoundScreens.Clock(_match.Phase == MatchPhase.Briefing ? _match.Setup.TimeLimit : _match.TimeLeft);
+
+    /// <summary>Shows what the bots shout as subtitles, when you're close enough to hear it.</summary>
+    public override void _Process(double delta)
     {
-        int left = _opponents.Count(o => o.State.Alive);
-        return _match.Phase == MatchPhase.Briefing
-            ? $"{RoundScreens.Clock(_match.Setup.TimeLimit)}  ·  {left} opponents"
-            : $"{RoundScreens.Clock(_match.TimeLeft)}  ·  {left} left";
+        if (!_ready)
+        {
+            return;
+        }
+
+        HudDef hud = _view.Hud;
+        for (int i = 0; i < _bots.Count; i++)
+        {
+            BotBrain bot = _bots[i];
+            if (bot.CalloutTick <= _calloutsSeen[i])
+            {
+                continue;
+            }
+
+            _calloutsSeen[i] = bot.CalloutTick;
+            string[] lines = hud.Callouts.For(bot.Callout);
+            float distance = System.Numerics.Vector3.Distance(bot.Self.Position, _player.State.Position);
+            if (lines.Length > 0 && distance <= hud.SubtitleRange_m)
+            {
+                _hud.Subtitle(bot.Self.Name, bot.Self.Team, lines[(bot.Self.Id * 31 + bot.CalloutTick) % lines.Length]);
+            }
+        }
     }
 
     /// <summary>No input: what an eliminated local player sends while spectating.</summary>

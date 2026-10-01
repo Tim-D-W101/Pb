@@ -45,7 +45,7 @@ public partial class BotDemo : Node, ICommandSource
         sim.PlayerHits.Enabled = false;
 
         // Stand in the open in front of the yard's east sentry (or whoever has room in front).
-        OpponentPawn? anchor = opponents.FirstOrDefault(o => o.State.Name == "Yard East") ?? opponents.FirstOrDefault();
+        OpponentPawn? anchor = opponents.FirstOrDefault(o => o.Name == "Opponent_yard_east") ?? opponents.FirstOrDefault();
         if (anchor is not null && ScenePositions.FindSpot(sim, anchor.State, 18f, out SVector3 spot))
         {
             player.Teleport(spot, ScenePositions.Facing(spot, anchor.State.Position));

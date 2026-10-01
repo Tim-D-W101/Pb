@@ -47,5 +47,9 @@
   "aimTolerance_deg": 1.5,
 
   // Eliminated, they walk to the dead zone and leave the field, at the latest after this long.
-  "walkOffTime_s": 25
+  "walkOffTime_s": 25,
+
+  // They shout (spotted you, lost you, under fire, refilling, hit) at most this often; you see it
+  // as a subtitle when you're close enough to hear (presentation.jsonc "hud").
+  "calloutCooldown_s": 4
 }

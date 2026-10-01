@@ -127,6 +127,35 @@
   // After you're eliminated, a view from above and behind where you stood, facing whoever got you.
   "spectator": { "duration_s": 4.0, "height_m": 1.4, "back_m": 2.5 },
 
+  // The match HUD (spec §6): top bar with the clock and an in/out icon per player, kill feed,
+  // subtitles for what players shout, pickup prompts and a hit marker.
+  "hud": {
+    // Top bar icons, this size.
+    "iconSize_px": 18,
+    // Kill feed: newest on top, this many lines, each shown this long.
+    "killFeedLines": 5,
+    "killFeedTime_s": 6,
+    // Subtitles for callouts ("Contact!", "Hit!"): shown this long, if the caller is within this
+    // distance (about how far a shout carries in the compound).
+    "subtitleTime_s": 2.5,
+    "subtitleRange_m": 35,
+    // A pickup within this distance gets a prompt under the crosshair.
+    "pickupPromptRange_m": 4,
+    // The crosshair flashes this marker when your ball puts someone out.
+    "hitMarkerTime_s": 0.35,
+    "hitMarkerColor": "#ffffff",
+    // Opponents' callsigns, dealt in a shuffled order each round (invented names only).
+    "callsigns": ["Rook", "Magpie", "Tinker", "Moth", "Ferret", "Badger", "Sparrow", "Flint", "Gannet", "Wren", "Otter", "Lark"],
+    // What bots shout; one line is picked per call.
+    "callouts": {
+      "spotted": ["Contact!", "There!", "Eyes on one!", "Over here!"],
+      "lost": ["Lost them.", "Where'd they go?", "Anyone see them?"],
+      "underFire": ["Taking fire!", "Incoming!", "I'm pinned!"],
+      "refill": ["Reloading!", "Changing pods!"],
+      "hit": ["Hit!", "I'm hit!", "Hit, hit!"]
+    }
+  },
+
   "audio": {
     "voices": 24,
     "maxSoundsPerFrame": 6,

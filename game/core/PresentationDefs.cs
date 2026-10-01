@@ -1,3 +1,4 @@
+using System.Linq;
 using Pb.Sim.Data;
 
 namespace Pb.Game.Core;
@@ -40,6 +41,8 @@ public sealed class PresentationDef : IValidatable
 
     public SpectatorDef Spectator { get; set; } = new();
 
+    public HudDef Hud { get; set; } = new();
+
     public void Validate(Validator v)
     {
         if (TeamColors.Length < 2)
@@ -69,6 +72,7 @@ public sealed class PresentationDef : IValidatable
         Horizon.Validate(v.Scope(nameof(Horizon)));
         MaskSpray.Validate(v.Scope(nameof(MaskSpray)));
         Spectator.Validate(v.Scope(nameof(Spectator)));
+        Hud.Validate(v.Scope(nameof(Hud)));
     }
 }
 
@@ -554,6 +558,87 @@ public sealed class MaskSprayViewDef : IValidatable
         v.InRange(nameof(Drops), Drops, 1, 32);
         v.InRange(nameof(MinSize), MinSize, 0.01, 2);
         v.InRange(nameof(MaxSize), MaxSize, MinSize, 2);
+    }
+}
+
+/// <summary>The match HUD: top bar, kill feed, subtitles, pickup prompts, hit marker, callsigns and callouts.</summary>
+public sealed class HudDef : IValidatable
+{
+    public float IconSize_px { get; set; }
+
+    public int KillFeedLines { get; set; }
+
+    public float KillFeedTime_s { get; set; }
+
+    public float SubtitleTime_s { get; set; }
+
+    public float SubtitleRange_m { get; set; }
+
+    public float PickupPromptRange_m { get; set; }
+
+    public float HitMarkerTime_s { get; set; }
+
+    public string HitMarkerColor { get; set; } = "";
+
+    public string[] Callsigns { get; set; } = System.Array.Empty<string>();
+
+    public CalloutsDef Callouts { get; set; } = new();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(IconSize_px), IconSize_px, 6, 64);
+        v.InRange(nameof(KillFeedLines), KillFeedLines, 1, 20);
+        v.InRange(nameof(KillFeedTime_s), KillFeedTime_s, 0.5, 60);
+        v.InRange(nameof(SubtitleTime_s), SubtitleTime_s, 0.5, 30);
+        v.InRange(nameof(SubtitleRange_m), SubtitleRange_m, 0, 500);
+        v.InRange(nameof(PickupPromptRange_m), PickupPromptRange_m, 0, 50);
+        v.InRange(nameof(HitMarkerTime_s), HitMarkerTime_s, 0.05, 5);
+        if (!Godot.Color.HtmlIsValid(HitMarkerColor))
+        {
+            v.Error(nameof(HitMarkerColor), $"'{HitMarkerColor}' is not a valid colour");
+        }
+
+        if (Callsigns.Length < 9 || Callsigns.Distinct().Count() != Callsigns.Length)
+        {
+            v.Error(nameof(Callsigns), "needs at least nine different callsigns (one per opponent)");
+        }
+
+        Callouts.Validate(v.Scope(nameof(Callouts)));
+    }
+}
+
+/// <summary>Lines bots shout, by occasion (one is picked per call).</summary>
+public sealed class CalloutsDef : IValidatable
+{
+    public string[] Spotted { get; set; } = System.Array.Empty<string>();
+
+    public string[] Lost { get; set; } = System.Array.Empty<string>();
+
+    public string[] UnderFire { get; set; } = System.Array.Empty<string>();
+
+    public string[] Refill { get; set; } = System.Array.Empty<string>();
+
+    public string[] Hit { get; set; } = System.Array.Empty<string>();
+
+    public string[] For(Pb.Sim.AI.CalloutKind kind) => kind switch
+    {
+        Pb.Sim.AI.CalloutKind.Spotted => Spotted,
+        Pb.Sim.AI.CalloutKind.Lost => Lost,
+        Pb.Sim.AI.CalloutKind.UnderFire => UnderFire,
+        Pb.Sim.AI.CalloutKind.Refill => Refill,
+        Pb.Sim.AI.CalloutKind.Hit => Hit,
+        _ => System.Array.Empty<string>(),
+    };
+
+    public void Validate(Validator v)
+    {
+        foreach ((string name, string[] lines) in new[] { (nameof(Spotted), Spotted), (nameof(Lost), Lost), (nameof(UnderFire), UnderFire), (nameof(Refill), Refill), (nameof(Hit), Hit) })
+        {
+            if (lines.Length == 0)
+            {
+                v.Error(name, "needs at least one line");
+            }
+        }
     }
 }
 

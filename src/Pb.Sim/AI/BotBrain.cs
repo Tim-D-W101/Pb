@@ -41,6 +41,27 @@ public enum BotMode : byte
     Out,
 }
 
+/// <summary>What a bot shouts. The game shows it as a subtitle to anyone close enough to hear.</summary>
+public enum CalloutKind : byte
+{
+    None,
+
+    /// <summary>Spotted an enemy.</summary>
+    Spotted,
+
+    /// <summary>Lost sight of the enemy they were fighting.</summary>
+    Lost,
+
+    /// <summary>Balls breaking around them.</summary>
+    UnderFire,
+
+    /// <summary>Refilling the loader in a fight.</summary>
+    Refill,
+
+    /// <summary>Eliminated: the paintball "Hit!" call.</summary>
+    Hit,
+}
+
 /// <summary>Where a bot fighting from cover is in its cycle.</summary>
 public enum CoverPhase : byte
 {
@@ -128,6 +149,7 @@ public sealed class BotBrain
     private int _hopsLeft;
     private float _lookAround;
     private float _outFor;
+    private float _sinceCallout = float.MaxValue;
 
     public BotBrain(BotSquad squad, PlayerState self, ArchetypeParams archetype, DifficultyParams tier, OpponentSpawn spawn)
     {
@@ -183,6 +205,11 @@ public sealed class BotBrain
 
     public int NextWaypoint => _waypoint;
 
+    /// <summary>The last thing this bot shouted, and on which tick (−1 = nothing yet).</summary>
+    public CalloutKind Callout { get; private set; }
+
+    public int CalloutTick { get; private set; } = -1;
+
     /// <summary>A short description for the debug overlay.</summary>
     public string Label => Phase == CoverPhase.None ? Mode.ToString() : $"{Mode} · {Phase}";
 
@@ -210,6 +237,7 @@ public sealed class BotBrain
         _modeTime += dt;
         _phaseTime += dt;
         _sincePull += dt;
+        _sinceCallout += dt;
         _decideIn -= dt;
         if (_decideIn <= 0f || Urgent())
         {
@@ -236,6 +264,11 @@ public sealed class BotBrain
 
         bool spottedNow = f.Spotted && f.Visible && Mode != BotMode.Engage;
         bool shotAt = f.SinceShotAt < 0.05f && Mode is BotMode.Idle or BotMode.Suspicious or BotMode.Return;
+        if (shotAt)
+        {
+            Shout(CalloutKind.UnderFire);
+        }
+
         return spottedNow || shotAt;
     }
 
@@ -279,6 +312,7 @@ public sealed class BotBrain
             {
                 float aggression = Tier.Aggression * 2f;
                 float roll = _rng.NextFloat();
+                Shout(CalloutKind.Lost);
                 if (roll < Archetype.PushChance * aggression || !Archetype.UseCover)
                 {
                     SetMode(BotMode.Push);
@@ -512,6 +546,7 @@ public sealed class BotBrain
     private void StartEngage(Awareness f)
     {
         SetMode(BotMode.Engage);
+        Shout(CalloutKind.Spotted);
         _peeksWithoutSight = 0;
         PlayerState? target = _sim.FindPlayer(f.TargetId);
         float distance = target is null ? 0f : Vector3.Distance(Self.Position, target.Position);
@@ -983,6 +1018,10 @@ public sealed class BotBrain
         if (force || paint.Loader < paint.Params.Capacity * _b.RefillBelow)
         {
             _cmd.Buttons |= InputButtons.Refill;
+            if (Mode == BotMode.Engage)
+            {
+                Shout(CalloutKind.Refill);
+            }
         }
     }
 
@@ -1021,6 +1060,7 @@ public sealed class BotBrain
     {
         if (Mode != BotMode.Out)
         {
+            Shout(CalloutKind.Hit, force: true);
             SetMode(BotMode.Out);
             _squad.Cover.Release(Self.Id);
             _cover = -1;
@@ -1224,6 +1264,18 @@ public sealed class BotBrain
 
         Mode = mode;
         _modeTime = 0f;
+    }
+
+    private void Shout(CalloutKind kind, bool force = false)
+    {
+        if (!force && _sinceCallout < _b.CalloutCooldown)
+        {
+            return;
+        }
+
+        Callout = kind;
+        CalloutTick = _tick;
+        _sinceCallout = 0f;
     }
 
     private void SetPhase(CoverPhase phase, float length)

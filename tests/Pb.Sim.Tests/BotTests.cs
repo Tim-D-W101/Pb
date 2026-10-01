@@ -197,6 +197,7 @@ public class BotTests
         Assert.Equal(bot.Self.Id, arena.Hero.EliminatedBy);
         SimEvent first = arena.Log.First(e => e.Type == SimEventType.ShotFired && e.PlayerId == bot.Self.Id);
         Assert.True(first.Tick / (float)Second >= arena.Tier.ReactionTime, "fired before it could have reacted");
+        Assert.Equal(CalloutKind.Spotted, bot.Callout); // "Contact!"
     }
 
     [Fact]
@@ -335,6 +336,8 @@ public class BotTests
         arena.HeroScript = arena.ShootAt(bot.Self, interval: 30);
         arena.Run(5 * Second, () => !bot.Self.Alive);
         Assert.False(bot.Self.Alive);
+        arena.Tick();
+        Assert.Equal(CalloutKind.Hit, bot.Callout); // the "Hit!" call
         Vector3 at = bot.Self.Position;
         arena.HeroScript = null;
         arena.Run(30 * Second, () => !bot.Self.Present);
