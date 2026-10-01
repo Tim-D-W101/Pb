@@ -6,8 +6,8 @@ config_version=5
 [application]
 
 config/name="Pb (working title)"
-config/description="First-person tactical paintball - Phase 1 ballistics sandbox"
-run/main_scene="res://scenes/Range.tscn"
+config/description="First-person tactical paintball in an abandoned compound"
+run/main_scene="res://scenes/Level.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
 [display]
@@ -35,3 +35,4 @@ renderer/rendering_method="forward_plus"
 anti_aliasing/quality/msaa_3d=1
 limits/cluster_builder/max_clustered_elements=4096
 lights_and_shadows/directional_shadow/size=4096
+occlusion_culling/use_occlusion_culling=true

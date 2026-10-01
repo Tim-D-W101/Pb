@@ -31,6 +31,9 @@ public sealed class GameSettings
 
     public bool Vsync { get; set; }
 
+    /// <summary>Graphics preset name (see presentation.jsonc "graphics").</summary>
+    public string GraphicsPreset { get; set; } = "";
+
     public static GameSettings Load(PresentationDef defaults)
     {
         var settings = new GameSettings
@@ -41,6 +44,7 @@ public sealed class GameSettings
             Crosshair = defaults.Crosshair.Enabled,
             HeadBob = defaults.Camera.HeadBob,
             Vsync = false,
+            GraphicsPreset = defaults.Graphics.DefaultPreset,
         };
 
         if (!FileAccess.FileExists(Path))
@@ -60,6 +64,11 @@ public sealed class GameSettings
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
             GD.PushWarning($"Ignoring unreadable {Path}: {ex.Message}");
+        }
+
+        if (string.IsNullOrEmpty(settings.GraphicsPreset))
+        {
+            settings.GraphicsPreset = defaults.Graphics.DefaultPreset;
         }
 
         settings.FovDeg = Math.Clamp(settings.FovDeg, defaults.Camera.FovMin_deg, defaults.Camera.FovMax_deg);

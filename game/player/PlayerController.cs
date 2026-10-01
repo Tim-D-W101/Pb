@@ -63,7 +63,7 @@ public partial class PlayerController : CharacterBody3D, IPlayerDriver
         // The head is top-level so it can be interpolated independently of the body's tick steps.
         _head = new Node3D { Name = "Head", TopLevel = true };
         AddChild(_head);
-        Camera = new Camera3D { Name = "Camera", Current = true, Near = view.Camera.NearClip_m, Far = 400f };
+        Camera = new Camera3D { Name = "Camera", Current = true, Near = view.Camera.NearClip_m, Far = view.Camera.FarClip_m };
         _head.AddChild(Camera);
         ViewModel = new ViewModel { Name = "ViewModel" };
         Camera.AddChild(ViewModel);

@@ -36,6 +36,7 @@
     { "name": "fov_down", "keys": ["BracketLeft"] },
     { "name": "fov_up", "keys": ["BracketRight"] },
     { "name": "sensitivity_down", "keys": ["Minus"] },
-    { "name": "sensitivity_up", "keys": ["Equal"] }
+    { "name": "sensitivity_up", "keys": ["Equal"] },
+    { "name": "cycle_graphics", "keys": ["F12"] }
   ]
 }

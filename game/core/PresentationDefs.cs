@@ -30,6 +30,12 @@ public sealed class PresentationDef : IValidatable
 
     public AudioDef Audio { get; set; } = new();
 
+    public GraphicsDef Graphics { get; set; } = new();
+
+    public LightingDef Lighting { get; set; } = new();
+
+    public HorizonDef Horizon { get; set; } = new();
+
     public void Validate(Validator v)
     {
         if (TeamColors.Length < 2)
@@ -54,6 +60,9 @@ public sealed class PresentationDef : IValidatable
         Crosshair.Validate(v.Scope(nameof(Crosshair)));
         ArcPreview.Validate(v.Scope(nameof(ArcPreview)));
         Audio.Validate(v.Scope(nameof(Audio)));
+        Graphics.Validate(v.Scope(nameof(Graphics)));
+        Lighting.Validate(v.Scope(nameof(Lighting)));
+        Horizon.Validate(v.Scope(nameof(Horizon)));
     }
 }
 
@@ -133,6 +142,8 @@ public sealed class CameraDef : IValidatable
 
     public float NearClip_m { get; set; }
 
+    public float FarClip_m { get; set; }
+
     public bool HeadBob { get; set; }
 
     public float HeadBobAmplitude_m { get; set; }
@@ -146,6 +157,7 @@ public sealed class CameraDef : IValidatable
         v.InRange(nameof(Fov_deg), Fov_deg, FovMin_deg, FovMax_deg);
         v.InRange(nameof(FovStep_deg), FovStep_deg, 0.5, 20);
         v.InRange(nameof(NearClip_m), NearClip_m, 0.005, 0.5);
+        v.InRange(nameof(FarClip_m), FarClip_m, 50, 10000);
         v.InRange(nameof(HeadBobAmplitude_m), HeadBobAmplitude_m, 0, 0.1);
         v.InRange(nameof(HeadBobStride_m), HeadBobStride_m, 0.2, 5);
     }
@@ -269,6 +281,150 @@ public sealed class AudioDef : IValidatable
     }
 }
 
+/// <summary>Graphics quality presets (Low / Medium / High). The player's choice is saved in settings.</summary>
+public sealed class GraphicsDef : IValidatable
+{
+    public string DefaultPreset { get; set; } = "";
+
+    public GraphicsPresetDef[] Presets { get; set; } = System.Array.Empty<GraphicsPresetDef>();
+
+    public GraphicsPresetDef Find(string name)
+    {
+        foreach (GraphicsPresetDef p in Presets)
+        {
+            if (p.Name == name)
+            {
+                return p;
+            }
+        }
+
+        foreach (GraphicsPresetDef p in Presets)
+        {
+            if (p.Name == DefaultPreset)
+            {
+                return p;
+            }
+        }
+
+        return Presets[0];
+    }
+
+    public void Validate(Validator v)
+    {
+        if (Presets.Length == 0)
+        {
+            v.Error(nameof(Presets), "must list at least one preset");
+        }
+
+        bool found = false;
+        for (int i = 0; i < Presets.Length; i++)
+        {
+            Presets[i].Validate(v.Item(nameof(Presets), i));
+            found |= Presets[i].Name == DefaultPreset;
+        }
+
+        if (!found)
+        {
+            v.Error(nameof(DefaultPreset), $"no preset named '{DefaultPreset}'");
+        }
+    }
+}
+
+public sealed class GraphicsPresetDef : IValidatable
+{
+    public string Name { get; set; } = "";
+
+    /// <summary>Screen-space ambient occlusion.</summary>
+    public bool Ssao { get; set; }
+
+    /// <summary>Screen-space indirect light (light bouncing off nearby surfaces).</summary>
+    public bool Ssil { get; set; }
+
+    /// <summary>Signed-distance-field global illumination (dynamic bounced light; the costliest).</summary>
+    public bool Sdfgi { get; set; }
+
+    public bool VolumetricFog { get; set; }
+
+    /// <summary>Screen-space reflections (puddles, glass, metal).</summary>
+    public bool Ssr { get; set; }
+
+    public bool Glow { get; set; }
+
+    /// <summary>Interior reflection probes that dim indoor ambient light per room.</summary>
+    public bool AmbientProbes { get; set; }
+
+    public int ShadowSize { get; set; }
+
+    public float ShadowDistance_m { get; set; }
+
+    /// <summary>0 = off, 1 = 2×, 2 = 4×.</summary>
+    public int Msaa { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Name), Name);
+        v.InRange(nameof(ShadowSize), ShadowSize, 512, 16384);
+        v.InRange(nameof(ShadowDistance_m), ShadowDistance_m, 10, 1000);
+        v.InRange(nameof(Msaa), Msaa, 0, 2);
+    }
+}
+
+/// <summary>Sun, sky and atmosphere (spec mood: overcast late afternoon).</summary>
+public sealed class LightingDef : IValidatable
+{
+    /// <summary>Sun height above the horizon.</summary>
+    public float SunElevation_deg { get; set; }
+
+    /// <summary>Compass bearing of the sun: 0 = north, 90 = east, 180 = south, 270 = west.</summary>
+    public float SunAzimuth_deg { get; set; }
+
+    public string SunColor { get; set; } = "";
+
+    public float SunEnergy { get; set; }
+
+    public float SunShadowBlur { get; set; }
+
+    public string SkyTopColor { get; set; } = "";
+
+    public string SkyHorizonColor { get; set; } = "";
+
+    public string GroundColor { get; set; } = "";
+
+    /// <summary>0 = clear sky, 1 = fully overcast.</summary>
+    public float CloudCover { get; set; }
+
+    public float AmbientEnergy { get; set; }
+
+    public string FogColor { get; set; } = "";
+
+    public float FogDensity { get; set; }
+
+    public float Exposure { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(SunElevation_deg), SunElevation_deg, 1, 89);
+        v.InRange(nameof(SunAzimuth_deg), SunAzimuth_deg, 0, 360);
+        v.InRange(nameof(SunEnergy), SunEnergy, 0, 16);
+        v.InRange(nameof(SunShadowBlur), SunShadowBlur, 0, 8);
+        v.InRange(nameof(CloudCover), CloudCover, 0, 1);
+        v.InRange(nameof(AmbientEnergy), AmbientEnergy, 0, 16);
+        v.InRange(nameof(FogDensity), FogDensity, 0, 0.1);
+        v.InRange(nameof(Exposure), Exposure, 0.05, 16);
+        foreach ((string key, string value) in new[]
+                 {
+                     (nameof(SunColor), SunColor), (nameof(SkyTopColor), SkyTopColor), (nameof(SkyHorizonColor), SkyHorizonColor),
+                     (nameof(GroundColor), GroundColor), (nameof(FogColor), FogColor),
+                 })
+        {
+            if (!Godot.Color.HtmlIsValid(value))
+            {
+                v.Error(key, $"'{value}' is not a valid colour");
+            }
+        }
+    }
+}
+
 public sealed class InputDef : IValidatable
 {
     public const string File = "input.jsonc";
@@ -318,3 +474,45 @@ public sealed class InputActionDef : IValidatable
 }
 
 #pragma warning restore CA1707
+
+/// <summary>Distant tree lines around compound levels.</summary>
+public sealed class HorizonDef : IValidatable
+{
+    public string Color { get; set; } = "";
+
+    public HorizonRingDef[] Rings { get; set; } = System.Array.Empty<HorizonRingDef>();
+
+    public void Validate(Validator v)
+    {
+        if (!Godot.Color.HtmlIsValid(Color))
+        {
+            v.Error(nameof(Color), $"'{Color}' is not a valid colour");
+        }
+
+        for (int i = 0; i < Rings.Length; i++)
+        {
+            Rings[i].Validate(v.Item(nameof(Rings), i));
+        }
+    }
+}
+
+public sealed class HorizonRingDef : IValidatable
+{
+    /// <summary>Distance from the level's centre.</summary>
+    public float Radius_m { get; set; }
+
+    public float MinHeight_m { get; set; }
+
+    public float MaxHeight_m { get; set; }
+
+    /// <summary>Share of the ring left as open country, 0..1.</summary>
+    public float Gaps { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Radius_m), Radius_m, 100, 5000);
+        v.InRange(nameof(MinHeight_m), MinHeight_m, 0.5, 200);
+        v.InRange(nameof(MaxHeight_m), MaxHeight_m, MinHeight_m, 200);
+        v.InRange(nameof(Gaps), Gaps, 0, 0.95);
+    }
+}

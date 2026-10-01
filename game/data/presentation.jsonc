@@ -35,6 +35,8 @@
     "fovMax_deg": 110,
     "fovStep_deg": 5,
     "nearClip_m": 0.03,
+    // Far enough to reach the edge of the scrubland around a level, where fog has swallowed it.
+    "farClip_m": 1500,
     // Minimal head-bob (spec §1.5).
     "headBob": true,
     "headBobAmplitude_m": 0.01,
@@ -67,6 +69,52 @@
 
   // Debug arc (F2): predicted path and drop at these distances.
   "arcPreview": { "enabledOnStart": false, "maxTime_s": 4.0, "probes_m": [10, 20, 30, 40] },
+
+  // Graphics presets. Medium targets 60 fps at 1080p on a GTX 1070-class GPU; High adds bounced light
+  // (SDFGI), volumetric dust and reflections. The player's choice is saved in user://settings.json.
+  "graphics": {
+    "defaultPreset": "medium",
+    "presets": [
+      { "name": "low", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
+        "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0 },
+      { "name": "medium", "ssao": true, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
+        "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 90, "msaa": 1 },
+      { "name": "high", "ssao": true, "ssil": true, "sdfgi": true, "volumetricFog": true, "ssr": true, "glow": true,
+        "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 130, "msaa": 1 }
+    ]
+  },
+
+  // Compound lighting: a low, warm late-afternoon sun in the west-south-west through broken overcast.
+  // Overcast means soft shadows that aren't black: a modest sun and plenty of sky light.
+  "lighting": {
+    "sunElevation_deg": 21,
+    "sunAzimuth_deg": 245,
+    "sunColor": "#ffd6ad",
+    "sunEnergy": 1.25,
+    // Blur of the sun's shadow edges (Godot's shadow_blur; 1 = default, higher = softer).
+    "sunShadowBlur": 2.5,
+    "skyTopColor": "#5d6878",
+    "skyHorizonColor": "#bdb8ad",
+    "groundColor": "#4a443b",
+    "cloudCover": 0.75,
+    "ambientEnergy": 0.85,
+    // Distant ground fades into this colour; the sky below the horizon uses it too, so the edge of
+    // the world never shows.
+    "fogColor": "#a8a59c",
+    "fogDensity": 0.0028,
+    "exposure": 1.0
+  },
+
+  // Distant tree lines around compound levels, so the horizon reads as land rather than a ruler-
+  // straight edge. Each ring is a jagged silhouette with gaps of open country; fog fades it into
+  // the sky. Keep the rings inside camera.farClip_m.
+  "horizon": {
+    "color": "#3b4232",
+    "rings": [
+      { "radius_m": 340, "minHeight_m": 6, "maxHeight_m": 17, "gaps": 0.3 },
+      { "radius_m": 680, "minHeight_m": 12, "maxHeight_m": 34, "gaps": 0.15 }
+    ]
+  },
 
   "audio": {
     "voices": 24,
