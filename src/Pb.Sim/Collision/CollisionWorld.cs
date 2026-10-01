@@ -169,41 +169,21 @@ public sealed class CollisionWorld : ICollisionWorld
 
         if (_cellsX > 0)
         {
-            // Twice the radius: boxes and tilted cylinders inflated per-axis can reach up to √3·r past
-            // their tight bounds at the corners.
-            Aabb segment = Aabb.FromSegment(from, to, 2f * radius + 1e-4f);
-            if (TryCellRange(segment, out int x0, out int z0, out int x1, out int z1))
+            // Long segments (aim and sight lines) are walked in chunks of two cells, so only the cells
+            // along the line are visited and the walk stops at the first chunk that ends past a hit.
+            // A contact at parameter T always lies in the chunk containing T, and every collider near
+            // that chunk is tested against the whole segment, so the result equals one big query.
+            float lengthXz = MathF.Sqrt(d.X * d.X + d.Z * d.Z);
+            int chunks = lengthXz > 4f * _cellSize ? (int)MathF.Ceiling(lengthXz / (2f * _cellSize)) : 1;
+            int query = NextQuery();
+            for (int c = 0; c < chunks; c++)
             {
-                int query = NextQuery();
-                for (int z = z0; z <= z1; z++)
+                float ta = c / (float)chunks;
+                float tb = (c + 1) / (float)chunks;
+                TestChunk(from, d, radius, ta, tb, query, ref best, ref hit);
+                if (best <= tb)
                 {
-                    for (int x = x0; x <= x1; x++)
-                    {
-                        int cell = z * _cellsX + x;
-                        for (int k = _cellStart[cell]; k < _cellStart[cell + 1]; k++)
-                        {
-                            int id = _cellItems[k];
-                            if (_stamp[id] == query)
-                            {
-                                continue;
-                            }
-
-                            _stamp[id] = query;
-                            if (!_bounds[id].Overlaps(segment))
-                            {
-                                continue;
-                            }
-
-                            Collider c = _colliders[id];
-                            if (c.Shape.Sweep(from, d, radius, out float t, out Vector3 n) && t < best)
-                            {
-                                best = t;
-                                hit.Normal = n;
-                                hit.Surface = c.Surface;
-                                hit.ColliderId = id;
-                            }
-                        }
-                    }
+                    break;
                 }
             }
         }
@@ -243,6 +223,48 @@ public sealed class CollisionWorld : ICollisionWorld
         hit.T = best;
         hit.Point = from + d * best;
         return true;
+    }
+
+    private void TestChunk(Vector3 from, Vector3 d, float radius, float ta, float tb, int query, ref float best, ref SweepHit hit)
+    {
+        // Twice the radius: boxes and tilted cylinders inflated per-axis can reach up to √3·r past
+        // their tight bounds at the corners.
+        Aabb chunk = Aabb.FromSegment(from + d * ta, from + d * tb, 2f * radius + 1e-4f);
+        if (!TryCellRange(chunk, out int x0, out int z0, out int x1, out int z1))
+        {
+            return;
+        }
+
+        for (int z = z0; z <= z1; z++)
+        {
+            for (int x = x0; x <= x1; x++)
+            {
+                int cell = z * _cellsX + x;
+                for (int k = _cellStart[cell]; k < _cellStart[cell + 1]; k++)
+                {
+                    int id = _cellItems[k];
+                    if (_stamp[id] == query)
+                    {
+                        continue;
+                    }
+
+                    if (!_bounds[id].Overlaps(chunk))
+                    {
+                        continue; // may still overlap a later chunk, so leave it unstamped
+                    }
+
+                    _stamp[id] = query;
+                    Collider c = _colliders[id];
+                    if (c.Shape.Sweep(from, d, radius, out float t, out Vector3 n) && t < best)
+                    {
+                        best = t;
+                        hit.Normal = n;
+                        hit.Surface = c.Surface;
+                        hit.ColliderId = id;
+                    }
+                }
+            }
+        }
     }
 
     private int NextQuery()

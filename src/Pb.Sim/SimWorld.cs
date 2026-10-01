@@ -4,6 +4,7 @@ using Pb.Sim.Collision;
 using Pb.Sim.Core;
 using Pb.Sim.Events;
 using Pb.Sim.Gear;
+using Pb.Sim.Level;
 using Pb.Sim.Players;
 using Pb.Sim.Range;
 
@@ -20,7 +21,7 @@ public struct ShotSolution
 }
 
 /// <summary>
-/// The engine-free simulation for one match (Phase 1: one range). Hosts call <see cref="Step"/> once
+/// The engine-free simulation for one match: the training range or a compound level. Hosts call <see cref="Step"/> once
 /// per fixed tick with one <see cref="InputCommand"/> per player, then read and clear <see cref="Events"/>.
 /// Player movement (collide-and-slide) is done by the host before the step; see <see cref="MovementModel"/>.
 /// </summary>
@@ -60,6 +61,8 @@ public sealed class SimWorld
 
     public RangeLayout? Range { get; private set; }
 
+    public LevelLayout? Level { get; private set; }
+
     public IReadOnlyList<PlayerState> Players => _players;
 
     public PlayerState AddPlayer(int id, byte team, Vector3 position, float yaw)
@@ -75,9 +78,21 @@ public sealed class SimWorld
         return player;
     }
 
+    /// <summary>Loads a compound level: its paint collision and bounds. Range targets and stress cannons are cleared.</summary>
+    public void LoadLevel(LevelLayout level)
+    {
+        Level = level;
+        Range = null;
+        Stress = null;
+        level.BuildCollision(Collision);
+        Targets.Load(Array.Empty<TargetSpec>());
+        Ballistics.Bounds = level.Bounds;
+    }
+
     public void LoadRange(RangeLayout range, StressSettings stress)
     {
         Range = range;
+        Level = null;
         range.BuildCollision(Collision);
         Targets.Load(range.Targets);
         Targets.Update(Time);

@@ -3,6 +3,7 @@ using Pb.Sim.Ballistics;
 using Pb.Sim.Collision;
 using Pb.Sim.Core;
 using Pb.Sim.Gear;
+using Pb.Sim.Level;
 using Pb.Sim.Players;
 using Pb.Sim.Range;
 
@@ -17,11 +18,15 @@ public sealed class GameData
 {
     public const string DefaultSimFile = "sim.jsonc";
 
-    private GameData(SimConfig config, RangeLayout range, StressSettings stress)
+    private GameData(SimConfig config, RangeLayout range, StressSettings stress, KitCatalog kit, LadderDef ladder,
+        IReadOnlyDictionary<string, LevelLayout> levels)
     {
         Config = config;
         Range = range;
         Stress = stress;
+        Kit = kit;
+        Ladder = ladder;
+        Levels = levels;
     }
 
     public SimConfig Config { get; }
@@ -29,6 +34,13 @@ public sealed class GameData
     public RangeLayout Range { get; }
 
     public StressSettings Stress { get; }
+
+    public KitCatalog Kit { get; }
+
+    public LadderDef Ladder { get; }
+
+    /// <summary>Every playable level in the ladder, built and validated at load (keyed by level id).</summary>
+    public IReadOnlyDictionary<string, LevelLayout> Levels { get; }
 
     public static GameData Load(IDataSource source, string simFile = DefaultSimFile)
     {
@@ -63,7 +75,26 @@ public sealed class GameData
             Movement = ToMovement(movement),
         };
 
-        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress));
+        KitCatalog kit = KitCatalog.Load(source, files.Kit, surfaces);
+        LadderDef ladder = Jsonc.Load<LadderDef>(source, files.Ladder);
+        var levels = new Dictionary<string, LevelLayout>(StringComparer.Ordinal);
+        foreach (LadderLevelDef entry in ladder.Levels)
+        {
+            if (string.IsNullOrWhiteSpace(entry.File))
+            {
+                continue; // announced but not built yet
+            }
+
+            LevelDef level = Jsonc.Load<LevelDef>(source, entry.File);
+            if (level.Id != entry.Id)
+            {
+                throw new DataException(files.Ladder, $"levels: entry '{entry.Id}' points at {entry.File}, whose id is '{level.Id}'");
+            }
+
+            levels[entry.Id] = LevelFactory.Build(level, entry.File, kit);
+        }
+
+        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, ladder, levels);
     }
 
     public static ProjectileParams ToProjectile(ProjectileDef d) => new()

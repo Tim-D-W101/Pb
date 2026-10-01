@@ -1,0 +1,10 @@
+// The level ladder: levels in play order, each harder than the last. Entries without a "file"
+// are announced in level select but locked until they're built (Phase 3).
+{
+  "levels": [
+    { "id": "oxbarrow_works", "displayName": "Oxbarrow Works", "file": "levels/oxbarrow_works.jsonc" },
+    { "id": "rail_yard", "displayName": "The Rail Yard", "note": "Coming in Phase 3" },
+    { "id": "cold_store", "displayName": "The Cold Store", "note": "Coming in Phase 3" },
+    { "id": "hospital_wing", "displayName": "The Hospital Wing", "note": "Coming in Phase 3" }
+  ]
+}

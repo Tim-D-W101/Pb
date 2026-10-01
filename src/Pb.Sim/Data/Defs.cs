@@ -45,8 +45,16 @@ public sealed class SimFilesDef : IValidatable
 
     public string Stress { get; set; } = "";
 
+    /// <summary>Level kit index (materials, prop types, building templates).</summary>
+    public string Kit { get; set; } = "";
+
+    /// <summary>The level ladder: which levels exist and in what order.</summary>
+    public string Ladder { get; set; } = "";
+
     public void Validate(Validator v)
     {
+        v.NotEmpty(nameof(Kit), Kit);
+        v.NotEmpty(nameof(Ladder), Ladder);
         v.NotEmpty(nameof(Projectile), Projectile);
         v.NotEmpty(nameof(Marker), Marker);
         v.NotEmpty(nameof(Loader), Loader);

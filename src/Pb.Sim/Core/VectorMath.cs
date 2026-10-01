@@ -21,6 +21,12 @@ public static class VectorMath
         return lengthSquared > 1e-12f ? v / MathF.Sqrt(lengthSquared) : fallback;
     }
 
+    public static Vector2 NormalizeOr(Vector2 v, Vector2 fallback)
+    {
+        float lengthSquared = v.LengthSquared();
+        return lengthSquared > 1e-12f ? v / MathF.Sqrt(lengthSquared) : fallback;
+    }
+
     public static Vector3 MoveTowards(Vector3 current, Vector3 target, float maxDelta)
     {
         Vector3 delta = target - current;

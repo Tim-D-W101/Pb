@@ -1,0 +1,12 @@
+// The level kit: everything levels are built from. Paths are relative to the data folder.
+// Buildings are templates in their own frame; a level places each one with a position and yaw.
+{
+  "materials": "kit/materials.jsonc",
+  "props": "kit/props.jsonc",
+  "buildings": [
+    "kit/buildings/guardhouse.jsonc",
+    "kit/buildings/pump_house.jsonc",
+    "kit/buildings/office_block.jsonc",
+    "kit/buildings/warehouse.jsonc"
+  ]
+}
