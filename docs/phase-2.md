@@ -221,17 +221,18 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
 ### M2.6 Art pass (Higgsfield)
 
-**In progress.** The container still can't reach Higgsfield's file host, so the parts that need no downloads came first. [Screenshots](reports/phase-2/) from `-- --shots`.
+**In progress.** The parts that needed no downloads came first, while the container couldn't reach Higgsfield's file host. Now that it can, real art is coming in, at up to five generations a day (the account's daily cap). [Screenshots](reports/phase-2/) from `-- --shots` and `-- --duel-demo`.
 
-- [x] Import pipeline (`tools/art/import.sh`, which runs `game/tools/ArtImport` headless). It's ready, but hasn't run on real Higgsfield files yet, since their host is blocked:
+- [x] Import pipeline (`tools/art/import.sh`, which runs `game/tools/ArtImport` headless). It has brought in the first real files: four textures, the oil drum and the first opponent. Its steps:
   - pull a finished Higgsfield job, make textures tileable, derive normal and roughness maps, and resize;
     - the picture is cropped square and resized;
     - broad uneven lighting is evened out, so tiles don't repeat a light and dark pattern;
     - seams are blended away within a band at each edge, keeping the contrast;
     - normal and roughness maps are derived from the brightness;
-    - models are copied in and measured, so the prop's colliders can be fitted to them;
-  - record the job ID and prompt in `game/data/assets.jsonc`, as a provenance record that the art is original. A sim test fails if the kit uses a texture or model without a record. CI runs the texture steps on a generated picture (`--selftest`).
-- [ ] Photographic materials across the whole level. Until they arrive, the procedural weathering shader covers every surface.
+    - textures are saved as JPEG with their import settings;
+    - models are tidied (pictures shrunk to JPEG, the baked-in glow removed) and measured, so the prop's colliders can be fitted to them;
+  - record the job ID and prompt in `game/data/assets.jsonc`, as a provenance record that the art is original. A sim test fails if the kit or the characters use a texture or model without a record. CI runs the texture steps on a generated picture (`--selftest`).
+- [ ] Photographic materials across the whole level. Four of 29 so far: cracked asphalt, concrete walls and floors, and red brick, each with normal and roughness maps. The rest still use the procedural weathering shader. Textured materials get broad light and dark patches, so the repeat doesn't read as a grid.
 - [x] Lighting presets, dust, light shafts and weeds (`presentation.jsonc`: "weeds", "shafts", "dust", "windowLight" and the graphics presets):
   - **Weeds and dry grass** wherever rain falls: about 50,000 tufts in Oxbarrow Works, placed at load from the level and seeded by its id. They're thick on the scrubland, patchy on dirt and gravel, in a network of cracks on asphalt and concrete, along the foot of walls and props, and under the holes in the warehouse roof. They sway in rolling gusts, shrink into the ground with distance, and never grow over a pickup.
   - **Sunbeams** through every window, door and roof hole the sun reaches into a roofed space (38 in Oxbarrow Works). Each is a box of light, ray-marched per pixel, that stops at whatever is in front of it, with dust swirling in it and motes drifting through.
@@ -239,14 +240,24 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   - **Presets:** Low draws a third of the weeds to 28 m, with no beams. Medium draws three quarters to 45 m, with beams, dust and fill lights. High draws all of them to 70 m and keeps the beams softer beside its volumetric fog; it has no fill lights, since SDFGI bounces light.
   - **Antialiasing** is now SMAA (FXAA on Low) instead of MSAA. With MSAA on, shaders can't read the depth buffer the beams need to stop at walls, so they would shine through them; the beams switch off if MSAA is turned back on.
   - The level kit records every opening as an aperture in world space (`LevelLayout.Apertures`), checked by two new sim tests.
-- [ ] Props in place with their proxy colliders.
-- [ ] Three rigged, animated opponents, marker in hand, armbands in their team colour.
+- [ ] Props in place with their proxy colliders. So far the oil drum: the generated model, 0.88 m tall, matching its collider.
+- [ ] Three rigged, animated opponents, marker in hand, armbands in their team colour. One so far, dealt to every opponent with a different tint (`presentation.jsonc` → `characters`):
+  - It's posed to the sim's hitboxes every frame, on top of its idle clip:
+    - the hips drop for a crouch;
+    - the spine rolls with the lean;
+    - the chest and head follow the aim;
+    - the feet step as it moves (IK);
+    - both hands hold the marker (IK).
+  - Eliminated opponents still raise the marker and walk off.
+  - A team-colour armband sits on each upper arm.
+  - Splats stick to the nearest bone and move with it. They reach through to the model's surface, which lies inside the hitbox in some places and bulges past it in others.
+  - The marker, loader and tank are still drawn as boxes. Walk and run clips come next.
 - [ ] Realistic first-person marker, loader and tank.
-- [ ] Everything falls back to greybox when an asset is missing, so the game and CI never depend on the art.
+- [x] Everything falls back when an asset is missing, so the game and CI never depend on the art: materials to the procedural look, props to greybox, opponents to their hitbox boxes. CI's bot match runs with `--no-art` to keep the fallbacks working.
 
 ### M2.7 HUD
 
-**Done 2026-10-01**, ahead of M2.6, which waits for the art downloads (the container can't reach Higgsfield's file host yet). [Screenshots](reports/phase-2/) from `-- --round-tour`.
+**Done 2026-10-01**, ahead of M2.6, which was waiting for the art downloads (the container couldn't reach Higgsfield's file host yet). [Screenshots](reports/phase-2/) from `-- --round-tour`.
 
 - [x] Top bar with an in/out icon per player (spec §6): the clock in the middle, you on the left, the opponents on the right, filled in their team colour while in, greyed out with a cross once out.
 - [x] Time left, kill feed with callsigns, subtitled callouts, pickup prompts, hit confirmation, mask-spray overlay:

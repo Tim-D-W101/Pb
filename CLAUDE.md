@@ -50,9 +50,12 @@ tools/art/import.sh model <prop-id> <job-id> <generator> <url> "<prompt>"       
 ```
 
 Each import records its provenance (job, generator, prompt, URL, files) in `game/data/assets.jsonc`, and a
-sim test fails if the kit uses a texture or model without a record. Then point the material's `albedo`,
-`normal` and `roughnessMap` (`kit/materials.jsonc`) or the prop's `model` (`kit/props.jsonc`) at the files.
-Anything missing falls back to the procedural look or greybox, so the game and CI never depend on art.
+sim test fails if the kit or the characters use a texture or model without a record. Then point the
+material's `albedo`, `normal` and `roughnessMap` (`kit/materials.jsonc`), the prop's `model`
+(`kit/props.jsonc`) or a character model (`presentation.jsonc` → `characters`) at the files. Characters
+must use the generator's biped rig (the bone names `CharacterPoser` binds). The game loads art through
+`ArtFiles`: anything missing falls back to the procedural look, greybox or hitbox boxes, and
+`-- --no-art` ignores all of it (CI's bot match), so the game and CI never depend on art.
 
 ## Verifying visuals without a GPU
 

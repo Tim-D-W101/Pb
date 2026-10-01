@@ -391,12 +391,20 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 ### 14.4 Characters
 
 - **Source.** GLB models from Higgsfield: Meshy image-to-3D with humanoid auto-rig and PBR, about 25k triangles.
-- **Import.** Characters are imported against Godot's humanoid skeleton profile, so animation clips retarget between characters.
-- **Animation.** An `AnimationTree` blends locomotion by speed and stance. The upper body is posed procedurally:
-  - hands on the marker grips by IK;
-  - spine turned to the aim pitch;
-  - lean as a spine bend that matches the hitbox rig.
-- **Attachments.** The marker, armband and paint splats attach to bones (`BoneAttachment3D`), so splats move with the character.
+- **As built (M2.6).** The first opponent has 26k triangles, the generator's 24-bone biped rig and an idle clip.
+  - **No retargeting yet.** The model isn't retargeted to Godot's humanoid profile. `CharacterPoser` binds the generator's bone names directly; a model with any other rig is drawn as its hitbox boxes, with a warning.
+  - **No `AnimationTree` yet.** The idle clip loops. `CharacterPoser`, a `SkeletonModifier3D`, poses the model on top of it every frame to match the sim's pose:
+    - the hips drop for a crouch;
+    - the spine rolls with the lean, a third per bone, as the hitboxes do;
+    - the chest and head share the aim pitch;
+    - the feet stay planted, or step in a procedural cycle while the body moves (two-bone IK);
+    - both hands go to grips on the marker (two-bone IK).
+  - **Gear and look.** The marker, loader and tank are still drawn from their hitboxes. A team-colour armband sits on each upper arm. Each opponent gets a tint from a list, so copies of one model differ.
+  - **Data.** `presentation.jsonc` → `characters` holds the models, tints, armband size, stride and lift, pitch shares and grip positions.
+  - **Walk and run clips** come next.
+- **Attachments.** Armbands and paint splats attach to bones (`BoneAttachment3D`), so splats move with the character.
+  - A splat sticks to the nearest bone of the part it hit.
+  - The hit point lies on the hitbox, which the model doesn't fill and in places bulges past. So the splat's projection box reaches as far as the bone in both directions, and normal fade keeps the paint off the far side.
 - **Hitboxes** come from the sim's `HitboxRig`, never from the mesh, so animation can't change outcomes.
 
 ### 14.5 Match rules
@@ -424,7 +432,16 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   1. `tools/art` downloads the files by job ID.
   2. A headless Godot script uses the `Image` API to make textures tileable, derive normal maps from height, derive roughness, and resize to at most 2K.
   3. Outputs are written to `game/assets/…`, and `game/data/assets.jsonc` records each asset's file, source job ID, prompt and date.
+- **As built (M2.6).** `tools/art/import.sh texture|model` downloads one file by its URL, then runs `game/tools/ArtImport.tscn` headless.
+  - **Textures** are cropped, evened out and blended across their seams, then saved as JPEG at 1K with normal and roughness maps and their import settings, in `game/art/textures/`.
+  - **Models** are tidied (`GlbTidy`) and measured, in `game/art/models/`:
+    - pictures shrunk to JPEG;
+    - the baked-in glow and specular boost removed;
+    - optionally scaled to a real height.
+  - **Provenance.** `assets.jsonc` records the job, generator, prompt, source URL, files and import settings. A sim test fails if any art the kit or `presentation.jsonc` names has no record.
+  - **Fallbacks.** The game loads art through `ArtFiles`, and anything missing falls back: materials to the procedural look, props to greybox, opponents to their hitbox boxes. `-- --no-art` ignores all the art, and CI's bot match runs that way.
 - **Storage.** Binaries go in Git LFS, using the patterns already in `.gitattributes`. CI checks out without LFS, to spare the bandwidth quota, and so it exercises the greybox fallback every run.
+  - **As built:** the imported art is small so far (13 MB), so it's committed as plain files marked binary. The container has no Git LFS, and CI tests the fallback with `--no-art` instead.
 - **Original IP.** Prompts never name real brands, products, fields or games. Generated images are checked for logos and legible text before use.
 
 ### 14.8 Revised roadmap

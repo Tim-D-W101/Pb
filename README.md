@@ -12,7 +12,8 @@ works yard with a warehouse, offices, pump house and guardhouse, built from a da
 You pick it and a difficulty (4, 6 or 9 opponents) from the menu, read the briefing, and
 clear the compound against the clock, picking up paint and air on the way. The opponents are
 bots that hold posts, patrol and rush, notice you by sight and sound, and fight from cover.
-The match HUD and proper models arrive in later milestones.
+The match HUD is in, and generated art is arriving: the first photographic textures, an oil
+drum, and a rigged character model for the opponents. More textures, props and characters follow.
 
 ## Run it
 
@@ -87,6 +88,10 @@ remember where you were. Once they've seen you they shoot, then take cover and p
 refilling when they run low. Lost, they flank, push or search. The tier sets how quickly they
 react, how well they aim and how bold they are.
 
+They're drawn by a rigged character model, posed every frame to match their hitboxes: crouching,
+leaning, aiming, stepping as they move, both hands on the marker. Each wears an armband in their
+team colour and a slightly different tint. Paint splats stick where the ball hit and move with them.
+
 Settings changed in game are saved to `user://settings.json`.
 
 ## Tune it
@@ -116,7 +121,7 @@ reported with the file and key; the game won't silently use a wrong value.
 | `levels/ladder.jsonc` | Level order and difficulty tiers: opponent rosters, bot difficulty, time limits, starting pods, pickups |
 | `rules.jsonc` | Round rules: mode, settle window for balls in the air, trades, pickup radius |
 | `stress.jsonc` | Stress-mode ball count and cannons |
-| `presentation.jsonc` | Team colours, FOV, ball visibility, splats, HUD, audio, lighting, weeds, sunbeams, dust, window light, graphics presets |
+| `presentation.jsonc` | Team colours, FOV, ball visibility, splats, HUD, audio, lighting, weeds, sunbeams, dust, window light, graphics presets, character models and posing |
 | `input.jsonc` | Key and gamepad bindings |
 | `assets.jsonc` | Provenance of imported art: the Higgsfield job, prompt and source of each texture and model (written by `tools/art/import.sh`) |
 
