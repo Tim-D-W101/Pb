@@ -23,6 +23,11 @@ drum, and a rigged character model for the opponents. More textures, props and c
 3. Press **F5** (Run Project) for the main menu. **Play** → Oxbarrow Works → a difficulty, then
    **Start** on the briefing card. **Training ground** is the Phase 1 range.
 
+Only want to play it? `tools/package/godot-project.sh` packs the game as one self-contained
+project zip (`builds/Pb-godot-project.zip`). In Godot's Project Manager, click **Import**, choose
+the zip and an empty folder to install it into, then follow its `HOW-TO-PLAY.txt`. GitHub's own
+"Download ZIP" won't import that way: Godot unpacks only the `game` folder, which needs `src` beside it.
+
 For the most accurate frame rate, export a release build: Project → Export → Windows Desktop.
 The export presets already include the data files. The editor's F5 run uses a Debug build.
 
