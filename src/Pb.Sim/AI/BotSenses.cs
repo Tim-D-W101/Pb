@@ -253,21 +253,39 @@ public sealed class BotSenses
             return 0;
         }
 
-        float focus = angle <= _p.HalfFocusAngle
+        float light = _sim.Level?.AreaAt(target.Position)?.Light ?? 1f;
+        rate = DetectionRate(_p, _tier, distance, angle, light, target.Stance == Stance.Crouching, target.HorizontalSpeed, parts);
+        return parts;
+    }
+
+    /// <summary>
+    /// How fast the detection meter fills (per second) for a target <paramref name="distance"/> away,
+    /// <paramref name="angle"/> off the line of sight, in an area with <paramref name="light"/> (0 dark,
+    /// 1 daylight), crouching or not, moving at <paramref name="speed"/>, with <paramref name="parts"/> of
+    /// head, chest and hips showing.
+    /// </summary>
+    public static float DetectionRate(SenseParams p, DifficultyParams tier, float distance, float angle, float light, bool crouching,
+        float speed, int parts)
+    {
+        if (parts <= 0 || distance > tier.SightRange || angle > p.HalfFieldOfView)
+        {
+            return 0f;
+        }
+
+        float focus = angle <= p.HalfFocusAngle
             ? 1f
-            : Lerp(1f, _p.PeripheralRate, (angle - _p.HalfFocusAngle) / MathF.Max(1e-3f, _p.HalfFieldOfView - _p.HalfFocusAngle));
-        float near = 1f - (1f - _p.MinDistanceFactor) * Math.Clamp(distance / _tier.SightRange, 0f, 1f);
-        float light = Lerp(_p.DarkFactor, 1f, _sim.Level?.AreaAt(target.Position)?.Light ?? 1f);
-        float stance = target.Stance == Stance.Crouching ? _p.CrouchFactor : 1f;
-        float moving = 1f + _p.MovingFactorPerMps * target.HorizontalSpeed;
+            : Lerp(1f, p.PeripheralRate, (angle - p.HalfFocusAngle) / MathF.Max(1e-3f, p.HalfFieldOfView - p.HalfFocusAngle));
+        float near = 1f - (1f - p.MinDistanceFactor) * Math.Clamp(distance / tier.SightRange, 0f, 1f);
+        float lit = Lerp(p.DarkFactor, 1f, light);
+        float stance = crouching ? p.CrouchFactor : 1f;
+        float moving = 1f + p.MovingFactorPerMps * speed;
         float partial = parts switch
         {
-            1 => _p.PartialFactor,
-            2 => (1f + _p.PartialFactor) * 0.5f,
+            1 => p.PartialFactor,
+            2 => (1f + p.PartialFactor) * 0.5f,
             _ => 1f,
         };
-        rate = _p.FillRate * _tier.DetectionScale * focus * near * light * stance * moving * partial;
-        return parts;
+        return p.FillRate * tier.DetectionScale * focus * near * lit * stance * moving * partial;
     }
 
     private void Listen(ReadOnlySpan<SimEvent> events)

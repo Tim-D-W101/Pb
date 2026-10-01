@@ -50,6 +50,112 @@ public class BotTests
     }
 
     [Fact]
+    public void Without_spread_or_error_the_solver_hits_a_still_target_at_every_range()
+    {
+        SimConfig config = TestData.Config;
+        var eye = new Vector3(0f, 1.6f, 0f);
+        Span<Vector3> points = stackalloc Vector3[2048];
+        foreach (float range in new[] { 10f, 20f, 30f, 40f })
+        {
+            var target = new Vector3(0f, 1.2f, -range);
+            (float yaw, float pitch) = BotAim.Solve(config, eye, target, Vector3.Zero);
+            Vector3 launch = ViewAngles.Forward(yaw, pitch) * config.Shot.MuzzleVelocity;
+            TrajectoryResult flight = TrajectoryPredictor.Predict(config.Projectile, null, null, 0, eye, launch, 1f / 1000f, 1.5f, points);
+            float closest = float.MaxValue;
+            for (int i = 0; i < flight.PointCount; i++)
+            {
+                closest = MathF.Min(closest, Vector3.Distance(points[i], target));
+            }
+
+            Assert.True(closest < 0.05f, $"missed a still target at {range} m by {closest * 100f:0.0} cm");
+        }
+    }
+
+    [Fact]
+    public void Detection_is_slower_at_range_in_the_dark_crouched_still_and_out_of_the_corner_of_the_eye()
+    {
+        SenseParams p = TestData.Data.Bots.Senses;
+        DifficultyParams tier = TestData.Data.Bots.Difficulty["normal"];
+        float Rate(float distance = 10f, float angle = 0f, float light = 1f, bool crouch = false, float speed = 0f, int parts = 3) =>
+            BotSenses.DetectionRate(p, tier, distance, angle, light, crouch, speed, parts);
+
+        Assert.True(Rate(distance: 30f) < Rate(distance: 10f));
+        Assert.True(Rate(light: 0f) < Rate(light: 1f));
+        Assert.True(Rate(crouch: true) < Rate());
+        Assert.True(Rate() < Rate(speed: 5f));
+        Assert.True(Rate(angle: p.HalfFieldOfView * 0.9f) < Rate());
+        Assert.True(Rate(parts: 1) < Rate(parts: 3));
+        Assert.Equal(0f, Rate(parts: 0));
+        Assert.Equal(0f, Rate(distance: tier.SightRange + 1f));
+        Assert.Equal(0f, Rate(angle: p.HalfFieldOfView + 0.01f));
+    }
+
+    [Fact]
+    public void Nobody_is_seen_through_a_wall()
+    {
+        BotArena arena = BotArena.Create("hard");
+        BotBrain bot = arena.AddBot("yard_east");
+        arena.Start();
+        // Behind something solid, close and standing: never spotted, never even a glimpse.
+        Vector3 hidden = HiddenSpot(arena, bot, 6f, 12f);
+        arena.PlaceHero(hidden, bot.Self.Position);
+        float meter = 0f;
+        arena.Run(6 * Second, () =>
+        {
+            meter = MathF.Max(meter, bot.Senses.For(0)?.Meter ?? 0f);
+            return false;
+        });
+        Assert.Equal(0f, meter);
+        Assert.False(bot.Senses.For(0)?.Visible ?? false);
+    }
+
+    [Fact]
+    public void Shots_carry_less_far_through_walls()
+    {
+        bool Hears(bool behindWall)
+        {
+            BotArena arena = BotArena.Create("normal");
+            BotBrain bot = arena.AddBot("yard_east");
+            arena.Start();
+            // 30 m: inside the open-air range of a shot, beyond the muffled one.
+            Vector3 spot = behindWall ? HiddenSpot(arena, bot, 28f, 32f) : arena.SpotInFront(bot, 30f);
+            arena.PlaceHero(spot, spot + new Vector3(1f, 0f, 0f)); // facing away: not seen
+            arena.HeroScript = (tick, me) => new InputCommand { Tick = tick, Yaw = me.Yaw, Pitch = -0.6f, Buttons = tick == 10 ? InputButtons.Fire : InputButtons.None };
+            bool heard = false;
+            arena.Run(Second, () =>
+            {
+                Awareness? a = bot.Senses.For(0);
+                heard |= a is { HasLead: true, LastKnownSeen: false };
+                return heard;
+            });
+            return heard;
+        }
+
+        Assert.True(Hears(behindWall: false), "didn't hear a shot 30 m away in the open");
+        Assert.False(Hears(behindWall: true), "heard a shot 30 m away through a wall");
+    }
+
+    [Fact]
+    public void Each_difficulty_tier_is_at_least_as_good_as_the_one_below()
+    {
+        DifficultyParams easy = TestData.Data.Bots.Difficulty["easy"];
+        DifficultyParams normal = TestData.Data.Bots.Difficulty["normal"];
+        DifficultyParams hard = TestData.Data.Bots.Difficulty["hard"];
+        foreach ((DifficultyParams lower, DifficultyParams higher) in new[] { (easy, normal), (normal, hard) })
+        {
+            Assert.True(higher.ReactionTime <= lower.ReactionTime, $"{higher.Id} reacts slower than {lower.Id}");
+            Assert.True(higher.AimError <= lower.AimError, $"{higher.Id} aims worse than {lower.Id}");
+            Assert.True(higher.TrackingLag <= lower.TrackingLag, $"{higher.Id} tracks worse than {lower.Id}");
+            Assert.True(higher.DecisionInterval <= lower.DecisionInterval, $"{higher.Id} thinks slower than {lower.Id}");
+            Assert.True(higher.SightRange >= lower.SightRange, $"{higher.Id} sees less far than {lower.Id}");
+            Assert.True(higher.DetectionScale >= lower.DetectionScale, $"{higher.Id} notices slower than {lower.Id}");
+            Assert.True(higher.HearingScale >= lower.HearingScale, $"{higher.Id} hears less than {lower.Id}");
+            Assert.True(higher.TurnSpeed >= lower.TurnSpeed, $"{higher.Id} turns slower than {lower.Id}");
+            Assert.True(higher.PullInterval <= lower.PullInterval, $"{higher.Id} shoots slower than {lower.Id}");
+        }
+    }
+
+    [Fact]
     public void Standing_close_in_daylight_is_spotted_sooner_than_crouching_far_off()
     {
         float Spot(float distance, bool crouch)
@@ -269,7 +375,7 @@ public class BotTests
         long before = GC.GetAllocatedBytesForCurrentThread();
         arena.Run(4 * Second);
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.True(allocated < 2048, $"{allocated} bytes allocated by 9 bots over 4 s");
+        Assert.True(allocated == 0, $"{allocated} bytes allocated by 9 bots over 4 s");
     }
 
     [Fact]
