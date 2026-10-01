@@ -9,6 +9,8 @@
 *.gdshader text
 *.jsonc   text
 *.md      text
+*.bat     text eol=crlf
+*.ps1     text eol=crlf
 
 # Binary game art/audio goes through Git LFS (Phase 5+). Install git-lfs before adding any of these.
 game/assets/**/*.png filter=lfs diff=lfs merge=lfs -text

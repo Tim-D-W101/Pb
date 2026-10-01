@@ -59,6 +59,8 @@ jobs:
     name: Windows build (download it from the run's Artifacts)
     needs: godot-smoke
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write # publishes the build as the "test-build" release
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -87,10 +89,25 @@ jobs:
       - name: Import project
         run: tools/ci/import.sh ~/.local/godot/godot
       - name: Export the Windows build
-        run: tools/package/windows-build.sh ~/.local/godot/godot builds/windows
+        run: tools/package/windows-build.sh ~/.local/godot/godot builds/windows "$(echo "$HEAD_SHA" | cut -c1-7)"
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Offer it for download
         uses: actions/upload-artifact@v4
         with:
           name: Pb-windows
-          path: builds/windows
+          path: builds/windows/Pb
           retention-days: 30
+      # One link that always has the newest build, which Play.bat updates from (not for pull requests from forks).
+      - name: Publish it as the latest test build
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          notes="The newest build of Pb ($(grep '^version=' builds/windows/release/manifest.txt | cut -d= -f2), $(grep '^date=' builds/windows/release/manifest.txt | cut -d= -f2)).
+          First time: download Pb-windows.zip, unzip it and double-click Play.bat. Play.bat keeps the game up to date: it downloads only what changed (Pb-update.zip) before starting the game."
+          gh release view test-build --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create test-build --repo "$GITHUB_REPOSITORY" --prerelease --target "$HEAD_SHA" --title "Pb: latest test build" --notes "$notes"
+          gh release upload test-build builds/windows/release/* --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit test-build --repo "$GITHUB_REPOSITORY" --notes "$notes"
