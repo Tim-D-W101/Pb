@@ -66,6 +66,15 @@ for balls still in the air, so going out together is a trade. You start with a f
 few spare pods; walk over a pod to put it in an empty pod slot, or over an air tank to refill
 yours. The summary shows your time, shots, hits, accuracy, eliminations and pickups.
 
+### The HUD
+
+Top centre, the clock, with an icon for you on the left and one per opponent on the right: filled
+while they're in, greyed out with a cross once they're out. The kill feed (top right) names who
+got whom, where and from how far. When an opponent shouts close by ("Contact!", "Hit!"), it shows
+as a subtitle. Walk near a pod or air tank and a prompt under the crosshair says what it is, or
+that you've no room for it. The crosshair flashes when your ball puts someone out. Your gear
+(loader, pods, air) is bottom right.
+
 ### The opponents
 
 Each opponent stands at a spawn whose roles give its behaviour: a **sentry** holds its post and

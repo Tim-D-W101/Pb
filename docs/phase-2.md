@@ -232,9 +232,18 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
 ### M2.7 HUD
 
-- [ ] Top bar with an in/out icon per opponent (spec §6).
-- [ ] Time left, kill feed with callsigns, subtitled callouts, pickup prompts, hit confirmation, mask-spray overlay.
-- [ ] The Phase 1 gear panel stays.
+**Done 2026-10-01**, ahead of M2.6, which waits for the art downloads (the container can't reach Higgsfield's file host yet). [Screenshots](reports/phase-2/) from `-- --round-tour`.
+
+- [x] Top bar with an in/out icon per player (spec §6): the clock in the middle, you on the left, the opponents on the right, filled in their team colour while in, greyed out with a cross once out.
+- [x] Time left, kill feed with callsigns, subtitled callouts, pickup prompts, hit confirmation, mask-spray overlay:
+  - opponents get invented callsigns (Rook, Magpie, Tinker…), shuffled each round by the match seed, and the kill feed reads "Magpie ▸ You · mask · 25 m";
+  - bots shout when they spot you, lose you, come under fire, refill and when they're hit, at most every few seconds, and you see it as a subtitle when you're within earshot;
+  - a pickup within 4 m gets a prompt under the crosshair, or says there's no room for it;
+  - the crosshair flashes a hit marker when your ball puts someone out;
+  - the mask spray is M2.3's.
+- [x] The Phase 1 gear panel stays.
+
+Callsigns, callout lines and the HUD's timings are in `presentation.jsonc` ("hud"); how often bots shout is in `bots/brain.jsonc`.
 
 ### M2.8 Verify and report
 
