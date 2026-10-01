@@ -120,9 +120,9 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 121 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes, rounds, bots…) — no Godot needed
-dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls, bot cost
-tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range and the compound (Linux/macOS)
+dotnet test                                          # 122 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes, rounds, bots…) — no Godot needed
+dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost
+tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound and a bot match (Linux/macOS)
 ```
 
 CI (GitHub Actions) runs all three on every pull request.

@@ -59,7 +59,8 @@ live in the level file (`viewpoints`). On `Level.tscn`, through the player's own
 `-- --posture-demo` runs a short scripted shoulder swap / lean / muzzle-in-cover sequence,
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
-fighting you from cover with the F3 overlay. `-- --menu-tour` on the
+fighting you from cover with the F3 overlay. `-- --bot-match` (CI) has a bot play your slot until
+the round ends. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's
 hardware can confirm the 60 fps target.
 

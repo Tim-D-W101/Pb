@@ -247,8 +247,8 @@ Callsigns, callout lines and the HUD's timings are in `presentation.jsonc` ("hud
 
 ### M2.8 Verify and report
 
-- [ ] CI green, including a headless match on Level 1: a bot takes your slot and plays to the end without errors.
-- [ ] Benchmark: a sim tick with 10 players and 1,000 live balls in ≤ 0.5 ms.
+- [x] CI green, including a headless match on Level 1: a bot takes your slot and plays to the end without errors. The bot in your slot is a "hunter" that sweeps the opponent spawns one by one (`--bot-match` in the smoke test, and a sim test that plays a whole Normal round).
+- [x] Benchmark: a sim tick with 10 players and 1,000 live balls in ≤ 0.5 ms. In the cloud container it's 0.30 ms on average (p95 0.36 ms, worst 0.45 ms), after the hitbox sweep started caching each player's centre once per tick instead of fetching every pose for every ball.
 - [ ] `docs/reports/phase-2.md` with screenshots.
 - [ ] Your check: ≥ 60 fps on Medium with 10 people, and how the opponents feel.
 
