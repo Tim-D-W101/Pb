@@ -7,8 +7,6 @@ public sealed class PracticeDef : IValidatable
 {
     public const string File = "bots/practice.jsonc";
 
-    public int Count { get; set; }
-
     public float SightRange_m { get; set; }
 
     public float TurnSpeed_degps { get; set; }
@@ -23,7 +21,6 @@ public sealed class PracticeDef : IValidatable
 
     public void Validate(Validator v)
     {
-        v.InRange(nameof(Count), Count, 0, 9);
         v.InRange(nameof(SightRange_m), SightRange_m, 1, 200);
         v.InRange(nameof(TurnSpeed_degps), TurnSpeed_degps, 1, 2000);
         v.InRange(nameof(ReactionTime_s), ReactionTime_s, 0, 10);

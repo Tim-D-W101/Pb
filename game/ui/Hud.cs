@@ -4,6 +4,7 @@ using Godot;
 using Pb.Game.Core;
 using Pb.Sim;
 using Pb.Sim.Core;
+using Pb.Sim.Data;
 using Pb.Sim.Events;
 using Pb.Sim.Gear;
 using Pb.Sim.Players;
@@ -24,7 +25,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         "Gamepad: sticks · RT fire · L3 sprint · B crouch · A jump · LB/RB lean · R3 swap · X refill · Y fire mode\n\n" +
         "DEBUG\n" +
         "F1 help · F2 arc preview · F3 stress mode (range) · F4 perf overlay\n" +
-        "F5 head-bob · F6 reset gear (+ range hit counters) · F7 crosshair · F8 vsync\n" +
+        "F5 head-bob · F6 reset gear (range) · F7 crosshair · F8 vsync\n" +
         "F9 reload data files · F10 invert Y · F11 fullscreen · F12 graphics preset\n" +
         "[ ] field of view · - = mouse sensitivity";
 
@@ -147,6 +148,9 @@ public partial class Hud : CanvasLayer, ISimEventListener
             case SimEventType.GearReset:
                 Toast("Gear reset: full loader, pods and tank");
                 break;
+            case SimEventType.PickupTaken:
+                Toast((PickupKind)e.Extra == PickupKind.Air ? "Air tank refilled" : "Picked up a full pod");
+                break;
         }
     }
 
@@ -219,8 +223,11 @@ public partial class Hud : CanvasLayer, ISimEventListener
 
         _gear.Text = _text.ToString();
 
-        _warning.Text = !m.Air.CanFire ? "TANK EMPTY - F6 to reset gear"
-            : m.Paint.Loader == 0 ? (m.Paint.PodsRemaining > 0 ? "LOADER EMPTY - press R to refill" : "OUT OF PAINT - F6 to reset gear")
+        // In a round there's no gear reset: you find pickups instead.
+        bool round = _roundInfo is not null;
+        _warning.Text = !m.Air.CanFire ? (round ? "TANK EMPTY - find an air tank" : "TANK EMPTY - F6 to reset gear")
+            : m.Paint.Loader == 0 ? (m.Paint.PodsRemaining > 0 ? "LOADER EMPTY - press R to refill"
+                : round ? "OUT OF PAINT - find a pod" : "OUT OF PAINT - F6 to reset gear")
             : m.Air.BelowRegulator ? "LOW AIR - velocity dropping"
             : _player.Sprinting ? "sprinting (can't fire)"
             : string.Empty;
@@ -253,8 +260,27 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _perf.Text = _text.ToString();
     }
 
+    /// <summary>In a round: time left and opponents left, shown top right instead of the range's hit tally.</summary>
+    public Func<string>? RoundInfo
+    {
+        get => _roundInfo;
+        set
+        {
+            _roundInfo = value;
+            _hits.AddThemeFontSizeOverride("font_size", 26);
+        }
+    }
+
+    private Func<string>? _roundInfo;
+
     private void UpdateHitsText()
     {
+        if (_roundInfo is not null)
+        {
+            _hits.Text = _roundInfo();
+            return;
+        }
+
         _text.Clear();
         _text.Append("HITS\n");
         for (int i = 0; i < _sim.Targets.Count; i++)

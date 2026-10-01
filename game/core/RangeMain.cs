@@ -35,6 +35,7 @@ public partial class RangeMain : Node3D, ISimEventListener
     private Hud _hud = null!;
     private SmokeTest? _smoke;
     private DemoTour? _demo;
+    private PauseMenu _pause = null!;
     private bool _ready;
 
     public override void _Ready()
@@ -92,6 +93,10 @@ public partial class RangeMain : Node3D, ISimEventListener
             audio.Initialize(state, _view);
         }
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
+        _settings.ApplyVolume();
+        _pause = new PauseMenu { Name = "Pause" };
+        AddChild(_pause);
+        _pause.Build(_settings, _view, _ => { }, restart: null);
 
         _driver.Initialize(_sim);
         _driver.AddDriver(_player);
@@ -170,9 +175,9 @@ public partial class RangeMain : Node3D, ISimEventListener
             return;
         }
 
-        if (e.IsActionPressed("release_mouse"))
+        if (e.IsActionPressed("pause") && !_pause.Open)
         {
-            Input.MouseMode = Input.MouseModeEnum.Visible;
+            _pause.Toggle();
         }
         else if (e.IsActionPressed("debug_help"))
         {

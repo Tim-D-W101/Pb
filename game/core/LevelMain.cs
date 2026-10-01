@@ -12,19 +12,24 @@ using Pb.Sim;
 using Pb.Sim.Data;
 using Pb.Sim.Events;
 using Pb.Sim.Level;
+using Pb.Sim.Match;
 using Pb.Sim.Players;
 
 namespace Pb.Game.Core;
 
 /// <summary>
-/// Composition root of a compound level: loads data, builds the sim and the level, and wires every
-/// presentation system to them. User args after "--":
+/// Composition root of a compound level: loads data, builds the sim and the level, wires every
+/// presentation system to them, and runs the round (briefing card → live → summary). The level and
+/// difficulty come from the menus (<see cref="GameSession"/>) or, run directly, from user args after "--":
 ///   --level=ID            which level to load (default: the first playable one in the ladder)
+///   --tier=ID             which difficulty tier (default: "normal", or the level's first)
 ///   --smoke-test[=ticks]  headless CI check: walk in through the gate firing, exit code 0/1
 ///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie)
 ///   --posture-demo        scripted lean / shoulder swap / muzzle-in-cover sequence at a wall corner
 ///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
-/// Until the bots of M2.5, practice opponents (bots/practice.jsonc) stand at the level's opponent spawns.
+///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
+/// Scripted runs skip the briefing and the summary. Until the bots of M2.5, practice opponents
+/// (bots/practice.jsonc) stand at the spawns the tier lists.
 /// </summary>
 public partial class LevelMain : Node3D, ISimEventListener
 {
@@ -32,6 +37,12 @@ public partial class LevelMain : Node3D, ISimEventListener
     private PresentationDef _view = null!;
     private GameSettings _settings = null!;
     private LevelLayout _level = null!;
+    private LadderLevelDef _entry = null!;
+    private LadderTierDef _tier = null!;
+    private MatchState _match = null!;
+    private PauseMenu _pause = null!;
+    private CanvasLayer _overlays = null!;
+    private Control? _overlay;
     private SimWorld _sim = null!;
     private SimDriver _driver = null!;
     private LevelBuilder _world = null!;
@@ -47,7 +58,10 @@ public partial class LevelMain : Node3D, ISimEventListener
     private PracticeDef _practice = null!;
     private LevelSmokeTest? _smoke;
     private SpectatorView? _spectator;
+    private PickupVisuals _pickups = null!;
+    private string? _hitBy;
     private bool _scripted;
+    private bool _summaryShown;
     private bool _ready;
 
     /// <summary>True once you've been eliminated and the spectator view is showing.</summary>
@@ -72,7 +86,8 @@ public partial class LevelMain : Node3D, ISimEventListener
             _view = Jsonc.Load<PresentationDef>(source, PresentationDef.File);
             InputSetup.Apply(Jsonc.Load<InputDef>(source, InputDef.File));
             _practice = Jsonc.Load<PracticeDef>(source, PracticeDef.File);
-            _level = PickLevel(_data);
+            (_entry, _tier) = PickLevelAndTier(_data);
+            _level = _data.Levels[_entry.Id];
         }
         catch (Exception ex) when (ex is DataException or InvalidOperationException)
         {
@@ -87,6 +102,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _settings = GameSettings.Load(_view);
+        _settings.ApplyVolume();
         DisplayServer.WindowSetVsyncMode(_settings.Vsync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
 
         _sim = new SimWorld(_data.Config);
@@ -103,7 +119,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         _player.Initialize(_sim, state, _view, _settings, teamColor);
         // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
         _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test");
-        SpawnOpponents(state, hostile: !_scripted);
+        bool roundTour = Args.Has("--round-tour");
+        SpawnOpponents(state, hostile: !_scripted && !roundTour);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
         _splats.Initialize(_view, SplatParent);
         var fx = GetNode<ImpactFx>("ImpactFx");
@@ -119,6 +136,18 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
+        _hud.RoundInfo = RoundInfo;
+        _hud.ShowHelp = false;
+        _match = _sim.StartMatch(MatchSetup.From(_tier, state.Id));
+        _pickups = new PickupVisuals { Name = "Pickups" };
+        AddChild(_pickups);
+        _pickups.Build(_sim.Pickups);
+        _overlays = new CanvasLayer { Name = "Overlays", Layer = 8 };
+        AddChild(_overlays);
+        _pause = new PauseMenu { Name = "Pause" };
+        AddChild(_pause);
+        _pause.Build(_settings, _view, s => Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), _view.Graphics.Find(s.GraphicsPreset)),
+            restart: () => GetTree().ReloadCurrentScene());
 
         var maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
         AddChild(maskSpray);
@@ -132,6 +161,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _driver.AddListener(maskSpray);
+        _driver.AddListener(_pickups);
         _driver.AddListener(_balls);
         _driver.AddListener(_splats);
         _driver.AddListener(fx);
@@ -142,6 +172,11 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _driver.AddListener(_hud);
         _driver.AddListener(this);
+
+        if (_scripted)
+        {
+            _sim.GoLive();
+        }
 
         if (Args.Ticks("--smoke-test", 1800) is { } ticks)
         {
@@ -169,13 +204,28 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(tour);
             tour.Start(_level, _hud, _player.ViewModel, _view.Camera.FarClip_m);
         }
-        else if (!headless)
+        else if (roundTour)
         {
-            Input.MouseMode = Input.MouseModeEnum.Captured;
+            ShowOverlay(RoundScreens.Briefing(_level, _tier, BeginRound, BackToLevelSelect));
+            _hud.ShowPerf = false;
+            var tour = new RoundTour { Name = "RoundTour" };
+            AddChild(tour);
+            tour.Start(() =>
+            {
+                var demo = new DuelDemo(this, _sim, _opponents);
+                demo.Setup(_player);
+                _player.AutoPilot = demo;
+                BeginRound();
+            }, () => _summaryShown, _pause);
+        }
+        else
+        {
+            ShowOverlay(RoundScreens.Briefing(_level, _tier, BeginRound, BackToLevelSelect));
         }
 
-        GD.Print($"Level {_level.Id}: {_level.Primitives.Count} primitives, {_world.MeshCount} meshes, " +
-                 $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, preset {preset.Name}");
+        GD.Print($"Level {_level.Id} ({_tier.Id}, {_opponents.Count} opponents): {_level.Primitives.Count} primitives, " +
+                 $"{_world.MeshCount} meshes, {_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
+                 $"preset {preset.Name}");
         _ready = true;
     }
 
@@ -189,20 +239,23 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             OnEliminated(e);
         }
+        else if (e.Type == SimEventType.RoundEnded)
+        {
+            OnRoundEnded();
+        }
 
         _smoke?.OnSimEvent(e);
     }
 
-    /// <summary>Practice opponents at the level's first opponent spawns (team 1); sentries shoot back when hostile.</summary>
+    /// <summary>Practice opponents (team 1) at the spawns the tier lists; sentries shoot back when hostile.</summary>
     private void SpawnOpponents(PlayerState you, bool hostile)
     {
         var parent = new Node3D { Name = "Opponents" };
         AddChild(parent);
         Color jersey = Color.FromHtml(_view.TeamColors[1 % _view.TeamColors.Length]);
-        int count = Math.Min(_practice.Count, _level.OpponentSpawns.Count);
-        for (int i = 0; i < count; i++)
+        for (int i = 0; i < _tier.Opponents.Length; i++)
         {
-            OpponentSpawn spawn = _level.OpponentSpawns[i];
+            OpponentSpawn spawn = _level.OpponentSpawns.First(s => s.Id == _tier.Opponents[i]);
             PlayerState state = _sim.AddPlayer(i + 1, 1, spawn.Position, spawn.Yaw);
             state.Name = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(spawn.Id.Replace('_', ' '));
             bool sentry = spawn.Roles.Contains("sentry");
@@ -259,25 +312,97 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
+        if (shooter is not null)
+        {
+            float distance = System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition);
+            _hitBy = $"{shooter.Name} got you: {SpectatorView.PartName(victim.EliminatedPart)}, {distance:0} m.";
+        }
+
         _player.AutoPilot = new IdlePilot();
         _player.ViewModel.Visible = false;
         _hud.Visible = false;
         Input.MouseMode = Input.MouseModeEnum.Visible;
         _spectator = new SpectatorView { Name = "Spectator" };
         AddChild(_spectator);
-        // Until the round flow of M2.4, the level restarts once you've seen who got you (scripted runs
-        // just end; the smoke test ends itself).
+        // Once you've seen who got you, the summary (scripted runs just end; the smoke test ends itself).
         _spectator.Start(victim, shooter, _view.Spectator, _view.Camera.FarClip_m, () =>
         {
             if (!_scripted)
             {
-                GetTree().ReloadCurrentScene();
+                ShowSummary();
             }
             else if (_smoke is null)
             {
                 GetTree().Quit();
             }
         });
+    }
+
+    /// <summary>The briefing card's Start: the round goes live and the mouse is yours.</summary>
+    private void BeginRound()
+    {
+        CloseOverlay();
+        _sim.GoLive();
+        Input.MouseMode = Input.MouseModeEnum.Captured;
+    }
+
+    private void OnRoundEnded()
+    {
+        if (_scripted)
+        {
+            return;
+        }
+
+        // Out: the spectator view shows who got you first. Otherwise a moment to take it in.
+        if (_spectator is null)
+        {
+            GetTree().CreateTimer(1.5).Timeout += ShowSummary;
+        }
+    }
+
+    private void ShowSummary()
+    {
+        if (_match.Phase != MatchPhase.Ended || _overlay is not null)
+        {
+            return;
+        }
+
+        _hud.Visible = false;
+        _summaryShown = true;
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+        PlayerStats you = _match.StatsFor(_player.State.Id)!;
+        ShowOverlay(RoundScreens.Summary(_level, _tier, _match, you, _opponents.Count, _hitBy,
+            retry: () => GetTree().ReloadCurrentScene(),
+            levelSelect: BackToLevelSelect,
+            mainMenu: () => GetTree().ChangeSceneToFile(GameSession.MainScene)));
+    }
+
+    private void BackToLevelSelect()
+    {
+        GameSession.ReturnTo = "levels";
+        GetTree().ChangeSceneToFile(GameSession.MainScene);
+    }
+
+    private void ShowOverlay(Control overlay)
+    {
+        CloseOverlay();
+        _overlay = overlay;
+        _overlays.AddChild(overlay);
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+    }
+
+    private void CloseOverlay()
+    {
+        _overlay?.QueueFree();
+        _overlay = null;
+    }
+
+    private string RoundInfo()
+    {
+        int left = _opponents.Count(o => o.State.Alive);
+        return _match.Phase == MatchPhase.Briefing
+            ? $"{RoundScreens.Clock(_match.Setup.TimeLimit)}  ·  {left} opponents"
+            : $"{RoundScreens.Clock(_match.TimeLeft)}  ·  {left} left";
     }
 
     /// <summary>No input: what an eliminated local player sends while spectating.</summary>
@@ -293,16 +418,20 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
-        if (e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured && _player.AutoPilot is null)
+        bool playing = _overlay is null && _spectator is null && _player.AutoPilot is null;
+        if (playing && e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured)
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
             GetViewport().SetInputAsHandled();
             return;
         }
 
-        if (e.IsActionPressed("release_mouse"))
+        if (e.IsActionPressed("pause"))
         {
-            Input.MouseMode = Input.MouseModeEnum.Visible;
+            if (playing && !_pause.Open)
+            {
+                _pause.Toggle();
+            }
         }
         else if (e.IsActionPressed("debug_help"))
         {
@@ -316,10 +445,6 @@ public partial class LevelMain : Node3D, ISimEventListener
         else if (e.IsActionPressed("debug_perf"))
         {
             _hud.ShowPerf = !_hud.ShowPerf;
-        }
-        else if (e.IsActionPressed("debug_reset_gear"))
-        {
-            _sim.ResetGear(_player.State, resetTargets: false);
         }
         else if (e.IsActionPressed("toggle_crosshair"))
         {
@@ -388,17 +513,22 @@ public partial class LevelMain : Node3D, ISimEventListener
         return new Aabb(min, max - min);
     }
 
-    private static LevelLayout PickLevel(GameData data)
+    /// <summary>The menus' choice, else --level/--tier, else the first playable level on "normal" (or its first tier).</summary>
+    private static (LadderLevelDef Entry, LadderTierDef Tier) PickLevelAndTier(GameData data)
     {
-        string? requested = Args.Value("--level");
-        if (requested is not null)
+        string? levelId = GameSession.LevelId ?? Args.Value("--level");
+        LadderLevelDef? entry = levelId is not null
+            ? data.Ladder.Levels.FirstOrDefault(l => l.Id == levelId && data.Levels.ContainsKey(l.Id))
+            : data.Ladder.Levels.FirstOrDefault(l => data.Levels.ContainsKey(l.Id));
+        if (entry is null)
         {
-            return data.Levels.TryGetValue(requested, out LevelLayout? level)
-                ? level
-                : throw new InvalidOperationException($"No playable level '{requested}' (known: {string.Join(", ", data.Levels.Keys)})");
+            throw new InvalidOperationException(levelId is null
+                ? "The ladder has no playable level."
+                : $"No playable level '{levelId}' (known: {string.Join(", ", data.Levels.Keys)})");
         }
 
-        LadderLevelDef? first = data.Ladder.Levels.FirstOrDefault(l => data.Levels.ContainsKey(l.Id));
-        return first is not null ? data.Levels[first.Id] : throw new InvalidOperationException("The ladder has no playable level.");
+        LadderTierDef[] tiers = entry.Tiers!;
+        string tierId = GameSession.TierId ?? Args.Value("--tier") ?? "normal";
+        return (entry, tiers.FirstOrDefault(t => t.Id == tierId) ?? tiers[0]);
     }
 }

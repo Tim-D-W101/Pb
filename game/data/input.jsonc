@@ -26,7 +26,7 @@
     { "name": "slide", "keys": ["V"] },
     { "name": "jump", "keys": ["Space"], "buttons": ["A"] },
 
-    { "name": "release_mouse", "keys": ["Escape"] },
+    { "name": "pause", "keys": ["Escape"], "buttons": ["Start"] },
     { "name": "debug_help", "keys": ["F1"], "buttons": ["Back"] },
     { "name": "debug_arc", "keys": ["F2"], "buttons": ["DpadUp"] },
     { "name": "debug_stress", "keys": ["F3"], "buttons": ["DpadDown"] },

@@ -7,8 +7,8 @@ namespace Pb.Game.Core;
 
 /// <summary>
 /// After you're eliminated (spec §1.2): a camera above and behind where you stood, turned to follow
-/// whoever got you, with a banner naming them, the part hit and the distance. It ends after a few
-/// seconds; until the round flow of M2.4, that restarts the level.
+/// whoever got you, with a banner naming them, the part hit and the distance. After a few seconds
+/// the banner goes and the camera holds while the round summary shows.
 /// </summary>
 public partial class SpectatorView : Node3D
 {
@@ -16,6 +16,7 @@ public partial class SpectatorView : Node3D
     private PlayerState _victim = null!;
     private PlayerState? _shooter;
     private Action _finished = null!;
+    private CanvasLayer _layer = null!;
     private float _left;
 
     public void Start(PlayerState victim, PlayerState? shooter, SpectatorDef def, float farClip, Action finished)
@@ -49,9 +50,9 @@ public partial class SpectatorView : Node3D
         banner.AddThemeFontSizeOverride("font_size", 34);
         banner.AddThemeColorOverride("font_outline_color", Colors.Black);
         banner.AddThemeConstantOverride("outline_size", 10);
-        var layer = new CanvasLayer { Layer = 6 };
-        layer.AddChild(banner);
-        AddChild(layer);
+        _layer = new CanvasLayer { Layer = 6 };
+        _layer.AddChild(banner);
+        AddChild(_layer);
     }
 
     public override void _Process(double delta)
@@ -68,6 +69,7 @@ public partial class SpectatorView : Node3D
         if (_left <= 0f)
         {
             _camera = null!;
+            _layer.Visible = false;
             _finished();
         }
     }

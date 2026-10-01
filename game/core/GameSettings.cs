@@ -5,9 +5,9 @@ using Godot;
 namespace Pb.Game.Core;
 
 /// <summary>
-/// Player preferences (FOV, sensitivity, crosshair…), saved to user://settings.json. Defaults
-/// come from presentation.jsonc. The full settings menu arrives in Phase 5; Phase 1 changes
-/// these with hotkeys.
+/// Player preferences (FOV, sensitivity, crosshair, graphics, volume…), saved to
+/// user://settings.json. Defaults come from presentation.jsonc. The pause menu edits the main ones;
+/// the full settings menu with key rebinding arrives in Phase 3.
 /// </summary>
 public sealed class GameSettings
 {
@@ -33,6 +33,13 @@ public sealed class GameSettings
 
     /// <summary>Graphics preset name (see presentation.jsonc "graphics").</summary>
     public string GraphicsPreset { get; set; } = "";
+
+    /// <summary>Master volume, 0..1.</summary>
+    public float Volume { get; set; } = 0.8f;
+
+    /// <summary>Applies the master volume to the audio bus.</summary>
+    public void ApplyVolume() =>
+        AudioServer.SetBusVolumeDb(0, Volume <= 0.001f ? -80f : Mathf.LinearToDb(Volume));
 
     public static GameSettings Load(PresentationDef defaults)
     {
@@ -73,6 +80,7 @@ public sealed class GameSettings
 
         settings.FovDeg = Math.Clamp(settings.FovDeg, defaults.Camera.FovMin_deg, defaults.Camera.FovMax_deg);
         settings.MouseSensitivityDegPerCount = Math.Clamp(settings.MouseSensitivityDegPerCount, 0.001f, 2f);
+        settings.Volume = Math.Clamp(settings.Volume, 0f, 1f);
         return settings;
     }
 

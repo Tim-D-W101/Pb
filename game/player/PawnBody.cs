@@ -48,8 +48,17 @@ public partial class PawnBody : CharacterBody3D
     }
 
     /// <summary>Moves the body one tick by the sim's movement rules (with the sim's world for headroom and lean checks).</summary>
-    protected MovementResult ApplyCommand(in InputCommand cmd, float dt)
+    protected MovementResult ApplyCommand(in InputCommand command, float dt)
     {
+        // Outside a live round (the briefing, after the end) you can look around but not move or act;
+        // eliminated players still walk off.
+        InputCommand cmd = command;
+        if (!Sim.IsLive && State.Alive)
+        {
+            cmd.Move = System.Numerics.Vector2.Zero;
+            cmd.Buttons = InputButtons.None;
+        }
+
         bool grounded = IsOnFloor();
         MovementResult result = MovementModel.Step(State, cmd, Move, dt, grounded, Sim.Collision);
 

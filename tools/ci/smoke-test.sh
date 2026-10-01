@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs each scene headless with its scripted smoke test and fails on a non-zero exit, a missing
 # "SMOKE PASS" line, or any engine/script error in the log:
+#   menu   (game/ui/MainMenu.cs): builds every screen and checks the ladder's levels and tiers are offered
 #   range  (game/core/SmokeTest.cs): autopilot, 1,000-ball stress mode and a hot reload
 #   level  (game/core/LevelSmokeTest.cs): walk in through the compound gate, sweeping and firing
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
@@ -29,6 +30,7 @@ run() {
   fi
 }
 
+run menu res://scenes/Main.tscn -- --smoke-test
 run range res://scenes/Range.tscn -- "--smoke-test=$range_ticks"
 run level res://scenes/Level.tscn -- "--smoke-test=$level_ticks"
 exit "$failed"

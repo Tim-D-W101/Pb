@@ -7,6 +7,7 @@ using Pb.Sim.Collision;
 using Pb.Sim.Core;
 using Pb.Sim.Events;
 using Pb.Sim.Level;
+using Pb.Sim.Match;
 using Pb.Sim.Players;
 using SVector3 = System.Numerics.Vector3;
 
@@ -20,7 +21,7 @@ namespace Pb.Game.Core;
 /// <item>it climbs every flight of stairs in the level, starting at the foot of each;</item>
 /// <item>back at the spawn, it sprints, slides into a crouch, stands and jumps;</item>
 /// <item>it shoots a practice opponent, who must go out and walk off;</item>
-/// <item>it stands in front of a sentry, now hostile, until it's eliminated and spectating.</item>
+/// <item>it stands in front of a sentry, now hostile, until it's eliminated and spectating, and the round ends as eliminated.</item>
 /// </list>
 /// It passes only if every step worked and nothing threw.
 /// </summary>
@@ -40,6 +41,7 @@ public sealed class LevelSmokeTest
     private const int ShootTicks = 360;
     private const int WalkOffTicks = 720;
     private const int GetShotTicks = 1440;
+    private const int RoundEndTicks = 360;
 
     private enum Phase
     {
@@ -83,6 +85,8 @@ public sealed class LevelSmokeTest
     private string _shootNote = "no target found";
     private string _shotNote = "no sentry found";
     private bool _gotShot;
+    private int _gotShotAt = -1;
+    private RoundOutcome _outcome;
 
     public LevelSmokeTest(LevelMain host, SimWorld sim, SimDriver driver, PlayerController player, LevelBuilder world, int ticks,
         IReadOnlyList<OpponentPawn> opponents, IReadOnlyList<DummyPilot> pilots)
@@ -192,10 +196,23 @@ public sealed class LevelSmokeTest
                 break;
 
             case Phase.GetShot:
-                _gotShot |= _host.Spectating;
-                if (_gotShot || t >= GetShotTicks)
+                if (!_gotShot && _host.Spectating)
                 {
-                    _shotNote += _gotShot ? $", eliminated by {_sim.FindPlayer(state.EliminatedBy)?.Name} after {t} ticks and spectating" : ", never hit";
+                    _gotShot = true;
+                    _gotShotAt = t;
+                    _shotNote += $", eliminated by {_sim.FindPlayer(state.EliminatedBy)?.Name} after {t} ticks and spectating";
+                }
+
+                // Out, the round must end as eliminated once the balls still in the air have landed.
+                if (_gotShot && (_sim.Match?.Phase == MatchPhase.Ended || t >= _gotShotAt + RoundEndTicks))
+                {
+                    _outcome = _sim.Match?.Outcome ?? RoundOutcome.None;
+                    _shotNote += $"; round ended {_outcome} after {t - _gotShotAt} more ticks";
+                    Finish(state);
+                }
+                else if (!_gotShot && t >= GetShotTicks)
+                {
+                    _shotNote += ", never hit";
                     Finish(state);
                 }
 
@@ -300,10 +317,11 @@ public sealed class LevelSmokeTest
         bool shootOk = _victimOutAt >= 0 && _victimWalkedOff;
         GD.Print($"SMOKE moves: slide {(slideOk ? "ok" : "FAILED")} (slid={_slid}, ended crouched={_slideEndedCrouched}), " +
                  $"jump {(jumpOk ? "ok" : "FAILED")} (height {_jumpHeight:0.00} m)");
-        GD.Print($"SMOKE duel: shoot {(shootOk ? "ok" : "FAILED")} ({_shootNote}); get shot {(_gotShot ? "ok" : "FAILED")} ({_shotNote})");
+        bool shotOk = _gotShot && _outcome == RoundOutcome.Eliminated;
+        GD.Print($"SMOKE duel: shoot {(shootOk ? "ok" : "FAILED")} ({_shootNote}); get shot {(shotOk ? "ok" : "FAILED")} ({_shotNote})");
 
         bool ok = _travelled > 15f && _lowestY > -0.5f && _shots > 0 && _breaks > 0 && _climbsFailed == 0 && slideOk && jumpOk &&
-                  shootOk && _gotShot && _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
+                  shootOk && shotOk && _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: ticks={_elapsed} travelled={_travelled:0.0}m lowestY={_lowestY:0.00} " +
                  $"shots={_shots} breaks={_breaks} bounces={_bounces} climbs={_climbs.Count - _climbsFailed}/{_climbs.Count} " +
                  $"meshes={_world.MeshCount} walkColliders={_world.ColliderCount} simErrors={_driver.ErrorCount} " +

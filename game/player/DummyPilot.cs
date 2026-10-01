@@ -59,6 +59,12 @@ public sealed class DummyPilot : ICommandSource
         }
 
         InputButtons buttons = InputButtons.None;
+        if (!_sim.IsLive)
+        {
+            _seenFor = 0f;
+            return new InputCommand { Tick = tick, Yaw = _yaw, Pitch = _pitch };
+        }
+
         _sincePull += dt;
         if (_sentry && Hostile && CanSee(self, out SVector3 aimPoint, out float distance))
         {
