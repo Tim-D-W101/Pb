@@ -275,7 +275,12 @@ Callsigns, callout lines and the HUD's timings are in `presentation.jsonc` ("hud
 **In progress (2026-10-01).** You played the Windows build: it felt glitchy, lagged on anything above Low, and starting positions never changed, so you could learn where everyone was.
 
 - [x] **V-sync is on by default.** It was off, a leftover from measuring raw frame rates, so the picture tore whenever you turned. F8 or the pause menu still turns it off. Saved settings get it switched on once.
-- [ ] **Lighter graphics presets and a render scale setting.**
+- [x] **Lighter graphics presets and a render scale setting.** Each effect's cost was measured over the level's viewpoints (`-- --shots --preset=NAME` prints per-view frame times). Ambient occlusion was the biggest single cost, so:
+  - **Medium** is now about 1.2× the cost of Low: glow, half the weeds, shadows to 75 m; no ambient occlusion, sunbeams or fill lights;
+  - **High** is the old Medium (about 2.3× Low) and **Ultra** the old High;
+  - **render scale** (pause menu → settings): the 3D view is drawn at 50–100 % of the screen's resolution and upscaled with FSR 1.0, for any preset.
+
+  F12 cycles Low → Medium → High → Ultra. The details are in `docs/architecture.md` §14.3.
 - [x] **Random starts every round.** Each round (and each restart) deals a new seed:
   - you come in at the main gate, the breach in the west wall or the collapse in the north-east corner;
   - opponents start at a random mix of the level's opponent spawns and cover points (anywhere the level offers cover) inside the compound;
