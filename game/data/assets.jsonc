@@ -1,0 +1,6 @@
+// Provenance of every imported art asset (spec: original IP only), written by tools/art/import.sh:
+// the Higgsfield job that made it, the generator and prompt, where it was downloaded from, and the
+// files the import produced. A sim test checks that every texture and model the kit uses is listed.
+{
+  "assets": []
+}

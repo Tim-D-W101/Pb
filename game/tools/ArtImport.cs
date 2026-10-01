@@ -1,0 +1,292 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Godot;
+using Pb.Game.Core;
+
+namespace Pb.Game.Tools;
+
+/// <summary>
+/// Imports finished Higgsfield art into the game; <c>tools/art/import.sh</c> downloads the file and
+/// runs this scene headless.
+/// <list type="bullet">
+/// <item><c>--texture</c>: a picture becomes a tiling material (albedo plus normal and roughness maps derived from it) in <c>art/textures/</c>.</item>
+/// <item><c>--model</c>: a GLB goes into <c>art/models/</c>, and its measured size is printed so the prop's colliders can be fitted to it.</item>
+/// <item><c>--selftest</c>: runs the texture steps on a generated picture and checks the result (CI).</item>
+/// </list>
+/// Every import records the job, prompt, generator and download URL in <c>data/assets.jsonc</c>: the
+/// provenance record that the art is original.
+/// </summary>
+public partial class ArtImport : Node
+{
+    private const string Provenance = "res://data/assets.jsonc";
+
+    private const string Header =
+        "// Provenance of every imported art asset (spec: original IP only), written by tools/art/import.sh:\n" +
+        "// the Higgsfield job that made it, the generator and prompt, where it was downloaded from, and the\n" +
+        "// files the import produced. A sim test checks that every texture and model the kit uses is listed.\n";
+
+    public override void _Ready()
+    {
+        int code;
+        try
+        {
+            code = Args.Has("--selftest") ? SelfTest() : Args.Has("--texture") ? ImportTexture() : Args.Has("--model") ? ImportModel() : Usage();
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or FormatException or InvalidOperationException or JsonException)
+        {
+            GD.PushError($"ART {ex.Message}");
+            code = 1;
+        }
+
+        GetTree().Quit(code);
+    }
+
+    private static int Usage()
+    {
+        GD.PushError("ART usage: --texture|--model|--selftest --id=… --source=FILE --job=… --generator=… --prompt=… --url=… " +
+                     "[--size=1024 --flatten=0.8 --band=0.12 --normal-strength=2 --roughness=0.9 --roughness-variation=0.15]");
+        return 2;
+    }
+
+    private static int ImportTexture()
+    {
+        string id = Required("--id");
+        int size = Number("--size", 1024);
+        float band = Number("--band", 0.12f);
+        float strength = Number("--normal-strength", 2f);
+        float roughnessBase = Number("--roughness", 0.9f);
+        float variation = Number("--roughness-variation", 0.15f);
+        float flatten = Number("--flatten", 0.8f);
+
+        Image picture = Image.LoadFromFile(Required("--source")) ?? throw new InvalidOperationException("can't read the source picture");
+        picture.Convert(Image.Format.Rgb8);
+        int side = Math.Min(picture.GetWidth(), picture.GetHeight());
+        picture = picture.GetRegion(new Rect2I((picture.GetWidth() - side) / 2, (picture.GetHeight() - side) / 2, side, side));
+        picture.Resize(size, size, Image.Interpolation.Lanczos);
+
+        RgbImage source = ToRgb(picture);
+        RgbImage tiled = TextureMaker.MakeTileable(TextureMaker.Flatten(source, flatten, size / 8), band);
+        float[] height = TextureMaker.Height(tiled);
+        RgbImage normal = TextureMaker.NormalMap(height, size, size, strength);
+        float[] roughness = TextureMaker.Roughness(height, roughnessBase, variation);
+
+        const string folder = "res://art/textures";
+        DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(folder));
+        var files = new List<string>
+        {
+            Save(tiled, $"{folder}/{id}_albedo.png"),
+            Save(normal, $"{folder}/{id}_normal.png"),
+            Save(Grey(roughness, size, size), $"{folder}/{id}_roughness.png"),
+        };
+        Record("texture", id, files, string.Create(CultureInfo.InvariantCulture,
+            $"{size} px, flatten {flatten}, seam band {band}, normal strength {strength}, roughness {roughnessBase} ± {variation}"));
+        GD.Print(string.Create(CultureInfo.InvariantCulture,
+            $"ART texture {id}: seam ratio {TextureMaker.SeamRatio(source):0.00} → {TextureMaker.SeamRatio(tiled):0.00}. ") +
+            $"In kit/materials.jsonc, set albedo, normal and roughnessMap to {string.Join(", ", files)}");
+        return 0;
+    }
+
+    private static int ImportModel()
+    {
+        string id = Required("--id");
+        string source = Required("--source");
+        var document = new GltfDocument();
+        var state = new GltfState();
+        Error error = document.AppendFromFile(source, state);
+        if (error != Error.Ok)
+        {
+            throw new InvalidOperationException($"can't read {source} as glTF ({error})");
+        }
+
+        Node scene = document.GenerateScene(state);
+        Aabb bounds = Bounds(scene, Transform3D.Identity) ?? throw new InvalidOperationException($"{source} has no meshes");
+        scene.Free();
+
+        const string folder = "res://art/models";
+        string target = $"{folder}/{id}.glb";
+        DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(folder));
+        File.Copy(source, ProjectSettings.GlobalizePath(target), overwrite: true);
+        Vector3 size = bounds.Size, centre = bounds.GetCenter();
+        string measured = string.Create(CultureInfo.InvariantCulture,
+            $"{size.X:0.00} × {size.Y:0.00} × {size.Z:0.00} m (x × y × z), base at y = {bounds.Position.Y:0.00}, centre ({centre.X:0.00}, {centre.Z:0.00})");
+        Record("model", id, new List<string> { target }, measured);
+        GD.Print($"ART model {id}: {measured}. In kit/props.jsonc, fit the prop's colliders to that and set model to {target}");
+        return 0;
+    }
+
+    /// <summary>The texture steps on a picture that doesn't tile, plus exact checks on flat and bumped pictures.</summary>
+    private static int SelfTest()
+    {
+        const int size = 256;
+        var noise = new FastNoiseLite { NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth, Frequency = 0.03f, FractalOctaves = 4, Seed = 7 };
+        var picture = new RgbImage(size, size);
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                // Noise plus a ramp each way, so the wrap-round edges jump.
+                float v = Math.Clamp(0.5f + 0.35f * noise.GetNoise2D(x, y) + 0.25f * (x / (float)size - 0.5f) + 0.15f * (y / (float)size - 0.5f), 0f, 1f);
+                int o = picture.Index(x, y);
+                picture.Data[o] = v * 0.9f;
+                picture.Data[o + 1] = v * 0.85f;
+                picture.Data[o + 2] = v * 0.8f;
+            }
+        }
+
+        float before = TextureMaker.SeamRatio(picture);
+        float after = TextureMaker.SeamRatio(TextureMaker.MakeTileable(picture, 0.12f));
+
+        // Flattening takes the ramps out: the outer columns end up about as bright as each other.
+        float Column(RgbImage image, int x)
+        {
+            float sum = 0f;
+            for (int y = 0; y < image.Height; y++)
+            {
+                sum += image.Data[image.Index(x, y)];
+            }
+
+            return sum / image.Height;
+        }
+
+        RgbImage flattened = TextureMaker.Flatten(picture, 1f, size / 8);
+        float rampBefore = MathF.Abs(Column(picture, size - 8) - Column(picture, 8));
+        float rampAfter = MathF.Abs(Column(flattened, size - 8) - Column(flattened, 8));
+
+        const int small = 64;
+        var flat = new RgbImage(small, small);
+        Array.Fill(flat.Data, 0.5f);
+        float[] flatHeight = TextureMaker.Height(flat);
+        RgbImage flatNormals = TextureMaker.NormalMap(flatHeight, small, small, 2f);
+        float normalError = 0f;
+        for (int i = 0; i < flatNormals.Data.Length; i++)
+        {
+            normalError = MathF.Max(normalError, MathF.Abs(flatNormals.Data[i] - (i % 3 == 2 ? 1f : 0.5f)));
+        }
+
+        float roughnessError = TextureMaker.Roughness(flatHeight, 0.8f, 0.15f).Max(r => MathF.Abs(r - 0.8f));
+
+        // A bright bump in the middle: its normals lean away from the top (green is up the picture).
+        var bump = new float[small * small];
+        for (int y = 0; y < small; y++)
+        {
+            for (int x = 0; x < small; x++)
+            {
+                float dx = x - small / 2, dy = y - small / 2;
+                bump[y * small + x] = MathF.Exp(-(dx * dx + dy * dy) / 40f);
+            }
+        }
+
+        RgbImage leaning = TextureMaker.NormalMap(bump, small, small, 2f);
+        float R(int x, int y) => leaning.Data[leaning.Index(x, y)];
+        float G(int x, int y) => leaning.Data[leaning.Index(x, y) + 1];
+        int c = small / 2;
+        bool bumpOk = R(c - 4, c) < 0.45f && R(c + 4, c) > 0.55f && G(c, c - 4) > 0.55f && G(c, c + 4) < 0.45f;
+
+        bool ok = before > 1.5f && after < 1.25f && rampAfter < rampBefore * 0.35f && normalError < 1e-3f && roughnessError < 1e-3f && bumpOk;
+        GD.Print(string.Create(CultureInfo.InvariantCulture,
+            $"SMOKE {(ok ? "PASS" : "FAIL")}: art pipeline seam ratio {before:0.00} → {after:0.00}, ramp {rampBefore:0.000} → {rampAfter:0.000}, flat normal error {normalError:0.0000}, " +
+            $"roughness error {roughnessError:0.0000}, bump normals {(bumpOk ? "lean outwards" : "WRONG")}"));
+        return ok ? 0 : 1;
+    }
+
+    /// <summary>Adds (or replaces) this asset's record in the provenance file.</summary>
+    private static void Record(string kind, string id, List<string> files, string notes)
+    {
+        string path = ProjectSettings.GlobalizePath(Provenance);
+        var assets = new JsonArray();
+        if (File.Exists(path))
+        {
+            var options = new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
+            if (JsonNode.Parse(File.ReadAllText(path), documentOptions: options)?["assets"] is JsonArray existing)
+            {
+                foreach (JsonNode? entry in existing)
+                {
+                    if (entry is not null && !(entry["id"]?.GetValue<string>() == id && entry["kind"]?.GetValue<string>() == kind))
+                    {
+                        assets.Add(entry.DeepClone());
+                    }
+                }
+            }
+        }
+
+        assets.Add(new JsonObject
+        {
+            ["id"] = id,
+            ["kind"] = kind,
+            ["job"] = Required("--job"),
+            ["generator"] = Required("--generator"),
+            ["prompt"] = Required("--prompt"),
+            ["source"] = Required("--url"),
+            ["imported"] = DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            ["files"] = new JsonArray(files.Select(f => (JsonNode?)JsonValue.Create(f)).ToArray()),
+            ["notes"] = notes,
+        });
+        var write = new JsonSerializerOptions { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+        File.WriteAllText(path, Header + new JsonObject { ["assets"] = assets }.ToJsonString(write) + "\n");
+    }
+
+    private static Aabb? Bounds(Node node, Transform3D parent)
+    {
+        Transform3D transform = node is Node3D spatial ? parent * spatial.Transform : parent;
+        Aabb? box = node is MeshInstance3D { Mesh: { } mesh } ? transform * mesh.GetAabb() : null;
+        foreach (Node child in node.GetChildren())
+        {
+            if (Bounds(child, transform) is { } inner)
+            {
+                box = box is { } outer ? outer.Merge(inner) : inner;
+            }
+        }
+
+        return box;
+    }
+
+    private static RgbImage ToRgb(Image image)
+    {
+        var rgb = new RgbImage(image.GetWidth(), image.GetHeight());
+        byte[] bytes = image.GetData();
+        for (int i = 0; i < rgb.Data.Length; i++)
+        {
+            rgb.Data[i] = bytes[i] / 255f;
+        }
+
+        return rgb;
+    }
+
+    private static RgbImage Grey(float[] values, int width, int height)
+    {
+        var grey = new RgbImage(width, height);
+        for (int i = 0; i < values.Length; i++)
+        {
+            grey.Data[i * 3] = grey.Data[i * 3 + 1] = grey.Data[i * 3 + 2] = values[i];
+        }
+
+        return grey;
+    }
+
+    private static string Save(RgbImage rgb, string path)
+    {
+        var bytes = new byte[rgb.Data.Length];
+        for (int i = 0; i < bytes.Length; i++)
+        {
+            bytes[i] = (byte)Math.Clamp((int)(rgb.Data[i] * 255f + 0.5f), 0, 255);
+        }
+
+        Error error = Image.CreateFromData(rgb.Width, rgb.Height, false, Image.Format.Rgb8, bytes).SavePng(ProjectSettings.GlobalizePath(path));
+        return error == Error.Ok ? path : throw new IOException($"can't write {path} ({error})");
+    }
+
+    private static string Required(string flag) =>
+        Args.Value(flag) is { Length: > 0 } value ? value : throw new ArgumentException($"{flag}=… is required");
+
+    private static int Number(string flag, int fallback) =>
+        Args.Value(flag) is { } text ? int.Parse(text, CultureInfo.InvariantCulture) : fallback;
+
+    private static float Number(string flag, float fallback) =>
+        Args.Value(flag) is { } text ? float.Parse(text, CultureInfo.InvariantCulture) : fallback;
+}

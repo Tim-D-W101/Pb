@@ -15,6 +15,24 @@ public class DataTests
             "pool must hold the stress-mode ball count");
     }
 
+    /// <summary>
+    /// Spec: original IP only. Every texture and model the kit uses needs a provenance record in
+    /// assets.jsonc (written by tools/art/import.sh): the Higgsfield job, prompt and download URL.
+    /// </summary>
+    [Fact]
+    public void Every_kit_texture_and_model_has_a_provenance_record()
+    {
+        Assert.Empty(Unrecorded(TestData.Data, TestData.Source));
+    }
+
+    [Fact]
+    public void A_texture_without_a_provenance_record_is_caught()
+    {
+        var source = new EditedDataSource(TestData.Source).Edit("kit/materials.jsonc",
+            t => t.Replace("\"pattern\": \"asphalt\", \"tile_m\": 4.0,", "\"pattern\": \"asphalt\", \"tile_m\": 4.0, \"albedo\": \"res://art/textures/unrecorded.png\","));
+        Assert.Equal(new[] { "res://art/textures/unrecorded.png" }, Unrecorded(GameData.Load(source), source));
+    }
+
     [Fact]
     public void Range_targets_sit_at_the_spec_distances()
     {
@@ -72,5 +90,69 @@ public class DataTests
         var ex = Assert.Throws<DataException>(() => GameData.Load(source));
         Assert.Contains("projectiles/paintball_68.jsonc", ex.Message);
         Assert.Contains("line", ex.Message);
+    }
+
+    /// <summary>Textures and models the kit uses that assets.jsonc has no record of.</summary>
+    private static List<string> Unrecorded(GameData data, IDataSource source)
+    {
+        ProvenanceFile provenance = Jsonc.Load<ProvenanceFile>(source, "assets.jsonc");
+        var recorded = provenance.Assets.SelectMany(a => a.Files).ToHashSet(StringComparer.Ordinal);
+        return data.Kit.Materials.SelectMany(m => new[] { m.Def.Albedo, m.Def.Normal, m.Def.RoughnessMap })
+            .Concat(data.Kit.Props.Values.Select(p => p.Def.Model))
+            .Where(path => !string.IsNullOrWhiteSpace(path) && !recorded.Contains(path))
+            .Select(path => path!)
+            .ToList();
+    }
+
+    private sealed class ProvenanceFile : IValidatable
+    {
+        public AssetRecord[] Assets { get; set; } = Array.Empty<AssetRecord>();
+
+        public void Validate(Validator v)
+        {
+            for (int i = 0; i < Assets.Length; i++)
+            {
+                Assets[i].Validate(v.Item(nameof(Assets), i));
+            }
+        }
+    }
+
+    private sealed class AssetRecord : IValidatable
+    {
+        public string Id { get; set; } = "";
+
+        public string Kind { get; set; } = "";
+
+        public string Job { get; set; } = "";
+
+        public string Generator { get; set; } = "";
+
+        public string Prompt { get; set; } = "";
+
+        public string Source { get; set; } = "";
+
+        public string Imported { get; set; } = "";
+
+        public string[] Files { get; set; } = Array.Empty<string>();
+
+        public string Notes { get; set; } = "";
+
+        public void Validate(Validator v)
+        {
+            v.NotEmpty(nameof(Id), Id);
+            v.NotEmpty(nameof(Job), Job);
+            v.NotEmpty(nameof(Generator), Generator);
+            v.NotEmpty(nameof(Prompt), Prompt);
+            v.NotEmpty(nameof(Source), Source);
+            if (Kind is not ("texture" or "model"))
+            {
+                v.Error(nameof(Kind), $"'{Kind}' is not texture or model");
+            }
+
+            if (Files.Length == 0)
+            {
+                v.Error(nameof(Files), "lists no files");
+            }
+        }
     }
 }
