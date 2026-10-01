@@ -1,4 +1,5 @@
 using System.Numerics;
+using Pb.Sim.AI;
 using Pb.Sim.Ballistics;
 using Pb.Sim.Collision;
 using Pb.Sim.Core;
@@ -20,9 +21,10 @@ public sealed class GameData
     public const string DefaultSimFile = "sim.jsonc";
 
     private GameData(SimConfig config, RangeLayout range, StressSettings stress, KitCatalog kit, LadderDef ladder,
-        IReadOnlyDictionary<string, LevelLayout> levels)
+        IReadOnlyDictionary<string, LevelLayout> levels, BotConfig bots)
     {
         Config = config;
+        Bots = bots;
         Range = range;
         Stress = stress;
         Kit = kit;
@@ -31,6 +33,9 @@ public sealed class GameData
     }
 
     public SimConfig Config { get; }
+
+    /// <summary>Bot navigation, senses, behaviours and difficulty tiers.</summary>
+    public BotConfig Bots { get; }
 
     public RangeLayout Range { get; }
 
@@ -57,6 +62,12 @@ public sealed class GameData
         RulesDef rules = Jsonc.Load<RulesDef>(source, files.Rules);
         RangeDef range = Jsonc.Load<RangeDef>(source, files.Range);
         StressDef stress = Jsonc.Load<StressDef>(source, files.Stress);
+        BotConfig bots = BotConfig.From(
+            Jsonc.Load<NavigationDef>(source, files.Navigation),
+            Jsonc.Load<BrainDef>(source, files.Brain),
+            Jsonc.Load<SensesDef>(source, files.Senses),
+            Jsonc.Load<ArchetypesDef>(source, files.Archetypes),
+            Jsonc.Load<DifficultyTiersDef>(source, files.Difficulty));
 
         var surfaces = new SurfaceRegistry(breakModel.Surfaces.Select(s => s.Name));
         var responses = breakModel.Surfaces
@@ -104,11 +115,11 @@ public sealed class GameData
             }
 
             LevelLayout built = LevelFactory.Build(level, entry.File, kit);
-            CheckTiers(entry, built, files.Ladder);
+            CheckTiers(entry, built, files.Ladder, bots);
             levels[entry.Id] = built;
         }
 
-        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, ladder, levels);
+        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, ladder, levels, bots);
     }
 
     public static ProjectileParams ToProjectile(ProjectileDef d) => new()
@@ -207,16 +218,35 @@ public sealed class GameData
         Footsteps = ToFootsteps(d.Footsteps, surfaces, file),
     };
 
-    /// <summary>Every opponent a tier lists must be one of the level's opponent spawns.</summary>
-    private static void CheckTiers(LadderLevelDef entry, LevelLayout level, string ladderFile)
+    /// <summary>
+    /// Every opponent a tier lists must be one of the level's opponent spawns with a role that names a
+    /// bot behaviour, and the tier's bot difficulty must exist.
+    /// </summary>
+    private static void CheckTiers(LadderLevelDef entry, LevelLayout level, string ladderFile, BotConfig bots)
     {
-        var spawns = new HashSet<string>(level.OpponentSpawns.Select(s => s.Id), StringComparer.Ordinal);
+        var spawns = level.OpponentSpawns.ToDictionary(s => s.Id, StringComparer.Ordinal);
         foreach (LadderTierDef tier in entry.Tiers ?? Array.Empty<LadderTierDef>())
         {
-            foreach (string id in tier.Opponents.Where(id => !spawns.Contains(id)))
+            string at = $"levels.{entry.Id}.tiers.{tier.Id}";
+            if (!bots.Difficulty.ContainsKey(tier.Bots))
             {
                 throw new DataException(ladderFile,
-                    $"levels.{entry.Id}.tiers.{tier.Id}.opponents: '{id}' is not an opponent spawn in {entry.File} (known: {string.Join(", ", spawns)})");
+                    $"{at}.bots: unknown bot difficulty '{tier.Bots}' (known: {string.Join(", ", bots.Difficulty.Keys)})");
+            }
+
+            foreach (string id in tier.Opponents)
+            {
+                if (!spawns.TryGetValue(id, out OpponentSpawn? spawn))
+                {
+                    throw new DataException(ladderFile,
+                        $"{at}.opponents: '{id}' is not an opponent spawn in {entry.File} (known: {string.Join(", ", spawns.Keys)})");
+                }
+
+                if (bots.ArchetypeFor(spawn.Roles) is null)
+                {
+                    throw new DataException(entry.File!,
+                        $"opponentSpawns.{id}.roles: none of [{string.Join(", ", spawn.Roles)}] is a bot behaviour (known: {string.Join(", ", bots.Archetypes.Keys)})");
+                }
             }
         }
     }

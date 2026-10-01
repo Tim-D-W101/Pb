@@ -25,6 +25,12 @@
     "stress": "stress.jsonc",
     // Level kit (materials, props, building templates) and the level ladder (Phase 2).
     "kit": "kit/kit.jsonc",
-    "ladder": "levels/ladder.jsonc"
+    "ladder": "levels/ladder.jsonc",
+    // Bots (Phase 2): how they find their way, what they notice, how they behave, how good they are.
+    "navigation": "bots/navigation.jsonc",
+    "brain": "bots/brain.jsonc",
+    "senses": "bots/senses.jsonc",
+    "archetypes": "bots/archetypes.jsonc",
+    "difficulty": "bots/difficulty.jsonc"
   }
 }

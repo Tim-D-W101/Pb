@@ -1,11 +1,12 @@
 // The level ladder: levels in play order, each harder than the last. Entries without a "file"
 // are announced in level select but locked until they're built (Phase 3).
 // Each playable level has difficulty tiers:
-//   opponents    which of the level's opponent spawns are filled (a roster; bots get names and
-//                behaviours in M2.5)
+//   opponents    which of the level's opponent spawns are filled (a roster)
 //   timeLimit_s  how long you have to clear the level
 //   startPods    full pods you start with (the loader starts full); opponentPods the same for them
 //   pickups      whether the level's paint and air pickups are out
+//   bots         how good the opponents are (a tier in bots/difficulty.jsonc); each opponent's
+//                behaviour comes from its spawn's roles (bots/archetypes.jsonc)
 {
   "levels": [
     {
@@ -14,12 +15,12 @@
         {
           "id": "easy", "displayName": "Easy",
           "opponents": ["guardhouse", "yard_containers", "warehouse_floor", "office_up_south"],
-          "timeLimit_s": 900, "startPods": 3, "opponentPods": 1, "pickups": true
+          "timeLimit_s": 900, "startPods": 3, "opponentPods": 1, "pickups": true, "bots": "easy"
         },
         {
           "id": "normal", "displayName": "Normal",
           "opponents": ["guardhouse", "yard_containers", "yard_east", "office_corridor", "warehouse_floor", "warehouse_mezz_north"],
-          "timeLimit_s": 900, "startPods": 2, "opponentPods": 2, "pickups": true
+          "timeLimit_s": 900, "startPods": 2, "opponentPods": 2, "pickups": true, "bots": "normal"
         },
         {
           "id": "hard", "displayName": "Hard",
@@ -27,7 +28,7 @@
             "guardhouse", "yard_containers", "yard_east", "office_corridor", "office_up_south",
             "warehouse_bays", "warehouse_mezz_north", "pump_house", "east_scrap"
           ],
-          "timeLimit_s": 720, "startPods": 1, "opponentPods": 3, "pickups": true
+          "timeLimit_s": 720, "startPods": 1, "opponentPods": 3, "pickups": true, "bots": "hard"
         }
       ]
     },

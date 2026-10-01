@@ -925,10 +925,14 @@ public sealed class LadderTierDef : IValidatable
 
     public bool Pickups { get; set; }
 
+    /// <summary>Which bot difficulty tier (bots/difficulty.jsonc) the opponents play at.</summary>
+    public string Bots { get; set; } = "";
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
+        v.NotEmpty(nameof(Bots), Bots);
         if (Opponents.Length is 0 or > 9)
         {
             v.Error(nameof(Opponents), "needs 1 to 9 opponents (ten people in the round at most)");

@@ -57,10 +57,26 @@ public sealed class SimFilesDef : IValidatable
     /// <summary>The level ladder: which levels exist and in what order.</summary>
     public string Ladder { get; set; } = "";
 
+    /// <summary>Bots: navigation grid, senses, behaviours and difficulty tiers (M2.5).</summary>
+    public string Navigation { get; set; } = "";
+
+    public string Brain { get; set; } = "";
+
+    public string Senses { get; set; } = "";
+
+    public string Archetypes { get; set; } = "";
+
+    public string Difficulty { get; set; } = "";
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Kit), Kit);
         v.NotEmpty(nameof(Ladder), Ladder);
+        v.NotEmpty(nameof(Navigation), Navigation);
+        v.NotEmpty(nameof(Brain), Brain);
+        v.NotEmpty(nameof(Senses), Senses);
+        v.NotEmpty(nameof(Archetypes), Archetypes);
+        v.NotEmpty(nameof(Difficulty), Difficulty);
         v.NotEmpty(nameof(Projectile), Projectile);
         v.NotEmpty(nameof(Marker), Marker);
         v.NotEmpty(nameof(Loader), Loader);

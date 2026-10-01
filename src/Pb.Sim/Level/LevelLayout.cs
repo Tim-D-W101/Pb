@@ -130,9 +130,11 @@ public sealed class LevelLayout
     /// <summary>The most specific (smallest) area containing <paramref name="point"/>, or null.</summary>
     public AreaSpec? AreaAt(Vector3 point)
     {
+        // An indexed loop: bots ask this every tick, and an interface enumerator would allocate.
         AreaSpec? best = null;
-        foreach (AreaSpec area in Areas)
+        for (int i = 0; i < Areas.Count; i++)
         {
+            AreaSpec area = Areas[i];
             if (area.Box.Contains(point) && (best is null || area.Volume < best.Volume))
             {
                 best = area;

@@ -1,0 +1,36 @@
+// How good the bots are (M2.5). Each tier of the level ladder (levels/ladder.jsonc) names one of
+// these with its "bots" key.
+//   reactionTime_s      from spotting you to the first trigger pull
+//   aimError_deg        how far their aim wanders off the solution (a bounded random walk); it
+//                       settles to a third of this while they keep a still target in their sights
+//   trackingLag_s       how far behind your movement their estimate runs (leading a moving target)
+//   decisionInterval_s  how often they rethink what to do
+//   sightRange_m        how far they can spot you in daylight
+//   detectionScale      scales how fast the detection meter fills (senses.jsonc)
+//   hearingScale        scales how far they hear shots, breaks and footsteps
+//   turnSpeed_degps     how fast they swing their aim
+//   pullInterval_s      time between trigger pulls while shooting
+//   aggression          0 = timid, 1 = reckless; scales the behaviours' flank and push chances
+//                       (0.5 leaves them as written)
+{
+  "tiers": [
+    {
+      "id": "easy",
+      "reactionTime_s": 0.9, "aimError_deg": 3.5, "trackingLag_s": 0.6, "decisionInterval_s": 0.7,
+      "sightRange_m": 35, "detectionScale": 0.7, "hearingScale": 0.7, "turnSpeed_degps": 150,
+      "pullInterval_s": 0.45, "aggression": 0.3
+    },
+    {
+      "id": "normal",
+      "reactionTime_s": 0.55, "aimError_deg": 2.2, "trackingLag_s": 0.35, "decisionInterval_s": 0.45,
+      "sightRange_m": 45, "detectionScale": 1.0, "hearingScale": 1.0, "turnSpeed_degps": 240,
+      "pullInterval_s": 0.3, "aggression": 0.5
+    },
+    {
+      "id": "hard",
+      "reactionTime_s": 0.32, "aimError_deg": 1.3, "trackingLag_s": 0.18, "decisionInterval_s": 0.25,
+      "sightRange_m": 55, "detectionScale": 1.35, "hearingScale": 1.3, "turnSpeed_degps": 360,
+      "pullInterval_s": 0.2, "aggression": 0.7
+    }
+  ]
+}

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using Pb.Sim;
+using Pb.Sim.AI;
 using Pb.Sim.Core;
 using Pb.Sim.Data;
 using Pb.Sim.Events;
@@ -66,6 +67,29 @@ foreach ((string id, LevelLayout level) in data.Levels)
 }
 
 Console.WriteLine("_Sim only (no rendering). The 60 fps check itself runs in the game's stress mode on real hardware._");
+Console.WriteLine();
+Console.WriteLine($"## Bots ({RuntimeLabel()})");
+Console.WriteLine();
+foreach ((string id, LevelLayout level) in data.Levels)
+{
+    var probe = new SimWorld(config);
+    probe.LoadLevel(level);
+    var watch = Stopwatch.StartNew();
+    BotSquad built = BotSquad.ForLevel(probe, data.Bots, level);
+    double buildMs = watch.Elapsed.TotalMilliseconds;
+    Console.WriteLine($"**{level.DisplayName}**: navigation grid of {built.Grid.SpanCount:N0} places and {built.Cover.Points.Count} cover points, built at load in {buildMs:0} ms.");
+    Console.WriteLine();
+    Console.WriteLine("| Bots (hard), fighting you in the yard | Mean ms/tick (brains) | p95 ms/tick | Max ms/tick | Path searches |");
+    Console.WriteLine("|---|---|---|---|---|");
+    LadderTierDef? hardest = data.Ladder.Levels.First(l => l.Id == id).Tiers?.OrderByDescending(t => t.Opponents.Length).FirstOrDefault();
+    if (hardest is not null)
+    {
+        (double mean, double p95, double max, int searches) = MeasureBots(data, level, hardest, quick ? 1200 : 3600);
+        Console.WriteLine($"| {hardest.Opponents.Length} | {mean:0.000} | {p95:0.000} | {max:0.000} | {searches} |");
+    }
+
+    Console.WriteLine();
+}
 
 static (float Drop, float Speed) LevelProbe(SimConfig config, float distance)
 {
@@ -235,6 +259,112 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
 
     Array.Sort(samples);
     return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], liveSum / ticks);
+}
+
+// A round with the hardest tier's bots against you standing in the open (hitboxes off so it goes on):
+// the time all the bots' brains take per tick, moved over the navigation grid as in the sim tests.
+static (double Mean, double P95, double Max, int Searches) MeasureBots(GameData data, LevelLayout level, LadderTierDef tier, int ticks)
+{
+    var sim = new SimWorld(data.Config);
+    sim.LoadLevel(level);
+    BotSquad squad = BotSquad.ForLevel(sim, data.Bots, level);
+    var mover = new NavGridMover(sim, squad.Grid);
+    PlayerState you = sim.AddPlayer(0, 0, level.PlayerSpawn, level.PlayerSpawnYaw);
+    var brains = new List<BotBrain>();
+    foreach (string spawnId in tier.Opponents)
+    {
+        OpponentSpawn spawn = level.OpponentSpawns.First(s => s.Id == spawnId);
+        PlayerState bot = sim.AddPlayer(brains.Count + 1, 1, spawn.Position, spawn.Yaw);
+        bot.Name = spawn.Id;
+        brains.Add(squad.Add(bot, data.Bots.ArchetypeFor(spawn.Roles)!, data.Bots.Difficulty[tier.Bots], spawn));
+    }
+
+    // You: in the open, in sight of a sentry, firing just wide of whichever bot you can see.
+    OpponentSpawn yard = level.OpponentSpawns.FirstOrDefault(s => s.Id == "yard_east") ?? level.OpponentSpawns.First(s => s.Roles.Contains("sentry"));
+    you.Position = ClearSpot(sim, squad.Grid, yard, 18f);
+    you.Yaw = MathF.Atan2(-(yard.Position.X - you.Position.X), -(yard.Position.Z - you.Position.Z));
+    sim.StartMatch(new Pb.Sim.Match.MatchSetup { HeroId = 0, TimeLimit = 3600f, StartPods = 3, OpponentPods = 3, Pickups = true });
+    sim.GoLive();
+    sim.PlayerHits.Enabled = false;
+    var commands = new InputCommand[sim.Players.Count];
+    var samples = new double[ticks];
+    int searchesBefore = 0;
+    for (int t = 0; t < ticks + 600; t++)
+    {
+        int tick = sim.Tick;
+        long start = Stopwatch.GetTimestamp();
+        for (int i = 0; i < brains.Count; i++)
+        {
+            commands[i + 1] = brains[i].Think(tick);
+        }
+
+        double ms = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        commands[0] = YouFire(sim, you, tick);
+        for (int i = 0; i < commands.Length; i++)
+        {
+            if (sim.Players[i].Present)
+            {
+                mover.Step(sim.Players[i], commands[i], sim.Dt);
+            }
+        }
+
+        sim.Step(commands);
+        squad.HearAll(sim.Events.Items);
+        sim.Events.Clear();
+        if (t == 600)
+        {
+            searchesBefore = squad.SearchesDone;
+        }
+
+        if (t >= 600)
+        {
+            samples[t - 600] = ms;
+        }
+    }
+
+    Array.Sort(samples);
+    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], squad.SearchesDone - searchesBefore);
+}
+
+static Vector3 ClearSpot(SimWorld sim, NavGrid grid, OpponentSpawn from, float distance)
+{
+    foreach (float turn in new[] { 0f, 0.3f, -0.3f, 0.6f, -0.6f, 0.9f, -0.9f })
+    {
+        Vector3 at = from.Position + ViewAngles.FlatForward(from.Yaw + turn) * distance;
+        if (grid.TrySnap(at, out Vector3 spot) &&
+            !sim.Collision.SweepSphere(spot + new Vector3(0f, 1.2f, 0f), from.Position + new Vector3(0f, 1.2f, 0f), 0f, out _))
+        {
+            return spot;
+        }
+    }
+
+    return from.Position + ViewAngles.FlatForward(from.Yaw) * distance;
+}
+
+static InputCommand YouFire(SimWorld sim, PlayerState you, int tick)
+{
+    PlayerState? target = null;
+    float best = float.MaxValue;
+    foreach (PlayerState p in sim.Players)
+    {
+        Vector3 chest = p.Position + new Vector3(0f, p.EyeHeight * 0.72f, 0f);
+        float d = Vector3.Distance(you.Position, p.Position);
+        if (p.Team != you.Team && p.Present && d < best && !sim.Collision.SweepSphere(you.EyePosition, chest, 0f, out _))
+        {
+            best = d;
+            target = p;
+        }
+    }
+
+    if (target is null)
+    {
+        return new InputCommand { Tick = tick, Yaw = you.Yaw, Pitch = you.Pitch };
+    }
+
+    Vector3 point = target.Position + new Vector3(0f, target.EyeHeight * 0.72f, 0f);
+    point += Vector3.Normalize(Vector3.Cross(point - you.EyePosition, Vector3.UnitY)) * 1.4f;
+    (float yaw, float pitch) = BotAim.Solve(sim.Config, you.EyePosition, point, Vector3.Zero);
+    return new InputCommand { Tick = tick, Yaw = yaw, Pitch = pitch, Buttons = tick % 60 == 0 ? InputButtons.Fire : InputButtons.None };
 }
 
 static string RuntimeLabel() =>

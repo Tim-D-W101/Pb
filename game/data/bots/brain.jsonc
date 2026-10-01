@@ -1,0 +1,51 @@
+// How every bot thinks and acts (M2.5), whatever its behaviour and difficulty: timings and
+// distances for looking, investigating, fighting from cover, searching and walking off.
+{
+  // A sound or a glimpse: they stop and look that way this long before going to have a look.
+  "suspiciousTime_s": 1.5,
+
+  // Investigating: they walk, and crouch-walk once within this distance of the lead.
+  "crouchNearLead_m": 6,
+
+  // On spotting someone in the open they shoot from where they stand for up to this long before
+  // taking cover, unless that someone is closer than openFireMinDistance_m (then they take cover now).
+  "openFireTime_s": 1.2,
+  "openFireMinDistance_m": 6,
+
+  // Cover: looked for within this distance, never closer to the enemy than minThreatDistance_m.
+  "coverSearchRadius_m": 18,
+  "minThreatDistance_m": 5,
+
+  // Peeking: exposed this long without seeing the enemy, they duck back early.
+  "peekGiveUp_s": 0.9,
+
+  // In a fight, out of sight this long counts as lost: they flank, push or hold (archetype chances).
+  // Lost for giveUpTime_s, they go searching.
+  "lostSightTime_s": 2.5,
+  "giveUpTime_s": 9,
+
+  // Searching: they visit up to searchHops spots within searchRadius_m of the last known position.
+  "searchRadius_m": 8,
+  "searchHops": 3,
+
+  // Holding a post, they sweep their view this far either side of the post's facing, over this period.
+  "scanAngle_deg": 35,
+  "scanPeriod_s": 7,
+
+  // How fast they turn their head when not aiming (aiming uses the tier's turn speed).
+  "lookTurnSpeed_degps": 120,
+
+  // They refill from a pod when the loader drops below this share of full and nobody's in sight.
+  "refillBelow": 0.4,
+
+  // They hold fire while a teammate is this close to the line of fire.
+  "teammateClearance_m": 0.7,
+
+  // Aim: the error settles to a third of the tier's aim error over this long on a steady target, and
+  // they pull the trigger once their aim is within aimTolerance_deg of where they mean to point it.
+  "aimSettleTime_s": 1.5,
+  "aimTolerance_deg": 1.5,
+
+  // Eliminated, they walk to the dead zone and leave the field, at the latest after this long.
+  "walkOffTime_s": 25
+}
