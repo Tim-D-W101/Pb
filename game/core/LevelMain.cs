@@ -29,6 +29,7 @@ namespace Pb.Game.Core;
 ///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie)
 ///   --posture-demo        scripted lean / shoulder swap / muzzle-in-cover sequence at a wall corner
 ///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
+///   --duel-distance=M     how far from the bot the duel starts (default 6 m; 2 for a close-up)
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
 ///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends

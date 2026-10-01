@@ -75,7 +75,7 @@ The main scene is the menu (`scenes/Main.tscn`), so name the scene for anything 
 live in the level file (`viewpoints`). On `Level.tscn`, through the player's own camera,
 `-- --posture-demo` runs a short scripted shoulder swap / lean / muzzle-in-cover sequence,
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
-view), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
+view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay. `-- --bot-match` (CI) has a bot play your slot until
 the round ends. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's

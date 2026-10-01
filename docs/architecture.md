@@ -399,7 +399,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     - the chest and head share the aim pitch;
     - the feet stay planted, or step in a procedural cycle while the body moves (two-bone IK);
     - both hands go to grips on the marker (two-bone IK).
-  - **Gear and look.** The marker, loader and tank are still drawn from their hitboxes. A team-colour armband sits on each upper arm. Each opponent gets a tint from a list, so copies of one model differ.
+  - **Gear and look.** Until the generated marker arrives, the marker, loader and tank are simple shapes fitted inside their hitboxes (`GearShapes`): a body, barrel and grip; a hopper; a bottle. A team-colour armband sits on each upper arm. Each opponent gets a tint from a list, so copies of one model differ.
   - **Data.** `presentation.jsonc` → `characters` holds the models, tints, armband size, stride and lift, pitch shares and grip positions.
   - **Walk and run clips** come next.
 - **Attachments.** Armbands and paint splats attach to bones (`BoneAttachment3D`), so splats move with the character.

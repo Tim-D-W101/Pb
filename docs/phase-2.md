@@ -251,7 +251,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   - Eliminated opponents still raise the marker and walk off.
   - A team-colour armband sits on each upper arm.
   - Splats stick to the nearest bone and move with it. They reach through to the model's surface, which lies inside the hitbox in some places and bulges past it in others.
-  - The marker, loader and tank are still drawn as boxes. Walk and run clips come next.
+  - The marker, loader and tank are simple shapes fitted inside their hitboxes until the generated marker arrives. Walk and run clips come next.
 - [ ] Realistic first-person marker, loader and tank.
 - [x] Everything falls back when an asset is missing, so the game and CI never depend on the art: materials to the procedural look, props to greybox, opponents to their hitbox boxes. CI's bot match runs with `--no-art` to keep the fallbacks working.
 

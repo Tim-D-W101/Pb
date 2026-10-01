@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using Godot;
 using Pb.Game.Player;
 using Pb.Sim;
@@ -13,7 +14,7 @@ namespace Pb.Game.Core;
 /// <c>--write-movie</c>). You stand in front of a passive bot and shoot them: they call "Hit!",
 /// raise their marker, wear the splat and walk off. Then a ball from another opponent breaks on your
 /// mask: paint sprays your goggles and the spectator view shows who got you. Prints the tick of each
-/// step and quits.
+/// step and quits. <c>--duel-distance=M</c> stands you M metres from the bot instead of six, for a close-up.
 /// </summary>
 public sealed class DuelDemo : ICommandSource
 {
@@ -36,13 +37,14 @@ public sealed class DuelDemo : ICommandSource
         _opponents = opponents;
     }
 
-    /// <summary>Puts <paramref name="player"/> six metres in front of a bot out in the open, facing them.</summary>
+    /// <summary>Puts <paramref name="player"/> six metres (or <c>--duel-distance</c>) in front of a bot out in the open, facing them.</summary>
     public void Setup(PlayerController player)
     {
+        float distance = float.TryParse(Args.Value("--duel-distance"), NumberStyles.Float, CultureInfo.InvariantCulture, out float d) ? d : 6f;
         foreach (OpponentPawn o in _opponents)
         {
             bool outdoors = _sim.Level?.AreaAt(o.State.Position) is not { Indoor: true };
-            if (o.State.Alive && outdoors && ScenePositions.FindSpot(_sim, o.State, 6f, out SVector3 spot))
+            if (o.State.Alive && outdoors && ScenePositions.FindSpot(_sim, o.State, distance, out SVector3 spot))
             {
                 _target = o.State;
                 player.Teleport(spot, ScenePositions.Facing(spot, o.State.Position));
