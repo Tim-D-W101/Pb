@@ -4,6 +4,7 @@ using Pb.Sim.Collision;
 using Pb.Sim.Core;
 using Pb.Sim.Gear;
 using Pb.Sim.Level;
+using Pb.Sim.Match;
 using Pb.Sim.Players;
 using Pb.Sim.Range;
 
@@ -53,6 +54,7 @@ public sealed class GameData
         BreakModelDef breakModel = Jsonc.Load<BreakModelDef>(source, files.BreakModel);
         MovementDef movement = Jsonc.Load<MovementDef>(source, files.Movement);
         HitboxesDef hitboxes = Jsonc.Load<HitboxesDef>(source, files.Hitboxes);
+        RulesDef rules = Jsonc.Load<RulesDef>(source, files.Rules);
         RangeDef range = Jsonc.Load<RangeDef>(source, files.Range);
         StressDef stress = Jsonc.Load<StressDef>(source, files.Stress);
 
@@ -75,6 +77,14 @@ public sealed class GameData
             Air = ToAir(air),
             Movement = ToMovement(movement, surfaces, files.Movement),
             Hitboxes = ToHitboxes(hitboxes, surfaces, files.Hitboxes),
+            Rules = new MatchRules
+            {
+                Mode = rules.Mode,
+                SettleTime = rules.SettleTime_s,
+                TradeCountsAsClear = rules.TradeCountsAsClear,
+                PickupRadius = rules.PickupRadius_m,
+                AirPickupBelow = rules.AirPickupBelow,
+            },
         };
 
         KitCatalog kit = KitCatalog.Load(source, files.Kit, surfaces);
@@ -93,7 +103,9 @@ public sealed class GameData
                 throw new DataException(files.Ladder, $"levels: entry '{entry.Id}' points at {entry.File}, whose id is '{level.Id}'");
             }
 
-            levels[entry.Id] = LevelFactory.Build(level, entry.File, kit);
+            LevelLayout built = LevelFactory.Build(level, entry.File, kit);
+            CheckTiers(entry, built, files.Ladder);
+            levels[entry.Id] = built;
         }
 
         return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, ladder, levels);
@@ -194,6 +206,20 @@ public sealed class GameData
         SprintRecoveryTime = d.SprintRecoveryTime_s,
         Footsteps = ToFootsteps(d.Footsteps, surfaces, file),
     };
+
+    /// <summary>Every opponent a tier lists must be one of the level's opponent spawns.</summary>
+    private static void CheckTiers(LadderLevelDef entry, LevelLayout level, string ladderFile)
+    {
+        var spawns = new HashSet<string>(level.OpponentSpawns.Select(s => s.Id), StringComparer.Ordinal);
+        foreach (LadderTierDef tier in entry.Tiers ?? Array.Empty<LadderTierDef>())
+        {
+            foreach (string id in tier.Opponents.Where(id => !spawns.Contains(id)))
+            {
+                throw new DataException(ladderFile,
+                    $"levels.{entry.Id}.tiers.{tier.Id}.opponents: '{id}' is not an opponent spawn in {entry.File} (known: {string.Join(", ", spawns)})");
+            }
+        }
+    }
 
     public static HitboxParams ToHitboxes(HitboxesDef d, SurfaceRegistry surfaces, string file)
     {

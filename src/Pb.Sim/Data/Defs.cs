@@ -44,6 +44,9 @@ public sealed class SimFilesDef : IValidatable
     /// <summary>Player hitbox rig and elimination rules.</summary>
     public string Hitboxes { get; set; } = "";
 
+    /// <summary>Round rules (mode, settle time, pickups).</summary>
+    public string Rules { get; set; } = "";
+
     public string Range { get; set; } = "";
 
     public string Stress { get; set; } = "";
@@ -65,6 +68,7 @@ public sealed class SimFilesDef : IValidatable
         v.NotEmpty(nameof(BreakModel), BreakModel);
         v.NotEmpty(nameof(Movement), Movement);
         v.NotEmpty(nameof(Hitboxes), Hitboxes);
+        v.NotEmpty(nameof(Rules), Rules);
         v.NotEmpty(nameof(Range), Range);
         v.NotEmpty(nameof(Stress), Stress);
     }
@@ -834,5 +838,32 @@ public sealed class PartBoxDef : IValidatable
         {
             v.Error(nameof(Size_m), "sizes must be in (0, 2] m");
         }
+    }
+}
+
+public enum MatchModeKind
+{
+    /// <summary>You against every opponent on the level.</summary>
+    Solo,
+}
+
+/// <summary>Round rules (rules.jsonc).</summary>
+public sealed class RulesDef : IValidatable
+{
+    public MatchModeKind Mode { get; set; }
+
+    public float SettleTime_s { get; set; }
+
+    public bool TradeCountsAsClear { get; set; }
+
+    public float PickupRadius_m { get; set; }
+
+    public float AirPickupBelow { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(SettleTime_s), SettleTime_s, 0, 10);
+        v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.1, 5);
+        v.InRange(nameof(AirPickupBelow), AirPickupBelow, 0, 1);
     }
 }

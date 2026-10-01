@@ -20,6 +20,7 @@
     "breakModel": "break_model.jsonc",
     "movement": "movement.jsonc",
     "hitboxes": "hitboxes.jsonc",
+    "rules": "rules.jsonc",
     "range": "ranges/phase1.jsonc",
     "stress": "stress.jsonc",
     // Level kit (materials, props, building templates) and the level ladder (Phase 2).

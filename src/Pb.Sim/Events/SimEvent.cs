@@ -32,6 +32,12 @@ public enum SimEventType : byte
     PlayerEliminated,
     /// <summary>Paint sprayed a player's mask. TargetId = player, Team = paint, Position = break point, Value = strength 0..1.</summary>
     MaskSprayed,
+    /// <summary>The round moved on (briefing → live). Extra = <see cref="Match.MatchPhase"/>.</summary>
+    MatchPhaseChanged,
+    /// <summary>The round is decided. Extra = <see cref="Match.RoundOutcome"/>.</summary>
+    RoundEnded,
+    /// <summary>A player took a pickup. TargetId = pickup index, Extra = <see cref="Data.PickupKind"/>, Position = where it was.</summary>
+    PickupTaken,
 }
 
 public enum FootstepKind : byte

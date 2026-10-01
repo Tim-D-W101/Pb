@@ -887,10 +887,61 @@ public sealed class LadderLevelDef : IValidatable
     [Optional]
     public string? Note { get; set; }
 
+    /// <summary>Difficulty tiers, easiest first (playable levels need at least one).</summary>
+    [Optional]
+    public LadderTierDef[]? Tiers { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
+        if (!string.IsNullOrWhiteSpace(File) && (Tiers is null || Tiers.Length == 0))
+        {
+            v.Error(nameof(Tiers), "a playable level needs at least one difficulty tier");
+        }
+
+        if (Tiers is not null)
+        {
+            LevelDefChecks.UniqueIds(v, nameof(Tiers), Tiers, t => t.Id);
+        }
+    }
+}
+
+/// <summary>One difficulty tier of a level: who's out there, how long you have, and what everyone carries.</summary>
+public sealed class LadderTierDef : IValidatable
+{
+    public string Id { get; set; } = "";
+
+    public string DisplayName { get; set; } = "";
+
+    /// <summary>Opponent spawn ids from the level file (at most nine: ten people in the round).</summary>
+    public string[] Opponents { get; set; } = Array.Empty<string>();
+
+    public float TimeLimit_s { get; set; }
+
+    public int StartPods { get; set; }
+
+    public int OpponentPods { get; set; }
+
+    public bool Pickups { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Id), Id);
+        v.NotEmpty(nameof(DisplayName), DisplayName);
+        if (Opponents.Length is 0 or > 9)
+        {
+            v.Error(nameof(Opponents), "needs 1 to 9 opponents (ten people in the round at most)");
+        }
+
+        if (Opponents.Distinct(StringComparer.Ordinal).Count() != Opponents.Length)
+        {
+            v.Error(nameof(Opponents), "lists a spawn twice");
+        }
+
+        v.InRange(nameof(TimeLimit_s), TimeLimit_s, 30, 7200);
+        v.InRange(nameof(StartPods), StartPods, 0, 10);
+        v.InRange(nameof(OpponentPods), OpponentPods, 0, 10);
     }
 }
 

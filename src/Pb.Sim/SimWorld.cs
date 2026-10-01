@@ -5,6 +5,7 @@ using Pb.Sim.Core;
 using Pb.Sim.Events;
 using Pb.Sim.Gear;
 using Pb.Sim.Level;
+using Pb.Sim.Match;
 using Pb.Sim.Players;
 using Pb.Sim.Range;
 
@@ -62,6 +63,14 @@ public sealed class SimWorld
     /// <summary>Range targets and players together: what balls (and aim) are tested against.</summary>
     public HitReceivers Receivers { get; }
 
+    /// <summary>The current round, once <see cref="StartMatch"/> has been called; null on the range.</summary>
+    public MatchState? Match { get; private set; }
+
+    public PickupSet Pickups { get; } = new();
+
+    /// <summary>Players may move and fire: always without a match, and only while it's live with one.</summary>
+    public bool IsLive => Match is null || Match.Phase == MatchPhase.Live;
+
     public BallisticsWorld Ballistics { get; }
 
     public SimEventQueue Events { get; } = new();
@@ -106,6 +115,7 @@ public sealed class SimWorld
     {
         Level = level;
         PlayerHits.Enabled = true;
+        Pickups.Load(level.Pickups);
         Range = null;
         Stress = null;
         level.BuildCollision(Collision);
@@ -118,6 +128,7 @@ public sealed class SimWorld
         Range = range;
         Level = null;
         PlayerHits.Enabled = false;
+        Pickups.Load(Array.Empty<PickupSpec>());
         range.BuildCollision(Collision);
         Targets.Load(range.Targets);
         Targets.Update(Time);
@@ -141,6 +152,37 @@ public sealed class SimWorld
         }
     }
 
+    /// <summary>
+    /// Starts a round with everyone already added: gear by the tier (full loaders and tanks, the
+    /// tier's pods), pickups out or not, stats from zero. The round waits in the briefing until
+    /// <see cref="GoLive"/>.
+    /// </summary>
+    public MatchState StartMatch(MatchSetup setup)
+    {
+        IMatchMode mode = Config.Rules.Mode switch
+        {
+            _ => new SoloMode(),
+        };
+        Match = new MatchState(setup, Config.Rules, mode);
+        foreach (PlayerState p in _players)
+        {
+            p.Marker.ResetGear();
+            p.Marker.Paint.FillWith(p.Id == setup.HeroId ? setup.StartPods : setup.OpponentPods);
+            Match.AddPlayer(p.Id);
+        }
+
+        Pickups.Reset();
+        Pickups.Active = setup.Pickups && Pickups.Items.Count > 0;
+        Events.Add(new SimEvent
+        {
+            Type = SimEventType.MatchPhaseChanged, Tick = Tick, PlayerId = -1, TargetId = -1, ColliderId = -1, Extra = (int)MatchPhase.Briefing,
+        });
+        return Match;
+    }
+
+    /// <summary>Ends the briefing: the clock starts and everyone may move and fire.</summary>
+    public void GoLive() => Match?.GoLive(this);
+
     public void Step(ReadOnlySpan<InputCommand> commands)
     {
         double t0 = Time;
@@ -158,8 +200,9 @@ public sealed class SimWorld
                 player.Yaw = cmd.Yaw;
                 player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
                 UpdateFootsteps(player);
+                bool live = IsLive;
                 var input = new MarkerInput(
-                    cmd.Has(InputButtons.Fire), cmd.Has(InputButtons.Refill), cmd.Has(InputButtons.ToggleFireMode),
+                    live && cmd.Has(InputButtons.Fire), live && cmd.Has(InputButtons.Refill), cmd.Has(InputButtons.ToggleFireMode),
                     player.Sprinting, player.Alive, player.MarkerReady);
                 int count = player.Marker.Update(t0, dt, input, _shots, Events, player.Id, player.Team, Tick);
                 for (int k = 0; k < count; k++)
@@ -169,9 +212,15 @@ public sealed class SimWorld
             }
         }
 
+        if (IsLive)
+        {
+            Pickups.Update(this, Config.Rules);
+        }
+
         Stress?.Update(Ballistics, Config.MatchSeed, Config.Shot.MuzzleVelocity, Config.Shot.VelocityVariance, Tick, dt, Events);
         Ballistics.Tick(Tick, dt, Events);
         SprayMasks(firstEvent);
+        Match?.Update(this, firstEvent);
 
         Tick++;
         Time += dt;

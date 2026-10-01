@@ -1,0 +1,18 @@
+// Round rules for the compound (Phase 2): you against everyone else on the level.
+{
+  // Who plays whom. "solo" = you against every opponent. Free-for-all and squads come later.
+  "mode": "solo",
+
+  // When an end condition is reached (you're out, or the last opponent is), the round waits for
+  // balls still in the air to land, at most this long, so a shot fired as you go down still counts.
+  "settleTime_s": 1.5,
+
+  // You and the last opponent both out within the settle window: does that count as cleared?
+  "tradeCountsAsClear": false,
+
+  // Walk within this distance of a pickup to take it, if you have room for it.
+  "pickupRadius_m": 1.0,
+
+  // An air pickup refills a tank that's below this share of full; fuller tanks leave it.
+  "airPickupBelow": 0.9
+}

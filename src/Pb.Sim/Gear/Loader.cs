@@ -82,6 +82,31 @@ public sealed class PaintSupply
         Array.Fill(_pods, Params.PodCapacity);
     }
 
+    /// <summary>A full loader and <paramref name="fullPods"/> full pods; the other pod slots empty (round start).</summary>
+    public void FillWith(int fullPods)
+    {
+        Loader = Params.Capacity;
+        for (int i = 0; i < _pods.Length; i++)
+        {
+            _pods[i] = i < fullPods ? Params.PodCapacity : 0;
+        }
+    }
+
+    /// <summary>Puts a picked-up pod into an empty pod slot. False if every slot still has paint in it.</summary>
+    public bool TryAddPod()
+    {
+        for (int i = 0; i < _pods.Length; i++)
+        {
+            if (_pods[i] == 0)
+            {
+                _pods[i] = Params.PodCapacity;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Applies new parameters (hot reload) and refills.</summary>
     public void Reconfigure(LoaderParams parameters)
     {

@@ -64,5 +64,7 @@ public sealed class SimConfig
 
     public required HitboxParams Hitboxes { get; init; }
 
+    public required Match.MatchRules Rules { get; init; }
+
     public float Dt => 1f / TickRate;
 }

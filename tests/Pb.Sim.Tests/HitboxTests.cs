@@ -176,7 +176,7 @@ public class HitboxTests
         {
             TickRate = c.TickRate, MatchSeed = c.MatchSeed, BallPoolCapacity = c.BallPoolCapacity, Surfaces = c.Surfaces,
             Projectile = c.Projectile, BreakModel = c.BreakModel, Shot = c.Shot, Fire = c.Fire, Loader = c.Loader, Air = c.Air,
-            Movement = c.Movement, Hitboxes = WithBallsInFlight(c.Hitboxes, false),
+            Movement = c.Movement, Hitboxes = WithBallsInFlight(c.Hitboxes, false), Rules = c.Rules,
         };
         var sim = new SimWorld(config);
         sim.Collision.Add(new PlaneShape(Vector3.UnitY, 0f), c.Surfaces.Get("turf"), "ground");
