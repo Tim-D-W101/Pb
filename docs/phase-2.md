@@ -1,6 +1,6 @@
 # Phase 2 — The compound: plan
 
-> **Status: proposed, waiting for your OK.** At your request (2026-09-30) this replaces the spec's speedball Phase 2. Technical design: [architecture.md §14](architecture.md#14-direction-change-2026-09-30-the-compound). Everything else in [spec.md](spec.md) still applies: ballistics, paint rules, gear, metric units, original IP, data files, tests.
+> **Status: approved 2026-10-01 (all defaults accepted); in progress.** At your request (2026-09-30) this replaces the spec's speedball Phase 2. Technical design: [architecture.md §14](architecture.md#14-direction-change-2026-09-30-the-compound). Everything else in [spec.md](spec.md) still applies: ballistics, paint rules, gear, metric units, original IP, data files, tests.
 
 ## Your direction
 
@@ -118,17 +118,22 @@ Each milestone is pushed as it lands, with screenshots.
 
 ### M2.1 Level kit and greybox compound
 
-- [ ] Level file format (`levels/*.jsonc`):
+**Done 2026-10-01.** [Screenshots](reports/phase-2/) (software-rendered in the cloud container, so colours are right but frame rates mean nothing).
+
+- [x] Level file format (`levels/*.jsonc`):
   - buildings made from wall runs with door and window openings, floors with stairwell holes, stairs, roofs and columns;
   - props, pickups, spawn points, patrol routes and named areas.
-- [ ] One definition generates the visible mesh, walking collision, paint colliders, occluders and navigation geometry, so they can never disagree.
-- [ ] Kit catalogue (`kit/*.jsonc`):
-  - building templates;
-  - prop types with proxy colliders;
-  - a material library giving each material's texture, tile size and paint-physics surface.
-- [ ] New surfaces in `break_model.jsonc`: concrete, brick, plaster, sheet metal, glass, tarp, tyre rubber, dirt, gravel.
-- [ ] Greybox Level 1 you can walk through, including both office floors and the mezzanine.
-- [ ] Paint collision checked against multi-storey geometry, staying within the per-tick budget.
+  - Added along the way: open railings (`"style": "railing"`; paint and sight pass between the rails), roofs with a separate ceiling material, and camera viewpoints used for screenshots.
+- [x] One definition generates the visible mesh, walking collision, paint colliders, occluders and navigation geometry, so they can never disagree. The navmesh itself is baked in M2.5, from the same walkable primitives.
+- [x] Kit catalogue (`kit/*.jsonc`):
+  - building templates (guardhouse, pump house, office block, warehouse);
+  - 27 prop types with proxy colliders;
+  - a material library giving each material's texture, tile size and paint-physics surface (29 materials). Until M2.6 brings textures, a shader draws each material procedurally: brick, block, peeling plaster, corrugated sheet, rust, cracked asphalt, and so on, weathered with grime, moss and rain streaks.
+- [x] New surfaces in `break_model.jsonc`: concrete, brick, plaster, sheet metal, glass, tarp, tyre rubber, dirt, gravel (plus asphalt).
+- [x] Greybox Level 1 you can walk through, including both office floors and the mezzanine. The level smoke test in CI walks in through the gate firing, then climbs every flight of stairs to its landing.
+- [x] Paint collision checked against multi-storey geometry, staying within the per-tick budget. Long shots are swept in chunks and tested against a brute-force reference. With ~1,000 balls in flight over Oxbarrow Works the sim costs 0.13 ms per tick (0.26 ms per 60 fps frame), against 0.10 ms on the range.
+
+Also: a distant tree line and fog-matched sky so the horizon never shows an edge, overcast late-afternoon lighting, and three graphics presets (F12). F5 now opens the compound; the range is `scenes/Range.tscn`.
 
 ### M2.2 Movement
 

@@ -23,8 +23,10 @@ ballistics, ball collision, gear, hitboxes, match rules. It's deterministic for 
 and input stream. Hosts call `SimWorld.Step()` once per fixed tick with one `InputCommand` per
 player, then read and clear `SimWorld.Events`. The Godot project in `game/` samples input,
 does the collide-and-slide for walking, and renders. Presentation systems implement
-`ISimEventListener` and never change outcomes. Bots (Phase 2) and network clients (Phase 3)
-produce the same `InputCommand`s as humans.
+`ISimEventListener` and never change outcomes. Bots (Phase 2) and network clients (Phase 4)
+produce the same `InputCommand`s as humans. Since Phase 2 the game is explorable compound levels
+(see `docs/architecture.md` §14): levels are built from a data kit of analytic primitives, so paint
+collision never needs engine meshes.
 
 ## Commands
 
@@ -44,11 +46,15 @@ A cloud container can render with Mesa's software Vulkan (lavapipe) under Xvfb. 
 Maker writes frames you can inspect:
 
 ```bash
+# The compound level (main scene): hold each of the level's viewpoints for 10 frames, then quit.
 xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan \
-  --write-movie /tmp/cap/f.png --fixed-fps 30 --quit-after 450 -- --demo
+  --write-movie /tmp/cap/f.png --fixed-fps 30 -- --shots=10
+# The Phase 1 range: a scripted tour (game/core/DemoTour.cs).
+xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan \
+  --write-movie /tmp/cap/f.png --fixed-fps 30 --quit-after 450 res://scenes/Range.tscn -- --demo
 ```
 
-`--demo` runs a scripted tour (`game/core/DemoTour.cs`). Frame rates there mean nothing; only
+Viewpoints live in the level file (`viewpoints`). Frame rates under lavapipe mean nothing; only
 the owner's hardware can confirm the 60 fps target.
 
 ## Conventions

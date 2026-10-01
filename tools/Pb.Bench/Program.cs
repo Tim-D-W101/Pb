@@ -5,6 +5,7 @@ using Pb.Sim;
 using Pb.Sim.Core;
 using Pb.Sim.Data;
 using Pb.Sim.Events;
+using Pb.Sim.Level;
 using Pb.Sim.Players;
 using Pb.Sim.Range;
 
@@ -48,6 +49,22 @@ foreach (int balls in ballCounts)
 }
 
 Console.WriteLine();
+foreach ((string id, LevelLayout level) in data.Levels)
+{
+    Console.WriteLine($"Compound level **{level.DisplayName}** ({level.Primitives.Count} primitives, balls fired from its opponent spawns in all directions):");
+    Console.WriteLine();
+    Console.WriteLine("| Live balls | Mean ms/tick | p95 ms/tick | Max ms/tick | ms per 60 fps frame (2 ticks) |");
+    Console.WriteLine("|---|---|---|---|---|");
+    MeasureLevel(data, level, 1000, 300); // warm-up
+    foreach (int balls in ballCounts)
+    {
+        (double mean, double p95, double max, int live) = MeasureLevel(data, level, balls, measureTicks);
+        Console.WriteLine($"| {live} | {mean:0.000} | {p95:0.000} | {max:0.000} | {mean * 2:0.000} |");
+    }
+
+    Console.WriteLine();
+}
+
 Console.WriteLine("_Sim only (no rendering). The 60 fps check itself runs in the game's stress mode on real hardware._");
 
 static (float Drop, float Speed) LevelProbe(SimConfig config, float distance)
@@ -148,6 +165,68 @@ static (double Mean, double P95, double Max, int Live) Measure(GameData data, in
     int liveSum = 0;
     for (int i = 0; i < ticks; i++)
     {
+        long start = Stopwatch.GetTimestamp();
+        Step(t++);
+        samples[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        liveSum += sim.Ballistics.Pool.Count;
+    }
+
+    Array.Sort(samples);
+    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], liveSum / ticks);
+}
+
+// Keeps about `balls` paintballs in flight across a compound level, fired from its opponent spawns
+// at random headings and elevations, and times SimWorld.Step (topping up happens between ticks).
+static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData data, LevelLayout level, int balls, int ticks)
+{
+    SimConfig c = data.Config;
+    var config = new SimConfig
+    {
+        TickRate = c.TickRate, MatchSeed = c.MatchSeed, BallPoolCapacity = Math.Max(c.BallPoolCapacity, balls * 2),
+        Surfaces = c.Surfaces, Projectile = c.Projectile, BreakModel = c.BreakModel, Shot = c.Shot, Fire = c.Fire,
+        Loader = c.Loader, Air = c.Air, Movement = c.Movement,
+    };
+    var sim = new SimWorld(config);
+    sim.LoadLevel(level);
+    sim.AddPlayer(1, 0, level.PlayerSpawn, level.PlayerSpawnYaw);
+    var commands = new InputCommand[1];
+    var rng = new Pcg32(7);
+    uint sequence = 0;
+    float speed = c.Shot.MuzzleVelocity;
+
+    void TopUp(int tick)
+    {
+        int spawns = 0;
+        while (sim.Ballistics.Pool.Count < balls && spawns++ < Math.Max(16, balls / 40))
+        {
+            OpponentSpawn from = level.OpponentSpawns[(int)(rng.NextUInt() % (uint)level.OpponentSpawns.Count)];
+            float heading = rng.NextFloat() * MathF.Tau;
+            float elevation = (rng.NextFloat() - 0.3f) * 0.6f;
+            var direction = new Vector3(MathF.Sin(heading) * MathF.Cos(elevation), MathF.Sin(elevation), MathF.Cos(heading) * MathF.Cos(elevation));
+            sim.Ballistics.Spawn(from.Position + new Vector3(0f, 1.5f, 0f), direction * speed, 1, sequence++, 0, rng, config.Dt, tick, sim.Events);
+        }
+    }
+
+    void Step(int tick)
+    {
+        commands[0] = new InputCommand { Tick = tick };
+        sim.Step(commands);
+        sim.Events.Clear();
+    }
+
+    int t = 0;
+    while (t < 4000 && (sim.Ballistics.Pool.Count < balls * 0.97 || t < 480))
+    {
+        TopUp(t);
+        Step(t++);
+    }
+
+    var samples = new double[ticks];
+    int liveSum = 0;
+    for (int i = 0; i < ticks; i++)
+    {
+        TopUp(t);
+        sim.Events.Clear();
         long start = Stopwatch.GetTimestamp();
         Step(t++);
         samples[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;

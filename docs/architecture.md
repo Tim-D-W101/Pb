@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **Status: approved (defaults accepted 2026-09-30); Phase 1 implemented.** On 2026-09-30 the owner changed direction to explorable compound levels. The proposal is in [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md), and is waiting for approval. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
+> **Status: approved (defaults accepted 2026-09-30); Phase 1 implemented.** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
@@ -315,7 +315,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 ## 13. Roadmap: what each phase adds to this architecture
 
-> Superseded by the proposed roadmap in [§14.8](#148-revised-roadmap-proposed) once the owner approves it.
+> Superseded by the roadmap in [§14.8](#148-revised-roadmap) (approved 2026-10-01).
 
 | Phase | Adds |
 |---|---|
@@ -328,7 +328,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 ## 14. Direction change (2026-09-30): the compound
 
-> **Status: proposed with the [Phase 2 plan](phase-2.md), waiting for the owner's OK.** The owner's direction, verbatim: "…use Higgsfield to design the graphics and make it more realistic. I want the setting to be like old abandoned buildings in a compound. We can go around exploring and then you fight different people. You may have up to 10 people in one level, in one round, and then you have different levels depending on the difficulty."
+> **Status: approved 2026-10-01 with the [Phase 2 plan](phase-2.md) (all defaults accepted).** The owner's direction, verbatim: "…use Higgsfield to design the graphics and make it more realistic. I want the setting to be like old abandoned buildings in a compound. We can go around exploring and then you fight different people. You may have up to 10 people in one level, in one round, and then you have different levels depending on the difficulty."
 
 ### 14.1 What changes, what stays
 
@@ -425,7 +425,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **Storage.** Binaries go in Git LFS, using the patterns already in `.gitattributes`. CI checks out without LFS, to spare the bandwidth quota, and so it exercises the greybox fallback every run.
 - **Original IP.** Prompts never name real brands, products, fields or games. Generated images are checked for logos and legible text before use.
 
-### 14.8 Revised roadmap (proposed)
+### 14.8 Revised roadmap
 
 | Phase | Adds |
 |---|---|

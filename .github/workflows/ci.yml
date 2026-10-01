@@ -52,5 +52,5 @@ jobs:
         run: dotnet build game/Pb.csproj -c Debug
       - name: Import project
         run: tools/ci/import.sh ~/.local/godot/godot
-      - name: Smoke test (autopilot + 1,000-ball stress mode through the real scene)
+      - name: Smoke tests (range autopilot + 1,000-ball stress mode; walk into the compound level)
         run: tools/ci/smoke-test.sh ~/.local/godot/godot
