@@ -9,15 +9,17 @@ namespace Pb.Game.Player;
 
 /// <summary>
 /// Draws a character from the sim's hitbox rig, interpolated between ticks. With a rigged model
-/// (<see cref="CharacterModel"/>) the body is the model, posed to match the hitboxes, and only the gear
-/// (marker, loader, tank) is drawn as boxes, with the hands on the marker; without one, every hitbox
-/// is drawn as a box, so what you see is exactly what you can hit. Each part is an unscaled node with
-/// the scaled box under it, so splats parented to a part keep their shape and move with it.
+/// (<see cref="CharacterModel"/>) the body is the model, posed to match the hitboxes, and the gear
+/// (marker, loader, tank) gets shapes fitted inside its boxes (<see cref="GearShapes"/>), with the hands
+/// on the marker; without one, every hitbox is drawn as a box, so what you see is exactly what you
+/// can hit. Each part is an unscaled node with the box or shapes under it, so splats parented to a
+/// part keep their shape and move with it.
 /// </summary>
 public partial class CharacterVisual : Node3D
 {
     private readonly Node3D[] _parts = new Node3D[HitboxRig.PartCount];
-    private readonly MeshInstance3D[] _meshes = new MeshInstance3D[HitboxRig.PartCount];
+    private readonly MeshInstance3D?[] _meshes = new MeshInstance3D?[HitboxRig.PartCount];
+    private readonly Vector3[] _half = new Vector3[HitboxRig.PartCount];
     private readonly int[] _indexOfPart = new int[16];
     private PosedBox[] _previous = new PosedBox[HitboxRig.PartCount];
     private PosedBox[] _current = new PosedBox[HitboxRig.PartCount];
@@ -61,7 +63,14 @@ public partial class CharacterVisual : Node3D
             _indexOfPart[(int)part] = i;
             _parts[i] = new Node3D { Name = part.ToString() };
             AddChild(_parts[i]);
-            _meshes[i] = new MeshInstance3D { Mesh = box, MaterialOverride = MaterialFor(part, jersey), Visible = _model is null || IsGear(part) };
+            if (_model is not null && IsGear(part))
+            {
+                // Gear keeps its size, so its shapes are built once.
+                GearShapes.Build(_parts[i], part, _current[i].HalfExtents.ToGodot() * 2f, MaterialFor(part, jersey));
+                continue;
+            }
+
+            _meshes[i] = new MeshInstance3D { Mesh = box, MaterialOverride = MaterialFor(part, jersey), Visible = _model is null };
             _parts[i].AddChild(_meshes[i]);
         }
 
@@ -100,7 +109,11 @@ public partial class CharacterVisual : Node3D
             Quaternion q = Quat(a).Slerp(Quat(b), alpha);
             Vector3 centre = a.Center.ToGodot().Lerp(b.Center.ToGodot(), alpha);
             _parts[i].GlobalTransform = new Transform3D(new Basis(q), centre);
-            _meshes[i].Scale = a.HalfExtents.ToGodot().Lerp(b.HalfExtents.ToGodot(), alpha) * 2f;
+            _half[i] = a.HalfExtents.ToGodot().Lerp(b.HalfExtents.ToGodot(), alpha);
+            if (_meshes[i] is { } mesh)
+            {
+                mesh.Scale = _half[i] * 2f;
+            }
         }
 
         if (_model is not null && _look is not null)
@@ -128,7 +141,7 @@ public partial class CharacterVisual : Node3D
         // Wrists on the marker: the trigger hand near its back, the other under the front.
         int marker = _indexOfPart[(int)HitboxPart.Marker];
         Transform3D frame = _parts[marker].GlobalTransform;
-        Vector3 half = _meshes[marker].Scale * 0.5f;
+        Vector3 half = _half[marker];
         Vector3 Grip(float along) => frame * new Vector3(0f, -half.Y - _look.GripDrop_m, half.Z * (1f - 2f * along));
         poser.TriggerHand = Grip(_look.TriggerGrip);
         poser.SupportHand = Grip(_look.SupportGrip);
