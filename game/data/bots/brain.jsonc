@@ -51,5 +51,11 @@
 
   // They shout (spotted you, lost you, under fire, refilling, hit) at most this often; you see it
   // as a subtitle when you're close enough to hear (presentation.jsonc "hud").
-  "calloutCooldown_s": 4
+  "calloutCooldown_s": 4,
+
+  // Hunting (hunters, and bots gone restless in free-for-all and teams): they walk the level's opponent
+  // spawns one by one, picking the next at random from the huntChoices nearest they haven't visited
+  // (1 = always the nearest), and look around for huntLookAround_s at each.
+  "huntChoices": 3,
+  "huntLookAround_s": 2
 }

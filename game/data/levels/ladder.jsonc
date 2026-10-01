@@ -1,35 +1,25 @@
 // The level ladder: levels in play order, each harder than the last. Entries without a "file"
 // are announced in level select but locked until they're built (Phase 3).
-// Each playable level has difficulty tiers:
-//   opponents    which of the level's opponent spawns are filled (a roster)
-//   timeLimit_s  how long you have to clear the level
-//   startPods    full pods you start with (the loader starts full); opponentPods the same for them
+// Each playable level has difficulty tiers. A tier sets how good the bots are and what everyone
+// carries; never how many there are (the mode and size are picked separately, see rules.jsonc "modes"):
+//   bots         how good every bot is, teammates and opponents alike (a tier in bots/difficulty.jsonc)
+//   timeLimit_s  how long the round lasts
+//   startPods    full pods you start with (the loader starts full); botPods the same for every bot
 //   pickups      whether the level's paint and air pickups are out
-//   bots         how good the opponents are (a tier in bots/difficulty.jsonc); each opponent's
-//                behaviour comes from its spawn's roles (bots/archetypes.jsonc)
+// roster: the opponent spawns scripted solo runs (smoke tests, demos) fill, in this order, so they play
+// out the same every time. Real rounds deal random starts (rules.jsonc "spawning").
 {
   "levels": [
     {
       "id": "oxbarrow_works", "displayName": "Oxbarrow Works", "file": "levels/oxbarrow_works.jsonc",
       "tiers": [
-        {
-          "id": "easy", "displayName": "Easy",
-          "opponents": ["guardhouse", "yard_containers", "warehouse_floor", "office_up_south"],
-          "timeLimit_s": 900, "startPods": 3, "opponentPods": 1, "pickups": true, "bots": "easy"
-        },
-        {
-          "id": "normal", "displayName": "Normal",
-          "opponents": ["guardhouse", "yard_containers", "yard_east", "office_corridor", "warehouse_floor", "warehouse_mezz_north"],
-          "timeLimit_s": 900, "startPods": 2, "opponentPods": 2, "pickups": true, "bots": "normal"
-        },
-        {
-          "id": "hard", "displayName": "Hard",
-          "opponents": [
-            "guardhouse", "yard_containers", "yard_east", "office_corridor", "office_up_south",
-            "warehouse_bays", "warehouse_mezz_north", "pump_house", "east_scrap"
-          ],
-          "timeLimit_s": 720, "startPods": 1, "opponentPods": 3, "pickups": true, "bots": "hard"
-        }
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 900, "startPods": 3, "botPods": 1, "pickups": true },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 900, "startPods": 2, "botPods": 2, "pickups": true },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 720, "startPods": 1, "botPods": 3, "pickups": true }
+      ],
+      "roster": [
+        "guardhouse", "yard_containers", "yard_east", "office_corridor", "warehouse_floor", "warehouse_mezz_north",
+        "office_up_south", "warehouse_bays", "pump_house", "east_scrap"
       ]
     },
     { "id": "rail_yard", "displayName": "The Rail Yard", "note": "Coming in Phase 3" },

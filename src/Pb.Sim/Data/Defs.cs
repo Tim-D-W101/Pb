@@ -859,14 +859,24 @@ public sealed class PartBoxDef : IValidatable
 
 public enum MatchModeKind
 {
-    /// <summary>You against every opponent on the level.</summary>
+    /// <summary>You against a squad holding the level; they don't fight each other.</summary>
     Solo,
+
+    /// <summary>Everyone against everyone: every player is a team of their own.</summary>
+    FreeForAll,
+
+    /// <summary>Two teams: you and bot teammates against a bot team.</summary>
+    Teams,
 }
 
 /// <summary>Round rules (rules.jsonc).</summary>
 public sealed class RulesDef : IValidatable
 {
-    public MatchModeKind Mode { get; set; }
+    /// <summary>The modes the menu offers, in order.</summary>
+    public ModeDef[] Modes { get; set; } = Array.Empty<ModeDef>();
+
+    /// <summary>The most people in one round, you included.</summary>
+    public int MaxPlayers { get; set; }
 
     public float SettleTime_s { get; set; }
 
@@ -880,10 +890,95 @@ public sealed class RulesDef : IValidatable
 
     public void Validate(Validator v)
     {
+        v.InRange(nameof(MaxPlayers), MaxPlayers, 2, 32);
         v.InRange(nameof(SettleTime_s), SettleTime_s, 0, 10);
         v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.1, 5);
         v.InRange(nameof(AirPickupBelow), AirPickupBelow, 0, 1);
         Spawning.Validate(v.Scope(nameof(Spawning)));
+        if (Modes.Length == 0)
+        {
+            v.Error(nameof(Modes), "needs at least one mode");
+        }
+
+        for (int i = 0; i < Modes.Length; i++)
+        {
+            Modes[i].Validate(v.Item(nameof(Modes), i));
+            if (Modes[i].Sizes.Any(size => Modes[i].PlayersFor(size) > MaxPlayers))
+            {
+                v.Error(nameof(Modes), $"{Modes[i].Id}: a size needs more than maxPlayers ({MaxPlayers}) people");
+            }
+        }
+
+        if (Modes.Select(m => m.Id).Distinct(StringComparer.Ordinal).Count() != Modes.Length)
+        {
+            v.Error(nameof(Modes), "two modes share an id");
+        }
+    }
+}
+
+/// <summary>One mode the menu offers (rules.jsonc "modes").</summary>
+public sealed class ModeDef : IValidatable
+{
+    public string Id { get; set; } = "";
+
+    public string DisplayName { get; set; } = "";
+
+    public string Description { get; set; } = "";
+
+    public MatchModeKind Kind { get; set; }
+
+    /// <summary>The sizes offered: opponents (solo), players including you (free-for-all) or players a side (teams).</summary>
+    public int[] Sizes { get; set; } = Array.Empty<int>();
+
+    public int DefaultSize { get; set; }
+
+    /// <summary>Behaviours for the bots, with their chances; none for solo, where the level's spawn roles apply.</summary>
+    [Optional]
+    public RoleWeightDef[] Roles { get; set; } = Array.Empty<RoleWeightDef>();
+
+    /// <summary>A bot with nothing to go on for this long starts hunting (0 = never).</summary>
+    [Optional]
+    public float RestlessAfter_s { get; set; }
+
+    /// <summary>Everyone in a round of <paramref name="size"/>, you included.</summary>
+    public int PlayersFor(int size) => Kind switch
+    {
+        MatchModeKind.FreeForAll => size,
+        MatchModeKind.Teams => size * 2,
+        _ => size + 1,
+    };
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Id), Id);
+        v.NotEmpty(nameof(DisplayName), DisplayName);
+        v.NotEmpty(nameof(Description), Description);
+        v.InRange(nameof(RestlessAfter_s), RestlessAfter_s, 0, 3600);
+        int smallest = Kind == MatchModeKind.FreeForAll ? 2 : 1;
+        if (Sizes.Length == 0 || Sizes.Any(size => size < smallest))
+        {
+            v.Error(nameof(Sizes), $"needs at least one size, each at least {smallest}");
+        }
+
+        if (Sizes.Distinct().Count() != Sizes.Length)
+        {
+            v.Error(nameof(Sizes), "lists a size twice");
+        }
+
+        if (!Sizes.Contains(DefaultSize))
+        {
+            v.Error(nameof(DefaultSize), $"{DefaultSize} isn't one of the sizes");
+        }
+
+        if (Kind != MatchModeKind.Solo && Roles.Length == 0)
+        {
+            v.Error(nameof(Roles), "needs at least one bot behaviour (only solo uses the level's spawn roles)");
+        }
+
+        for (int i = 0; i < Roles.Length; i++)
+        {
+            Roles[i].Validate(v.Item(nameof(Roles), i));
+        }
     }
 }
 
@@ -900,12 +995,24 @@ public sealed class SpawningDef : IValidatable
 
     public float PatrolReach_m { get; set; }
 
+    public float FreeForAllSpacing_m { get; set; }
+
+    public float TeammatesWithin_m { get; set; }
+
+    public float TeammateSpacing_m { get; set; }
+
+    public float TeamSpread_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MinDistanceFromYou_m), MinDistanceFromYou_m, 0, 500);
         v.InRange(nameof(MinSpacing_m), MinSpacing_m, 0, 100);
         v.InRange(nameof(CoverShare), CoverShare, 0, 1);
         v.InRange(nameof(PatrolReach_m), PatrolReach_m, 0, 500);
+        v.InRange(nameof(FreeForAllSpacing_m), FreeForAllSpacing_m, 0, 100);
+        v.InRange(nameof(TeammatesWithin_m), TeammatesWithin_m, 1, 100);
+        v.InRange(nameof(TeammateSpacing_m), TeammateSpacing_m, 0.5, 50);
+        v.InRange(nameof(TeamSpread_m), TeamSpread_m, 1, 200);
         if (CoverRoles.Length == 0)
         {
             v.Error(nameof(CoverRoles), "needs at least one role");

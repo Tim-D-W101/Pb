@@ -1,6 +1,7 @@
 using System.Numerics;
 using Pb.Sim.AI;
 using Pb.Sim.Collision;
+using Pb.Sim.Data;
 using Pb.Sim.Core;
 using Pb.Sim.Events;
 using Pb.Sim.Level;
@@ -76,30 +77,33 @@ internal sealed class BotArena
     public static BotArena Create(string tier = "normal", ulong seed = 0) => new(tier, seed);
 
     /// <summary>Adds a bot at the named spawn with that spawn's behaviour.</summary>
-    public BotBrain AddBot(string spawnId, string? archetype = null)
+    public BotBrain AddBot(string spawnId, string? archetype = null) =>
+        AddBotAt(Level.OpponentSpawns.First(s => s.Id == spawnId), team: 1, archetype);
+
+    /// <summary>A bot on <paramref name="team"/> at <paramref name="spawn"/>, playing its first role (or <paramref name="archetype"/>).</summary>
+    public BotBrain AddBotAt(OpponentSpawn spawn, byte team, string? archetype = null)
     {
-        OpponentSpawn spawn = Level.OpponentSpawns.First(s => s.Id == spawnId);
-        PlayerState state = Sim.AddPlayer(_brains.Count, 1, spawn.Position, spawn.Yaw);
-        state.Name = spawnId;
+        PlayerState state = Sim.AddPlayer(_brains.Count, team, spawn.Position, spawn.Yaw);
+        state.Name = spawn.Id;
         ArchetypeParams behaviour = archetype is null ? TestData.Data.Bots.ArchetypeFor(spawn.Roles)! : TestData.Data.Bots.Archetypes[archetype];
         BotBrain brain = Squad.Add(state, behaviour, Tier, spawn);
         _brains.Add(brain);
         return brain;
     }
 
-    /// <summary>Puts a brain in your slot (team 0) with the given behaviour, starting from your spawn.</summary>
+    /// <summary>Puts a brain in your slot (team 0) with the given behaviour, starting from where you stand.</summary>
     public BotBrain HeroBot(string archetype = "hunter")
     {
-        var spawn = new OpponentSpawn { Id = "you", Position = Level.PlayerSpawn, Yaw = Level.PlayerSpawnYaw, Roles = new[] { archetype } };
+        var spawn = new OpponentSpawn { Id = "you", Position = Hero.Position, Yaw = Hero.Yaw, Roles = new[] { archetype } };
         BotBrain brain = Squad.Add(Hero, TestData.Data.Bots.Archetypes[archetype], Tier, spawn);
         _brains[0] = brain;
         return brain;
     }
 
     /// <summary>Starts the round (gear, stats) and goes live.</summary>
-    public BotArena Start(int heroPods = 2, int botPods = 2, float timeLimit = 900f)
+    public BotArena Start(int heroPods = 2, int botPods = 2, float timeLimit = 900f, MatchModeKind mode = MatchModeKind.Solo)
     {
-        Sim.StartMatch(new MatchSetup { HeroId = 0, TimeLimit = timeLimit, StartPods = heroPods, OpponentPods = botPods, Pickups = true });
+        Sim.StartMatch(new MatchSetup { HeroId = 0, Mode = mode, TimeLimit = timeLimit, StartPods = heroPods, BotPods = botPods, Pickups = true });
         Sim.GoLive();
         _commands = new InputCommand[Sim.Players.Count];
         return this;

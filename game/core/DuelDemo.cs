@@ -37,14 +37,15 @@ public sealed class DuelDemo : ICommandSource
         _opponents = opponents;
     }
 
-    /// <summary>Puts <paramref name="player"/> six metres (or <c>--duel-distance</c>) in front of a bot out in the open, facing them.</summary>
+    /// <summary>Puts <paramref name="player"/> six metres (or <c>--duel-distance</c>) in front of an opponent out in the open, facing them.</summary>
     public void Setup(PlayerController player)
     {
         float distance = float.TryParse(Args.Value("--duel-distance"), NumberStyles.Float, CultureInfo.InvariantCulture, out float d) ? d : 6f;
         foreach (OpponentPawn o in _opponents)
         {
             bool outdoors = _sim.Level?.AreaAt(o.State.Position) is not { Indoor: true };
-            if (o.State.Alive && outdoors && ScenePositions.FindSpot(_sim, o.State, distance, out SVector3 spot))
+            bool opponent = o.State.Team != player.State.Team;
+            if (o.State.Alive && opponent && outdoors && ScenePositions.FindSpot(_sim, o.State, distance, out SVector3 spot))
             {
                 _target = o.State;
                 player.Teleport(spot, ScenePositions.Facing(spot, o.State.Position));
@@ -100,7 +101,7 @@ public sealed class DuelDemo : ICommandSource
         foreach (OpponentPawn o in _opponents)
         {
             float d = SVector3.Distance(o.State.Position, me.Position);
-            if (o.State.Alive && d < best)
+            if (o.State.Alive && o.State.Team != me.Team && d < best)
             {
                 best = d;
                 shooter = o.State;

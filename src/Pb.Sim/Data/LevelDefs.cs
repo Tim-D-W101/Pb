@@ -909,6 +909,13 @@ public sealed class LadderLevelDef : IValidatable
     [Optional]
     public LadderTierDef[]? Tiers { get; set; }
 
+    /// <summary>
+    /// Opponent spawn ids that scripted solo runs (smoke tests, demos) fill in this order, so they play out
+    /// the same every time; real rounds deal random starts instead.
+    /// </summary>
+    [Optional]
+    public string[]? Roster { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
@@ -918,6 +925,16 @@ public sealed class LadderLevelDef : IValidatable
             v.Error(nameof(Tiers), "a playable level needs at least one difficulty tier");
         }
 
+        if (!string.IsNullOrWhiteSpace(File) && (Roster is null || Roster.Length == 0))
+        {
+            v.Error(nameof(Roster), "a playable level needs a roster for scripted runs");
+        }
+
+        if (Roster is not null && Roster.Distinct(StringComparer.Ordinal).Count() != Roster.Length)
+        {
+            v.Error(nameof(Roster), "lists a spawn twice");
+        }
+
         if (Tiers is not null)
         {
             LevelDefChecks.UniqueIds(v, nameof(Tiers), Tiers, t => t.Id);
@@ -925,25 +942,26 @@ public sealed class LadderLevelDef : IValidatable
     }
 }
 
-/// <summary>One difficulty tier of a level: who's out there, how long you have, and what everyone carries.</summary>
+/// <summary>
+/// One difficulty tier of a level: how good the bots are, how long the round lasts and what everyone
+/// carries. Never how many there are: the mode and size are picked separately.
+/// </summary>
 public sealed class LadderTierDef : IValidatable
 {
     public string Id { get; set; } = "";
 
     public string DisplayName { get; set; } = "";
 
-    /// <summary>Opponent spawn ids from the level file (at most nine: ten people in the round).</summary>
-    public string[] Opponents { get; set; } = Array.Empty<string>();
-
     public float TimeLimit_s { get; set; }
 
     public int StartPods { get; set; }
 
-    public int OpponentPods { get; set; }
+    /// <summary>Spare pods every bot starts with, teammates and opponents alike.</summary>
+    public int BotPods { get; set; }
 
     public bool Pickups { get; set; }
 
-    /// <summary>Which bot difficulty tier (bots/difficulty.jsonc) the opponents play at.</summary>
+    /// <summary>Which bot difficulty tier (bots/difficulty.jsonc) every bot plays at.</summary>
     public string Bots { get; set; } = "";
 
     public void Validate(Validator v)
@@ -951,19 +969,9 @@ public sealed class LadderTierDef : IValidatable
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
         v.NotEmpty(nameof(Bots), Bots);
-        if (Opponents.Length is 0 or > 9)
-        {
-            v.Error(nameof(Opponents), "needs 1 to 9 opponents (ten people in the round at most)");
-        }
-
-        if (Opponents.Distinct(StringComparer.Ordinal).Count() != Opponents.Length)
-        {
-            v.Error(nameof(Opponents), "lists a spawn twice");
-        }
-
         v.InRange(nameof(TimeLimit_s), TimeLimit_s, 30, 7200);
         v.InRange(nameof(StartPods), StartPods, 0, 10);
-        v.InRange(nameof(OpponentPods), OpponentPods, 0, 10);
+        v.InRange(nameof(BotPods), BotPods, 0, 10);
     }
 }
 

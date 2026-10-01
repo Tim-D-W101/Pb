@@ -90,7 +90,18 @@ public sealed class GameData
             Hitboxes = ToHitboxes(hitboxes, surfaces, files.Hitboxes),
             Rules = new MatchRules
             {
-                Mode = rules.Mode,
+                Modes = rules.Modes.Select(m => new GameMode
+                {
+                    Id = m.Id,
+                    DisplayName = m.DisplayName,
+                    Description = m.Description,
+                    Kind = m.Kind,
+                    Sizes = m.Sizes,
+                    DefaultSize = m.DefaultSize,
+                    Roles = m.Roles.Select(r => (r.Role, r.Weight)).ToArray(),
+                    RestlessAfter = m.RestlessAfter_s,
+                }).ToArray(),
+                MaxPlayers = rules.MaxPlayers,
                 SettleTime = rules.SettleTime_s,
                 TradeCountsAsClear = rules.TradeCountsAsClear,
                 PickupRadius = rules.PickupRadius_m,
@@ -102,16 +113,17 @@ public sealed class GameData
                     CoverShare = rules.Spawning.CoverShare,
                     CoverRoles = rules.Spawning.CoverRoles.Select(r => (r.Role, r.Weight)).ToArray(),
                     PatrolReach = rules.Spawning.PatrolReach_m,
+                    FreeForAllSpacing = rules.Spawning.FreeForAllSpacing_m,
+                    TeammatesWithin = rules.Spawning.TeammatesWithin_m,
+                    TeammateSpacing = rules.Spawning.TeammateSpacing_m,
+                    TeamSpread = rules.Spawning.TeamSpread_m,
                 },
             },
         };
-        for (int i = 0; i < rules.Spawning.CoverRoles.Length; i++)
+        CheckRoles(rules.Spawning.CoverRoles, "spawning.coverRoles", files.Rules, bots);
+        for (int i = 0; i < rules.Modes.Length; i++)
         {
-            if (!bots.Archetypes.ContainsKey(rules.Spawning.CoverRoles[i].Role))
-            {
-                throw new DataException(files.Rules,
-                    $"spawning.coverRoles[{i}].role: '{rules.Spawning.CoverRoles[i].Role}' is not a bot behaviour (known: {string.Join(", ", bots.Archetypes.Keys)})");
-            }
+            CheckRoles(rules.Modes[i].Roles, $"modes[{i}].roles", files.Rules, bots);
         }
 
         KitCatalog kit = KitCatalog.Load(source, files.Kit, surfaces);
@@ -234,9 +246,21 @@ public sealed class GameData
         Footsteps = ToFootsteps(d.Footsteps, surfaces, file),
     };
 
+    private static void CheckRoles(RoleWeightDef[] roles, string key, string file, BotConfig bots)
+    {
+        for (int i = 0; i < roles.Length; i++)
+        {
+            if (!bots.Archetypes.ContainsKey(roles[i].Role))
+            {
+                throw new DataException(file,
+                    $"{key}[{i}].role: '{roles[i].Role}' is not a bot behaviour (known: {string.Join(", ", bots.Archetypes.Keys)})");
+            }
+        }
+    }
+
     /// <summary>
-    /// Every opponent a tier lists must be one of the level's opponent spawns with a role that names a
-    /// bot behaviour, and the tier's bot difficulty must exist.
+    /// Every role of every opponent spawn must name a bot behaviour, every spawn the level's roster lists
+    /// must exist, and each tier's bot difficulty must exist.
     /// </summary>
     private static void CheckTiers(LadderLevelDef entry, LevelLayout level, string ladderFile, BotConfig bots)
     {
@@ -255,28 +279,21 @@ public sealed class GameData
             }
         }
 
+        foreach (string id in entry.Roster ?? Array.Empty<string>())
+        {
+            if (!spawns.ContainsKey(id))
+            {
+                throw new DataException(ladderFile,
+                    $"levels.{entry.Id}.roster: '{id}' is not an opponent spawn in {entry.File} (known: {string.Join(", ", spawns.Keys)})");
+            }
+        }
+
         foreach (LadderTierDef tier in entry.Tiers ?? Array.Empty<LadderTierDef>())
         {
-            string at = $"levels.{entry.Id}.tiers.{tier.Id}";
             if (!bots.Difficulty.ContainsKey(tier.Bots))
             {
                 throw new DataException(ladderFile,
-                    $"{at}.bots: unknown bot difficulty '{tier.Bots}' (known: {string.Join(", ", bots.Difficulty.Keys)})");
-            }
-
-            foreach (string id in tier.Opponents)
-            {
-                if (!spawns.TryGetValue(id, out OpponentSpawn? spawn))
-                {
-                    throw new DataException(ladderFile,
-                        $"{at}.opponents: '{id}' is not an opponent spawn in {entry.File} (known: {string.Join(", ", spawns.Keys)})");
-                }
-
-                if (bots.ArchetypeFor(spawn.Roles) is null)
-                {
-                    throw new DataException(entry.File!,
-                        $"opponentSpawns.{id}.roles: none of [{string.Join(", ", spawn.Roles)}] is a bot behaviour (known: {string.Join(", ", bots.Archetypes.Keys)})");
-                }
+                    $"levels.{entry.Id}.tiers.{tier.Id}.bots: unknown bot difficulty '{tier.Bots}' (known: {string.Join(", ", bots.Difficulty.Keys)})");
             }
         }
     }

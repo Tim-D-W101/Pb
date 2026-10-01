@@ -159,21 +159,17 @@ public sealed class SimWorld
     }
 
     /// <summary>
-    /// Starts a round with everyone already added: gear by the tier (full loaders and tanks, the
-    /// tier's pods), pickups out or not, stats from zero. The round waits in the briefing until
-    /// <see cref="GoLive"/>.
+    /// Starts a round with everyone already added, each on their team (in free-for-all, a team each):
+    /// gear by the tier (full loaders and tanks, the tier's pods), pickups out or not, stats from zero.
+    /// Every mode is won by the last team standing. The round waits in the briefing until <see cref="GoLive"/>.
     /// </summary>
     public MatchState StartMatch(MatchSetup setup)
     {
-        IMatchMode mode = Config.Rules.Mode switch
-        {
-            _ => new SoloMode(),
-        };
-        Match = new MatchState(setup, Config.Rules, mode);
+        Match = new MatchState(setup, Config.Rules, LastTeamStandingMode.Instance);
         foreach (PlayerState p in _players)
         {
             p.Marker.ResetGear();
-            p.Marker.Paint.FillWith(p.Id == setup.HeroId ? setup.StartPods : setup.OpponentPods);
+            p.Marker.Paint.FillWith(p.Id == setup.HeroId ? setup.StartPods : setup.BotPods);
             Match.AddPlayer(p.Id);
         }
 

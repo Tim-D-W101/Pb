@@ -1,13 +1,61 @@
-// Round rules for the compound (Phase 2): you against everyone else on the level.
+// Round rules for the compound levels (Phase 2).
 {
-  // Who plays whom. "solo" = you against every opponent. Free-for-all and squads come later.
-  "mode": "solo",
+  // The modes the menu offers, in this order. The mode and its size set who plays whom and how many;
+  // the difficulty (levels/ladder.jsonc "tiers") sets only how good the bots are and what everyone
+  // carries, never how many there are. Every mode is won by the last team standing.
+  //   kind          "solo": you against a squad holding the level (they never fight each other)
+  //                 "freeForAll": everyone against everyone, each player a team of their own with their
+  //                 own paint colour; when you're out the rest play on and you can watch them
+  //                 "teams": you and bot teammates against a bot team, starting on opposite sides; a
+  //                 hit from a teammate puts you out too, as in real paintball
+  //   sizes         the choices offered: opponents (solo), players including you (free-for-all) or
+  //                 players a side (teams); defaultSize is picked first
+  //   roles         behaviours the bots are dealt, with their relative chances (bots/archetypes.jsonc).
+  //                 Solo has none: its bots take their spawn's roles (or "spawning.coverRoles").
+  //                 Hunters roam the level looking for a fight, which is what the open modes need.
+  //   restlessAfter_s  a bot that has had nothing to go on for this long starts hunting, so a round
+  //                 doesn't stall with everyone holding a corner (0 = never)
+  "modes": [
+    {
+      "id": "solo", "displayName": "Solo", "kind": "solo",
+      "description": "You against a squad holding the compound. They guard posts, walk patrols and rush you, but never fight each other.",
+      "sizes": [3, 4, 6, 9], "defaultSize": 6
+    },
+    {
+      "id": "ffa", "displayName": "Free-for-all", "kind": "freeForAll",
+      "description": "Everyone against everyone, each in their own paint colour. The bots hunt each other as well as you; the last one standing wins.",
+      "sizes": [4, 6, 8, 10], "defaultSize": 6,
+      "roles": [
+        { "role": "hunter", "weight": 6 },
+        { "role": "rusher", "weight": 2 },
+        { "role": "sentry", "weight": 1 },
+        { "role": "patroller", "weight": 1 }
+      ],
+      "restlessAfter_s": 40
+    },
+    {
+      "id": "teams", "displayName": "Teams", "kind": "teams",
+      "description": "You and bot teammates against a bot team, starting on opposite sides. The last team standing wins, and a teammate's hit puts you out too.",
+      "sizes": [2, 3, 4, 5], "defaultSize": 3,
+      "roles": [
+        { "role": "hunter", "weight": 5 },
+        { "role": "sentry", "weight": 2 },
+        { "role": "rusher", "weight": 2 },
+        { "role": "patroller", "weight": 1 }
+      ],
+      "restlessAfter_s": 40
+    }
+  ],
 
-  // When an end condition is reached (you're out, or the last opponent is), the round waits for
-  // balls still in the air to land, at most this long, so a shot fired as you go down still counts.
+  // The most people in one round, you included (the sim's benchmark budget is for ten).
+  "maxPlayers": 10,
+
+  // When the round is decided (one team left standing, or none), it waits for balls still in the
+  // air to land, at most this long, so a shot fired as you go down still counts.
   "settleTime_s": 1.5,
 
-  // You and the last opponent both out within the settle window: does that count as cleared?
+  // The last ones standing all out within the settle window (you and the last opponent, say): does
+  // that count as a win for you?
   "tradeCountsAsClear": false,
 
   // Walk within this distance of a pickup to take it, if you have room for it.
@@ -20,11 +68,19 @@
   // in at one of the level's player spawns, and opponents start at a random mix of the level's
   // opponent spawns and cover points (anywhere the level offers cover) inside its spawn area, spread
   // out, away from you and out of your sight. Scripted runs (smoke tests, demos) keep the data's seed
-  // and the tier's roster.
+  // and the level's roster (levels/ladder.jsonc).
   "spawning": {
     "minDistanceFromYou_m": 28,
     // Opponents start at least this far apart (relaxed if the level can't fit them).
     "minSpacing_m": 10,
+    // Free-for-all: everyone starts at least this far from everyone else, and out of each other's sight
+    // where the level allows (both relaxed if it can't fit them all).
+    "freeForAllSpacing_m": 16,
+    // Teams: your teammates start within teammatesWithin_m of you, teammateSpacing_m apart, and the other
+    // team within teamSpread_m of a spot on the far side of the level, out of sight of your whole team.
+    "teammatesWithin_m": 12,
+    "teammateSpacing_m": 3,
+    "teamSpread_m": 25,
     // Share of opponents placed at cover points rather than the level's opponent spawns.
     "coverShare": 0.5,
     // Behaviour of an opponent placed at a cover point, by chance (opponent spawns pick one of their

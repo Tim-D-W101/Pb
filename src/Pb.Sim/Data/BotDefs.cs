@@ -78,8 +78,14 @@ public sealed class BrainDef : IValidatable
 
     public float CalloutCooldown_s { get; set; }
 
+    public int HuntChoices { get; set; }
+
+    public float HuntLookAround_s { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(HuntChoices), HuntChoices, 1, 8);
+        v.InRange(nameof(HuntLookAround_s), HuntLookAround_s, 0, 30);
         v.InRange(nameof(SuspiciousTime_s), SuspiciousTime_s, 0, 30);
         v.InRange(nameof(CalloutCooldown_s), CalloutCooldown_s, 0, 120);
         v.InRange(nameof(CrouchNearLead_m), CrouchNearLead_m, 0, 100);

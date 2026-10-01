@@ -67,6 +67,12 @@ public sealed class BrainParams
     public required float WalkOffTime { get; init; }
 
     public required float CalloutCooldown { get; init; }
+
+    /// <summary>Hunting, the next spot is picked at random from this many nearest unvisited ones.</summary>
+    public required int HuntChoices { get; init; }
+
+    /// <summary>Hunting, how long they look around at each spot.</summary>
+    public required float HuntLookAround { get; init; }
 }
 
 /// <summary>Sight, hearing and memory (SI, angles in radians), from bots/senses.jsonc.</summary>
@@ -214,6 +220,8 @@ public sealed class BotConfig
             AimTolerance = brain.AimTolerance_deg * Units.DegreesToRadians,
             WalkOffTime = brain.WalkOffTime_s,
             CalloutCooldown = brain.CalloutCooldown_s,
+            HuntChoices = brain.HuntChoices,
+            HuntLookAround = brain.HuntLookAround_s,
         },
         Navigation = new NavParams
         {

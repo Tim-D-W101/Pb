@@ -14,9 +14,10 @@ public class MatchTests
 {
     private static SimConfig Config => TestData.Config;
 
-    private static MatchSetup Setup(float timeLimit = 900f, int startPods = 2, int opponentPods = 1, bool pickups = true) => new()
+    private static MatchSetup Setup(float timeLimit = 900f, int startPods = 2, int botPods = 1, bool pickups = true,
+        MatchModeKind mode = MatchModeKind.Solo) => new()
     {
-        HeroId = 0, TimeLimit = timeLimit, StartPods = startPods, OpponentPods = opponentPods, Pickups = pickups,
+        HeroId = 0, Mode = mode, TimeLimit = timeLimit, StartPods = startPods, BotPods = botPods, Pickups = pickups,
     };
 
     /// <summary>Open ground with the hero (id 0, team 0) at the origin facing −Z and opponents (team 1) in a row ahead.</summary>
@@ -185,7 +186,7 @@ public class MatchTests
     }
 
     [Fact]
-    public void Tiers_set_the_gear_and_their_rosters_must_name_real_spawns()
+    public void Tiers_set_the_gear_and_the_roster_must_name_real_spawns()
     {
         LadderTierDef hard = TestData.Data.Ladder.Levels.First(l => l.Id == "oxbarrow_works").Tiers!.First(t => t.Id == "hard");
         MatchSetup setup = MatchSetup.From(hard, heroId: 0);
@@ -194,14 +195,170 @@ public class MatchTests
         (SimWorld sim, PlayerState hero, PlayerState[] opponents) = Field(10f);
         sim.StartMatch(setup);
         Assert.Equal(hard.StartPods * hero.Marker.Paint.Params.PodCapacity, hero.Marker.Paint.PodsRemaining);
-        Assert.Equal(hard.OpponentPods * hero.Marker.Paint.Params.PodCapacity, opponents[0].Marker.Paint.PodsRemaining);
+        Assert.Equal(hard.BotPods * hero.Marker.Paint.Params.PodCapacity, opponents[0].Marker.Paint.PodsRemaining);
         Assert.Equal(hero.Marker.Paint.Params.Capacity, hero.Marker.Paint.Loader);
 
         var edited = new EditedDataSource(TestData.Source).Edit("levels/ladder.jsonc", s => s.Replace("\"pump_house\", \"east_scrap\"", "\"pump_house\", \"nowhere\""));
         var ex = Assert.Throws<DataException>(() => GameData.Load(edited));
         Assert.Contains("levels/ladder.jsonc", ex.Message);
-        Assert.Contains("tiers.hard.opponents", ex.Message);
+        Assert.Contains("levels.oxbarrow_works.roster", ex.Message);
         Assert.Contains("nowhere", ex.Message);
+    }
+
+    /// <summary>Open ground with players at (x, z) on the given teams, hero first (id 0), facing −Z.</summary>
+    private static (SimWorld Sim, PlayerState[] Players) Teams(params (byte Team, float X, float Z)[] players)
+    {
+        var sim = new SimWorld(Config);
+        sim.Collision.Add(new PlaneShape(Vector3.UnitY, 0f), Config.Surfaces.Get("turf"), "ground");
+        PlayerState[] added = players.Select((p, i) => sim.AddPlayer(i, p.Team, new Vector3(p.X, 0f, p.Z), MathF.PI)).ToArray();
+        return (sim, added);
+    }
+
+    /// <summary>Each shot is (shooter, target, tick): the shooter aims at the target's chest and fires on that tick.</summary>
+    private static Func<int, PlayerState, InputCommand> Script(params (PlayerState Shooter, PlayerState Target, int Tick)[] shots) => (t, p) =>
+    {
+        foreach ((PlayerState shooter, PlayerState target, int tick) in shots)
+        {
+            if (p == shooter && t >= tick - 5 && t <= tick)
+            {
+                return Shoot(shooter, target, t, tick);
+            }
+        }
+
+        return default;
+    };
+
+    [Fact]
+    public void In_teams_the_round_goes_on_while_a_teammate_is_in_and_the_last_team_standing_wins()
+    {
+        (SimWorld sim, PlayerState[] p) = Teams((0, 0f, 0f), (0, 6f, 0f), (1, 0f, -14f), (1, 12f, -14f));
+        PlayerState hero = p[0], mate = p[1], first = p[2], second = p[3];
+        MatchState match = sim.StartMatch(Setup(botPods: 3, mode: MatchModeKind.Teams));
+        Assert.Equal(3 * mate.Marker.Paint.Params.PodCapacity, mate.Marker.Paint.PodsRemaining);
+        sim.GoLive();
+
+        // Their first player gets you: your teammate is still in, so the round goes on.
+        Run(sim, 60, Script((first, hero, 10)));
+        Assert.False(hero.Alive);
+        Assert.Equal(MatchPhase.Live, match.Phase);
+        Assert.Equal(RoundOutcome.None, match.Outcome);
+
+        // Your teammate puts both of theirs out: your team wins.
+        Run(sim, 240, Script((mate, first, 10), (mate, second, 130)));
+        Assert.False(first.Alive);
+        Assert.False(second.Alive);
+        Assert.Equal(MatchPhase.Ended, match.Phase);
+        Assert.Equal(RoundOutcome.Cleared, match.Outcome);
+        Assert.Equal(2, match.StatsFor(mate.Id)!.Eliminations);
+    }
+
+    [Fact]
+    public void A_team_is_out_when_its_last_player_is()
+    {
+        (SimWorld sim, PlayerState[] p) = Teams((0, 0f, 0f), (0, 6f, 0f), (1, 3f, -14f));
+        PlayerState hero = p[0], mate = p[1], them = p[2];
+        MatchState match = sim.StartMatch(Setup(mode: MatchModeKind.Teams));
+        sim.GoLive();
+        Run(sim, 240, Script((them, hero, 10), (them, mate, 130)));
+        Assert.Equal(RoundOutcome.Eliminated, match.Outcome);
+    }
+
+    [Fact]
+    public void A_teammates_hit_puts_you_out_but_counts_as_no_elimination()
+    {
+        (SimWorld sim, PlayerState[] p) = Teams((0, 0f, 0f), (0, 0f, -8f), (1, 20f, -30f));
+        PlayerState hero = p[0], mate = p[1];
+        MatchState match = sim.StartMatch(Setup(mode: MatchModeKind.Teams));
+        sim.GoLive();
+        List<SimEvent> events = Run(sim, 60, Script((mate, hero, 10)));
+
+        Assert.False(hero.Alive);
+        Assert.Contains(events, e => e.Type == SimEventType.PlayerEliminated && e.PlayerId == mate.Id && e.TargetId == hero.Id);
+        Assert.Equal(0, match.StatsFor(mate.Id)!.Eliminations);
+        Assert.Equal(0, match.StatsFor(mate.Id)!.Hits);
+        Assert.Equal(0, mate.Eliminations);
+        Assert.Equal(RoundOutcome.None, match.Outcome); // your teammate is still in
+    }
+
+    [Fact]
+    public void In_free_for_all_the_rest_play_on_after_you_are_out_and_placings_follow_the_order_out()
+    {
+        // Everyone on a team of their own, in a row 10 m apart, with you facing them.
+        (SimWorld sim, PlayerState[] p) = Teams((0, 0f, 0f), (1, 0f, -10f), (2, 10f, -10f), (3, 20f, -10f));
+        PlayerState hero = p[0], a = p[1], b = p[2], c = p[3];
+        MatchState match = sim.StartMatch(Setup(mode: MatchModeKind.FreeForAll));
+        sim.GoLive();
+
+        Run(sim, 60, Script((a, hero, 10)));
+        Assert.False(hero.Alive);
+        Assert.Equal(RoundOutcome.None, match.Outcome); // two others are still fighting
+
+        Run(sim, 60, Script((b, a, 10)));
+        Assert.False(a.Alive);
+        Assert.Equal(RoundOutcome.None, match.Outcome);
+
+        Run(sim, 120, Script((c, b, 10)));
+        Assert.False(b.Alive);
+        Assert.Equal(MatchPhase.Ended, match.Phase);
+        Assert.Equal(RoundOutcome.Eliminated, match.Outcome); // someone else won
+        Assert.Equal(new[] { 4, 3, 2, 1 }, p.Select(x => match.Placing(x.Id)));
+        Assert.Equal(1, match.StatsFor(c.Id)!.Eliminations);
+    }
+
+    [Fact]
+    public void The_last_one_standing_in_free_for_all_wins_and_shares_no_place()
+    {
+        (SimWorld sim, PlayerState[] p) = Teams((0, 0f, 0f), (1, -4f, -12f), (2, 4f, -12f));
+        PlayerState hero = p[0];
+        MatchState match = sim.StartMatch(Setup(mode: MatchModeKind.FreeForAll));
+        sim.GoLive();
+        Run(sim, 240, Script((hero, p[1], 10), (hero, p[2], 130)));
+
+        Assert.Equal(RoundOutcome.Cleared, match.Outcome);
+        Assert.Equal(1, match.Placing(hero.Id));
+        Assert.Equal(new[] { 3, 2 }, new[] { match.Placing(p[1].Id), match.Placing(p[2].Id) });
+        Assert.Equal(2, match.StatsFor(hero.Id)!.Eliminations);
+    }
+
+    [Fact]
+    public void Players_out_on_the_same_tick_share_a_place()
+    {
+        (SimWorld sim, PlayerState[] p) = Teams((0, 0f, 0f), (1, 0f, -20f), (2, 20f, -20f), (3, -20f, -20f));
+        MatchState match = sim.StartMatch(Setup(mode: MatchModeKind.FreeForAll));
+        match.StatsFor(p[3].Id)!.OutTick = 20;
+        match.StatsFor(p[1].Id)!.OutTick = 50;
+        match.StatsFor(p[2].Id)!.OutTick = 50;
+
+        Assert.Equal(1, match.Placing(p[0].Id)); // still in
+        Assert.Equal(2, match.Placing(p[1].Id));
+        Assert.Equal(2, match.Placing(p[2].Id));
+        Assert.Equal(4, match.Placing(p[3].Id));
+        Assert.Equal(0, match.Placing(99));
+    }
+
+    [Fact]
+    public void A_live_free_for_all_round_steps_without_allocating()
+    {
+        (SimWorld sim, PlayerState[] p) = Teams((0, 0f, 0f), (1, 0f, -30f), (2, 30f, -30f), (3, -30f, -30f));
+        sim.StartMatch(Setup(mode: MatchModeKind.FreeForAll));
+        sim.GoLive();
+        var commands = new InputCommand[sim.Players.Count];
+
+        void StepTicks(int from, int count)
+        {
+            for (int tick = from; tick < from + count; tick++)
+            {
+                commands[0] = new InputCommand { Tick = tick, Yaw = MathF.PI / 2f, Buttons = tick % 12 == 0 ? InputButtons.Fire : InputButtons.None };
+                sim.Step(commands);
+                sim.Events.Clear();
+            }
+        }
+
+        StepTicks(0, 240);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        StepTicks(240, 240);
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(MatchPhase.Live, sim.Match!.Phase);
     }
 
     [Fact]

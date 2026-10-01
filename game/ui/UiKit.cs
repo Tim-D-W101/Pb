@@ -133,6 +133,44 @@ public static class UiKit
         return row;
     }
 
+    /// <summary>
+    /// "Label  [A] [B] [C]": one choice from a few, as toggle buttons that stay lit (clearer than a drop-down
+    /// from across a room). Each button is named <paramref name="namePrefix"/> + its index, for tests.
+    /// </summary>
+    public static HBoxContainer ChoiceRow(string name, string[] options, int selected, Action<int> changed, string namePrefix,
+        int buttonWidth = 150)
+    {
+        HBoxContainer row = Row(10);
+        Label label = Body(name);
+        label.CustomMinimumSize = new Vector2(150, 0);
+        row.AddChild(label);
+        var group = new ButtonGroup();
+        for (int i = 0; i < options.Length; i++)
+        {
+            int index = i;
+            var button = new Button
+            {
+                Name = namePrefix + i,
+                Text = options[i],
+                ToggleMode = true,
+                ButtonGroup = group,
+                ButtonPressed = i == selected,
+                CustomMinimumSize = new Vector2(buttonWidth, 44),
+                FocusMode = Control.FocusModeEnum.All,
+            };
+            button.Toggled += on =>
+            {
+                if (on)
+                {
+                    changed(index);
+                }
+            };
+            row.AddChild(button);
+        }
+
+        return row;
+    }
+
     /// <summary>"Label  [On]": a toggle button that reads On or Off (clearer than a small tick box from across a room).</summary>
     public static HBoxContainer CheckRow(string name, bool value, Action<bool> changed)
     {

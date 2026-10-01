@@ -195,7 +195,7 @@ public sealed class PlayerHitboxes : IHitboxWorld
         victim.EliminatedBy = shooterId;
         victim.EliminatedTick = tick;
         victim.EliminatedPart = hit.Part;
-        if (_sim.FindPlayer(shooterId) is { } shooter)
+        if (_sim.FindPlayer(shooterId) is { } shooter && shooter.Team != victim.Team)
         {
             shooter.Eliminations++;
         }

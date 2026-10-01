@@ -52,6 +52,25 @@ public class DataTests
     }
 
     [Fact]
+    public void Modes_must_fit_the_player_limit_and_deal_real_behaviours()
+    {
+        var tooBig = new EditedDataSource(TestData.Source).Edit("rules.jsonc", t => t.Replace("\"sizes\": [4, 6, 8, 10]", "\"sizes\": [4, 6, 8, 12]"));
+        var ex = Assert.Throws<DataException>(() => GameData.Load(tooBig));
+        Assert.Contains("rules.jsonc", ex.Message);
+        Assert.Contains("maxPlayers", ex.Message);
+
+        var badRole = new EditedDataSource(TestData.Source).Edit("rules.jsonc",
+            t => t.Replace("{ \"role\": \"hunter\", \"weight\": 6 }", "{ \"role\": \"camper\", \"weight\": 6 }"));
+        ex = Assert.Throws<DataException>(() => GameData.Load(badRole));
+        Assert.Contains("modes[1].roles[0].role", ex.Message);
+        Assert.Contains("camper", ex.Message);
+
+        var badDefault = new EditedDataSource(TestData.Source).Edit("rules.jsonc", t => t.Replace("\"defaultSize\": 3", "\"defaultSize\": 7"));
+        ex = Assert.Throws<DataException>(() => GameData.Load(badDefault));
+        Assert.Contains("defaultSize", ex.Message);
+    }
+
+    [Fact]
     public void Unknown_key_is_rejected_with_file_and_key()
     {
         var source = new EditedDataSource(TestData.Source)

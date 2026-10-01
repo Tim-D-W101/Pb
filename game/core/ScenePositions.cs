@@ -11,14 +11,15 @@ namespace Pb.Game.Core;
 public static class ScenePositions
 {
     /// <summary>
-    /// A clear standing spot about <paramref name="distance"/> in front of <paramref name="other"/>: room to
-    /// stand, ground underfoot at their level, and a clear line between the two chests.
+    /// A clear standing spot about <paramref name="distance"/> from <paramref name="other"/>, in front of them
+    /// if possible (someone facing their cover has it to the side or behind): room to stand, ground underfoot
+    /// at their level, and a clear line between the two chests.
     /// </summary>
     public static bool FindSpot(SimWorld sim, PlayerState other, float distance, out SVector3 spot)
     {
         foreach (float d in new[] { distance, distance * 0.75f, distance * 1.3f })
         {
-            foreach (float turn in new[] { 0f, 0.45f, -0.45f, 0.9f, -0.9f })
+            foreach (float turn in new[] { 0f, 0.45f, -0.45f, 0.9f, -0.9f, 1.6f, -1.6f, 2.4f, -2.4f, System.MathF.PI })
             {
                 SVector3 at = other.Position + ViewAngles.FlatForward(other.Yaw + turn) * d;
                 SVector3 chest = at + new SVector3(0f, 1.2f, 0f);

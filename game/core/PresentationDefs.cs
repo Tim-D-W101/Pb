@@ -1024,10 +1024,17 @@ public sealed class SpectatorDef : IValidatable
 
     public float Back_m { get; set; }
 
+    /// <summary>Following someone after you're out: this far behind and above their eyes.</summary>
+    public float FollowBack_m { get; set; }
+
+    public float FollowHeight_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(Duration_s), Duration_s, 0.5, 30);
         v.InRange(nameof(Height_m), Height_m, 0, 10);
         v.InRange(nameof(Back_m), Back_m, 0, 20);
+        v.InRange(nameof(FollowBack_m), FollowBack_m, 0.5, 20);
+        v.InRange(nameof(FollowHeight_m), FollowHeight_m, -1, 10);
     }
 }

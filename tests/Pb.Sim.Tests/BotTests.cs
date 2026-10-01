@@ -4,6 +4,8 @@ using Pb.Sim.Ballistics;
 using Pb.Sim.Core;
 using Pb.Sim.Data;
 using Pb.Sim.Events;
+using Pb.Sim.Level;
+using Pb.Sim.Match;
 using Pb.Sim.Players;
 using Xunit.Abstractions;
 
@@ -367,8 +369,8 @@ public class BotTests
     public void A_bot_in_your_slot_plays_a_whole_round_to_the_end()
     {
         BotArena arena = BotArena.Create("normal");
-        LadderTierDef tier = TestData.Data.Ladder.Levels.First(l => l.Id == "oxbarrow_works").Tiers!.First(t => t.Id == "normal");
-        foreach (string spawn in tier.Opponents)
+        string[] roster = TestData.Data.Ladder.Levels.First(l => l.Id == "oxbarrow_works").Roster!.Take(6).ToArray();
+        foreach (string spawn in roster)
         {
             arena.AddBot(spawn);
         }
@@ -379,7 +381,7 @@ public class BotTests
         arena.Run(250 * Second, () => arena.Sim.Match!.Phase == Match.MatchPhase.Ended);
         Match.MatchState match = arena.Sim.Match!;
         int out_ = arena.Bots.Count(b => b.Self.Team != arena.Hero.Team && !b.Self.Alive);
-        _out.WriteLine($"{match.Outcome} after {match.Elapsed:0} s ({watch.Elapsed.TotalSeconds:0.0} s to run): you put out {out_} of {tier.Opponents.Length}, " +
+        _out.WriteLine($"{match.Outcome} after {match.Elapsed:0} s ({watch.Elapsed.TotalSeconds:0.0} s to run): you put out {out_} of {roster.Length}, " +
                        $"fired {arena.ShotsBy(0)}; you're {(arena.Hero.Alive ? "still in" : "out")}");
         foreach (SimEvent e in arena.Log.Where(e => e.Type == SimEventType.PlayerEliminated))
         {
@@ -390,6 +392,98 @@ public class BotTests
         Assert.NotEqual(Match.RoundOutcome.None, match.Outcome);
         Assert.True(arena.ShotsBy(0) > 0, "never found anyone to shoot at");
     }
+
+    /// <summary>A round of <paramref name="modeId"/> at <paramref name="size"/> with bots in every slot, yours included, from random starts.</summary>
+    private (BotArena Arena, GameMode Mode) BotRound(string modeId, int size, ulong seed)
+    {
+        BotArena arena = BotArena.Create("normal", seed);
+        GameMode mode = TestData.Config.Rules.FindMode(modeId)!;
+        SpawnPlan plan = SpawnPlanner.Plan(arena.Level, arena.Squad.Cover, arena.Sim.Collision, TestData.Config.Rules.Spawning, TestData.Data.Bots,
+            RoundShape.Of(mode, size), TestData.Config.Movement.StandEyeHeight, seed);
+        arena.PlaceHero(plan.You.Position, plan.You.Position + ViewAngles.FlatForward(plan.You.Yaw));
+        arena.HeroBot().RestlessAfter = mode.RestlessAfter;
+        foreach (OpponentSpawn mate in plan.Teammates)
+        {
+            arena.AddBotAt(mate, team: 0).RestlessAfter = mode.RestlessAfter;
+        }
+
+        byte team = 1;
+        foreach (OpponentSpawn o in plan.Opponents)
+        {
+            arena.AddBotAt(o, mode.Kind == MatchModeKind.FreeForAll ? team++ : (byte)1).RestlessAfter = mode.RestlessAfter;
+        }
+
+        return (arena, mode);
+    }
+
+    private void Report(BotArena arena)
+    {
+        Match.MatchState match = arena.Sim.Match!;
+        _out.WriteLine($"{match.Outcome} after {match.Elapsed:0} s");
+        foreach (SimEvent e in arena.Log.Where(e => e.Type == SimEventType.PlayerEliminated))
+        {
+            PlayerState? shooter = arena.Sim.FindPlayer(e.PlayerId), victim = arena.Sim.FindPlayer(e.TargetId);
+            _out.WriteLine($"  t={e.Tick / (float)Second:0.0}s {shooter?.Name} (team {shooter?.Team}) put out {victim?.Name} (team {victim?.Team})");
+        }
+    }
+
+    [Fact]
+    public void A_free_for_all_plays_out_with_the_bots_fighting_each_other()
+    {
+        (BotArena arena, GameMode mode) = BotRound("ffa", 6, seed: 11);
+        arena.Start(timeLimit: 300f, mode: mode.Kind);
+        arena.Run(310 * Second, () => arena.Sim.Match!.Phase == Match.MatchPhase.Ended);
+        Report(arena);
+
+        Match.MatchState match = arena.Sim.Match!;
+        Assert.Equal(Match.MatchPhase.Ended, match.Phase);
+        Assert.Equal(6, arena.Sim.Players.Select(p => p.Team).Distinct().Count());
+        int botOnBot = arena.Log.Count(e => e.Type == SimEventType.PlayerEliminated && e.PlayerId != 0 && e.TargetId != 0);
+        Assert.True(botOnBot > 0, "no bot put another bot out");
+    }
+
+    [Fact]
+    public void A_team_round_plays_out_to_the_last_team_standing()
+    {
+        (BotArena arena, GameMode mode) = BotRound("teams", 3, seed: 5);
+        arena.Start(timeLimit: 300f, mode: mode.Kind);
+        arena.Run(310 * Second, () => arena.Sim.Match!.Phase == Match.MatchPhase.Ended);
+        Report(arena);
+
+        Match.MatchState match = arena.Sim.Match!;
+        Assert.Equal(Match.MatchPhase.Ended, match.Phase);
+        Assert.Equal(3, arena.Sim.Players.Count(p => p.Team == 0));
+        Assert.Equal(3, arena.Sim.Players.Count(p => p.Team == 1));
+        Assert.Contains(arena.Log, e => e.Type == SimEventType.PlayerEliminated);
+        if (match.Outcome is Match.RoundOutcome.Cleared or Match.RoundOutcome.Eliminated)
+        {
+            // Exactly one team has someone left.
+            Assert.Single(arena.Sim.Players.Where(p => p.Alive).Select(p => p.Team).Distinct());
+        }
+    }
+
+    [Fact]
+    public void A_bot_with_nothing_to_go_on_starts_hunting_once_restless()
+    {
+        BotArena arena = BotArena.Create("normal");
+        BotBrain restless = arena.AddBot("pump_house", "sentry");
+        BotBrain patient = arena.AddBot("warehouse_mezz_north", "sentry");
+        restless.RestlessAfter = 3f;
+        arena.Start();
+        arena.PlaceHero(new Vector3(60f, 0f, 45f), new Vector3(60f, 0f, 40f)); // far off, out of sight
+        Vector3 restlessPost = restless.Self.Position, patientPost = patient.Self.Position;
+
+        arena.Run(2 * Second);
+        Assert.False(restless.Restless);
+        arena.Run(12 * Second);
+        _out.WriteLine($"restless moved {FlatDistance(restless.Self.Position, restlessPost):0.0} m, patient {FlatDistance(patient.Self.Position, patientPost):0.0} m");
+        Assert.True(restless.Restless);
+        Assert.True(FlatDistance(restless.Self.Position, restlessPost) > 4f, "the restless bot stayed at its post");
+        Assert.False(patient.Restless);
+        Assert.True(FlatDistance(patient.Self.Position, patientPost) < 1.5f, "a bot without restlessness left its post");
+    }
+
+    private static float FlatDistance(Vector3 a, Vector3 b) => new Vector2(a.X - b.X, a.Z - b.Z).Length();
 
     [Fact]
     public void A_full_squad_thinks_without_allocating_once_warm()

@@ -152,6 +152,7 @@ public sealed class BotBrain
     private float _sinceCallout = float.MaxValue;
     private bool[] _huntVisited = Array.Empty<bool>();
     private bool _hunting;
+    private float _quietFor;
 
     public BotBrain(BotSquad squad, PlayerState self, ArchetypeParams archetype, DifficultyParams tier, OpponentSpawn spawn)
     {
@@ -194,6 +195,18 @@ public sealed class BotBrain
 
     /// <summary>A passive bot notices nothing and stands still (screenshot tours, scripted tests); it still walks off when hit.</summary>
     public bool Passive { get; set; }
+
+    /// <summary>
+    /// After this long with nothing to go on (idle, no lead), the bot starts hunting for the rest of the
+    /// round, whatever its behaviour, so free-for-all and team rounds don't stall (s; 0 = never, as in solo).
+    /// </summary>
+    public float RestlessAfter { get; set; }
+
+    /// <summary>Hunting because it had nothing to go on for <see cref="RestlessAfter"/>.</summary>
+    public bool Restless { get; private set; }
+
+    /// <summary>Hunts while idle: a hunter, or restless.</summary>
+    private bool Hunts => Archetype.Idle == BotIdle.Hunt || Restless;
 
     public BotMode Mode { get; private set; }
 
@@ -241,6 +254,13 @@ public sealed class BotBrain
         _sincePull += dt;
         _sinceCallout += dt;
         _decideIn -= dt;
+        bool quiet = Mode is BotMode.Idle or BotMode.Return && Senses.Focus is not { HasLead: true };
+        _quietFor = quiet ? _quietFor + dt : 0f;
+        if (RestlessAfter > 0f && _quietFor >= RestlessAfter)
+        {
+            Restless = true;
+        }
+
         if (_decideIn <= 0f || Urgent())
         {
             Decide();
@@ -363,7 +383,7 @@ public sealed class BotBrain
                     break;
             }
 
-            if (Mode is BotMode.Investigate or BotMode.Search && FlatDistance(Self.Position, Home) > Archetype.Leash)
+            if (Mode is BotMode.Investigate or BotMode.Search && !Restless && FlatDistance(Self.Position, Home) > Archetype.Leash)
             {
                 GoBack();
             }
@@ -462,7 +482,7 @@ public sealed class BotBrain
 
     private void ActIdle(float dt)
     {
-        if (Archetype.Idle == BotIdle.Hunt && _sim.Level is { OpponentSpawns.Count: > 0 } level)
+        if (Hunts && _sim.Level is { OpponentSpawns.Count: > 0 } level)
         {
             ActHunt(level, dt);
             return;
@@ -513,7 +533,10 @@ public sealed class BotBrain
         _wantPitch = 0f;
     }
 
-    /// <summary>Hunting: walk to the nearest opponent spawn not yet visited, look around there, move on; start again when all are done.</summary>
+    /// <summary>
+    /// Hunting: walk to one of the few nearest opponent spawns not yet visited (picked at random, so hunters
+    /// don't all sweep the same way), look around there, move on; start again when all are done.
+    /// </summary>
     private void ActHunt(LevelLayout level, float dt)
     {
         if (_huntVisited.Length != level.OpponentSpawns.Count)
@@ -533,19 +556,9 @@ public sealed class BotBrain
         if (!_hasGoal || !_hunting)
         {
             int next = -1;
-            float best = float.MaxValue;
             for (int pass = 0; pass < 2 && next < 0; pass++)
             {
-                for (int i = 0; i < level.OpponentSpawns.Count; i++)
-                {
-                    float d = FlatDistance(Self.Position, level.OpponentSpawns[i].Position);
-                    if (!_huntVisited[i] && d < best && d > 2f)
-                    {
-                        best = d;
-                        next = i;
-                    }
-                }
-
+                next = PickHuntSpot(level);
                 if (next < 0)
                 {
                     Array.Clear(_huntVisited); // all visited: start the sweep again
@@ -567,10 +580,49 @@ public sealed class BotBrain
         LookAlongPath();
         if (_arrived)
         {
-            _pauseLeft = 2f;
+            _pauseLeft = _b.HuntLookAround;
             _hunting = false;
             _hasGoal = false;
         }
+    }
+
+    /// <summary>One of the <see cref="BrainParams.HuntChoices"/> nearest unvisited spawns at random, or −1 when all are visited.</summary>
+    private int PickHuntSpot(LevelLayout level)
+    {
+        const int MaxChoices = 8;
+        Span<int> nearest = stackalloc int[MaxChoices];
+        Span<float> distances = stackalloc float[MaxChoices];
+        int choices = Math.Clamp(_b.HuntChoices, 1, MaxChoices);
+        int found = 0;
+        for (int i = 0; i < level.OpponentSpawns.Count; i++)
+        {
+            float d = FlatDistance(Self.Position, level.OpponentSpawns[i].Position);
+            if (_huntVisited[i] || d <= 2f)
+            {
+                continue;
+            }
+
+            // Insertion into the short list of the nearest so far.
+            int at = found < choices ? found++ : choices;
+            while (at > 0 && distances[at - 1] > d)
+            {
+                if (at < choices)
+                {
+                    nearest[at] = nearest[at - 1];
+                    distances[at] = distances[at - 1];
+                }
+
+                at--;
+            }
+
+            if (at < choices)
+            {
+                nearest[at] = i;
+                distances[at] = d;
+            }
+        }
+
+        return found == 0 ? -1 : nearest[(int)(_rng.NextUInt() % (uint)found)];
     }
 
     private void Scan(Vector3 around, float dt)
@@ -1148,7 +1200,7 @@ public sealed class BotBrain
     /// <summary>Done with a lead or a fight: back to the post or patrol (hunters just carry on hunting).</summary>
     private void GoBack()
     {
-        if (Archetype.Idle == BotIdle.Hunt)
+        if (Hunts)
         {
             SetMode(BotMode.Idle);
             _hunting = false;

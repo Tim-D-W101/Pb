@@ -1,18 +1,21 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Pb.Game.Core;
 using Pb.Sim.Data;
 using Pb.Sim.Level;
+using Pb.Sim.Match;
 
 namespace Pb.Game.Ui;
 
 /// <summary>
-/// The main scene: title, level select with difficulty, the training ground (the Phase 1 range),
-/// settings and quit. Picking a level and tier stores them in <see cref="GameSession"/> and loads
-/// the level, where the briefing card takes over. <c>-- --smoke-test</c> builds every screen, checks
-/// the ladder is shown, and quits; <c>-- --menu-tour</c> shows each screen in turn (for screenshots
-/// with <c>--write-movie</c>) and quits. <c>-- --level=ID</c> (with <c>--tier</c> and the level's other
+/// The main scene: title, level select (each level with its mode, size and difficulty), the training
+/// ground (the Phase 1 range), settings and quit. Start stores the choices in <see cref="GameSession"/>
+/// and loads the level, where the briefing card takes over. <c>-- --smoke-test</c> builds every screen,
+/// checks the ladder and the round choices are offered (and that picking a mode offers its sizes), and
+/// quits; <c>-- --menu-tour</c> shows each screen in turn (for screenshots with <c>--write-movie</c>) and
+/// quits. <c>-- --level=ID</c> (with <c>--mode</c>, <c>--size</c>, <c>--tier</c> and the level's other
 /// options) skips the menu once and goes straight to the level: exported builds can't be told which
 /// scene to run, so that's how a build starts a round, or a scripted run, from the command line.
 /// </summary>
@@ -77,7 +80,7 @@ public partial class MainMenu : Control
         }
         else if (Args.Has("--level") && !_skippedToLevel)
         {
-            // The level reads --level and --tier itself. Only once, so the menu works after the round.
+            // The level reads --level, --mode, --size and --tier itself. Only once, so the menu works after the round.
             _skippedToLevel = true;
             Callable.From(() => GetTree().ChangeSceneToFile(GameSession.LevelScene)).CallDeferred();
         }
@@ -95,6 +98,16 @@ public partial class MainMenu : Control
         {
             case 45:
                 Open(_levels);
+                break;
+            case 65:
+            case 85:
+                // The first level's other modes, with their sizes.
+                int mode = _tourFrame < 80 ? 2 : 1;
+                if (_levels.FindChild($"Mode_*_{mode}", recursive: true, owned: false) is Button button)
+                {
+                    button.ButtonPressed = true;
+                }
+
                 break;
             case 105:
                 Open(_settingsScreen);
@@ -154,7 +167,7 @@ public partial class MainMenu : Control
     private Control LevelCard(LadderLevelDef entry)
     {
         bool playable = _data.Levels.TryGetValue(entry.Id, out LevelLayout? level);
-        VBoxContainer card = UiKit.Column(8);
+        VBoxContainer card = UiKit.Column(10);
         card.AddChild(UiKit.Title(entry.DisplayName, 28, playable ? UiKit.Text : UiKit.Dim));
         string blurb = playable ? level!.Description : entry.Note ?? "Locked";
         Label description = UiKit.Body(blurb, 18, UiKit.Dim, wrap: true);
@@ -162,28 +175,78 @@ public partial class MainMenu : Control
         card.AddChild(description);
         if (playable && entry.Tiers is { Length: > 0 } tiers)
         {
-            HBoxContainer row = UiKit.Row(12);
-            // What the highlighted tier means: clock, pods and pickups.
-            Label details = UiKit.Body(TierDetails(tiers[0]), 17, UiKit.Dim);
-            foreach (LadderTierDef tier in tiers)
-            {
-                string label = $"{tier.DisplayName} · {tier.Opponents.Length} opponents";
-                Button button = UiKit.Button(label, () => Play(entry, tier), 240);
-                button.FocusEntered += () => details.Text = TierDetails(tier);
-                button.MouseEntered += () => details.Text = TierDetails(tier);
-                row.AddChild(button);
-            }
-
-            card.AddChild(row);
-            card.AddChild(details);
+            AddRoundChoices(card, entry, tiers);
         }
 
         return UiKit.Panel(card, 820f);
     }
 
+    /// <summary>
+    /// Mode, size and difficulty (last round's choices, else the first mode at its default size on Normal),
+    /// what each means, and Start. Picking a mode offers its sizes.
+    /// </summary>
+    private void AddRoundChoices(VBoxContainer card, LadderLevelDef entry, LadderTierDef[] tiers)
+    {
+        IReadOnlyList<GameMode> modes = _data.Config.Rules.Modes;
+        bool again = GameSession.LevelId == entry.Id;
+        int modeIndex = Math.Max(0, again ? modes.ToList().FindIndex(m => m.Id == GameSession.ModeId) : 0);
+        GameMode mode = modes[modeIndex];
+        int size = again && GameSession.Size is { } last && mode.Sizes.Contains(last) ? last : mode.DefaultSize;
+        int tierIndex = Array.FindIndex(tiers, t => again && t.Id == GameSession.TierId);
+        if (tierIndex < 0)
+        {
+            tierIndex = Math.Max(0, Array.FindIndex(tiers, t => t.Id == "normal"));
+        }
+
+        LadderTierDef tier = tiers[tierIndex];
+
+        card.AddChild(new Control { CustomMinimumSize = new Vector2(0, 4) });
+        Label modeBlurb = UiKit.Body(mode.Description, 17, UiKit.Dim, wrap: true);
+        modeBlurb.CustomMinimumSize = new Vector2(760, 0);
+        var sizes = new VBoxContainer();
+        Label details = UiKit.Body(TierDetails(tier), 17, UiKit.Dim, wrap: true);
+        details.CustomMinimumSize = new Vector2(760, 0);
+
+        void ShowSizes()
+        {
+            foreach (Node child in sizes.GetChildren())
+            {
+                sizes.RemoveChild(child);
+                child.QueueFree();
+            }
+
+            string[] labels = mode.Sizes.Select(n => ModeText.Size(mode, n)).ToArray();
+            int selected = Math.Max(0, mode.Sizes.ToList().IndexOf(size));
+            sizes.AddChild(UiKit.ChoiceRow(mode.Kind == MatchModeKind.Solo ? "Opponents" : "Players", labels, selected,
+                k => size = mode.Sizes[k], $"Size_{entry.Id}_", buttonWidth: 140));
+        }
+
+        card.AddChild(UiKit.ChoiceRow("Mode", modes.Select(m => m.DisplayName).ToArray(), modeIndex, k =>
+        {
+            mode = modes[k];
+            size = mode.DefaultSize;
+            modeBlurb.Text = mode.Description;
+            ShowSizes();
+        }, $"Mode_{entry.Id}_", buttonWidth: 190));
+        card.AddChild(modeBlurb);
+        ShowSizes();
+        card.AddChild(sizes);
+        card.AddChild(UiKit.ChoiceRow("Difficulty", tiers.Select(t => t.DisplayName).ToArray(), tierIndex, k =>
+        {
+            tier = tiers[k];
+            details.Text = TierDetails(tier);
+        }, $"Tier_{entry.Id}_", buttonWidth: 140));
+        card.AddChild(details);
+        Button start = UiKit.Button("Start", () => Play(entry, mode, size, tier), 260);
+        start.Name = $"Start_{entry.Id}";
+        start.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+        card.AddChild(start);
+    }
+
     private static string TierDetails(LadderTierDef tier) =>
         $"{tier.DisplayName}: {RoundScreens.Clock(tier.TimeLimit_s)} on the clock · you start with {tier.StartPods} spare " +
-        $"pod{(tier.StartPods == 1 ? "" : "s")}, they carry {tier.OpponentPods} · {(tier.Pickups ? "pickups out" : "no pickups")}";
+        $"pod{(tier.StartPods == 1 ? "" : "s")}, every bot carries {tier.BotPods} · {(tier.Pickups ? "pickups out" : "no pickups")}. " +
+        "Difficulty sets how good the bots are, never how many there are.";
 
     private Control SettingsScreen()
     {
@@ -195,9 +258,11 @@ public partial class MainMenu : Control
         return Screen(UiKit.Panel(column, 720f), left: false);
     }
 
-    private void Play(LadderLevelDef entry, LadderTierDef tier)
+    private void Play(LadderLevelDef entry, GameMode mode, int size, LadderTierDef tier)
     {
         GameSession.LevelId = entry.Id;
+        GameSession.ModeId = mode.Id;
+        GameSession.Size = size;
         GameSession.TierId = tier.Id;
         GetTree().ChangeSceneToFile(GameSession.LevelScene);
     }
@@ -238,11 +303,43 @@ public partial class MainMenu : Control
 
     private void SmokeTest()
     {
-        int playable = _data.Ladder.Levels.Count(l => _data.Levels.ContainsKey(l.Id));
-        int tierButtons = _levels.FindChildren("*", nameof(Button), owned: false).Count(b => ((Button)b).Text.Contains("opponents"));
-        int expected = _data.Ladder.Levels.Where(l => _data.Levels.ContainsKey(l.Id)).Sum(l => l.Tiers?.Length ?? 0);
-        bool ok = playable >= 1 && tierButtons == expected && expected > 0;
-        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {_data.Ladder.Levels.Length} ladder levels ({playable} playable) and {tierButtons} difficulty buttons");
+        var problems = new List<string>();
+        Button[] buttons = _levels.FindChildren("*", nameof(Button), owned: false).OfType<Button>().ToArray();
+        int Count(string prefix) => buttons.Count(b => b.Name.ToString().StartsWith(prefix, StringComparison.Ordinal));
+        IReadOnlyList<GameMode> modes = _data.Config.Rules.Modes;
+        LadderLevelDef[] playable = _data.Ladder.Levels.Where(l => _data.Levels.ContainsKey(l.Id)).ToArray();
+        foreach (LadderLevelDef entry in playable)
+        {
+            if (Count($"Mode_{entry.Id}_") != modes.Count)
+            {
+                problems.Add($"{entry.Id}: {Count($"Mode_{entry.Id}_")} mode buttons, not {modes.Count}");
+            }
+
+            if (Count($"Tier_{entry.Id}_") != (entry.Tiers?.Length ?? 0))
+            {
+                problems.Add($"{entry.Id}: {Count($"Tier_{entry.Id}_")} difficulty buttons");
+            }
+
+            if (Count($"Start_{entry.Id}") != 1)
+            {
+                problems.Add($"{entry.Id}: no Start button");
+            }
+
+            // Picking each mode offers that mode's sizes.
+            for (int m = 0; m < modes.Count; m++)
+            {
+                buttons.First(b => b.Name == $"Mode_{entry.Id}_{m}").ButtonPressed = true;
+                int offered = _levels.FindChildren($"Size_{entry.Id}_*", nameof(Button), owned: false).Count(b => !b.IsQueuedForDeletion());
+                if (offered != modes[m].Sizes.Count)
+                {
+                    problems.Add($"{entry.Id}: {modes[m].Id} offers {offered} sizes, not {modes[m].Sizes.Count}");
+                }
+            }
+        }
+
+        bool ok = playable.Length >= 1 && problems.Count == 0;
+        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {_data.Ladder.Levels.Length} ladder levels ({playable.Length} playable), " +
+                 $"{modes.Count} modes with their sizes and the difficulty tiers{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
         GetTree().Quit(ok ? 0 : 1);
     }
 }
