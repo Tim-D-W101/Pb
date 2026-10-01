@@ -17,6 +17,14 @@ drum, and a rigged character model for the opponents. More textures, props and c
 
 ## Run it
 
+**Just want to play (Windows)?** Every CI run builds a ready-to-run copy: open the latest run under
+the repo's **Actions** tab, download **Pb-windows** from its Artifacts (you need to be signed in to
+GitHub), unzip it and double-click `Pb.exe`. No Godot or .NET needed; Windows may ask you to confirm
+("More info" → "Run anyway") because the game isn't signed. `tools/package/windows-build.sh` makes the
+same build locally.
+
+To run it from Godot:
+
 1. Install **Godot 4.7.2 – .NET** (the ".NET" download, not the standard one) and the
    **.NET 8 SDK** (or newer).
 2. Open `game/project.godot` in Godot. The first open imports the project and builds the C# code.

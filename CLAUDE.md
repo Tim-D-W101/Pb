@@ -35,7 +35,13 @@ dotnet build Pb.sln                                   # everything, including th
 dotnet test                                           # Pb.Sim tests (fast, no engine)
 dotnet run -c Release --project tools/Pb.Bench        # ballistics report + tick cost
 tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end check
+tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows")
+tools/package/godot-project.sh                        # self-contained project zip for Godot's Import
 ```
+
+The Windows build needs the export templates: `tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe
+windows_release_x86_64_console.exe` pulls just those from the 1.2 GB release archive. Exported builds always
+start on the main menu; `-- --level=ID` (with the level's other options) skips it once.
 
 Godot 4.7.2 .NET is expected on PATH as `godot` (CI installs it with `tools/ci/install-godot.sh`).
 Build `game/Pb.csproj` before running Godot headless.
