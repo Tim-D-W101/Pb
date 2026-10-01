@@ -56,7 +56,9 @@ you (mask, head, body, arms, legs, marker, loader or tank) puts you out; a bounc
 In the compound, F6 doesn't apply: a round has no gear reset, so you find pods and air lying
 around instead. **F3** shows the bot debug overlay there (sight cones coloured by how close they
 are to spotting you, their state, paths and cover points). F9 restarts the level from its data
-files. **F12** cycles graphics presets (low / medium / high).
+files. **F12** cycles graphics presets (low / medium / high). Besides the usual ambient occlusion,
+shadows and fog, a preset sets how many weeds you see and how far, and whether sunbeams with
+drifting dust shine through the windows and holes in the roof and daylight spills in around them.
 
 ### A round
 
@@ -114,13 +116,13 @@ reported with the file and key; the game won't silently use a wrong value.
 | `levels/ladder.jsonc` | Level order and difficulty tiers: opponent rosters, bot difficulty, time limits, starting pods, pickups |
 | `rules.jsonc` | Round rules: mode, settle window for balls in the air, trades, pickup radius |
 | `stress.jsonc` | Stress-mode ball count and cannons |
-| `presentation.jsonc` | Team colours, FOV, ball visibility, splats, HUD, audio, lighting, graphics presets |
+| `presentation.jsonc` | Team colours, FOV, ball visibility, splats, HUD, audio, lighting, weeds, sunbeams, dust, window light, graphics presets |
 | `input.jsonc` | Key and gamepad bindings |
 
 ## Test it
 
 ```bash
-dotnet test                                          # 122 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes, rounds, bots…) — no Godot needed
+dotnet test                                          # 124 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes, rounds, bots…) — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound and a bot match (Linux/macOS)
 ```

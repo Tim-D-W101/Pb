@@ -372,15 +372,18 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 - **Material library.** Each entry gives albedo, normal and roughness textures, tile size in metres, a surface ID (for paint physics now and footsteps later), and a weathering amount.
 - **`weathered.gdshader`** is one shader for all kit surfaces: base PBR plus grime by height above the floor, noise-driven stains and moss, and per-material strength.
-- **Presets in `graphics.jsonc`:**
-  - **Low:** no GI, no SSAO.
-  - **Medium:** SSAO, per-room ambient probes and unshadowed fill lights at windows.
-  - **High:** adds SSIL, SDFGI, volumetric fog and SSR.
+- **Presets** (`presentation.jsonc` → `graphics`; as built, the presets live there rather than in a `graphics.jsonc`):
+  - **Low:** no GI, no SSAO, a third of the weeds to 28 m, no sunbeams.
+  - **Medium:** SSAO, per-room ambient probes, unshadowed fill lights at windows, sunbeams with dust, three quarters of the weeds to 45 m.
+  - **High:** adds SSIL, SDFGI, volumetric fog and SSR; all the weeds to 70 m; softer fake beams beside the fog's real ones; no fill lights, since SDFGI bounces light.
   
-  Shadow sizes and every toggle are data.
+  Shadow sizes and every toggle are data. Antialiasing is screen-space (SMAA, FXAA on Low): with MSAA on, the depth buffer isn't available to shaders, and the sunbeams need it.
+- **Apertures** (as built in M2.6). The level kit records every window, door, gap and roof hole as a rectangle in world space (`LevelLayout.Apertures`). At load the game classifies each one by probing the paint geometry: open sky on one side and a roof on the other makes it an exterior opening, and clear lines to the sun across it make it sunlit.
+- **Sunbeams** (`LightShafts`, `light_shaft.gdshader`). Each sunlit opening into a roofed space gets a box skewed along the light, long enough to reach whatever the light lands on. The shader intersects each pixel's view ray with the box, cuts it off at the depth buffer and at the building's bounds (so a beam never shows outside), and ray-marches soft edges, a fade with distance and drifting dust swirls. GPU particles drift inside each beam as dust motes. Exterior openings also get an unshadowed spotlight angled in and down (neighbours on a wall share one), and a warm bounce light sits where each beam lands.
+- **Weeds** (`WeedField`, `weeds.gdshader`). Crossed cards cut from a procedurally painted four-variant atlas, about 26,000 of them in Oxbarrow Works, placed at load from a seed of the level id. They grow by ground material (thick on scrubland, in a crack network on asphalt and concrete), along the foot of walls and props, and only where a small sphere dropped from the sky lands on the ground, so nothing grows indoors except under a hole in the roof. One MultiMesh per 16 m square for culling; they sway in rolling gusts and shrink into the ground with distance.
 - **Culling:**
   - occluders generated from walls and slabs;
-  - `visibility_range` on small props and weeds;
+  - `visibility_range` on small props and weed squares;
   - automatic mesh LODs from GLB import;
   - MultiMesh for weeds and rubble.
 - **Budget** (GTX 1070, 1080p, Medium): scene ≤ 10 ms, 10 characters ≤ 1.5 ms, sim ≤ 1 ms, AI ≤ 1 ms.

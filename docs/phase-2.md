@@ -221,10 +221,19 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
 ### M2.6 Art pass (Higgsfield)
 
+**In progress.** The container still can't reach Higgsfield's file host, so the parts that need no downloads came first. [Screenshots](reports/phase-2/) from `-- --shots`.
+
 - [ ] Import pipeline (`tools/art`):
   - pull a finished Higgsfield job, make textures tileable, derive normal and roughness maps, and resize;
   - record the job ID and prompt in `game/data/assets.jsonc`, as a provenance record that the art is original.
-- [ ] Materials and the weathering shader across the whole level. Lighting presets, dust, light shafts and weeds.
+- [ ] Photographic materials across the whole level. Until they arrive, the procedural weathering shader covers every surface.
+- [x] Lighting presets, dust, light shafts and weeds (`presentation.jsonc`: "weeds", "shafts", "dust", "windowLight" and the graphics presets):
+  - **Weeds and dry grass** wherever rain falls: about 50,000 tufts in Oxbarrow Works, placed at load from the level and seeded by its id. They're thick on the scrubland, patchy on dirt and gravel, in a network of cracks on asphalt and concrete, along the foot of walls and props, and under the holes in the warehouse roof. They sway in rolling gusts, shrink into the ground with distance, and never grow over a pickup.
+  - **Sunbeams** through every window, door and roof hole the sun reaches into a roofed space (38 in Oxbarrow Works). Each is a box of light, ray-marched per pixel, that stops at whatever is in front of it, with dust swirling in it and motes drifting through.
+  - **Daylight spilling in:** an unshadowed fill light inside each window or door (neighbours share one) and a warm bounce light where the sun lands.
+  - **Presets:** Low draws a third of the weeds to 28 m, with no beams. Medium draws three quarters to 45 m, with beams, dust and fill lights. High draws all of them to 70 m and keeps the beams softer beside its volumetric fog; it has no fill lights, since SDFGI bounces light.
+  - **Antialiasing** is now SMAA (FXAA on Low) instead of MSAA. With MSAA on, shaders can't read the depth buffer the beams need to stop at walls, so they would shine through them; the beams switch off if MSAA is turned back on.
+  - The level kit records every opening as an aperture in world space (`LevelLayout.Apertures`), checked by two new sim tests.
 - [ ] Props in place with their proxy colliders.
 - [ ] Three rigged, animated opponents, marker in hand, armbands in their team colour.
 - [ ] Realistic first-person marker, loader and tank.
