@@ -67,6 +67,8 @@ public partial class LevelMain : Node3D, ISimEventListener
     private LevelSmokeTest? _smoke;
     private SpectatorView? _spectator;
     private PickupVisuals _pickups = null!;
+    private WeedField _weeds = null!;
+    private LightShafts _shafts = null!;
     private string? _hitBy;
     private bool _scripted;
     private bool _botMatch;
@@ -124,8 +126,17 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         GraphicsPresetDef preset = _view.Graphics.Find(_settings.GraphicsPreset);
         _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon);
+        var dressWatch = Stopwatch.StartNew();
+        _weeds = new WeedField { Name = "Weeds" };
+        AddChild(_weeds);
+        _weeds.Build(_level, _sim.Collision, _view.Weeds);
+        _shafts = new LightShafts { Name = "LightShafts" };
+        AddChild(_shafts);
+        _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+                 $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
-        Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), preset);
+        ApplyGraphics(preset);
 
         _player.Initialize(_sim, state, _view, _settings, teamColor);
         // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
@@ -171,7 +182,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         AddChild(_overlays);
         _pause = new PauseMenu { Name = "Pause" };
         AddChild(_pause);
-        _pause.Build(_settings, _view, s => Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), _view.Graphics.Find(s.GraphicsPreset)),
+        _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Find(s.GraphicsPreset)),
             restart: () => GetTree().ReloadCurrentScene());
 
         var maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
@@ -570,7 +581,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             int index = Array.FindIndex(presets, p => p.Name == _settings.GraphicsPreset);
             GraphicsPresetDef next = presets[(index + 1) % presets.Length];
             _settings.GraphicsPreset = next.Name;
-            Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), next);
+            ApplyGraphics(next);
             SaveAndToast($"Graphics: {next.Name}");
         }
         else if (e.IsActionPressed("toggle_invert_y"))
@@ -599,6 +610,14 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             GetTree().ReloadCurrentScene();
         }
+    }
+
+    /// <summary>A graphics preset: environment, shadows and MSAA, then the weeds, sunbeams and window lights.</summary>
+    private void ApplyGraphics(GraphicsPresetDef preset)
+    {
+        Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), preset);
+        _weeds.ApplyPreset(preset);
+        _shafts.ApplyPreset(preset);
     }
 
     private void SaveAndToast(string message)

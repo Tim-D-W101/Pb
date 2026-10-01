@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Pb.Sim.Data;
 
@@ -37,6 +38,14 @@ public sealed class PresentationDef : IValidatable
 
     public HorizonDef Horizon { get; set; } = new();
 
+    public WeedsDef Weeds { get; set; } = new();
+
+    public ShaftsDef Shafts { get; set; } = new();
+
+    public DustDef Dust { get; set; } = new();
+
+    public WindowLightDef WindowLight { get; set; } = new();
+
     public MaskSprayViewDef MaskSpray { get; set; } = new();
 
     public SpectatorDef Spectator { get; set; } = new();
@@ -70,6 +79,10 @@ public sealed class PresentationDef : IValidatable
         Graphics.Validate(v.Scope(nameof(Graphics)));
         Lighting.Validate(v.Scope(nameof(Lighting)));
         Horizon.Validate(v.Scope(nameof(Horizon)));
+        Weeds.Validate(v.Scope(nameof(Weeds)));
+        Shafts.Validate(v.Scope(nameof(Shafts)));
+        Dust.Validate(v.Scope(nameof(Dust)));
+        WindowLight.Validate(v.Scope(nameof(WindowLight)));
         MaskSpray.Validate(v.Scope(nameof(MaskSpray)));
         Spectator.Validate(v.Scope(nameof(Spectator)));
         Hud.Validate(v.Scope(nameof(Hud)));
@@ -374,8 +387,29 @@ public sealed class GraphicsPresetDef : IValidatable
 
     public float ShadowDistance_m { get; set; }
 
-    /// <summary>0 = off, 1 = 2×, 2 = 4×.</summary>
+    /// <summary>
+    /// 0 = off, 1 = 2×, 2 = 4×. With MSAA on, Godot doesn't give shaders the depth buffer the sunbeams
+    /// need to stop at walls, so the beams turn off; the shipped presets use <see cref="ScreenAa"/> instead.
+    /// </summary>
     public int Msaa { get; set; }
+
+    /// <summary>Screen-space antialiasing: "none", "fxaa" (cheapest, softest) or "smaa" (sharper).</summary>
+    public string ScreenAa { get; set; } = "";
+
+    /// <summary>Share of the weeds drawn (0 = none, 1 = all).</summary>
+    public float WeedDensity { get; set; }
+
+    /// <summary>Weeds shrink into the ground over the last few metres before this distance.</summary>
+    public float WeedDistance_m { get; set; }
+
+    /// <summary>Strength of the sunbeams through windows and roof holes (0 = off).</summary>
+    public float LightShafts { get; set; }
+
+    /// <summary>Dust motes drifting in the sunbeams.</summary>
+    public bool Dust { get; set; }
+
+    /// <summary>Unshadowed fill lights inside windows and doors, and warm bounce light where sun patches hit the floor.</summary>
+    public bool WindowLights { get; set; }
 
     public void Validate(Validator v)
     {
@@ -383,6 +417,247 @@ public sealed class GraphicsPresetDef : IValidatable
         v.InRange(nameof(ShadowSize), ShadowSize, 512, 16384);
         v.InRange(nameof(ShadowDistance_m), ShadowDistance_m, 10, 1000);
         v.InRange(nameof(Msaa), Msaa, 0, 2);
+        if (ScreenAa is not ("none" or "fxaa" or "smaa"))
+        {
+            v.Error(nameof(ScreenAa), $"'{ScreenAa}' is not one of none, fxaa, smaa");
+        }
+
+        v.InRange(nameof(WeedDensity), WeedDensity, 0, 1);
+        v.InRange(nameof(WeedDistance_m), WeedDistance_m, 5, 300);
+        v.InRange(nameof(LightShafts), LightShafts, 0, 4);
+    }
+}
+
+/// <summary>
+/// Weeds and dry grass wherever rain falls (nothing overhead): on scrubland and dirt, in cracks in the
+/// asphalt, along the foot of walls and around props. Placement is seeded by the level id, so it's the
+/// same every run. Presentation only: paint and players pass through weeds.
+/// </summary>
+public sealed class WeedsDef : IValidatable
+{
+    /// <summary>Tufts per square metre by ground material id. Materials not listed grow none.</summary>
+    public Dictionary<string, float> Density_perM2 { get; set; } = new();
+
+    /// <summary>Grassland: grasses outnumber weeds here.</summary>
+    public string[] GrassMaterials { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>On these materials weeds only grow in cracks.</summary>
+    public string[] CrackMaterials { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Spacing of the crack network, and how wide a crack is.</summary>
+    public float CrackSpacing_m { get; set; }
+
+    public float CrackWidth_m { get; set; }
+
+    /// <summary>Tufts per metre along the foot of walls, columns and props on open ground, within this reach of them.</summary>
+    public float EdgeDensity_perM { get; set; }
+
+    public float EdgeReach_m { get; set; }
+
+    /// <summary>Weeds grow in patches about this big, with this share of the ground left bare between them.</summary>
+    public float ClumpSize_m { get; set; }
+
+    public float Bare { get; set; }
+
+    public float HeightMin_m { get; set; }
+
+    public float HeightMax_m { get; set; }
+
+    /// <summary>A tuft's width as a multiple of its height.</summary>
+    public float Width { get; set; }
+
+    /// <summary>Tufts are tinted with one of these, from straw to olive.</summary>
+    public string[] Colors { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>How far tips sway, how fast, and the size of the gusts that roll across.</summary>
+    public float WindSway_m { get; set; }
+
+    public float WindSpeed { get; set; }
+
+    public float GustSize_m { get; set; }
+
+    /// <summary>No tufts this close to a pickup, so grass never hides a pod.</summary>
+    public float PickupClearance_m { get; set; }
+
+    /// <summary>Tufts are grouped in squares this big so whole groups can be culled.</summary>
+    public float ChunkSize_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        foreach ((string material, float density) in Density_perM2)
+        {
+            if (density < 0f || density > 20f)
+            {
+                v.Error(nameof(Density_perM2), $"'{material}': {density} is outside 0–20");
+            }
+        }
+
+        v.InRange(nameof(CrackSpacing_m), CrackSpacing_m, 0.5, 50);
+        v.InRange(nameof(CrackWidth_m), CrackWidth_m, 0.01, CrackSpacing_m);
+        v.InRange(nameof(EdgeDensity_perM), EdgeDensity_perM, 0, 20);
+        v.InRange(nameof(EdgeReach_m), EdgeReach_m, 0.05, 2);
+        v.InRange(nameof(ClumpSize_m), ClumpSize_m, 0.5, 100);
+        v.InRange(nameof(Bare), Bare, 0, 0.95);
+        v.InRange(nameof(HeightMin_m), HeightMin_m, 0.02, 2);
+        v.InRange(nameof(HeightMax_m), HeightMax_m, HeightMin_m, 2);
+        v.InRange(nameof(Width), Width, 0.2, 4);
+        v.InRange(nameof(WindSway_m), WindSway_m, 0, 0.5);
+        v.InRange(nameof(WindSpeed), WindSpeed, 0, 10);
+        v.InRange(nameof(GustSize_m), GustSize_m, 1, 200);
+        v.InRange(nameof(PickupClearance_m), PickupClearance_m, 0, 5);
+        v.InRange(nameof(ChunkSize_m), ChunkSize_m, 4, 64);
+        if (Colors.Length == 0)
+        {
+            v.Error(nameof(Colors), "needs at least one colour");
+        }
+
+        foreach (string c in Colors)
+        {
+            if (!Godot.Color.HtmlIsValid(c))
+            {
+                v.Error(nameof(Colors), $"'{c}' is not a valid colour");
+            }
+        }
+    }
+}
+
+/// <summary>
+/// Sunbeams through windows, doors and holes in the roof, wherever the sun reaches into a roofed space.
+/// Each beam is a box of light drawn by ray-marching through it, cut off by whatever's in front.
+/// </summary>
+public sealed class ShaftsDef : IValidatable
+{
+    /// <summary>Glow per metre of beam you look through, before the preset's strength.</summary>
+    public float Density_perM { get; set; }
+
+    /// <summary>How fast a beam fades with distance from its opening (per metre).</summary>
+    public float Falloff_perM { get; set; }
+
+    /// <summary>Width of a beam's soft edge at the opening, and how much it widens per metre.</summary>
+    public float EdgeSoftness_m { get; set; }
+
+    public float EdgeSpread { get; set; }
+
+    /// <summary>How much drifting dust breaks a beam up (0 = even glow, 1 = patchy).</summary>
+    public float Patchiness { get; set; }
+
+    /// <summary>Size of the dust swirls, and how fast they drift.</summary>
+    public float SwirlSize_m { get; set; }
+
+    public float SwirlSpeed_mps { get; set; }
+
+    /// <summary>Roof holes are large and let in a broad sheet of light: their beams get this share of the glow.</summary>
+    public float RoofHoleFactor { get; set; }
+
+    /// <summary>No beam is longer than this.</summary>
+    public float MaxLength_m { get; set; }
+
+    /// <summary>Openings the sun strikes at less than this angle get no beam.</summary>
+    public float MinSunAngle_deg { get; set; }
+
+    /// <summary>Beam glow within this distance of the camera fades out, so standing in a beam doesn't wash out the view.</summary>
+    public float NearFade_m { get; set; }
+
+    /// <summary>Beams fade out between these distances from the camera (they're unaffected by fog).</summary>
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    /// <summary>Samples per pixel along the view ray through a beam.</summary>
+    public int Samples { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Density_perM), Density_perM, 0, 10);
+        v.InRange(nameof(Falloff_perM), Falloff_perM, 0, 5);
+        v.InRange(nameof(EdgeSoftness_m), EdgeSoftness_m, 0.001, 2);
+        v.InRange(nameof(EdgeSpread), EdgeSpread, 0, 1);
+        v.InRange(nameof(Patchiness), Patchiness, 0, 1);
+        v.InRange(nameof(SwirlSize_m), SwirlSize_m, 0.05, 20);
+        v.InRange(nameof(SwirlSpeed_mps), SwirlSpeed_mps, 0, 5);
+        v.InRange(nameof(RoofHoleFactor), RoofHoleFactor, 0, 4);
+        v.InRange(nameof(MaxLength_m), MaxLength_m, 1, 100);
+        v.InRange(nameof(MinSunAngle_deg), MinSunAngle_deg, 0, 60);
+        v.InRange(nameof(NearFade_m), NearFade_m, 0, 20);
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 0, 500);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m + 1, 1000);
+        v.InRange(nameof(Samples), Samples, 1, 32);
+    }
+}
+
+/// <summary>Dust motes drifting in the sunbeams: only lit dust shows, so they live inside the beams.</summary>
+public sealed class DustDef : IValidatable
+{
+    public float PerCubicMetre { get; set; }
+
+    public int MaxPerBeam { get; set; }
+
+    public float Size_m { get; set; }
+
+    public float Lifetime_s { get; set; }
+
+    public float Drift_mps { get; set; }
+
+    public float Brightness { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(PerCubicMetre), PerCubicMetre, 0, 200);
+        v.InRange(nameof(MaxPerBeam), MaxPerBeam, 0, 5000);
+        v.InRange(nameof(Size_m), Size_m, 0.001, 0.2);
+        v.InRange(nameof(Lifetime_s), Lifetime_s, 0.5, 60);
+        v.InRange(nameof(Drift_mps), Drift_mps, 0, 2);
+        v.InRange(nameof(Brightness), Brightness, 0, 20);
+    }
+}
+
+/// <summary>
+/// Daylight spilling in: an unshadowed spotlight just inside each window or door (neighbours on one
+/// wall share one), and a warm bounce light where a sun patch lands on the floor. Stands in for
+/// bounced light on presets without global illumination.
+/// </summary>
+public sealed class WindowLightDef : IValidatable
+{
+    /// <summary>Spotlight energy per square metre of opening, its colour, cone and reach.</summary>
+    public float Energy_perM2 { get; set; }
+
+    public float MaxEnergy { get; set; }
+
+    public string Color { get; set; } = "";
+
+    public float Angle_deg { get; set; }
+
+    public float Range_m { get; set; }
+
+    /// <summary>Openings on the same wall within this distance share one light.</summary>
+    public float MergeDistance_m { get; set; }
+
+    /// <summary>Bounce light per square metre of sunlit opening, its tint (times the sun's colour) and reach.</summary>
+    public float BounceEnergy_perM2 { get; set; }
+
+    public float MaxBounceEnergy { get; set; }
+
+    public string BounceTint { get; set; } = "";
+
+    public float BounceRange_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Energy_perM2), Energy_perM2, 0, 10);
+        v.InRange(nameof(MaxEnergy), MaxEnergy, 0, 32);
+        v.InRange(nameof(Angle_deg), Angle_deg, 5, 89);
+        v.InRange(nameof(Range_m), Range_m, 0.5, 50);
+        v.InRange(nameof(MergeDistance_m), MergeDistance_m, 0, 20);
+        v.InRange(nameof(BounceEnergy_perM2), BounceEnergy_perM2, 0, 10);
+        v.InRange(nameof(MaxBounceEnergy), MaxBounceEnergy, 0, 32);
+        v.InRange(nameof(BounceRange_m), BounceRange_m, 0.5, 50);
+        foreach ((string key, string value) in new[] { (nameof(Color), Color), (nameof(BounceTint), BounceTint) })
+        {
+            if (!Godot.Color.HtmlIsValid(value))
+            {
+                v.Error(key, $"'{value}' is not a valid colour");
+            }
+        }
     }
 }
 

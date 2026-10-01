@@ -14,11 +14,7 @@ public static class Atmosphere
     {
         Environment env = world.Environment ??= new Environment();
 
-        float az = Mathf.DegToRad(l.SunAzimuth_deg);
-        float el = Mathf.DegToRad(l.SunElevation_deg);
-        // Towards the sun: compass bearing with north = −Z and east = +X.
-        var toSun = new Vector3(Mathf.Sin(az) * Mathf.Cos(el), Mathf.Sin(el), -Mathf.Cos(az) * Mathf.Cos(el));
-        sun.Basis = Basis.LookingAt(-toSun, Vector3.Up);
+        sun.Basis = Basis.LookingAt(-ToSun(l), Vector3.Up);
         sun.LightColor = Color.FromHtml(l.SunColor);
         sun.LightEnergy = l.SunEnergy;
         sun.ShadowEnabled = true;
@@ -72,6 +68,14 @@ public static class Atmosphere
         env.AdjustmentContrast = 1.04f;
     }
 
+    /// <summary>Unit vector towards the sun: compass bearing with north = −Z and east = +X.</summary>
+    public static Vector3 ToSun(LightingDef l)
+    {
+        float az = Mathf.DegToRad(l.SunAzimuth_deg);
+        float el = Mathf.DegToRad(l.SunElevation_deg);
+        return new Vector3(Mathf.Sin(az) * Mathf.Cos(el), Mathf.Sin(el), -Mathf.Cos(az) * Mathf.Cos(el));
+    }
+
     public static void ApplyPreset(WorldEnvironment world, DirectionalLight3D sun, Viewport viewport, GraphicsPresetDef p)
     {
         Environment env = world.Environment ??= new Environment();
@@ -97,6 +101,12 @@ public static class Atmosphere
             1 => Viewport.Msaa.Msaa2X,
             2 => Viewport.Msaa.Msaa4X,
             _ => Viewport.Msaa.Disabled,
+        };
+        viewport.ScreenSpaceAA = p.ScreenAa switch
+        {
+            "fxaa" => Viewport.ScreenSpaceAAEnum.Fxaa,
+            "smaa" => Viewport.ScreenSpaceAAEnum.Smaa,
+            _ => Viewport.ScreenSpaceAAEnum.Disabled,
         };
     }
 

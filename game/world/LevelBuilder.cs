@@ -18,6 +18,9 @@ public partial class LevelBuilder : Node3D
     /// <summary>Meshes are merged per chunk of this size (m) so frustum and occlusion culling still work.</summary>
     private const float ChunkSize = 24f;
 
+    /// <summary>The scrubland around every level is this material.</summary>
+    public const string SurroundingsMaterial = "grass_dry";
+
     /// <summary>Side of the scrubland square around the level (m).</summary>
     private const float SurroundingsSize = 4000f;
 
@@ -90,7 +93,7 @@ public partial class LevelBuilder : Node3D
             MaterialOverride = _materials[level.GroundMaterial.Index],
         });
 
-        int grass = FindMaterial(level, "grass_dry", level.GroundMaterial.Index);
+        int grass = FindMaterial(level, SurroundingsMaterial, level.GroundMaterial.Index);
         AddChild(new MeshInstance3D
         {
             Name = "Surroundings",
@@ -176,7 +179,7 @@ public partial class LevelBuilder : Node3D
     }
 
     /// <summary>FNV-1a: a hash of the level id that's the same on every run (string.GetHashCode isn't).</summary>
-    private static int StableHash(string s)
+    internal static int StableHash(string s)
     {
         uint h = 2166136261;
         foreach (char c in s)

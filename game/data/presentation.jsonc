@@ -75,16 +75,25 @@
   "arcPreview": { "enabledOnStart": false, "maxTime_s": 4.0, "probes_m": [10, 20, 30, 40] },
 
   // Graphics presets. Medium targets 60 fps at 1080p on a GTX 1070-class GPU; High adds bounced light
-  // (SDFGI), volumetric dust and reflections. The player's choice is saved in user://settings.json.
+  // (SDFGI), volumetric fog and reflections. The player's choice is saved in user://settings.json.
+  // Antialiasing is screen-space (screenAa: none, fxaa or smaa): with MSAA on, shaders can't read the
+  // depth buffer the sunbeams need to stop at walls, so the beams switch off.
+  // Per preset, the compound's lighting extras: the share of weeds drawn and how far (weedDensity,
+  // weedDistance_m), sunbeam strength (lightShafts, 0 = off), dust motes in the beams, and window fill
+  // lights. High's volumetric fog already shows real beams and SDFGI bounces light, so it tones the
+  // fake beams down and drops the fill lights.
   "graphics": {
     "defaultPreset": "medium",
     "presets": [
       { "name": "low", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
-        "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0 },
+        "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0, "screenAa": "fxaa",
+        "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false },
       { "name": "medium", "ssao": true, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
-        "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 90, "msaa": 1 },
+        "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 90, "msaa": 0, "screenAa": "smaa",
+        "weedDensity": 0.75, "weedDistance_m": 45, "lightShafts": 1.0, "dust": true, "windowLights": true },
       { "name": "high", "ssao": true, "ssil": true, "sdfgi": true, "volumetricFog": true, "ssr": true, "glow": true,
-        "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 130, "msaa": 1 }
+        "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 130, "msaa": 0, "screenAa": "smaa",
+        "weedDensity": 1.0, "weedDistance_m": 70, "lightShafts": 0.6, "dust": true, "windowLights": false }
     ]
   },
 
@@ -118,6 +127,95 @@
       { "radius_m": 340, "minHeight_m": 6, "maxHeight_m": 17, "gaps": 0.3 },
       { "radius_m": 680, "minHeight_m": 12, "maxHeight_m": 34, "gaps": 0.15 }
     ]
+  },
+
+  // Weeds and dry grass wherever rain falls (nothing overhead): thick on scrubland, patchy on dirt and
+  // gravel, in a network of cracks on asphalt and concrete, and along the foot of walls and props.
+  // Seeded by the level id, so they're the same every run. Presentation only: paint passes through.
+  "weeds": {
+    // Tufts per square metre by ground material id; materials not listed grow none. On the crack
+    // materials the density applies along the cracks only.
+    "density_perM2": { "grass_dry": 5.0, "dirt": 0.7, "gravel": 0.45, "asphalt_cracked": 3.0, "concrete_floor": 2.0 },
+    "grassMaterials": ["grass_dry"],
+    "crackMaterials": ["asphalt_cracked", "concrete_floor"],
+    "crackSpacing_m": 3.5,
+    "crackWidth_m": 0.22,
+    // Along the foot of walls, columns and props: tufts per metre of edge, growing within this reach.
+    "edgeDensity_perM": 2.2,
+    "edgeReach_m": 0.3,
+    // Weeds grow in patches about this big, with about this share of the ground left bare.
+    "clumpSize_m": 7,
+    "bare": 0.3,
+    "heightMin_m": 0.12,
+    "heightMax_m": 0.55,
+    // A tuft's width as a multiple of its height.
+    "width": 1.25,
+    // Tints, from straw to olive (multiplied with the painted tuft).
+    "colors": ["#f0e2b8", "#e2d6a6", "#cfd09a", "#bcc48c", "#e8cfa0"],
+    // How far tips sway, how fast, and the size of the gusts that roll across.
+    "windSway_m": 0.05,
+    "windSpeed": 1.4,
+    "gustSize_m": 12,
+    // Nothing grows this close to a pickup, so grass never hides a pod.
+    "pickupClearance_m": 0.9,
+    // Tufts are grouped in squares this big, which are culled as a whole.
+    "chunkSize_m": 16
+  },
+
+  // Sunbeams through windows, doors and holes in the roof, wherever the sun reaches into a roofed
+  // space. A beam is a box of light, ray-marched per pixel and cut off by whatever is in front of it.
+  "shafts": {
+    // Glow per metre of beam you look through (scaled by the preset's lightShafts), and how fast a
+    // beam fades with distance from its opening.
+    "density_perM": 0.035,
+    "falloff_perM": 0.035,
+    // A beam's soft edge at the opening, widening by this much per metre.
+    "edgeSoftness_m": 0.18,
+    "edgeSpread": 0.03,
+    // Drifting dust breaks a beam up: how much (0 = even glow), the swirl size and drift speed.
+    "patchiness": 0.55,
+    "swirlSize_m": 1.4,
+    "swirlSpeed_mps": 0.07,
+    // Roof holes let in a broad sheet of light; their beams get this share of the glow.
+    "roofHoleFactor": 0.45,
+    "maxLength_m": 40,
+    // Openings the sun strikes at less than this angle get no beam.
+    "minSunAngle_deg": 4,
+    // Glow this close to the camera fades out, so standing in a beam doesn't wash out the view.
+    "nearFade_m": 2.5,
+    // Beams ignore fog, so they fade out between these camera distances instead.
+    "fadeStart_m": 45,
+    "fadeEnd_m": 100,
+    // Samples per pixel along the view ray through a beam.
+    "samples": 6
+  },
+
+  // Dust motes drifting in the sunbeams. Only lit dust shows, so they live inside the beams.
+  "dust": {
+    "perCubicMetre": 5,
+    "maxPerBeam": 400,
+    "size_m": 0.008,
+    "lifetime_s": 9,
+    "drift_mps": 0.04,
+    "brightness": 1.0
+  },
+
+  // Daylight spilling in, for presets without global illumination: an unshadowed spotlight just inside
+  // each window or door (neighbours on one wall share one), and a warm bounce light where a sun patch
+  // lands on the floor.
+  "windowLight": {
+    // Spotlight energy per square metre of opening (capped), colour, cone and reach.
+    "energy_perM2": 0.12,
+    "maxEnergy": 1.2,
+    "color": "#c9d2dc",
+    "angle_deg": 70,
+    "range_m": 7,
+    "mergeDistance_m": 3.5,
+    // Bounce light per square metre of sunlit opening (capped), tint (times the sun's colour), reach.
+    "bounceEnergy_perM2": 0.08,
+    "maxBounceEnergy": 1.5,
+    "bounceTint": "#d8c4a8",
+    "bounceRange_m": 6
   },
 
   // Paint on your mask when a ball breaks near your face (spec §1.3): drops of the ball's colour that
