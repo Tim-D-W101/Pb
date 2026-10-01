@@ -238,7 +238,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   - **Sunbeams** through every window, door and roof hole the sun reaches into a roofed space (38 in Oxbarrow Works). Each is a box of light, ray-marched per pixel, that stops at whatever is in front of it, with dust swirling in it and motes drifting through.
   - **Daylight spilling in:** an unshadowed fill light inside each window or door (neighbours share one) and a warm bounce light where the sun lands.
   - **Presets:** Low draws a third of the weeds to 28 m, with no beams. Medium draws three quarters to 45 m, with beams, dust and fill lights. High draws all of them to 70 m and keeps the beams softer beside its volumetric fog; it has no fill lights, since SDFGI bounces light.
-  - **Antialiasing** is now SMAA (FXAA on Low) instead of MSAA. With MSAA on, shaders can't read the depth buffer the beams need to stop at walls, so they would shine through them; the beams switch off if MSAA is turned back on.
+  - **Antialiasing** is now SMAA (FXAA on Low and Medium) instead of MSAA. With MSAA on, shaders can't read the depth buffer the beams need to stop at walls, so they would shine through them; the beams switch off if MSAA is turned back on.
   - The level kit records every opening as an aperture in world space (`LevelLayout.Apertures`), checked by two new sim tests.
 - [ ] Props in place with their proxy colliders. So far the oil drum: the generated model, 0.88 m tall, matching its collider.
 - [ ] Three rigged, animated opponents, marker in hand, armbands in their team colour. One so far, dealt to every opponent with a different tint (`presentation.jsonc` → `characters`):
