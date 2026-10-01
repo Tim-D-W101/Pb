@@ -372,10 +372,12 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 - **Material library.** Each entry gives albedo, normal and roughness textures, tile size in metres, a surface ID (for paint physics now and footsteps later), and a weathering amount.
 - **`weathered.gdshader`** is one shader for all kit surfaces: base PBR plus grime by height above the floor, noise-driven stains and moss, and per-material strength.
-- **Presets** (`presentation.jsonc` → `graphics`; as built, the presets live there rather than in a `graphics.jsonc`):
-  - **Low:** no GI, no SSAO, a third of the weeds to 28 m, no sunbeams.
-  - **Medium:** SSAO, per-room ambient probes, unshadowed fill lights at windows, sunbeams with dust, three quarters of the weeds to 45 m.
-  - **High:** adds SSIL, SDFGI, volumetric fog and SSR; all the weeds to 70 m; softer fake beams beside the fog's real ones; no fill lights, since SDFGI bounces light.
+- **Presets** (`presentation.jsonc` → `graphics`; as built, the presets live there rather than in a `graphics.jsonc`). After the owner's first play-test lagged on anything above Low, the presets were rebalanced by measuring each effect's cost over the level's viewpoints (`-- --shots --preset=NAME` prints per-view frame times). Ambient occlusion turned out to be the biggest single cost:
+  - **Low:** no GI, no SSAO, no glow, a third of the weeds to 28 m, no sunbeams.
+  - **Medium** (about 1.2× Low): glow, half the weeds to 35 m, shadows to 75 m; no SSAO, sunbeams or fill lights.
+  - **High** (about 2.3× Low, the old Medium): SSAO, per-room ambient probes, unshadowed fill lights at windows, sunbeams with dust, three quarters of the weeds to 45 m.
+  - **Ultra** (the old High): adds SSIL, SDFGI, volumetric fog and SSR; all the weeds to 70 m; softer fake beams beside the fog's real ones; no fill lights, since SDFGI bounces light.
+  - **Render scale** (a setting, any preset): the 3D view is drawn at 50–100 % of the screen's resolution and upscaled with FSR 1.0.
   
   Shadow sizes and every toggle are data. Antialiasing is screen-space (SMAA, FXAA on Low): with MSAA on, the depth buffer isn't available to shaders, and the sunbeams need it.
 - **Apertures** (as built in M2.6). The level kit records every window, door, gap and roof hole as a rectangle in world space (`LevelLayout.Apertures`). At load the game classifies each one by probing the paint geometry: open sky on one side and a roof on the other makes it an exterior opening, and clear lines to the sun across it make it sunlit.
@@ -412,6 +414,12 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **`Pb.Sim/Match`** holds `MatchState` (Briefing → Live → Ended(outcome), with a settle window for balls still in the air) and `IMatchMode`. The summary screen is presentation.
 - **Phase 2 ships `SoloMode`** (`rules.jsonc`: `"mode": "solo"`): you against every opponent; the level is cleared when every opponent is out. Players already carry a team, so free-for-all and squads are mode variants.
 - **Pickups** (`PickupSet`) are part of the sim, so bots and remote players take them by the same rules.
+- **Random starts (as built).** `SimWorld` takes a match seed per round: the host deals a new one each round, and tests and scripted runs keep the data's. `SpawnPlanner` uses the seed to deal the starts:
+  - your entry point;
+  - opponents at a mix of the level's opponent spawns and cover points inside its spawn area, a fair distance from you, out of your sight and spread out;
+  - a random role for each (`rules.jsonc` → `spawning`).
+
+  The same seed always deals the same starts, so a round can be replayed with `--seed`.
 - **Level flow and difficulty live in `levels/ladder.jsonc`:** order, tiers, roster per tier, time limit, starting gear and pickups.
 
 ### 14.6 AI

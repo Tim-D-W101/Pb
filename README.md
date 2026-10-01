@@ -17,11 +17,13 @@ drum, and a rigged character model for the opponents. More textures, props and c
 
 ## Run it
 
-**Just want to play (Windows)?** Every CI run builds a ready-to-run copy: open the latest run under
-the repo's **Actions** tab, download **Pb-windows** from its Artifacts (you need to be signed in to
-GitHub), unzip it and double-click `Pb.exe`. No Godot or .NET needed; Windows may ask you to confirm
-("More info" → "Run anyway") because the game isn't signed. `tools/package/windows-build.sh` makes the
-same build locally.
+**Just want to play (Windows)?** Download the latest test build,
+[Pb-windows.zip](https://github.com/Tim-D-W101/Pb/releases/download/test-build/Pb-windows.zip), unzip it
+and double-click `Play.bat`. No Godot or .NET needed. `Play.bat` keeps the game up to date: each time,
+it downloads only what changed since your version (usually a small update), then starts the game.
+Windows may ask you to confirm ("More info" → "Run anyway") because the game isn't signed. Every CI
+run publishes the build there (and as the run's "Pb-windows" artifact); `tools/package/windows-build.sh`
+makes the same build locally.
 
 To run it from Godot:
 
@@ -70,7 +72,9 @@ you (mask, head, body, arms, legs, marker, loader or tank) puts you out; a bounc
 In the compound, F6 doesn't apply: a round has no gear reset, so you find pods and air lying
 around instead. **F3** shows the bot debug overlay there (sight cones coloured by how close they
 are to spotting you, their state, paths and cover points). F9 restarts the level from its data
-files. **F12** cycles graphics presets (low / medium / high). Besides the usual ambient occlusion,
+files. **F12** cycles graphics presets (low / medium / high / ultra); the pause menu also has a
+**render scale**, which draws the 3D view at a lower resolution and sharpens it back up, for slower
+graphics cards. Besides the usual ambient occlusion,
 shadows and fog, a preset sets how many weeds you see and how far, and whether sunbeams with
 drifting dust shine through the windows and holes in the roof and daylight spills in around them.
 
@@ -100,6 +104,10 @@ they hear shots, balls breaking near them and your footsteps (crouch-walk to sta
 remember where you were. Once they've seen you they shoot, then take cover and peek round it,
 refilling when they run low. Lost, they flank, push or search. The tier sets how quickly they
 react, how well they aim and how bold they are.
+
+Where everyone starts changes every round: you come in at the gate, the west breach or the north-east
+collapse, and the opponents start at random places around the compound, out of your sight, each with
+a random role, so you can't learn where they are.
 
 They're drawn by a rigged character model, posed every frame to match their hitboxes: crouching,
 leaning, aiming, stepping as they move, both hands on the marker. Each wears an armband in their

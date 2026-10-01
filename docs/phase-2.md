@@ -270,7 +270,50 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
 Callsigns, callout lines and the HUD's timings are in `presentation.jsonc` ("hud"); how often bots shout is in `bots/brain.jsonc`.
 
+### M2.9 Your first play-test
+
+**In progress (2026-10-01).** You played the Windows build: it felt glitchy, lagged on anything above Low, and starting positions never changed, so you could learn where everyone was.
+
+- [x] **V-sync is on by default.** It was off, a leftover from measuring raw frame rates, so the picture tore whenever you turned. F8 or the pause menu still turns it off. Saved settings get it switched on once.
+- [ ] **Lighter graphics presets and a render scale setting.**
+- [x] **Random starts every round.** Each round (and each restart) deals a new seed:
+  - you come in at the main gate, the breach in the west wall or the collapse in the north-east corner;
+  - opponents start at a random mix of the level's opponent spawns and cover points (anywhere the level offers cover) inside the compound;
+  - every opponent starts at least 28 m from you, out of your sight, and 10 m from the others;
+  - each plays a random role: one of its spawn's roles, or by chance at a cover point (half guards, the rest patrollers on the nearest route or rushers).
+
+  The numbers are in `rules.jsonc` ("spawning") and the entry points in the level file (`playerSpawns`). Scripted runs keep the data's seed and the tier's roster, so they play out the same every time; `--seed=N` replays a round and `--random-spawns` deals random starts in a scripted run (CI's bot match). Four sim tests: the same seed deals the same starts, every round starts differently (12 rounds: 12 line-ups, 47 start places, all three entry points), starts are fair (distance, sight, spacing, inside the compound), and roles are mixed with patrollers on routes.
+- [x] **A ready-to-run Windows build** from every CI run, and a **launcher that updates itself**:
+  - CI publishes each build as the "test-build" release, so one link always has the newest version;
+  - `Play.bat` checks it, downloads only what changed (the game's own files, about 20 MB, or the whole game when the engine changes), then starts the game;
+  - without internet, it just starts the game.
+
+### M2.10 Modes: free-for-all and teams (planned, waiting for your OK)
+
+You asked for opponents who fight each other as well as you, team games such as 3 against 3, and difficulty that doesn't depend on the number of players. The plan, with defaults you can change:
+
+- **Menu:** level → mode → size → difficulty.
+- **Free-for-all:**
+  - 4, 6, 8 or 10 players, everyone against everyone; bots hunt each other as well as you;
+  - the last one standing wins;
+  - each player has their own paint colour;
+  - when you're out, you watch the rest, or skip straight to the summary.
+- **Teams:**
+  - 2v2, 3v3, 4v4 or 5v5: you and bot teammates against a bot team;
+  - the teams start on opposite sides, at random places on each;
+  - when you're out, you watch your teammates until a team is wiped out;
+  - a hit from a teammate puts you out, as in real paintball (bots already hold fire when a teammate is in the way).
+- **Difficulty** (Easy, Normal, Hard) sets only how good the bots are: reaction, aim, tracking, boldness. The number of players never depends on it.
+- **In the sim:**
+  - a "last team standing" mode replaces `solo`, and free-for-all is everyone on a team of their own;
+  - sizes, time limits and pods live in the ladder data;
+  - match-rule tests cover each outcome.
+- **On screen:** the top bar shows each team (or every player in free-for-all), teammates wear your armband colour, and the kill feed reports bots putting each other out.
+
 ### M2.8 Verify and report
+
+This closes the phase, after M2.9 and M2.10.
+
 
 - [x] CI green, including a headless match on Level 1: a bot takes your slot and plays to the end without errors. The bot in your slot is a "hunter" that sweeps the opponent spawns one by one (`--bot-match` in the smoke test, and a sim test that plays a whole Normal round).
 - [x] Benchmark: a sim tick with 10 players and 1,000 live balls in ≤ 0.5 ms. In the cloud container it's 0.30 ms on average (p95 0.36 ms, worst 0.45 ms), after the hitbox sweep started caching each player's centre once per tick instead of fetching every pose for every ball.
