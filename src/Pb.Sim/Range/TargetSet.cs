@@ -96,6 +96,8 @@ public sealed class TargetSet : IHitboxWorld
         return true;
     }
 
+    public bool CountsAsHit(in HitboxHit hit, int shooterId, int tick) => true;
+
     public void OnLethalHit(in HitboxHit hit, int shooterId, uint shotSequence, int tick)
     {
         if (hit.ReceiverId >= 0 && hit.ReceiverId < _entries.Count)

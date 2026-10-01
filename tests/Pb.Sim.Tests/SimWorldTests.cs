@@ -225,7 +225,7 @@ public class SimWorldTests
             TickRate = baseConfig.TickRate, MatchSeed = seed, BallPoolCapacity = baseConfig.BallPoolCapacity,
             Surfaces = baseConfig.Surfaces, Projectile = baseConfig.Projectile, BreakModel = baseConfig.BreakModel,
             Shot = baseConfig.Shot, Fire = baseConfig.Fire, Loader = baseConfig.Loader, Air = baseConfig.Air,
-            Movement = baseConfig.Movement,
+            Movement = baseConfig.Movement, Hitboxes = baseConfig.Hitboxes,
         };
         var sim = new SimWorld(config);
         sim.LoadRange(TestData.Data.Range, TestData.Data.Stress);

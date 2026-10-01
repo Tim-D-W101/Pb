@@ -219,22 +219,24 @@ public static class MovementModel
         }
         else
         {
-            // Crouch while held; stand up again only where there's headroom.
+            // Crouch while held; stand up again only where there's headroom (eliminated players stand to walk off).
             if (alive && cmd.Has(InputButtons.Crouch))
             {
                 stance = Stance.Crouching;
             }
-            else if (alive && stance == Stance.Crouching && HasRoom(state, p.CrouchCapsuleHeight, p.StandCapsuleHeight, p, world))
+            else if (stance == Stance.Crouching && HasRoom(state, p.CrouchCapsuleHeight, p.StandCapsuleHeight, p, world))
             {
                 stance = Stance.Standing;
             }
 
+            // Eliminated players can only walk (off the field, marker raised).
             sprinting = alive && cmd.Has(InputButtons.Sprint) && stance == Stance.Standing && move.Y >= p.SprintMinForwardInput;
-            float target = stance == Stance.Crouching ? p.CrouchSpeed
+            float target = !alive ? p.WalkSpeed
+                : stance == Stance.Crouching ? p.CrouchSpeed
                 : sprinting ? p.SprintSpeed
                 : cmd.Has(InputButtons.Walk) ? p.WalkSpeed
                 : p.RunSpeed;
-            Vector3 desired = alive ? wishDir * (target * amount) : Vector3.Zero;
+            Vector3 desired = state.Present ? wishDir * (target * amount) : Vector3.Zero;
             float rate = !grounded ? p.AirAcceleration
                 : desired.LengthSquared() >= current.LengthSquared() ? p.GroundAcceleration
                 : p.GroundDeceleration;

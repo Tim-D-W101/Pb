@@ -5,11 +5,16 @@ namespace Pb.Sim.Collision;
 /// <summary>Which part of a receiver was hit. Every part is lethal by default (spec §1.2).</summary>
 public enum HitboxPart : byte
 {
+    /// <summary>A range target's body (players are split into head, torso, arms and legs).</summary>
     Body,
     Mask,
     Marker,
     Loader,
     Tank,
+    Head,
+    Torso,
+    Arms,
+    Legs,
 }
 
 public struct HitboxHit
@@ -30,6 +35,12 @@ public interface IHitboxWorld
 {
     bool SweepSphere(Vector3 from, Vector3 to, float radius, int tick, int ignoreOwnerId, out HitboxHit hit);
 
-    /// <summary>Called for a lethal (unbounced) break so the receiver can record it.</summary>
+    /// <summary>
+    /// Whether an unbounced break on <paramref name="hit"/> counts (the part is lethal, the receiver
+    /// is still in, and so on). A break that doesn't count still breaks, it just doesn't eliminate.
+    /// </summary>
+    bool CountsAsHit(in HitboxHit hit, int shooterId, int tick);
+
+    /// <summary>Called for a break that counts, so the receiver can record it.</summary>
     void OnLethalHit(in HitboxHit hit, int shooterId, uint shotSequence, int tick);
 }

@@ -62,5 +62,7 @@ public sealed class SimConfig
 
     public required MovementParams Movement { get; init; }
 
+    public required HitboxParams Hitboxes { get; init; }
+
     public float Dt => 1f / TickRate;
 }

@@ -177,7 +177,7 @@ public sealed class BallisticsWorld
 
         if (breaks)
         {
-            bool lethal = receiverId >= 0 && !pool.Bounced[i];
+            bool lethal = receiverId >= 0 && !pool.Bounced[i] && Hitboxes!.CountsAsHit(receiverHit, pool.Owner[i], tick);
             var e = new SimEvent
             {
                 Type = SimEventType.BallBroke, Tick = tick, PlayerId = pool.Owner[i], ShotSequence = pool.Sequence[i],

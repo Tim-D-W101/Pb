@@ -41,6 +41,9 @@ public sealed class SimFilesDef : IValidatable
 
     public string Movement { get; set; } = "";
 
+    /// <summary>Player hitbox rig and elimination rules.</summary>
+    public string Hitboxes { get; set; } = "";
+
     public string Range { get; set; } = "";
 
     public string Stress { get; set; } = "";
@@ -61,6 +64,7 @@ public sealed class SimFilesDef : IValidatable
         v.NotEmpty(nameof(Air), Air);
         v.NotEmpty(nameof(BreakModel), BreakModel);
         v.NotEmpty(nameof(Movement), Movement);
+        v.NotEmpty(nameof(Hitboxes), Hitboxes);
         v.NotEmpty(nameof(Range), Range);
         v.NotEmpty(nameof(Stress), Stress);
     }
@@ -752,3 +756,83 @@ public sealed class CannonDef : IValidatable
 }
 
 #pragma warning restore CA1707
+
+/// <summary>Player hitboxes and elimination rules (hitboxes.jsonc).</summary>
+public sealed class HitboxesDef : IValidatable
+{
+    public string Surface { get; set; } = "";
+
+    public float LegsWidth_m { get; set; }
+
+    public float LegsDepth_m { get; set; }
+
+    public float TorsoWidth_m { get; set; }
+
+    public float TorsoDepth_m { get; set; }
+
+    public float TorsoTopBelowEye_m { get; set; }
+
+    public PartBoxDef Head { get; set; } = new();
+
+    public PartBoxDef Mask { get; set; } = new();
+
+    public PartBoxDef Arms { get; set; } = new();
+
+    public PartBoxDef Marker { get; set; } = new();
+
+    public PartBoxDef Loader { get; set; } = new();
+
+    public PartBoxDef Tank { get; set; } = new();
+
+    public float EliminatedRaise_m { get; set; }
+
+    public float EliminatedPitch_deg { get; set; }
+
+    public HitboxPart[] LethalParts { get; set; } = Array.Empty<HitboxPart>();
+
+    public bool BallsInFlightCount { get; set; }
+
+    public float MaskSprayRadius_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Surface), Surface);
+        v.InRange(nameof(LegsWidth_m), LegsWidth_m, 0.05, 1);
+        v.InRange(nameof(LegsDepth_m), LegsDepth_m, 0.05, 1);
+        v.InRange(nameof(TorsoWidth_m), TorsoWidth_m, 0.05, 1);
+        v.InRange(nameof(TorsoDepth_m), TorsoDepth_m, 0.05, 1);
+        v.InRange(nameof(TorsoTopBelowEye_m), TorsoTopBelowEye_m, 0, 0.6);
+        Head.Validate(v.Scope(nameof(Head)));
+        Mask.Validate(v.Scope(nameof(Mask)));
+        Arms.Validate(v.Scope(nameof(Arms)));
+        Marker.Validate(v.Scope(nameof(Marker)));
+        Loader.Validate(v.Scope(nameof(Loader)));
+        Tank.Validate(v.Scope(nameof(Tank)));
+        v.InRange(nameof(EliminatedRaise_m), EliminatedRaise_m, 0, 1);
+        v.InRange(nameof(EliminatedPitch_deg), EliminatedPitch_deg, -90, 90);
+        if (LethalParts.Contains(HitboxPart.Body))
+        {
+            v.Error(nameof(LethalParts), "'body' is for range targets; players have head, torso, arms and legs");
+        }
+
+        v.InRange(nameof(MaskSprayRadius_m), MaskSprayRadius_m, 0, 3);
+    }
+}
+
+/// <summary>One hitbox: size_m = [width, height, depth]; centre_m = [right, up, forward] from the eye.</summary>
+public sealed class PartBoxDef : IValidatable
+{
+    public float[] Size_m { get; set; } = Array.Empty<float>();
+
+    public float[] Centre_m { get; set; } = Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        v.Vector(nameof(Size_m), Size_m);
+        v.Vector(nameof(Centre_m), Centre_m);
+        if (Size_m.Length == 3 && Size_m.Any(x => x <= 0f || x > 2f))
+        {
+            v.Error(nameof(Size_m), "sizes must be in (0, 2] m");
+        }
+    }
+}

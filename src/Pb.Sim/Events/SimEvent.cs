@@ -28,6 +28,10 @@ public enum SimEventType : byte
     GearReset,
     /// <summary>Movement noise. Position = feet, Surface = underfoot, Value = hearing radius (m), Extra = <see cref="FootstepKind"/>.</summary>
     Footstep,
+    /// <summary>A player is out. PlayerId = shooter, TargetId = eliminated player, Extra = hitbox part, Position = break point.</summary>
+    PlayerEliminated,
+    /// <summary>Paint sprayed a player's mask. TargetId = player, Team = paint, Position = break point, Value = strength 0..1.</summary>
+    MaskSprayed,
 }
 
 public enum FootstepKind : byte

@@ -34,10 +34,12 @@ public sealed class SimWorld
     public SimWorld(SimConfig config)
     {
         Config = config;
+        PlayerHits = new PlayerHitboxes(this);
+        Receivers = new HitReceivers(Targets, PlayerHits);
         Ballistics = new BallisticsWorld(config.BallPoolCapacity, config.Projectile, config.BreakModel)
         {
             World = Collision,
-            Hitboxes = Targets,
+            Hitboxes = Receivers,
         };
     }
 
@@ -54,6 +56,12 @@ public sealed class SimWorld
 
     public TargetSet Targets { get; } = new();
 
+    /// <summary>Players as hit receivers, with their hitbox history.</summary>
+    public PlayerHitboxes PlayerHits { get; }
+
+    /// <summary>Range targets and players together: what balls (and aim) are tested against.</summary>
+    public HitReceivers Receivers { get; }
+
     public BallisticsWorld Ballistics { get; }
 
     public SimEventQueue Events { get; } = new();
@@ -65,6 +73,19 @@ public sealed class SimWorld
     public LevelLayout? Level { get; private set; }
 
     public IReadOnlyList<PlayerState> Players => _players;
+
+    public PlayerState? FindPlayer(int id)
+    {
+        foreach (PlayerState p in _players)
+        {
+            if (p.Id == id)
+            {
+                return p;
+            }
+        }
+
+        return null;
+    }
 
     public PlayerState AddPlayer(int id, byte team, Vector3 position, float yaw)
     {
@@ -84,6 +105,7 @@ public sealed class SimWorld
     public void LoadLevel(LevelLayout level)
     {
         Level = level;
+        PlayerHits.Enabled = true;
         Range = null;
         Stress = null;
         level.BuildCollision(Collision);
@@ -95,6 +117,7 @@ public sealed class SimWorld
     {
         Range = range;
         Level = null;
+        PlayerHits.Enabled = false;
         range.BuildCollision(Collision);
         Targets.Load(range.Targets);
         Targets.Update(Time);
@@ -122,7 +145,9 @@ public sealed class SimWorld
     {
         double t0 = Time;
         float dt = Dt;
+        int firstEvent = Events.Count;
         Targets.Update(t0);
+        PlayerHits.Record(Tick);
 
         for (int i = 0; i < _players.Count; i++)
         {
@@ -146,6 +171,7 @@ public sealed class SimWorld
 
         Stress?.Update(Ballistics, Config.MatchSeed, Config.Shot.MuzzleVelocity, Config.Shot.VelocityVariance, Tick, dt, Events);
         Ballistics.Tick(Tick, dt, Events);
+        SprayMasks(firstEvent);
 
         Tick++;
         Time += dt;
@@ -182,7 +208,7 @@ public sealed class SimWorld
             nearest = wh.T;
         }
 
-        if (Targets.SweepSphere(eye, far, 0f, Tick, player.Id, out HitboxHit th) && th.T < nearest)
+        if (Receivers.SweepSphere(eye, far, 0f, Tick, player.Id, out HitboxHit th) && th.T < nearest)
         {
             nearest = th.T;
         }
@@ -292,6 +318,34 @@ public sealed class SimWorld
         player.LastVelocity = player.Velocity;
         player.LastGrounded = player.Grounded;
         player.LastStance = player.Stance;
+    }
+
+    /// <summary>Breaks within the spray radius of someone's face paint their mask (spec §1.3), stronger the closer they are.</summary>
+    private void SprayMasks(int firstEvent)
+    {
+        float radius = Config.Hitboxes.MaskSprayRadius;
+        int count = Events.Count;
+        for (int i = firstEvent; i < count && radius > 0f; i++)
+        {
+            SimEvent e = Events.Items[i];
+            if (e.Type != SimEventType.BallBroke)
+            {
+                continue;
+            }
+
+            foreach (PlayerState p in _players)
+            {
+                float distance = Vector3.Distance(p.EyePosition, e.Position);
+                if (p.Present && distance < radius)
+                {
+                    Events.Add(new SimEvent
+                    {
+                        Type = SimEventType.MaskSprayed, Tick = Tick, PlayerId = e.PlayerId, TargetId = p.Id, Team = e.Team,
+                        Position = e.Position, Value = 1f - distance / radius, ColliderId = -1,
+                    });
+                }
+            }
+        }
     }
 
     private void Footstep(PlayerState player, FootstepKind kind, float radius) =>

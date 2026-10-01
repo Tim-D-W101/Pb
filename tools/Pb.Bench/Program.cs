@@ -134,7 +134,7 @@ static (double Mean, double P95, double Max, int Live) Measure(GameData data, in
     {
         TickRate = c.TickRate, MatchSeed = c.MatchSeed, BallPoolCapacity = Math.Max(c.BallPoolCapacity, balls * 2),
         Surfaces = c.Surfaces, Projectile = c.Projectile, BreakModel = c.BreakModel, Shot = c.Shot, Fire = c.Fire,
-        Loader = c.Loader, Air = c.Air, Movement = c.Movement,
+        Loader = c.Loader, Air = c.Air, Movement = c.Movement, Hitboxes = c.Hitboxes,
     };
     var stress = new StressSettings { TargetLiveBalls = balls, MaxSpawnPerTick = Math.Max(16, balls / 40), Cannons = data.Stress.Cannons };
     var sim = new SimWorld(config);
@@ -184,7 +184,7 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
     {
         TickRate = c.TickRate, MatchSeed = c.MatchSeed, BallPoolCapacity = Math.Max(c.BallPoolCapacity, balls * 2),
         Surfaces = c.Surfaces, Projectile = c.Projectile, BreakModel = c.BreakModel, Shot = c.Shot, Fire = c.Fire,
-        Loader = c.Loader, Air = c.Air, Movement = c.Movement,
+        Loader = c.Loader, Air = c.Air, Movement = c.Movement, Hitboxes = c.Hitboxes,
     };
     var sim = new SimWorld(config);
     sim.LoadLevel(level);

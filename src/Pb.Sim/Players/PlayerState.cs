@@ -29,7 +29,24 @@ public sealed class PlayerState
 
     public Marker Marker { get; }
 
+    /// <summary>Display name (callouts, kill feed, spectator view).</summary>
+    public string Name { get; set; } = "";
+
+    /// <summary>Still in the round: false once eliminated.</summary>
     public bool Alive { get; set; } = true;
+
+    /// <summary>On the field at all: an eliminated player is present until they've walked off.</summary>
+    public bool Present { get; set; } = true;
+
+    /// <summary>Who eliminated this player (−1 = nobody yet), when, and where the ball broke.</summary>
+    public int EliminatedBy { get; set; } = -1;
+
+    public int EliminatedTick { get; set; } = -1;
+
+    public HitboxPart EliminatedPart { get; set; }
+
+    /// <summary>Opponents this player has eliminated.</summary>
+    public int Eliminations { get; set; }
 
     public Vector3 Position { get; set; }
 

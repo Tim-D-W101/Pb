@@ -19,6 +19,7 @@
     "air": "air/standard_1100ml_310bar.jsonc",
     "breakModel": "break_model.jsonc",
     "movement": "movement.jsonc",
+    "hitboxes": "hitboxes.jsonc",
     "range": "ranges/phase1.jsonc",
     "stress": "stress.jsonc",
     // Level kit (materials, props, building templates) and the level ladder (Phase 2).

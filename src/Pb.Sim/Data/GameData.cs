@@ -52,6 +52,7 @@ public sealed class GameData
         AirDef air = Jsonc.Load<AirDef>(source, files.Air);
         BreakModelDef breakModel = Jsonc.Load<BreakModelDef>(source, files.BreakModel);
         MovementDef movement = Jsonc.Load<MovementDef>(source, files.Movement);
+        HitboxesDef hitboxes = Jsonc.Load<HitboxesDef>(source, files.Hitboxes);
         RangeDef range = Jsonc.Load<RangeDef>(source, files.Range);
         StressDef stress = Jsonc.Load<StressDef>(source, files.Stress);
 
@@ -73,6 +74,7 @@ public sealed class GameData
             Loader = ToLoader(loader),
             Air = ToAir(air),
             Movement = ToMovement(movement, surfaces, files.Movement),
+            Hitboxes = ToHitboxes(hitboxes, surfaces, files.Hitboxes),
         };
 
         KitCatalog kit = KitCatalog.Load(source, files.Kit, surfaces);
@@ -192,6 +194,43 @@ public sealed class GameData
         SprintRecoveryTime = d.SprintRecoveryTime_s,
         Footsteps = ToFootsteps(d.Footsteps, surfaces, file),
     };
+
+    public static HitboxParams ToHitboxes(HitboxesDef d, SurfaceRegistry surfaces, string file)
+    {
+        if (!surfaces.TryGet(d.Surface, out SurfaceId surface))
+        {
+            throw new DataException(file, $"surface: unknown surface '{d.Surface}' (known: {string.Join(", ", surfaces.Names)})");
+        }
+
+        var lethal = new bool[Enum.GetValues<HitboxPart>().Length];
+        foreach (HitboxPart part in d.LethalParts)
+        {
+            lethal[(int)part] = true;
+        }
+
+        static PartBox Box(PartBoxDef b) => new(Validator.ToVector3(b.Centre_m), Validator.ToVector3(b.Size_m) * 0.5f);
+
+        return new HitboxParams
+        {
+            Surface = surface,
+            LegsWidth = d.LegsWidth_m,
+            LegsDepth = d.LegsDepth_m,
+            TorsoWidth = d.TorsoWidth_m,
+            TorsoDepth = d.TorsoDepth_m,
+            TorsoTopBelowEye = d.TorsoTopBelowEye_m,
+            Head = Box(d.Head),
+            Mask = Box(d.Mask),
+            Arms = Box(d.Arms),
+            Marker = Box(d.Marker),
+            Loader = Box(d.Loader),
+            Tank = Box(d.Tank),
+            EliminatedRaise = d.EliminatedRaise_m,
+            EliminatedPitch = d.EliminatedPitch_deg * Units.DegreesToRadians,
+            LethalParts = lethal,
+            BallsInFlightCount = d.BallsInFlightCount,
+            MaskSprayRadius = d.MaskSprayRadius_m,
+        };
+    }
 
     private static FootstepParams ToFootsteps(FootstepsDef d, SurfaceRegistry surfaces, string file)
     {

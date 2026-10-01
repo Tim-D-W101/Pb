@@ -362,12 +362,20 @@ public sealed class BoxShape : Shape
 
     public override Aabb Bounds { get; }
 
-    public override bool Sweep(Vector3 p0, Vector3 d, float r, out float t, out Vector3 normal)
+    public override bool Sweep(Vector3 p0, Vector3 d, float r, out float t, out Vector3 normal) =>
+        SweepOriented(Center, _axisX, _axisY, _axisZ, HalfExtents, p0, d, r, out t, out normal);
+
+    /// <summary>
+    /// Sphere sweep against an oriented box given directly by centre, unit axes and half extents,
+    /// for boxes that move every tick (player hitboxes) without allocating a shape.
+    /// </summary>
+    public static bool SweepOriented(Vector3 center, Vector3 axisX, Vector3 axisY, Vector3 axisZ, Vector3 halfExtents,
+        Vector3 p0, Vector3 d, float r, out float t, out Vector3 normal)
     {
-        Vector3 rel = p0 - Center;
-        Vector3 e = HalfExtents + new Vector3(r);
-        Vector3 p = new(Vector3.Dot(rel, _axisX), Vector3.Dot(rel, _axisY), Vector3.Dot(rel, _axisZ));
-        Vector3 v = new(Vector3.Dot(d, _axisX), Vector3.Dot(d, _axisY), Vector3.Dot(d, _axisZ));
+        Vector3 rel = p0 - center;
+        Vector3 e = halfExtents + new Vector3(r);
+        Vector3 p = new(Vector3.Dot(rel, axisX), Vector3.Dot(rel, axisY), Vector3.Dot(rel, axisZ));
+        Vector3 v = new(Vector3.Dot(d, axisX), Vector3.Dot(d, axisY), Vector3.Dot(d, axisZ));
 
         float enter = float.NegativeInfinity;
         float exit = float.PositiveInfinity;
@@ -390,15 +398,15 @@ public sealed class BoxShape : Shape
             Vector3 gap = e - Vector3.Abs(p);
             if (gap.X <= gap.Y && gap.X <= gap.Z)
             {
-                normal = _axisX * (p.X >= 0f ? 1f : -1f);
+                normal = axisX * (p.X >= 0f ? 1f : -1f);
             }
             else if (gap.Y <= gap.Z)
             {
-                normal = _axisY * (p.Y >= 0f ? 1f : -1f);
+                normal = axisY * (p.Y >= 0f ? 1f : -1f);
             }
             else
             {
-                normal = _axisZ * (p.Z >= 0f ? 1f : -1f);
+                normal = axisZ * (p.Z >= 0f ? 1f : -1f);
             }
 
             return true;
@@ -410,7 +418,7 @@ public sealed class BoxShape : Shape
         }
 
         t = enter;
-        Vector3 axis = enterAxis switch { 0 => _axisX, 1 => _axisY, _ => _axisZ };
+        Vector3 axis = enterAxis switch { 0 => axisX, 1 => axisY, _ => axisZ };
         normal = axis * enterSign;
         return true;
     }
