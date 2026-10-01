@@ -37,6 +37,9 @@ public sealed class GameSettings
     /// <summary>Graphics preset name (see presentation.jsonc "graphics").</summary>
     public string GraphicsPreset { get; set; } = "";
 
+    /// <summary>Share of the screen's resolution the 3D view is drawn at (upscaled with FSR below 1).</summary>
+    public float RenderScale { get; set; }
+
     /// <summary>Master volume, 0..1.</summary>
     public float Volume { get; set; } = 0.8f;
 
@@ -58,6 +61,7 @@ public sealed class GameSettings
             HeadBob = defaults.Camera.HeadBob,
             Vsync = defaults.Graphics.Vsync,
             GraphicsPreset = defaults.Graphics.DefaultPreset,
+            RenderScale = defaults.Graphics.RenderScales[0],
             Version = CurrentVersion,
         };
 
@@ -92,6 +96,11 @@ public sealed class GameSettings
         }
 
         settings.Version = CurrentVersion;
+
+        if (settings.RenderScale is <= 0f or > 1f)
+        {
+            settings.RenderScale = defaults.Graphics.RenderScales[0];
+        }
 
         settings.FovDeg = Math.Clamp(settings.FovDeg, defaults.Camera.FovMin_deg, defaults.Camera.FovMax_deg);
         settings.MouseSensitivityDegPerCount = Math.Clamp(settings.MouseSensitivityDegPerCount, 0.001f, 2f);

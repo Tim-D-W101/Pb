@@ -63,7 +63,8 @@ You need Godot 4.7.2 (the .NET download, not the standard one) and the .NET 8 SD
 
 Controls: WASD and mouse, left click fires, Shift sprints, Ctrl or C crouches, Space jumps,
 Q / E lean, X swaps shoulder, V slides, R refills the loader, Esc pauses.
-F4 shows the frame rate, F12 switches graphics presets, F3 shows what the bots are thinking.
+F4 shows the frame rate, F12 switches graphics presets (Esc → render scale if it lags), F3 shows what the bots
+are thinking.
 EOF
 
 commit="$(git rev-parse --short HEAD)"

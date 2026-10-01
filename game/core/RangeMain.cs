@@ -94,6 +94,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         }
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
         _settings.ApplyVolume();
+        Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
         _pause = new PauseMenu { Name = "Pause" };
         AddChild(_pause);
         _pause.Build(_settings, _view, _ => { }, restart: null);

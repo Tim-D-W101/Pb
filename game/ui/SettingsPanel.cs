@@ -7,7 +7,7 @@ namespace Pb.Game.Ui;
 
 /// <summary>
 /// The basic settings, shared by the main menu and the pause menu: field of view, mouse sensitivity,
-/// invert Y, graphics preset, v-sync and volume. Every change is saved at once; the owner of the
+/// invert Y, graphics preset, render scale, v-sync and volume. Every change is saved at once; the owner of the
 /// panel applies what it needs (the camera reads FOV and sensitivity itself).
 /// </summary>
 public partial class SettingsPanel : VBoxContainer
@@ -44,6 +44,14 @@ public partial class SettingsPanel : VBoxContainer
         AddChild(UiKit.OptionRow("Graphics", presets.Select(Capitalise).ToArray(), current, i =>
         {
             settings.GraphicsPreset = presets[i];
+            Changed();
+            graphicsChanged?.Invoke(settings);
+        }));
+        float[] scales = view.Graphics.RenderScales;
+        int scale = Math.Max(0, Array.FindIndex(scales, s => Math.Abs(s - settings.RenderScale) < 0.001f));
+        AddChild(UiKit.OptionRow("Render scale", scales.Select(s => s >= 0.999f ? "100% (sharpest)" : $"{s * 100:0}% (faster)").ToArray(), scale, i =>
+        {
+            settings.RenderScale = scales[i];
             Changed();
             graphicsChanged?.Invoke(settings);
         }));

@@ -110,6 +110,15 @@ public static class Atmosphere
         };
     }
 
+    /// <summary>Draws the 3D view at <paramref name="scale"/> of the screen's resolution, upscaled with FSR 1.0 below 1.</summary>
+    public static void ApplyRenderScale(Viewport viewport, float scale, GraphicsDef graphics)
+    {
+        bool scaled = scale < 0.999f;
+        viewport.Scaling3DMode = scaled ? Viewport.Scaling3DModeEnum.Fsr : Viewport.Scaling3DModeEnum.Bilinear;
+        viewport.Scaling3DScale = scaled ? scale : 1f;
+        viewport.FsrSharpness = graphics.FsrSharpness;
+    }
+
     private static Gradient CloudRamp(float cover)
     {
         // Higher cover pushes the clear-sky threshold down so more of the noise reads as cloud.

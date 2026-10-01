@@ -322,6 +322,11 @@ public sealed class GraphicsDef : IValidatable
     /// <summary>Whether v-sync starts on (players can turn it off).</summary>
     public bool Vsync { get; set; }
 
+    /// <summary>Render scale choices; the first is the default.</summary>
+    public float[] RenderScales { get; set; } = System.Array.Empty<float>();
+
+    public float FsrSharpness { get; set; }
+
     public GraphicsPresetDef[] Presets { get; set; } = System.Array.Empty<GraphicsPresetDef>();
 
     public GraphicsPresetDef Find(string name)
@@ -351,6 +356,21 @@ public sealed class GraphicsDef : IValidatable
         {
             v.Error(nameof(Presets), "must list at least one preset");
         }
+
+        if (RenderScales.Length == 0)
+        {
+            v.Error(nameof(RenderScales), "must list at least one scale");
+        }
+
+        foreach (float scale in RenderScales)
+        {
+            if (scale is < 0.25f or > 1f)
+            {
+                v.Error(nameof(RenderScales), $"{scale} is outside 0.25–1");
+            }
+        }
+
+        v.InRange(nameof(FsrSharpness), FsrSharpness, 0, 2);
 
         bool found = false;
         for (int i = 0; i < Presets.Length; i++)

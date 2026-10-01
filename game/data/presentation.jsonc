@@ -74,27 +74,39 @@
   // Debug arc (F2): predicted path and drop at these distances.
   "arcPreview": { "enabledOnStart": false, "maxTime_s": 4.0, "probes_m": [10, 20, 30, 40] },
 
-  // Graphics presets. Medium targets 60 fps at 1080p on a GTX 1070-class GPU; High adds bounced light
-  // (SDFGI), volumetric fog and reflections. The player's choice is saved in user://settings.json.
+  // Graphics presets, cheapest first; F12 cycles them. Measured over the compound's viewpoints, relative
+  // to Low: Medium costs about 1.2× (glow, more weeds and shadow reach), High 2.3× (ambient occlusion,
+  // the biggest single cost, plus sunbeams, dust, window lights, sharper shadows and SMAA), and Ultra
+  // adds bounced light (SDFGI), volumetric fog and reflections. Medium targets 60 fps at 1080p on
+  // modest hardware; the render scale (below) buys more. The player's choice is saved in
+  // user://settings.json.
   // Antialiasing is screen-space (screenAa: none, fxaa or smaa): with MSAA on, shaders can't read the
   // depth buffer the sunbeams need to stop at walls, so the beams switch off.
   // Per preset, the compound's lighting extras: the share of weeds drawn and how far (weedDensity,
   // weedDistance_m), sunbeam strength (lightShafts, 0 = off), dust motes in the beams, and window fill
-  // lights. High's volumetric fog already shows real beams and SDFGI bounces light, so it tones the
+  // lights. Ultra's volumetric fog already shows real beams and SDFGI bounces light, so it tones the
   // fake beams down and drops the fill lights.
   "graphics": {
     "defaultPreset": "medium",
     // V-sync on by default: no tearing, and frames paced to the monitor. F8 (or the pause menu) turns
     // it off, to see the uncapped frame rate.
     "vsync": true,
+    // Render scale choices (settings): the 3D view is drawn at this share of the screen's resolution
+    // and upscaled with AMD FSR 1.0, sharpened by fsrSharpness (0 = sharpest). The HUD stays sharp.
+    // The first is the default.
+    "renderScales": [1.0, 0.85, 0.75, 0.67, 0.5],
+    "fsrSharpness": 0.2,
     "presets": [
       { "name": "low", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
         "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0, "screenAa": "fxaa",
         "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false },
-      { "name": "medium", "ssao": true, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
+      { "name": "medium", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
+        "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 75, "msaa": 0, "screenAa": "fxaa",
+        "weedDensity": 0.5, "weedDistance_m": 35, "lightShafts": 0, "dust": false, "windowLights": false },
+      { "name": "high", "ssao": true, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
         "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 90, "msaa": 0, "screenAa": "smaa",
         "weedDensity": 0.75, "weedDistance_m": 45, "lightShafts": 1.0, "dust": true, "windowLights": true },
-      { "name": "high", "ssao": true, "ssil": true, "sdfgi": true, "volumetricFog": true, "ssr": true, "glow": true,
+      { "name": "ultra", "ssao": true, "ssil": true, "sdfgi": true, "volumetricFog": true, "ssr": true, "glow": true,
         "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 130, "msaa": 0, "screenAa": "smaa",
         "weedDensity": 1.0, "weedDistance_m": 70, "lightShafts": 0.6, "dust": true, "windowLights": false }
     ]
