@@ -9,7 +9,8 @@ sandbox, a range with real paintball ballistics, break/bounce, splats, a marker 
 pods and air, and a 1,000-ball stress mode ([report](docs/reports/phase-1.md)). Phase 2 has
 started with the first compound, **Oxbarrow Works**: a walkable greybox of a derelict
 works yard with a warehouse, offices, pump house and guardhouse, built from a data kit.
-Opponents, round rules, menus and models arrive in later milestones.
+Practice opponents stand around the compound and the sentries among them shoot back. Proper bots,
+round rules, menus and models arrive in later milestones.
 
 ## Run it
 
@@ -40,7 +41,8 @@ The export presets already include the data files. The editor's F5 run uses a De
 | Release mouse | Esc | – |
 
 A ball fired while your barrel is behind a wall edge breaks on that wall, as it would in real
-life: to shoot round a left-hand edge, swap to your left shoulder first.
+life: to shoot round a left-hand edge, swap to your left shoulder first. A break on any part of
+you (mask, head, body, arms, legs, marker, loader or tank) puts you out; a bounce doesn't.
 
 **Debug keys:**
 
@@ -68,7 +70,9 @@ reported with the file and key; the game won't silently use a wrong value.
 | `loaders/standard.jsonc` | Loader and pod capacity, refill time and rules |
 | `air/standard_1100ml_310bar.jsonc` | Tank size, pressure, per-shot use, low-air velocity drop |
 | `break_model.jsonc` | Break-vs-bounce curve per surface |
-| `movement.jsonc` | Walk/run/sprint/crouch speeds, eye heights |
+| `movement.jsonc` | Walk/run/sprint/crouch speeds, eye heights, lean, slide, jump, footstep noise |
+| `hitboxes.jsonc` | Player hitboxes and elimination rules, mask spray radius |
+| `bots/practice.jsonc` | Practice opponents (until the bots arrive) |
 | `ranges/phase1.jsonc` | Range layout: targets, props, distance markers |
 | `kit/*.jsonc` | Level kit: surface materials, props, building templates |
 | `levels/*.jsonc` | Compound levels (layout, spawns, patrols, pickups) and the level ladder |
@@ -79,7 +83,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 77 sim tests (ballistics vs spec, collision, gear, level kit, movement…) — no Godot needed
+dotnet test                                          # 84 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes…) — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report + sim cost at 1k/2k/5k live balls
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the range and the compound (Linux/macOS)
 ```

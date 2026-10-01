@@ -36,6 +36,10 @@ public sealed class PresentationDef : IValidatable
 
     public HorizonDef Horizon { get; set; } = new();
 
+    public MaskSprayViewDef MaskSpray { get; set; } = new();
+
+    public SpectatorDef Spectator { get; set; } = new();
+
     public void Validate(Validator v)
     {
         if (TeamColors.Length < 2)
@@ -63,6 +67,8 @@ public sealed class PresentationDef : IValidatable
         Graphics.Validate(v.Scope(nameof(Graphics)));
         Lighting.Validate(v.Scope(nameof(Lighting)));
         Horizon.Validate(v.Scope(nameof(Horizon)));
+        MaskSpray.Validate(v.Scope(nameof(MaskSpray)));
+        Spectator.Validate(v.Scope(nameof(Spectator)));
     }
 }
 
@@ -521,5 +527,50 @@ public sealed class HorizonRingDef : IValidatable
         v.InRange(nameof(MinHeight_m), MinHeight_m, 0.5, 200);
         v.InRange(nameof(MaxHeight_m), MaxHeight_m, MinHeight_m, 200);
         v.InRange(nameof(Gaps), Gaps, 0, 0.95);
+    }
+}
+
+/// <summary>Paint on your mask after a break near your face (spec §1.3).</summary>
+public sealed class MaskSprayViewDef : IValidatable
+{
+    /// <summary>How long the spray takes to clear.</summary>
+    public float Duration_s { get; set; }
+
+    /// <summary>Opacity of a full-strength spray (0..1).</summary>
+    public float MaxOpacity { get; set; }
+
+    /// <summary>Drops per spray at full strength.</summary>
+    public int Drops { get; set; }
+
+    /// <summary>Drop size as a share of the screen height.</summary>
+    public float MinSize { get; set; }
+
+    public float MaxSize { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Duration_s), Duration_s, 0.1, 20);
+        v.InRange(nameof(MaxOpacity), MaxOpacity, 0, 1);
+        v.InRange(nameof(Drops), Drops, 1, 32);
+        v.InRange(nameof(MinSize), MinSize, 0.01, 2);
+        v.InRange(nameof(MaxSize), MaxSize, MinSize, 2);
+    }
+}
+
+/// <summary>The view after you're eliminated: who got you.</summary>
+public sealed class SpectatorDef : IValidatable
+{
+    public float Duration_s { get; set; }
+
+    /// <summary>Camera position: this far above your eye and this far back from the shooter's line.</summary>
+    public float Height_m { get; set; }
+
+    public float Back_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Duration_s), Duration_s, 0.5, 30);
+        v.InRange(nameof(Height_m), Height_m, 0, 10);
+        v.InRange(nameof(Back_m), Back_m, 0, 20);
     }
 }

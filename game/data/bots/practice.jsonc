@@ -1,0 +1,18 @@
+// Practice opponents, until the real bots arrive in M2.5. They stand at the level's opponent spawns.
+// Those with the "sentry" role shoot back, not very well; the rest are targets that call "Hit!"
+// and walk off when you get them.
+{
+  // How many of the level's opponent spawns to fill (Phase 2 allows up to 9 opponents).
+  "count": 9,
+
+  // Sentries: how far they can see you, how fast they turn, how long they take to react once they
+  // see you, how often they pull the trigger, and how far their aim wanders (a random walk).
+  "sightRange_m": 35,
+  "turnSpeed_degps": 120,
+  "reactionTime_s": 0.8,
+  "pullInterval_s": 0.45,
+  "aimError_deg": 2.5,
+
+  // An eliminated opponent walks toward the level's dead zone and leaves the field after this long.
+  "walkOffTime_s": 8
+}

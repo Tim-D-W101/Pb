@@ -120,6 +120,13 @@
     ]
   },
 
+  // Paint on your mask when a ball breaks near your face (spec §1.3): drops of the ball's colour that
+  // block part of the view and clear over duration_s.
+  "maskSpray": { "duration_s": 2.5, "maxOpacity": 0.85, "drops": 6, "minSize": 0.12, "maxSize": 0.45 },
+
+  // After you're eliminated, a view from above and behind where you stood, facing whoever got you.
+  "spectator": { "duration_s": 4.0, "height_m": 1.4, "back_m": 2.5 },
+
   "audio": {
     "voices": 24,
     "maxSoundsPerFrame": 6,

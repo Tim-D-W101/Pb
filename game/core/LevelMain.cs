@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Godot;
 using Pb.Game.Audio;
@@ -21,6 +23,8 @@ namespace Pb.Game.Core;
 ///   --smoke-test[=ticks]  headless CI check: walk in through the gate firing, exit code 0/1
 ///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie)
 ///   --posture-demo        scripted lean / shoulder swap / muzzle-in-cover sequence at a wall corner
+///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
+/// Until the bots of M2.5, practice opponents (bots/practice.jsonc) stand at the level's opponent spawns.
 /// </summary>
 public partial class LevelMain : Node3D, ISimEventListener
 {
@@ -38,8 +42,16 @@ public partial class LevelMain : Node3D, ISimEventListener
     private Hud _hud = null!;
     private WorldEnvironment _environment = null!;
     private DirectionalLight3D _sun = null!;
+    private readonly List<OpponentPawn> _opponents = new();
+    private readonly List<DummyPilot> _pilots = new();
+    private PracticeDef _practice = null!;
     private LevelSmokeTest? _smoke;
+    private SpectatorView? _spectator;
+    private bool _scripted;
     private bool _ready;
+
+    /// <summary>True once you've been eliminated and the spectator view is showing.</summary>
+    public bool Spectating => _spectator is not null;
 
     public override void _Ready()
     {
@@ -59,6 +71,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             _data = GameData.Load(source);
             _view = Jsonc.Load<PresentationDef>(source, PresentationDef.File);
             InputSetup.Apply(Jsonc.Load<InputDef>(source, InputDef.File));
+            _practice = Jsonc.Load<PracticeDef>(source, PracticeDef.File);
             _level = PickLevel(_data);
         }
         catch (Exception ex) when (ex is DataException or InvalidOperationException)
@@ -79,6 +92,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _sim = new SimWorld(_data.Config);
         _sim.LoadLevel(_level);
         PlayerState state = _sim.AddPlayer(0, 0, _level.PlayerSpawn, _level.PlayerSpawnYaw);
+        state.Name = "You";
         Color teamColor = Color.FromHtml(_view.TeamColors[state.Team % _view.TeamColors.Length]);
 
         GraphicsPresetDef preset = _view.Graphics.Find(_settings.GraphicsPreset);
@@ -87,8 +101,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), preset);
 
         _player.Initialize(_sim, state, _view, _settings, teamColor);
+        // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
+        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test");
+        SpawnOpponents(state, hostile: !_scripted);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
-        _splats.Initialize(_view, _ => null);
+        _splats.Initialize(_view, SplatParent);
         var fx = GetNode<ImpactFx>("ImpactFx");
         fx.Initialize(_view);
         _arc.Initialize(_sim, state, _view);
@@ -103,8 +120,18 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
 
+        var maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
+        AddChild(maskSpray);
+        maskSpray.Initialize(_view, state.Id);
+
         _driver.Initialize(_sim);
         _driver.AddDriver(_player);
+        foreach (OpponentPawn opponent in _opponents)
+        {
+            _driver.AddDriver(opponent);
+        }
+
+        _driver.AddListener(maskSpray);
         _driver.AddListener(_balls);
         _driver.AddListener(_splats);
         _driver.AddListener(fx);
@@ -118,13 +145,21 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         if (Args.Ticks("--smoke-test", 1800) is { } ticks)
         {
-            _smoke = new LevelSmokeTest(this, _sim, _driver, _player, _world, ticks);
+            _smoke = new LevelSmokeTest(this, _sim, _driver, _player, _world, ticks, _opponents, _pilots);
             _player.AutoPilot = _smoke.Pilot;
         }
         else if (Args.Has("--posture-demo"))
         {
             _player.Teleport(PostureDemo.Position, PostureDemo.Yaw);
             _player.AutoPilot = new PostureDemo(this, _sim);
+            _hud.ShowHelp = false;
+            _hud.ShowPerf = false;
+        }
+        else if (Args.Has("--duel-demo"))
+        {
+            var demo = new DuelDemo(this, _sim, _opponents);
+            demo.Setup(_player);
+            _player.AutoPilot = demo;
             _hud.ShowHelp = false;
             _hud.ShowPerf = false;
         }
@@ -150,8 +185,105 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             _player.ViewModel.Kick();
         }
+        else if (e.Type == SimEventType.PlayerEliminated)
+        {
+            OnEliminated(e);
+        }
 
         _smoke?.OnSimEvent(e);
+    }
+
+    /// <summary>Practice opponents at the level's first opponent spawns (team 1); sentries shoot back when hostile.</summary>
+    private void SpawnOpponents(PlayerState you, bool hostile)
+    {
+        var parent = new Node3D { Name = "Opponents" };
+        AddChild(parent);
+        Color jersey = Color.FromHtml(_view.TeamColors[1 % _view.TeamColors.Length]);
+        int count = Math.Min(_practice.Count, _level.OpponentSpawns.Count);
+        for (int i = 0; i < count; i++)
+        {
+            OpponentSpawn spawn = _level.OpponentSpawns[i];
+            PlayerState state = _sim.AddPlayer(i + 1, 1, spawn.Position, spawn.Yaw);
+            state.Name = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(spawn.Id.Replace('_', ' '));
+            bool sentry = spawn.Roles.Contains("sentry");
+            var pilot = new DummyPilot(_sim, state, you, _practice, sentry, _level.DeadZone) { Hostile = hostile };
+            var pawn = new OpponentPawn { Name = $"Opponent_{spawn.Id}" };
+            parent.AddChild(pawn);
+            pawn.Initialize(_sim, state, jersey, pilot);
+            _opponents.Add(pawn);
+            _pilots.Add(pilot);
+        }
+    }
+
+    private Node3D? SplatParent(int receiverId, int part)
+    {
+        if (!PlayerHitboxes.IsPlayer(receiverId))
+        {
+            return null;
+        }
+
+        int id = PlayerHitboxes.PlayerIdOf(receiverId);
+        OpponentPawn? pawn = _opponents.FirstOrDefault(o => o.State.Id == id);
+        return pawn?.Visual.PartNode((Pb.Sim.Collision.HitboxPart)part);
+    }
+
+    private void OnEliminated(in SimEvent e)
+    {
+        PlayerState? victim = _sim.FindPlayer(e.TargetId);
+        PlayerState? shooter = _sim.FindPlayer(e.PlayerId);
+        if (victim is null)
+        {
+            return;
+        }
+
+        string part = SpectatorView.PartName((Pb.Sim.Collision.HitboxPart)e.Extra);
+        if (victim == _player.State)
+        {
+            StartSpectating(victim, shooter);
+            return;
+        }
+
+        _opponents.FirstOrDefault(o => o.State == victim)?.CallHit();
+        if (shooter == _player.State)
+        {
+            float distance = System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition);
+            int left = _opponents.Count(o => o.State.Alive);
+            _hud.Toast($"You eliminated {victim.Name} · {part} · {distance:0} m   ({left} left)", 3.0);
+        }
+    }
+
+    private void StartSpectating(PlayerState victim, PlayerState? shooter)
+    {
+        if (_spectator is not null)
+        {
+            return;
+        }
+
+        _player.AutoPilot = new IdlePilot();
+        _player.ViewModel.Visible = false;
+        _hud.Visible = false;
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+        _spectator = new SpectatorView { Name = "Spectator" };
+        AddChild(_spectator);
+        // Until the round flow of M2.4, the level restarts once you've seen who got you (scripted runs
+        // just end; the smoke test ends itself).
+        _spectator.Start(victim, shooter, _view.Spectator, _view.Camera.FarClip_m, () =>
+        {
+            if (!_scripted)
+            {
+                GetTree().ReloadCurrentScene();
+            }
+            else if (_smoke is null)
+            {
+                GetTree().Quit();
+            }
+        });
+    }
+
+    /// <summary>No input: what an eliminated local player sends while spectating.</summary>
+    private sealed class IdlePilot : ICommandSource
+    {
+        public InputCommand Next(int tick, PlayerState state) => new() { Tick = tick, Yaw = state.Yaw, Pitch = state.Pitch };
     }
 
     public override void _UnhandledInput(InputEvent e)

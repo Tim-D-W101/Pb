@@ -18,7 +18,7 @@ public partial class SplatSystem : Node3D, ISimEventListener
     private readonly RandomNumberGenerator _rng = new();
     private ImageTexture[] _textures = Array.Empty<ImageTexture>();
     private Color[] _teamColors = Array.Empty<Color>();
-    private Func<int, Node3D?>? _receiverNode;
+    private Func<int, int, Node3D?>? _receiverNode;
     private SplatDef _def = null!;
     private int _next;
 
@@ -26,7 +26,8 @@ public partial class SplatSystem : Node3D, ISimEventListener
 
     public int Capacity => _def?.Cap ?? 0;
 
-    public void Initialize(PresentationDef view, Func<int, Node3D?> receiverNode)
+    /// <param name="receiverNode">Node a splat on (receiver id, hitbox part) should stick to, or null for the world.</param>
+    public void Initialize(PresentationDef view, Func<int, int, Node3D?> receiverNode)
     {
         _receiverNode = receiverNode;
         _rng.Seed = 1234;
@@ -56,7 +57,7 @@ public partial class SplatSystem : Node3D, ISimEventListener
     {
         if (e.Type == SimEventType.BallBroke && _def.Cap > 0)
         {
-            Node3D parent = (e.TargetId >= 0 ? _receiverNode?.Invoke(e.TargetId) : null) ?? this;
+            Node3D parent = (e.TargetId >= 0 ? _receiverNode?.Invoke(e.TargetId, e.Extra) : null) ?? this;
             Spawn(e.Position.ToGodot(), e.Normal.ToGodot(), _teamColors[e.Team % _teamColors.Length], parent);
         }
     }

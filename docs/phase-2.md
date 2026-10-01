@@ -152,17 +152,22 @@ Bots will use the same body as the player (`PawnBody`), so they move by exactly 
 
 ### M2.3 Players, hitboxes, eliminations
 
-- [ ] Hitbox rig in `Pb.Sim`:
-  - parts: mask, head, torso, arms, legs, marker, loader, tank;
+**Done 2026-10-01.** [Screenshots](reports/phase-2/) from `-- --duel-demo`.
+
+- [x] Hitbox rig in `Pb.Sim` (`hitboxes.jsonc`):
+  - parts: mask, head, torso, arms, legs, marker, loader, tank, all boxes;
   - posed by stance, lean, shoulder and aim;
   - 200 ms of history kept for multiplayer later.
-- [ ] Elimination rules:
-  - a break on any lethal part eliminates;
+  - Until models arrive (M2.6), characters are drawn from these same boxes, so what you see is what you can hit.
+- [x] Elimination rules:
+  - a break on any lethal part eliminates (`lethalParts`; all of them by default);
   - bounces never do;
-  - balls already in the air still count after their shooter is hit, as in real paintball (data toggle).
-- [ ] Eliminated opponents call "Hit!", raise their marker and walk out. When you're hit, a short spectator view shows who got you, then the summary appears.
-- [ ] Mask spray when a ball breaks near your face (spec §1.3).
-- [ ] Splats stick to characters as they move.
+  - balls already in the air still count after their shooter is hit, as in real paintball (`ballsInFlightCount`).
+- [x] Eliminated opponents call "Hit!", raise their marker and walk out; a toast tells you who you got, where and from how far. When you're hit, a short spectator view shows who got you, the part and the distance. Until the round summary of M2.4, the level then restarts.
+- [x] Mask spray when a ball breaks within 0.5 m of your face (spec §1.3): drops of that paint colour on your goggles, as strong as the break was close, clearing over 2.5 s.
+- [x] Splats stick to characters as they move, on the part they hit.
+
+Until the bots of M2.5, practice opponents (`bots/practice.jsonc`) stand at the first nine opponent spawns. Those marked as sentries shoot back once they see you, slowly and not very accurately. The level smoke test now also shoots one (it must go out and walk off) and lets a sentry eliminate the player (the spectator view must start). Known gap: opponents walk off in a straight line toward the dead zone, and can bump into walls until M2.5's navigation. Player hitboxes are off on the Phase 1 range, as before.
 
 ### M2.4 Round rules and level flow
 

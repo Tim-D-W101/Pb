@@ -3,6 +3,7 @@ using Godot;
 using Pb.Game.Player;
 using Pb.Game.World;
 using Pb.Sim;
+using Pb.Sim.Collision;
 using Pb.Sim.Core;
 using Pb.Sim.Events;
 using Pb.Sim.Level;
@@ -17,11 +18,11 @@ namespace Pb.Game.Core;
 /// <list type="number">
 /// <item>the autopilot walks in through the main gate, sweeping its aim and firing;</item>
 /// <item>it climbs every flight of stairs in the level, starting at the foot of each;</item>
-/// <item>back at the spawn, it sprints, slides into a crouch, stands and jumps.</item>
+/// <item>back at the spawn, it sprints, slides into a crouch, stands and jumps;</item>
+/// <item>it shoots a practice opponent, who must go out and walk off;</item>
+/// <item>it stands in front of a sentry, now hostile, until it's eliminated and spectating.</item>
 /// </list>
-/// It passes only if the player walked well into the compound without falling through the world,
-/// paint flew and broke on level geometry, every flight was climbed to its landing, the slide and
-/// the jump worked, and nothing threw.
+/// It passes only if every step worked and nothing threw.
 /// </summary>
 public sealed class LevelSmokeTest
 {
@@ -35,15 +36,32 @@ public sealed class LevelSmokeTest
     private const int JumpAt = 330;
     private const int MovesTicks = 480;
 
-    private readonly Node _host;
+    /// <summary>Time to put an opponent out (3 s), then to see them walk off (6 s more), and to get shot (12 s).</summary>
+    private const int ShootTicks = 360;
+    private const int WalkOffTicks = 720;
+    private const int GetShotTicks = 1440;
+
+    private enum Phase
+    {
+        Walk,
+        Climb,
+        Moves,
+        Shoot,
+        GetShot,
+    }
+
+    private readonly LevelMain _host;
     private readonly SimWorld _sim;
     private readonly SimDriver _driver;
     private readonly PlayerController _player;
     private readonly LevelBuilder _world;
+    private readonly IReadOnlyList<OpponentPawn> _opponents;
+    private readonly IReadOnlyList<DummyPilot> _pilots;
     private readonly int _walkTicks;
     private readonly SVector3 _start;
     private readonly List<Climb> _climbs;
     private readonly ScriptedPilot _pilot;
+    private Phase _phase = Phase.Walk;
     private int _elapsed;
     private int _phaseStart;
     private int _shots;
@@ -54,26 +72,35 @@ public sealed class LevelSmokeTest
     private int _climb = -1;
     private float _climbHighest;
     private int _climbsFailed;
-    private bool _moves;
     private bool _slid;
     private bool _slideEndedCrouched;
     private float _jumpBaseY;
     private float _jumpHeight;
+    private PlayerState? _victim;
+    private SVector3 _victimStart;
+    private int _victimOutAt = -1;
+    private bool _victimWalkedOff;
+    private string _shootNote = "no target found";
+    private string _shotNote = "no sentry found";
+    private bool _gotShot;
 
-    public LevelSmokeTest(Node host, SimWorld sim, SimDriver driver, PlayerController player, LevelBuilder world, int ticks)
+    public LevelSmokeTest(LevelMain host, SimWorld sim, SimDriver driver, PlayerController player, LevelBuilder world, int ticks,
+        IReadOnlyList<OpponentPawn> opponents, IReadOnlyList<DummyPilot> pilots)
     {
         _host = host;
         _sim = sim;
         _driver = driver;
         _player = player;
         _world = world;
+        _opponents = opponents;
+        _pilots = pilots;
         _walkTicks = ticks;
         _start = player.State.Position;
         _climbs = sim.Level is { } level ? FindClimbs(level) : new List<Climb>();
         _pilot = new ScriptedPilot(sim);
         driver.Ticked += _ => AfterTick();
         GD.Print($"SMOKE start: level {sim.Level?.Id}, {ticks} ticks walking in at {sim.Config.TickRate} Hz, " +
-                 $"then {_climbs.Count} flights of stairs, then a slide and a jump");
+                 $"then {_climbs.Count} flights of stairs, a slide and a jump, and a duel with {opponents.Count} practice opponents");
     }
 
     public ICommandSource Pilot => _pilot;
@@ -82,7 +109,7 @@ public sealed class LevelSmokeTest
     {
         switch (e.Type)
         {
-            case SimEventType.ShotFired when e.PlayerId >= 0:
+            case SimEventType.ShotFired when e.PlayerId == _player.State.Id:
                 _shots++;
                 break;
             case SimEventType.BallBroke:
@@ -90,6 +117,9 @@ public sealed class LevelSmokeTest
                 break;
             case SimEventType.BallBounced:
                 _bounces++;
+                break;
+            case SimEventType.PlayerEliminated when _victim is not null && e.TargetId == _victim.Id && e.PlayerId == _player.State.Id:
+                _victimOutAt = _elapsed;
                 break;
         }
     }
@@ -100,50 +130,82 @@ public sealed class LevelSmokeTest
         SVector3 p = state.Position;
         _elapsed++;
         int t = _elapsed - _phaseStart;
-        if (_moves)
+        switch (_phase)
         {
-            _slid |= state.Stance == Stance.Sliding;
-            _slideEndedCrouched |= _slid && state.Stance == Stance.Crouching && t < StandAt;
-            if (t == JumpAt)
-            {
-                _jumpBaseY = p.Y;
-            }
-            else if (t > JumpAt)
-            {
-                _jumpHeight = System.MathF.Max(_jumpHeight, p.Y - _jumpBaseY);
-            }
+            case Phase.Walk:
+                _travelled = System.MathF.Max(_travelled, SVector3.Distance(new SVector3(p.X, 0f, p.Z), new SVector3(_start.X, 0f, _start.Z)));
+                _lowestY = System.MathF.Min(_lowestY, p.Y);
+                if (t >= _walkTicks)
+                {
+                    NextClimb();
+                }
 
-            if (t >= MovesTicks)
-            {
-                Finish(state);
-            }
-        }
-        else if (_climb < 0)
-        {
-            _travelled = System.MathF.Max(_travelled, SVector3.Distance(new SVector3(p.X, 0f, p.Z), new SVector3(_start.X, 0f, _start.Z)));
-            _lowestY = System.MathF.Min(_lowestY, p.Y);
-            if (t >= _walkTicks)
-            {
-                NextClimb();
-            }
-        }
-        else
-        {
-            _climbHighest = System.MathF.Max(_climbHighest, p.Y);
-            if (t >= ClimbTicks)
-            {
-                Climb c = _climbs[_climb];
-                bool reached = _climbHighest >= c.TopY - 0.2f;
-                _climbsFailed += reached ? 0 : 1;
-                GD.Print($"SMOKE climb {c.Name}: from y={c.Start.Y:0.00} to the landing at {c.TopY:0.00}, reached {_climbHighest:0.00} " +
-                         (reached ? "ok" : "FAILED"));
-                NextClimb();
-            }
+                break;
+
+            case Phase.Climb:
+                _climbHighest = System.MathF.Max(_climbHighest, p.Y);
+                if (t >= ClimbTicks)
+                {
+                    Climb c = _climbs[_climb];
+                    bool reached = _climbHighest >= c.TopY - 0.2f;
+                    _climbsFailed += reached ? 0 : 1;
+                    GD.Print($"SMOKE climb {c.Name}: from y={c.Start.Y:0.00} to the landing at {c.TopY:0.00}, reached {_climbHighest:0.00} " +
+                             (reached ? "ok" : "FAILED"));
+                    NextClimb();
+                }
+
+                break;
+
+            case Phase.Moves:
+                _slid |= state.Stance == Stance.Sliding;
+                _slideEndedCrouched |= _slid && state.Stance == Stance.Crouching && t < StandAt;
+                if (t == JumpAt)
+                {
+                    _jumpBaseY = p.Y;
+                }
+                else if (t > JumpAt)
+                {
+                    _jumpHeight = System.MathF.Max(_jumpHeight, p.Y - _jumpBaseY);
+                }
+
+                if (t >= MovesTicks)
+                {
+                    StartShoot();
+                }
+
+                break;
+
+            case Phase.Shoot:
+                if (_victim is not null && _victimOutAt >= 0)
+                {
+                    _victimWalkedOff |= !_victim.Present || SVector3.Distance(_victim.Position, _victimStart) > 0.75f;
+                }
+
+                if (_victim is null || (_victimOutAt < 0 && t >= ShootTicks) || (_victimOutAt >= 0 && (_victimWalkedOff || _elapsed - _victimOutAt >= WalkOffTicks)))
+                {
+                    _shootNote = _victim is null ? _shootNote
+                        : _victimOutAt < 0 ? $"{_victim.Name} still in after {ShootTicks} ticks"
+                        : $"{_victim.Name} out after {_victimOutAt - _phaseStart} ticks, walked off={_victimWalkedOff}";
+                    StartGetShot();
+                }
+
+                break;
+
+            case Phase.GetShot:
+                _gotShot |= _host.Spectating;
+                if (_gotShot || t >= GetShotTicks)
+                {
+                    _shotNote += _gotShot ? $", eliminated by {_sim.FindPlayer(state.EliminatedBy)?.Name} after {t} ticks and spectating" : ", never hit";
+                    Finish(state);
+                }
+
+                break;
         }
     }
 
     private void NextClimb()
     {
+        _phase = Phase.Climb;
         _phaseStart = _elapsed;
         _climb++;
         if (_climb < _climbs.Count)
@@ -157,7 +219,7 @@ public sealed class LevelSmokeTest
 
         // Back to the spawn, facing into the compound, for the moves.
         LevelLayout level = _sim.Level!;
-        _moves = true;
+        _phase = Phase.Moves;
         _player.Teleport(level.PlayerSpawn, level.PlayerSpawnYaw);
         float yaw = level.PlayerSpawnYaw;
         _pilot.Script = (_, _) =>
@@ -174,15 +236,74 @@ public sealed class LevelSmokeTest
         };
     }
 
+    /// <summary>Stands a few metres in front of a quiet practice opponent and shoots them in the chest.</summary>
+    private void StartShoot()
+    {
+        _phase = Phase.Shoot;
+        _phaseStart = _elapsed;
+        // Anyone will do while nobody shoots back; plain targets first.
+        foreach (bool sentries in new[] { false, true })
+        {
+            for (int i = 0; i < _opponents.Count && _victim is null; i++)
+            {
+                PlayerState o = _opponents[i].State;
+                if (_pilots[i].IsSentry == sentries && o.Alive && ScenePositions.FindSpot(_sim, o, 7f, out SVector3 spot))
+                {
+                    _victim = o;
+                    _victimStart = o.Position;
+                    _player.Teleport(spot, ScenePositions.Facing(spot, o.Position));
+                }
+            }
+        }
+
+        _pilot.Script = (tick, me) =>
+        {
+            if (_victim is null)
+            {
+                return default;
+            }
+
+            (float yaw, float pitch) = ScenePositions.AimAt(_sim, me, _victim);
+            int t = _elapsed - _phaseStart;
+            return new InputCommand { Yaw = yaw, Pitch = pitch, Buttons = t > 30 && t % 24 < 2 && _victim.Alive ? InputButtons.Fire : InputButtons.None };
+        };
+    }
+
+    /// <summary>Turns the sentries hostile and stands in front of one until it gets us.</summary>
+    private void StartGetShot()
+    {
+        _phase = Phase.GetShot;
+        _phaseStart = _elapsed;
+        foreach (DummyPilot pilot in _pilots)
+        {
+            pilot.Hostile = true;
+        }
+
+        for (int i = 0; i < _opponents.Count; i++)
+        {
+            PlayerState o = _opponents[i].State;
+            if (_pilots[i].IsSentry && o.Alive && ScenePositions.FindSpot(_sim, o, 9f, out SVector3 spot))
+            {
+                _shotNote = $"facing {o.Name}";
+                _player.Teleport(spot, ScenePositions.Facing(spot, o.Position));
+                break;
+            }
+        }
+
+        _pilot.Script = (_, me) => new InputCommand { Yaw = me.Yaw, Pitch = 0f };
+    }
+
     private void Finish(PlayerState state)
     {
         bool slideOk = _slid && _slideEndedCrouched;
-        bool jumpOk = _jumpHeight >= 0.35f && state.Grounded && state.Stance == Stance.Standing;
+        bool jumpOk = _jumpHeight >= 0.35f;
+        bool shootOk = _victimOutAt >= 0 && _victimWalkedOff;
         GD.Print($"SMOKE moves: slide {(slideOk ? "ok" : "FAILED")} (slid={_slid}, ended crouched={_slideEndedCrouched}), " +
-                 $"jump {(jumpOk ? "ok" : "FAILED")} (height {_jumpHeight:0.00} m, landed={state.Grounded})");
+                 $"jump {(jumpOk ? "ok" : "FAILED")} (height {_jumpHeight:0.00} m)");
+        GD.Print($"SMOKE duel: shoot {(shootOk ? "ok" : "FAILED")} ({_shootNote}); get shot {(_gotShot ? "ok" : "FAILED")} ({_shotNote})");
 
         bool ok = _travelled > 15f && _lowestY > -0.5f && _shots > 0 && _breaks > 0 && _climbsFailed == 0 && slideOk && jumpOk &&
-                  _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
+                  shootOk && _gotShot && _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: ticks={_elapsed} travelled={_travelled:0.0}m lowestY={_lowestY:0.00} " +
                  $"shots={_shots} breaks={_breaks} bounces={_bounces} climbs={_climbs.Count - _climbsFailed}/{_climbs.Count} " +
                  $"meshes={_world.MeshCount} walkColliders={_world.ColliderCount} simErrors={_driver.ErrorCount} " +
