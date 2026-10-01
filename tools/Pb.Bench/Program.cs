@@ -64,6 +64,11 @@ foreach ((string id, LevelLayout level) in data.Levels)
     }
 
     Console.WriteLine();
+    // Phase 2 budget: a tick with ten players (hitboxes posed and recorded, balls tested against them) and 1,000 balls.
+    (double m10, double p10, double x10, int l10) = MeasureLevel(data, level, 1000, measureTicks, players: 10);
+    Console.WriteLine($"With 10 players in the round and {l10} live balls: mean {m10:0.000} ms/tick, p95 {p10:0.000}, max {x10:0.000} " +
+                      $"(budget 0.5 ms: {(m10 <= 0.5 ? "within" : "OVER")}).");
+    Console.WriteLine();
 }
 
 Console.WriteLine("_Sim only (no rendering). The 60 fps check itself runs in the game's stress mode on real hardware._");
@@ -201,7 +206,7 @@ static (double Mean, double P95, double Max, int Live) Measure(GameData data, in
 
 // Keeps about `balls` paintballs in flight across a compound level, fired from its opponent spawns
 // at random headings and elevations, and times SimWorld.Step (topping up happens between ticks).
-static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData data, LevelLayout level, int balls, int ticks)
+static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData data, LevelLayout level, int balls, int ticks, int players = 1)
 {
     SimConfig c = data.Config;
     var config = new SimConfig
@@ -213,7 +218,14 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
     var sim = new SimWorld(config);
     sim.LoadLevel(level);
     sim.AddPlayer(1, 0, level.PlayerSpawn, level.PlayerSpawnYaw);
-    var commands = new InputCommand[1];
+    // The others stand away from the spawns the balls are fired from: at the pickups and patrol points.
+    List<Vector3> spots = level.Pickups.Select(x => x.Position).Concat(level.Patrols.SelectMany(r => r.Points)).ToList();
+    for (int p = 1; p < players; p++)
+    {
+        sim.AddPlayer(1 + p, 1, spots[(p - 1) % spots.Count], 0f);
+    }
+
+    var commands = new InputCommand[players];
     var rng = new Pcg32(7);
     uint sequence = 0;
     float speed = c.Shot.MuzzleVelocity;
@@ -221,7 +233,7 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
     void TopUp(int tick)
     {
         int spawns = 0;
-        while (sim.Ballistics.Pool.Count < balls && spawns++ < Math.Max(16, balls / 40))
+        while (sim.Ballistics.Pool.Count < balls && spawns++ < Math.Max(16, balls / 40) * players)
         {
             OpponentSpawn from = level.OpponentSpawns[(int)(rng.NextUInt() % (uint)level.OpponentSpawns.Count)];
             float heading = rng.NextFloat() * MathF.Tau;
@@ -233,9 +245,19 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
 
     void Step(int tick)
     {
-        commands[0] = new InputCommand { Tick = tick };
+        for (int p = 0; p < commands.Length; p++)
+        {
+            commands[p] = new InputCommand { Tick = tick, Yaw = sim.Players[p].Yaw };
+        }
+
         sim.Step(commands);
         sim.Events.Clear();
+        foreach (PlayerState p in sim.Players)
+        {
+            // Everyone stays in, so every tick pays for all ten sets of hitboxes.
+            p.Alive = true;
+            p.Present = true;
+        }
     }
 
     int t = 0;

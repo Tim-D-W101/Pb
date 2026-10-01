@@ -169,6 +169,9 @@ public enum BotIdle
 
     /// <summary>Walk the spawn's patrol route (a spawn without one holds its post).</summary>
     Patrol,
+
+    /// <summary>Sweep the level's opponent spawns one by one, then start again (the bot in your slot in the headless match).</summary>
+    Hunt,
 }
 
 public enum BotGait

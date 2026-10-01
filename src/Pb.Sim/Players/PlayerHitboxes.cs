@@ -24,6 +24,11 @@ public sealed class PlayerHitboxes : IHitboxWorld
 
     private readonly SimWorld _sim;
     private readonly List<History> _history = new();
+    private Vector3[] _centres = Array.Empty<Vector3>();
+    private bool[] _present = Array.Empty<bool>();
+    private int _cachedTick = -1;
+    private int _records;
+    private int _cachedRecords = -1;
 
     internal PlayerHitboxes(SimWorld sim)
     {
@@ -54,6 +59,36 @@ public sealed class PlayerHitboxes : IHitboxWorld
             _history[i].Poses[slot] = HitboxPose.Of(players[i]);
             _history[i].Ticks[slot] = tick;
         }
+
+        _records++;
+    }
+
+    /// <summary>
+    /// Every player's centre and presence for <paramref name="tick"/>, worked out once per tick (each ball
+    /// is tested against every player, so this saves fetching full poses for players nowhere near).
+    /// </summary>
+    private void CacheCentres(int tick, int count)
+    {
+        if (tick == _cachedTick && _centres.Length == count && _cachedRecords == _records)
+        {
+            return;
+        }
+
+        if (_centres.Length != count)
+        {
+            _centres = new Vector3[count];
+            _present = new bool[count];
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            HitboxPose pose = PoseAt(i, tick);
+            _centres[i] = pose.Position + new Vector3(0f, 1f, 0f);
+            _present[i] = pose.Present;
+        }
+
+        _cachedTick = tick;
+        _cachedRecords = _records;
     }
 
     /// <summary>The pose recorded for <paramref name="tick"/>, or the player's current pose if that's not in the history.</summary>
@@ -84,6 +119,7 @@ public sealed class PlayerHitboxes : IHitboxWorld
         }
 
         IReadOnlyList<PlayerState> players = _sim.Players;
+        CacheCentres(tick, players.Count);
         HitboxParams rig = _sim.Config.Hitboxes;
         float pivot = _sim.Config.Movement.LeanPivotBelowEye;
         Span<PosedBox> parts = stackalloc PosedBox[HitboxRig.PartCount];
@@ -98,18 +134,14 @@ public sealed class PlayerHitboxes : IHitboxWorld
                 continue;
             }
 
-            HitboxPose pose = PoseAt(i, tick);
-            if (!pose.Present)
+            // Cheap rejection first, from each player's centre for this tick; the full pose only when close.
+            float reach = Reach + radius;
+            if (!_present[i] || DistanceSquaredToSegment(_centres[i], from, to) > reach * reach)
             {
                 continue;
             }
 
-            Vector3 centre = pose.Position + new Vector3(0f, 1f, 0f);
-            float reach = Reach + radius;
-            if (DistanceSquaredToSegment(centre, from, to) > reach * reach)
-            {
-                continue;
-            }
+            HitboxPose pose = PoseAt(i, tick);
 
             HitboxRig.Pose(pose, rig, pivot, parts);
             for (int k = 0; k < parts.Length; k++)

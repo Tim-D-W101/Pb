@@ -31,6 +31,8 @@ namespace Pb.Game.Core;
 ///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
 ///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
+///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
+///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
 /// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
 /// them. Bots stand at the spawns the tier lists, with the behaviour their spawn's roles name and the
 /// tier's difficulty; F3 shows what they're thinking.
@@ -67,6 +69,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private PickupVisuals _pickups = null!;
     private string? _hitBy;
     private bool _scripted;
+    private bool _botMatch;
     private bool _summaryShown;
     private bool _ready;
 
@@ -127,9 +130,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         _player.Initialize(_sim, state, _view, _settings, teamColor);
         // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
         bool botDemo = Args.Has("--bot-demo");
-        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo;
+        _botMatch = Args.Has("--bot-match");
+        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo || _botMatch;
         bool roundTour = Args.Has("--round-tour");
-        SpawnOpponents(hostile: botDemo || (!_scripted && !roundTour));
+        SpawnOpponents(hostile: botDemo || _botMatch || (!_scripted && !roundTour));
         _botDebug = new BotDebugOverlay { Name = "BotDebug" };
         AddChild(_botDebug);
         _botDebug.Initialize(_squad);
@@ -150,7 +154,16 @@ public partial class LevelMain : Node3D, ISimEventListener
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
         _hud.InitializeMatch(_view, MatchClock);
         _hud.ShowHelp = false;
-        _match = _sim.StartMatch(MatchSetup.From(_tier, state.Id));
+        MatchSetup setup = MatchSetup.From(_tier, state.Id);
+        if (float.TryParse(Args.Value("--time-limit"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float limit))
+        {
+            setup = new MatchSetup
+            {
+                HeroId = setup.HeroId, TimeLimit = limit, StartPods = setup.StartPods, OpponentPods = setup.OpponentPods, Pickups = setup.Pickups,
+            };
+        }
+
+        _match = _sim.StartMatch(setup);
         _pickups = new PickupVisuals { Name = "Pickups" };
         AddChild(_pickups);
         _pickups.Build(_sim.Pickups);
@@ -215,6 +228,14 @@ public partial class LevelMain : Node3D, ISimEventListener
             var tour = new ViewpointTour { Name = "ViewpointTour" };
             AddChild(tour);
             tour.Start(_level, _hud, _player.ViewModel, _view.Camera.FarClip_m);
+        }
+        else if (_botMatch)
+        {
+            var you = new OpponentSpawn { Id = "you", Position = _level.PlayerSpawn, Yaw = _level.PlayerSpawnYaw, Roles = new[] { "hunter" } };
+            BotBrain brain = _squad.Add(state, _data.Bots.Archetypes["hunter"], _data.Bots.Difficulty[_tier.Bots], you);
+            _player.AutoPilot = new BotPilot(brain);
+            _hud.ShowPerf = false;
+            GD.Print($"BOT MATCH a hunter bot plays your slot against {_bots.Count} {_tier.Bots} bots, {setup.TimeLimit:0} s on the clock");
         }
         else if (botDemo)
         {
@@ -384,6 +405,12 @@ public partial class LevelMain : Node3D, ISimEventListener
 
     private void OnRoundEnded()
     {
+        if (_botMatch)
+        {
+            FinishBotMatch();
+            return;
+        }
+
         if (_scripted)
         {
             return;
@@ -394,6 +421,17 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             GetTree().CreateTimer(1.5).Timeout += ShowSummary;
         }
+    }
+
+    /// <summary>The bot match is over: report how it went, pass if nothing went wrong on the way.</summary>
+    private void FinishBotMatch()
+    {
+        PlayerStats you = _match.StatsFor(_player.State.Id)!;
+        int errors = _driver.ErrorCount;
+        bool ok = errors == 0 && _match.Outcome != RoundOutcome.None;
+        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match {_match.Outcome} after {_match.Elapsed:0} s: you put out {you.Eliminations} of " +
+                 $"{_opponents.Count}, {you.Shots} shots, {you.Hits} hits, {you.Pickups} pickups; simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
+        GetTree().Quit(ok ? 0 : 1);
     }
 
     private void ShowSummary()

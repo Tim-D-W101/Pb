@@ -364,6 +364,34 @@ public class BotTests
     }
 
     [Fact]
+    public void A_bot_in_your_slot_plays_a_whole_round_to_the_end()
+    {
+        BotArena arena = BotArena.Create("normal");
+        LadderTierDef tier = TestData.Data.Ladder.Levels.First(l => l.Id == "oxbarrow_works").Tiers!.First(t => t.Id == "normal");
+        foreach (string spawn in tier.Opponents)
+        {
+            arena.AddBot(spawn);
+        }
+
+        arena.HeroBot();
+        arena.Start(timeLimit: 240f);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        arena.Run(250 * Second, () => arena.Sim.Match!.Phase == Match.MatchPhase.Ended);
+        Match.MatchState match = arena.Sim.Match!;
+        int out_ = arena.Bots.Count(b => b.Self.Team != arena.Hero.Team && !b.Self.Alive);
+        _out.WriteLine($"{match.Outcome} after {match.Elapsed:0} s ({watch.Elapsed.TotalSeconds:0.0} s to run): you put out {out_} of {tier.Opponents.Length}, " +
+                       $"fired {arena.ShotsBy(0)}; you're {(arena.Hero.Alive ? "still in" : "out")}");
+        foreach (SimEvent e in arena.Log.Where(e => e.Type == SimEventType.PlayerEliminated))
+        {
+            _out.WriteLine($"  t={e.Tick / (float)Second:0.0}s {arena.Sim.FindPlayer(e.PlayerId)?.Name ?? "?"} put out {arena.Sim.FindPlayer(e.TargetId)?.Name}");
+        }
+
+        Assert.Equal(Match.MatchPhase.Ended, match.Phase);
+        Assert.NotEqual(Match.RoundOutcome.None, match.Outcome);
+        Assert.True(arena.ShotsBy(0) > 0, "never found anyone to shoot at");
+    }
+
+    [Fact]
     public void A_full_squad_thinks_without_allocating_once_warm()
     {
         BotArena arena = BotArena.Create("hard");

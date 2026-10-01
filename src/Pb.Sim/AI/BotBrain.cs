@@ -150,6 +150,8 @@ public sealed class BotBrain
     private float _lookAround;
     private float _outFor;
     private float _sinceCallout = float.MaxValue;
+    private bool[] _huntVisited = Array.Empty<bool>();
+    private bool _hunting;
 
     public BotBrain(BotSquad squad, PlayerState self, ArchetypeParams archetype, DifficultyParams tier, OpponentSpawn spawn)
     {
@@ -287,8 +289,7 @@ public sealed class BotBrain
 
         if (Mode == BotMode.Resupply && !OutOfPaint())
         {
-            SetMode(BotMode.Return);
-            GoHome();
+            GoBack();
             return;
         }
 
@@ -364,8 +365,7 @@ public sealed class BotBrain
 
             if (Mode is BotMode.Investigate or BotMode.Search && FlatDistance(Self.Position, Home) > Archetype.Leash)
             {
-                SetMode(BotMode.Return);
-                GoHome();
+                GoBack();
             }
 
             if (Mode != BotMode.Search)
@@ -379,8 +379,7 @@ public sealed class BotBrain
             case BotMode.Search:
                 if (_searchLeft <= 0f || (_hopsLeft <= 0 && (_arrived || !_hasGoal) && _lookAround <= 0f))
                 {
-                    SetMode(BotMode.Return);
-                    GoHome();
+                    GoBack();
                 }
 
                 break;
@@ -397,14 +396,12 @@ public sealed class BotBrain
             case BotMode.Resupply:
                 if (_arrived || !_hasGoal)
                 {
-                    SetMode(BotMode.Return);
-                    GoHome();
+                    GoBack();
                 }
 
                 break;
             default:
-                SetMode(BotMode.Return);
-                GoHome();
+                GoBack();
                 break;
         }
     }
@@ -465,6 +462,12 @@ public sealed class BotBrain
 
     private void ActIdle(float dt)
     {
+        if (Archetype.Idle == BotIdle.Hunt && _sim.Level is { OpponentSpawns.Count: > 0 } level)
+        {
+            ActHunt(level, dt);
+            return;
+        }
+
         if (Route is { Points.Count: > 0 } route)
         {
             if (_pauseLeft > 0f)
@@ -508,6 +511,66 @@ public sealed class BotBrain
         _scanPhase += dt * MathF.Tau / _b.ScanPeriod;
         _wantYaw = HomeYaw + _b.ScanAngle * MathF.Sin(_scanPhase);
         _wantPitch = 0f;
+    }
+
+    /// <summary>Hunting: walk to the nearest opponent spawn not yet visited, look around there, move on; start again when all are done.</summary>
+    private void ActHunt(LevelLayout level, float dt)
+    {
+        if (_huntVisited.Length != level.OpponentSpawns.Count)
+        {
+            _huntVisited = new bool[level.OpponentSpawns.Count];
+        }
+
+        if (_pauseLeft > 0f)
+        {
+            _pauseLeft -= dt;
+            Stop();
+            _wantYaw = _yaw + 1f; // turn on the spot to look around
+            _wantPitch = 0f;
+            return;
+        }
+
+        if (!_hasGoal || !_hunting)
+        {
+            int next = -1;
+            float best = float.MaxValue;
+            for (int pass = 0; pass < 2 && next < 0; pass++)
+            {
+                for (int i = 0; i < level.OpponentSpawns.Count; i++)
+                {
+                    float d = FlatDistance(Self.Position, level.OpponentSpawns[i].Position);
+                    if (!_huntVisited[i] && d < best && d > 2f)
+                    {
+                        best = d;
+                        next = i;
+                    }
+                }
+
+                if (next < 0)
+                {
+                    Array.Clear(_huntVisited); // all visited: start the sweep again
+                }
+            }
+
+            if (next < 0)
+            {
+                Stop();
+                return;
+            }
+
+            _huntVisited[next] = true;
+            _hunting = true;
+            GoTo(level.OpponentSpawns[next].Position, BotGait.Walk);
+        }
+
+        FollowPath(dt);
+        LookAlongPath();
+        if (_arrived)
+        {
+            _pauseLeft = 2f;
+            _hunting = false;
+            _hasGoal = false;
+        }
     }
 
     private void Scan(Vector3 around, float dt)
@@ -1080,6 +1143,21 @@ public sealed class BotBrain
         _cmd.Yaw = _yaw;
         _cmd.Pitch = 0f;
         return _cmd;
+    }
+
+    /// <summary>Done with a lead or a fight: back to the post or patrol (hunters just carry on hunting).</summary>
+    private void GoBack()
+    {
+        if (Archetype.Idle == BotIdle.Hunt)
+        {
+            SetMode(BotMode.Idle);
+            _hunting = false;
+            Stop();
+            return;
+        }
+
+        SetMode(BotMode.Return);
+        GoHome();
     }
 
     private void GoHome()

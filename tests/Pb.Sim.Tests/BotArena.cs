@@ -87,10 +87,19 @@ internal sealed class BotArena
         return brain;
     }
 
-    /// <summary>Starts the round (gear, stats) and goes live.</summary>
-    public BotArena Start(int heroPods = 2, int botPods = 2)
+    /// <summary>Puts a brain in your slot (team 0) with the given behaviour, starting from your spawn.</summary>
+    public BotBrain HeroBot(string archetype = "hunter")
     {
-        Sim.StartMatch(new MatchSetup { HeroId = 0, TimeLimit = 900f, StartPods = heroPods, OpponentPods = botPods, Pickups = true });
+        var spawn = new OpponentSpawn { Id = "you", Position = Level.PlayerSpawn, Yaw = Level.PlayerSpawnYaw, Roles = new[] { archetype } };
+        BotBrain brain = Squad.Add(Hero, TestData.Data.Bots.Archetypes[archetype], Tier, spawn);
+        _brains[0] = brain;
+        return brain;
+    }
+
+    /// <summary>Starts the round (gear, stats) and goes live.</summary>
+    public BotArena Start(int heroPods = 2, int botPods = 2, float timeLimit = 900f)
+    {
+        Sim.StartMatch(new MatchSetup { HeroId = 0, TimeLimit = timeLimit, StartPods = heroPods, OpponentPods = botPods, Pickups = true });
         Sim.GoLive();
         _commands = new InputCommand[Sim.Players.Count];
         return this;

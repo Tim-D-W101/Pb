@@ -1,7 +1,8 @@
 // Bot behaviours (M2.5). An opponent spawn's roles (levels/*.jsonc) name the behaviour: the first
 // role listed here wins.
-//   idle            what they do while nothing's happening: "post" (hold the spawn and scan) or
-//                   "patrol" (walk the spawn's patrol route)
+//   idle            what they do while nothing's happening: "post" (hold the spawn and scan),
+//                   "patrol" (walk the spawn's patrol route) or "hunt" (sweep the level's opponent
+//                   spawns one by one)
 //   leash_m         how far from home they'll go to fight or search before heading back
 //   useCover        fight from cover (peek, shoot, duck back); rushers just come at you
 //   peekTime_s      time exposed per peek, then hideTime_s back in cover
@@ -27,6 +28,14 @@
       "peekTime_s": 1.1, "hideTime_s": 1.0,
       "flankChance": 0.35, "pushChance": 0.2,
       "fireOnMove": false, "engageRange_m": 20, "searchTime_s": 16, "moveGait": "run"
+    },
+    {
+      // Plays your slot in the headless bot match (CI): no spawn of its own, it goes looking.
+      "id": "hunter",
+      "idle": "hunt", "leash_m": 500, "useCover": true,
+      "peekTime_s": 1.2, "hideTime_s": 1.0,
+      "flankChance": 0.3, "pushChance": 0.35,
+      "fireOnMove": false, "engageRange_m": 20, "searchTime_s": 12, "moveGait": "run"
     },
     {
       "id": "rusher",
