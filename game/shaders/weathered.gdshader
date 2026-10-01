@@ -369,6 +369,9 @@ void fragment() {
 	vec2 tuv = m / tile_m;
 	if (use_textures) {
 		col = texture(albedo_tex, tuv).rgb;
+		// Broad light and dark patches tens of metres across, so a photo repeating every couple of
+		// metres doesn't read as a grid over a yard or a long wall.
+		col *= mix(0.84, 1.12, fbm2(world_pos.xz * 0.045 + vec2(world_pos.y * 0.03)));
 		h = 0.0;
 		if (has_roughness_tex) {
 			rough = texture(roughness_tex, tuv).r;

@@ -8,7 +8,7 @@
 {
   "props": [
     {
-      "id": "oil_drum", "displayName": "Oil drum",
+      "id": "oil_drum", "displayName": "Oil drum", "model": "res://art/models/oil_drum.glb",
       "colliders": [ { "shape": "cylinder", "center_m": [0, 0.44, 0], "radius_m": 0.29, "height_m": 0.88, "material": "drum_blue" } ]
     },
     {

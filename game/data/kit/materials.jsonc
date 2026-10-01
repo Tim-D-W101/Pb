@@ -11,16 +11,16 @@
 {
   "materials": [
     // Ground
-    { "id": "asphalt_cracked", "surface": "asphalt", "color": "#4d4b47", "pattern": "asphalt", "tile_m": 4.0, "roughness": 0.92, "weathering": 0.6 },
+    { "id": "asphalt_cracked", "surface": "asphalt", "color": "#4d4b47", "pattern": "asphalt", "tile_m": 2.5, "roughness": 0.92, "weathering": 0.6, "albedo": "res://art/textures/asphalt_cracked_albedo.jpg", "normal": "res://art/textures/asphalt_cracked_normal.jpg", "roughnessMap": "res://art/textures/asphalt_cracked_roughness.jpg" },
     { "id": "dirt", "surface": "dirt", "color": "#6b5a45", "pattern": "dirt", "tile_m": 3.0, "roughness": 0.98, "weathering": 0.3 },
     { "id": "gravel", "surface": "gravel", "color": "#7b766b", "pattern": "gravel", "tile_m": 2.0, "roughness": 0.95, "weathering": 0.3 },
     { "id": "grass_dry", "surface": "turf", "color": "#6c7046", "pattern": "grass", "tile_m": 3.0, "roughness": 0.98, "weathering": 0.2 },
 
     // Walls and floors
-    { "id": "concrete_wall", "surface": "concrete", "color": "#9a978f", "pattern": "concrete", "tile_m": 2.5, "roughness": 0.90, "weathering": 0.70 },
-    { "id": "concrete_floor", "surface": "concrete", "color": "#86837b", "pattern": "concrete", "tile_m": 3.0, "roughness": 0.85, "weathering": 0.60 },
+    { "id": "concrete_wall", "surface": "concrete", "color": "#9a978f", "pattern": "concrete", "tile_m": 2.5, "roughness": 0.90, "weathering": 0.70, "albedo": "res://art/textures/concrete_wall_albedo.jpg", "normal": "res://art/textures/concrete_wall_normal.jpg", "roughnessMap": "res://art/textures/concrete_wall_roughness.jpg" },
+    { "id": "concrete_floor", "surface": "concrete", "color": "#86837b", "pattern": "concrete", "tile_m": 3.0, "roughness": 0.85, "weathering": 0.60, "albedo": "res://art/textures/concrete_floor_albedo.jpg", "normal": "res://art/textures/concrete_floor_normal.jpg", "roughnessMap": "res://art/textures/concrete_floor_roughness.jpg" },
     { "id": "concrete_block", "surface": "concrete", "color": "#8f8c85", "pattern": "block", "tile_m": 1.2, "roughness": 0.90, "weathering": 0.70 },
-    { "id": "brick_red", "surface": "brick", "color": "#7f4b3b", "pattern": "brick", "tile_m": 1.0, "roughness": 0.90, "weathering": 0.60 },
+    { "id": "brick_red", "surface": "brick", "color": "#7f4b3b", "pattern": "brick", "tile_m": 1.1, "roughness": 0.90, "weathering": 0.60, "albedo": "res://art/textures/brick_red_albedo.jpg", "normal": "res://art/textures/brick_red_normal.jpg", "roughnessMap": "res://art/textures/brick_red_roughness.jpg" },
     { "id": "brick_painted", "surface": "brick", "color": "#a9a49a", "pattern": "brick", "tile_m": 1.0, "roughness": 0.85, "weathering": 0.75 },
     { "id": "plaster_peeling", "surface": "plaster", "color": "#b8b09f", "pattern": "plaster", "tile_m": 2.0, "roughness": 0.90, "weathering": 0.80 },
     { "id": "roof_felt", "surface": "asphalt", "color": "#3c3b39", "pattern": "asphalt", "tile_m": 2.0, "roughness": 0.95, "weathering": 0.50 },

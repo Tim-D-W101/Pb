@@ -28,8 +28,10 @@ public class DataTests
     [Fact]
     public void A_texture_without_a_provenance_record_is_caught()
     {
-        var source = new EditedDataSource(TestData.Source).Edit("kit/materials.jsonc",
-            t => t.Replace("\"pattern\": \"asphalt\", \"tile_m\": 4.0,", "\"pattern\": \"asphalt\", \"tile_m\": 4.0, \"albedo\": \"res://art/textures/unrecorded.png\","));
+        // A material of its own, so changes to the shipped materials can't break the test.
+        var source = new EditedDataSource(TestData.Source).Edit("kit/materials.jsonc", t => t.Replace("\"materials\": [",
+            "\"materials\": [ { \"id\": \"unrecorded_test\", \"surface\": \"concrete\", \"color\": \"#808080\", \"pattern\": \"plain\", " +
+            "\"tile_m\": 1.0, \"roughness\": 0.9, \"weathering\": 0.5, \"albedo\": \"res://art/textures/unrecorded.png\" },"));
         Assert.Equal(new[] { "res://art/textures/unrecorded.png" }, Unrecorded(GameData.Load(source), source));
     }
 
