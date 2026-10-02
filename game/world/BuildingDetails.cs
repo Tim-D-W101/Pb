@@ -29,6 +29,9 @@ public static class BuildingDetails
     /// <summary>A downpipe keeps this far from the side of a door or window (m).</summary>
     private const float OpeningClearance = 0.3f;
 
+    /// <summary>What the cables slung under the trusses are sheathed in.</summary>
+    private const string CableMaterial = "plastic_black";
+
     /// <summary>Truss members: chords and webs (square sections, m), and the purlins on top (width, depth) and their spacing.</summary>
     private const float Chord = 0.12f, Web = 0.06f, PurlinWidth = 0.07f, PurlinDepth = 0.12f, PurlinSpacing = 1.6f;
 
@@ -58,7 +61,7 @@ public static class BuildingDetails
             {
                 // Lamp shades in the fittings' paint where there is one.
                 int shades = def.Fittings is not null && material(def.Fittings) is var f and >= 0 ? f : trusses;
-                on.Trusses(def.Trusses, trusses, shades, material(LevelBuilder.GlassMaterial));
+                on.Trusses(def.Trusses, trusses, shades, material(LevelBuilder.GlassMaterial), material(CableMaterial));
             }
 
             if (def.CeilingLights is not null && material(def.CeilingLights) is var lights and >= 0)
@@ -191,7 +194,7 @@ public static class BuildingDetails
         /// Trusses across the short span, under the roof; purlins on top of them along the long way.
         /// Over a hole each is broken off: what's left near the edge hangs down into it.
         /// </summary>
-        public void Trusses(TrussesDef def, int material, int shades, int glass)
+        public void Trusses(TrussesDef def, int material, int shades, int glass, int cable)
         {
             bool alongX = _footprint.Size.X >= _footprint.Size.Y;
             float length = alongX ? _footprint.Size.X : _footprint.Size.Y;
@@ -206,12 +209,14 @@ public static class BuildingDetails
             float panel = (hi - lo) / panels;
             int trusses = Math.Max(1, (int)MathF.Floor(length / def.Spacing_m - 0.5f));
             float spacing = length / (trusses + 1);
+            var spans = new List<(float U, List<(float From, float To, float Droop, float Hang)> Broken)>();
             for (int t = 1; t <= trusses; t++)
             {
                 float u = start + spacing * t;
                 ShapeMesh mesh = Mesh(Plan(u, 0f, (lo + hi) * 0.5f), _roofBottom);
                 // Where a hole crosses this truss, the span it loses (along s).
                 var broken = new List<(float From, float To, float Droop, float Hang)>();
+                spans.Add((u, broken));
                 foreach (Rect2 hole in _holes)
                 {
                     (float h0, float h1, float s0, float s1) = alongX
@@ -286,6 +291,11 @@ public static class BuildingDetails
                 }
             }
 
+            if (cable >= 0)
+            {
+                Cables(spans, cable, lo, hi, bottom - Chord * 0.5f - 0.02f, Plan);
+            }
+
             // Purlins along the building on top of the trusses, wall to wall, but not across a hole.
             ShapeMesh purlins = Mesh(_footprint.GetCenter(), _roofBottom);
             float y = _roofBottom - PurlinDepth * 0.5f;
@@ -321,6 +331,72 @@ public static class BuildingDetails
                 {
                     PurlinPiece(purlins, material, Plan(from, y, s), Plan(end, y, s), alongX);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Cables slung from truss to truss under their bottom chords, two or three runs the length of the
+        /// building, sagging between them; where a truss is broken off over a hole, the cable's end hangs
+        /// down from the last whole one. Their own random, so the rest of the building stays as it was.
+        /// </summary>
+        private void Cables(List<(float U, List<(float From, float To, float Droop, float Hang)> Broken)> spans, int material, float lo, float hi, float y,
+            Func<float, float, float, Vector3> plan)
+        {
+            if (spans.Count < 2)
+            {
+                return;
+            }
+
+            var random = new Random((int)(_footprint.Position.X * 73f + _footprint.Position.Y * 19f) ^ 0xCAB1E);
+            float R(float a, float b) => a + (float)random.NextDouble() * (b - a);
+            static bool Whole(List<(float From, float To, float Droop, float Hang)> broken, float s)
+            {
+                foreach ((float from, float to, _, _) in broken)
+                {
+                    if (s > from - 0.3f && s < to + 0.3f)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            ShapeMesh mesh = Mesh(_footprint.GetCenter(), _roofBottom);
+            int runs = 2 + random.Next(2);
+            for (int c = 0; c < runs; c++)
+            {
+                float s = R(lo + 0.6f, hi - 0.6f);
+                for (int k = 0; k + 1 < spans.Count; k++)
+                {
+                    Vector3 a = plan(spans[k].U, y, s), b = plan(spans[k + 1].U, y, s);
+                    bool fromA = Whole(spans[k].Broken, s), fromB = Whole(spans[k + 1].Broken, s);
+                    if (fromA && fromB)
+                    {
+                        Hang(mesh, material, a, b, R(0.25f, 0.75f));
+                    }
+                    else if (fromA || fromB)
+                    {
+                        // Torn: a loose end swinging down from the whole truss towards the hole.
+                        Vector3 hook = fromA ? a : b, toward = (fromA ? b : a) - hook;
+                        Vector3 end = hook + toward * R(0.15f, 0.35f) + Vector3.Down * R(1.2f, 3f);
+                        Hang(mesh, material, hook, end, R(0.1f, 0.3f));
+                    }
+                }
+            }
+        }
+
+        /// <summary>A cable from <paramref name="a"/> to <paramref name="b"/> (plan points), sagging by <paramref name="sag"/> in the middle.</summary>
+        private void Hang(ShapeMesh mesh, int material, Vector3 a, Vector3 b, float sag)
+        {
+            const int pieces = 8;
+            Vector3 previous = a;
+            for (int i = 1; i <= pieces; i++)
+            {
+                float f = (float)i / pieces;
+                Vector3 next = a.Lerp(b, f) + Vector3.Down * (sag * 4f * f * (1f - f));
+                mesh.Rod(material, World(previous), World(next), 0.011f, 5, caps: false);
+                previous = next;
             }
         }
 
