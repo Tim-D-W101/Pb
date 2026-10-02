@@ -65,8 +65,9 @@ public partial class WeedField : Node3D
 
     public int TuftCount { get; private set; }
 
-    public void Build(LevelLayout level, ICollisionWorld world, WeedsDef def) =>
-        Build(new LevelGround(level, world), (uint)LevelBuilder.StableHash(level.Id), def);
+    /// <summary>Weeds over a level; nothing grows where <paramref name="clear"/> says (the worn paths).</summary>
+    public void Build(LevelLayout level, ICollisionWorld world, WeedsDef def, Func<float, float, bool>? clear = null) =>
+        Build(new LevelGround(level, world, clear), (uint)LevelBuilder.StableHash(level.Id), def);
 
     /// <summary>Weeds over any place that can say what its ground is (the training ground's), seeded by <paramref name="seed"/>.</summary>
     public void Build(IWeedGround ground, uint seed, WeedsDef def)
@@ -186,8 +187,11 @@ public partial class WeedField : Node3D
         private readonly LevelLayout _level;
         private readonly GroundSurvey _survey;
 
-        public LevelGround(LevelLayout level, ICollisionWorld world)
+        private readonly Func<float, float, bool>? _clear;
+
+        public LevelGround(LevelLayout level, ICollisionWorld world, Func<float, float, bool>? clear)
         {
+            _clear = clear;
             _level = level;
             _survey = new GroundSurvey(level, world);
         }
@@ -217,6 +221,11 @@ public partial class WeedField : Node3D
 
         public bool KeepClear(float x, float z, float radius)
         {
+            if (_clear?.Invoke(x, z) == true)
+            {
+                return true;
+            }
+
             float r2 = radius * radius;
             foreach (PickupSpec p in _level.Pickups)
             {

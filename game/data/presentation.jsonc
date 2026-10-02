@@ -282,6 +282,26 @@
     "fadeEnd_m": 50
   },
 
+  // Paths worn across the soft ground between the doorways, the gaps in the walls and the cover out on
+  // it, where people have walked for years (looks only): trodden down to bare earth, ragged at the
+  // edges, with no weeds down the middle. They show only on these ground materials; the rest of their way is
+  // hard ground. Wander and longest are metres; weedFree_m is how far either side of the middle nothing
+  // grows.
+  "wornPaths": {
+    "on": ["dirt", "grass_dry", "gravel"],
+    "width_m": 0.9,
+    "wander_m": 1.2,
+    "longest_m": 60,
+    // Cover out on the soft ground is gathered in squares this big; each square's middle is somewhere
+    // a path leads.
+    "hubSpacing_m": 12,
+    "color": "#6f5f4b",
+    "opacity": 0.6,
+    "weedFree_m": 0.4,
+    "fadeStart_m": 40,
+    "fadeEnd_m": 70
+  },
+
   // Graffiti on the outside walls (looks only): throw-ups in fat bubble letters low down and tags (a word
   // in one thin line) at arm's height, painted at load from these invented words, so nothing is anyone's
   // mark, on the outside faces of walls standing on the ground. Worn (0 none, 1 gone) and bleached

@@ -53,9 +53,13 @@ public partial class MenuBackdrop : Node3D
             },
             () =>
             {
+                var paths = new WornPaths { Name = "WornPaths" };
+                AddChild(paths);
+                paths.Plan(level, collision, view.WornPaths);
                 var weeds = new WeedField { Name = "Weeds" };
                 AddChild(weeds);
-                weeds.Build(level, collision, view.Weeds);
+                weeds.Build(level, collision, view.Weeds, paths.Clear);
+                paths.Draw(level, collision, view.WornPaths);
                 weeds.ApplyPreset(preset);
                 var cracks = new Cracks { Name = "Cracks" };
                 AddChild(cracks);

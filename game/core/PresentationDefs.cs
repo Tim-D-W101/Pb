@@ -46,6 +46,8 @@ public sealed class PresentationDef : IValidatable
 
     public GraffitiDef Graffiti { get; set; } = new();
 
+    public WornPathsDef WornPaths { get; set; } = new();
+
     public GroundDetailDef GroundDetail { get; set; } = new();
 
     public OldPaintDef OldPaint { get; set; } = new();
@@ -119,6 +121,7 @@ public sealed class PresentationDef : IValidatable
         Cracks.Validate(v.Scope(nameof(Cracks)));
         Damp.Validate(v.Scope(nameof(Damp)));
         Graffiti.Validate(v.Scope(nameof(Graffiti)));
+        WornPaths.Validate(v.Scope(nameof(WornPaths)));
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Markings.Validate(v.Scope(nameof(Markings)));
@@ -1537,6 +1540,54 @@ public sealed class DampDef : IValidatable
         FlockDef.Pair(v, nameof(StainSize_m), StainSize_m, 0.1f, 6f);
         v.InRange(nameof(CeilingMaxHeight_m), CeilingMaxHeight_m, 1, 30);
         FlockDef.Pair(v, nameof(Opacity), Opacity, 0f, 1f);
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Paths worn across the soft ground (game/world/WornPaths.cs): the ground materials they show on, the
+/// trodden width, how far they wander from a straight line, the longest a path between two doorways or
+/// gaps may run, the size of the squares the cover on soft ground is gathered in (each square's middle is
+/// somewhere a path leads), the dusty colour (sRGB) and how strongly it shows, how far either side of the
+/// middle no weeds grow, and the distances they fade out over.
+/// </summary>
+public sealed class WornPathsDef : IValidatable
+{
+    public string[] On { get; set; } = System.Array.Empty<string>();
+
+    public float Width_m { get; set; }
+
+    public float Wander_m { get; set; }
+
+    public float Longest_m { get; set; }
+
+    public float HubSpacing_m { get; set; }
+
+    public string Color { get; set; } = "";
+
+    public float Opacity { get; set; }
+
+    public float WeedFree_m { get; set; }
+
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (On.Length == 0)
+        {
+            v.Error(nameof(On), "needs at least one ground material");
+        }
+
+        v.InRange(nameof(Width_m), Width_m, 0.2, 4);
+        v.InRange(nameof(Wander_m), Wander_m, 0, 10);
+        v.InRange(nameof(Longest_m), Longest_m, 2, 500);
+        v.InRange(nameof(HubSpacing_m), HubSpacing_m, 2, 100);
+        TrainingGroundDef.Colour(v, nameof(Color), Color);
+        v.InRange(nameof(Opacity), Opacity, 0, 1);
+        v.InRange(nameof(WeedFree_m), WeedFree_m, 0, 2);
         v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
     }

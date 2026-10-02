@@ -187,9 +187,14 @@ public partial class LevelMain : Node3D, ISimEventListener
         GraphicsPresetDef preset = _view.Graphics.Find(Args.Value("--preset") ?? _settings.GraphicsPreset);
         _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, _view.Woods);
         var dressWatch = Stopwatch.StartNew();
+        // The worn paths first: the weeds keep off them.
+        var paths = new WornPaths { Name = "WornPaths" };
+        AddChild(paths);
+        paths.Plan(_level, _sim.Collision, _view.WornPaths, _squad.Cover.Points);
         _weeds = new WeedField { Name = "Weeds" };
         AddChild(_weeds);
-        _weeds.Build(_level, _sim.Collision, _view.Weeds);
+        _weeds.Build(_level, _sim.Collision, _view.Weeds, paths.Clear);
+        paths.Draw(_level, _sim.Collision, _view.WornPaths);
         var cracks = new Cracks { Name = "Cracks" };
         AddChild(cracks);
         cracks.Build(_level, _sim.Collision, _view.Weeds, _view.Cracks);
@@ -236,7 +241,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {cracks.Count} cracks ({cracks.Length_m:0} m), {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {fittings.Count} manholes and drains, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {hangings.Count} things on the walls, {damp.Count} damp patches, {graffiti.Count} graffiti, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {paths.Count} worn paths ({paths.Length_m:0} m), {cracks.Count} cracks ({cracks.Length_m:0} m), {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {fittings.Count} manholes and drains, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {hangings.Count} things on the walls, {damp.Count} damp patches, {graffiti.Count} graffiti, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);
