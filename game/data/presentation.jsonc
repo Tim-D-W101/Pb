@@ -388,8 +388,12 @@
   // most max of each kind lie about at once (the oldest go first). Bots leave them too. A foot coming
   // down within paintReach_m of paint on the ground less than paintFresh_s old picks it up: the next
   // paintSteps prints are in that paint, on any ground, the first paintOpacity thick, fainter each step.
+  // A foot coming down in a puddle's water wets the boots: the next wetSteps prints on the wetOn
+  // surfaces are wet, darkening them by wetColor (a multiply) as far as wetOpacity says, less each step,
+  // and dry out over wetDry_s from their edges in, the tread's bars last.
   "footprints": { "on": ["dirt"], "size_m": [0.11, 0.29], "color": "#6a5c4e", "opacity": 0.85, "fade_s": 180, "max": 600,
-    "paintSteps": 8, "paintReach_m": 0.35, "paintFresh_s": 90, "paintOpacity": 0.85 },
+    "paintSteps": 8, "paintReach_m": 0.35, "paintFresh_s": 90, "paintOpacity": 0.85,
+    "wetOn": ["concrete", "asphalt"], "wetSteps": 10, "wetColor": "#5f5b55", "wetOpacity": 0.8, "wetDry_s": 60 },
 
   // Tatters hanging from the edges of the holes where a roof has fallen in (looks only): torn strips of
   // roofing felt and insulation about every_m along each edge (share of those places have one), hanging

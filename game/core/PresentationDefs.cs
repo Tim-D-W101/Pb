@@ -1825,7 +1825,9 @@ public sealed class RoofDripsDef : IValidatable
 /// (0-1), how long it lasts before it's gone, and how many can be on the ground at once of each kind (the
 /// oldest go first); and paint trodden about: how many prints a boot leaves in paint after treading in
 /// some on the ground (0: none), how near the paint the foot must come down, how long paint on the ground
-/// stays wet enough, and how thick the first painted print is (0-1).
+/// stays wet enough, and how thick the first painted print is (0-1); and wet boots: the surfaces that show
+/// wet prints, how many prints boots leave after stepping in water (0: none), the colour a wet print
+/// darkens the ground by (a multiply) and how far (0-1), and how long it takes to dry.
 /// </summary>
 public sealed class FootprintsDef : IValidatable
 {
@@ -1849,6 +1851,16 @@ public sealed class FootprintsDef : IValidatable
 
     public float PaintOpacity { get; set; }
 
+    public string[] WetOn { get; set; } = System.Array.Empty<string>();
+
+    public int WetSteps { get; set; }
+
+    public string WetColor { get; set; } = "";
+
+    public float WetOpacity { get; set; }
+
+    public float WetDry_s { get; set; }
+
     public void Validate(Validator v)
     {
         if (Size_m.Length != 2 || Size_m[0] < 0.03f || Size_m[0] > 1f || Size_m[1] < 0.05f || Size_m[1] > 1f)
@@ -1864,6 +1876,10 @@ public sealed class FootprintsDef : IValidatable
         v.InRange(nameof(PaintReach_m), PaintReach_m, 0.05, 2);
         v.InRange(nameof(PaintFresh_s), PaintFresh_s, 1, 3600);
         v.InRange(nameof(PaintOpacity), PaintOpacity, 0, 1);
+        v.InRange(nameof(WetSteps), WetSteps, 0, 50);
+        TrainingGroundDef.Colour(v, nameof(WetColor), WetColor);
+        v.InRange(nameof(WetOpacity), WetOpacity, 0, 1);
+        v.InRange(nameof(WetDry_s), WetDry_s, 1, 3600);
     }
 }
 

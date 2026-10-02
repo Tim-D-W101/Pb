@@ -102,11 +102,29 @@ public partial class PuddleRipples : Node3D, ISimEventListener
     /// </summary>
     public bool Splash(Vector3 at, float size, int rings)
     {
-        if (_multimesh is null)
+        if (_multimesh is null || !Water(at, out GroundDetail.Puddle p, out float out_))
         {
             return false;
         }
 
+        // Never wider than the water reaches from here.
+        float room = 2f * (1f - out_) * MathF.Min(p.HalfWidth, p.HalfLength);
+        float across = MathF.Min(size, MathF.Max(room, 0.15f));
+        var on = new Vector3(at.X, p.Center.Y + Lift, at.Z);
+        for (int k = 0; k < rings; k++)
+        {
+            Raise(on, across * (1f - 0.22f * k), k * 0.14f);
+        }
+
+        return true;
+    }
+
+    /// <summary>Whether <paramref name="at"/> (on the ground) is in a puddle's or a drip pool's water.</summary>
+    public bool InWater(Vector3 at) => Water(at, out _, out _);
+
+    /// <summary>The water <paramref name="at"/> is in, and how far out to its edge it is (0 in the middle, 1 at the edge).</summary>
+    private bool Water(Vector3 at, out GroundDetail.Puddle puddle, out float out_)
+    {
         foreach (GroundDetail.Puddle p in _puddles)
         {
             Vector3 d = at - p.Center;
@@ -118,24 +136,16 @@ public partial class PuddleRipples : Node3D, ISimEventListener
             // Where the point lies in the puddle's own frame, as a share of the way out to its water's edge.
             float c = MathF.Cos(p.Yaw), s = MathF.Sin(p.Yaw);
             float x = (d.X * c - d.Z * s) / p.HalfWidth, z = (d.X * s + d.Z * c) / p.HalfLength;
-            float out_ = MathF.Sqrt(x * x + z * z);
-            if (out_ > 1f)
+            out_ = MathF.Sqrt(x * x + z * z);
+            if (out_ <= 1f)
             {
-                continue;
+                puddle = p;
+                return true;
             }
-
-            // Never wider than the water reaches from here.
-            float room = 2f * (1f - out_) * MathF.Min(p.HalfWidth, p.HalfLength);
-            float across = MathF.Min(size, MathF.Max(room, 0.15f));
-            var on = new Vector3(at.X, p.Center.Y + Lift, at.Z);
-            for (int k = 0; k < rings; k++)
-            {
-                Raise(on, across * (1f - 0.22f * k), k * 0.14f);
-            }
-
-            return true;
         }
 
+        puddle = default;
+        out_ = 0f;
         return false;
     }
 

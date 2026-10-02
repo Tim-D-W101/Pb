@@ -284,7 +284,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _drips.Initialize(_view);
         _prints = new Footprints { Name = "Footprints" };
         AddChild(_prints);
-        _prints.Initialize(_sim, _view.Footprints, _view.TeamColors);
+        _prints.Initialize(_sim, _view.Footprints, _view.TeamColors, _ripples.InWater);
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
 

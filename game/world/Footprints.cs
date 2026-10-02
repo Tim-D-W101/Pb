@@ -12,10 +12,11 @@ namespace Pb.Game.World;
 /// Footprints (presentation.jsonc "footprints"): each step on a surface that takes them leaves a boot
 /// print pressed into it, left and right in turn, pointing the way the walker was going, and fading out
 /// over a few minutes; a landing leaves both feet side by side. Step in fresh paint on the ground and
-/// the next few prints are in that paint, on any ground, fainter each step. From the sim's footstep and
-/// ball events, so bots leave tracks too. Flat cards in two MultiMeshes, each used round as a ring: the
-/// prints darken the ground under them (footprints.gdshader), the paint lies on it (paint_prints.gdshader).
-/// Looks only.
+/// the next few prints are in that paint, on any ground, fainter each step; step in a puddle and the next
+/// few on hard ground are wet, drying out. From the sim's footstep and ball events, so bots leave tracks
+/// too. Flat cards in three MultiMeshes, each used round as a ring: the prints darken the ground under
+/// them (footprints.gdshader), the paint lies on it (paint_prints.gdshader), and the wet ones darken it
+/// until they dry (wet_prints.gdshader). Looks only.
 /// </summary>
 public partial class Footprints : Node3D, ISimEventListener
 {
@@ -26,6 +27,8 @@ public partial class Footprints : Node3D, ISimEventListener
     private const float Lift = 0.0105f, PaintLift = 0.0112f;
 
     private readonly HashSet<byte> _surfaces = new();
+    private readonly HashSet<byte> _wetSurfaces = new();
+    private readonly Dictionary<int, int> _wetBoots = new();
     private readonly Dictionary<int, bool> _leftFoot = new();
     private readonly Dictionary<int, (Color Color, int Left)> _boots = new();
     private readonly (Vector3 At, Color Color, double Time)[] _splats = new (Vector3, Color, double)[96];
@@ -33,7 +36,8 @@ public partial class Footprints : Node3D, ISimEventListener
     private SimWorld _sim = null!;
     private FootprintsDef _def = null!;
     private Color[] _teamColors = Array.Empty<Color>();
-    private Ring? _pressed, _painted;
+    private Ring? _pressed, _painted, _wet;
+    private Func<Vector3, bool>? _inWater;
     private double _now;
     private int _splatNext;
 
@@ -46,27 +50,20 @@ public partial class Footprints : Node3D, ISimEventListener
         public int Next { get; set; }
     }
 
-    public void Initialize(SimWorld sim, FootprintsDef def, string[] teamColors)
+    /// <summary>Sets up the prints; <paramref name="inWater"/> says whether a foot came down in water (no wet prints without it).</summary>
+    public void Initialize(SimWorld sim, FootprintsDef def, string[] teamColors, Func<Vector3, bool>? inWater = null)
     {
         _sim = sim;
         _def = def;
+        _inWater = inWater;
         _teamColors = new Color[teamColors.Length];
         for (int i = 0; i < teamColors.Length; i++)
         {
             _teamColors[i] = Color.FromHtml(teamColors[i]);
         }
 
-        foreach (string surface in def.On)
-        {
-            if (sim.Config.Surfaces.TryGet(surface, out SurfaceId id))
-            {
-                _surfaces.Add(id.Value);
-            }
-            else
-            {
-                GD.PushWarning($"presentation.jsonc footprints.on: no surface '{surface}' in break_model.jsonc");
-            }
-        }
+        Resolve(def.On, _surfaces, "on");
+        Resolve(def.WetOn, _wetSurfaces, "wetOn");
 
         for (int i = 0; i < _splats.Length; i++)
         {
@@ -80,6 +77,22 @@ public partial class Footprints : Node3D, ISimEventListener
 
         _pressed = _surfaces.Count > 0 ? NewRing("Prints", "res://shaders/footprints.gdshader") : null;
         _painted = def.PaintSteps > 0 ? NewRing("PaintPrints", "res://shaders/paint_prints.gdshader") : null;
+        _wet = def.WetSteps > 0 && inWater is not null && _wetSurfaces.Count > 0 ? NewRing("WetPrints", "res://shaders/wet_prints.gdshader") : null;
+    }
+
+    private void Resolve(string[] names, HashSet<byte> into, string key)
+    {
+        foreach (string surface in names)
+        {
+            if (_sim.Config.Surfaces.TryGet(surface, out SurfaceId id))
+            {
+                into.Add(id.Value);
+            }
+            else
+            {
+                GD.PushWarning($"presentation.jsonc footprints.{key}: no surface '{surface}' in break_model.jsonc");
+            }
+        }
     }
 
     private Ring NewRing(string name, string shader)
@@ -138,7 +151,16 @@ public partial class Footprints : Node3D, ISimEventListener
         bool pressed = _pressed is not null && _surfaces.Contains(e.Surface.Value);
         Vector3 at = e.Position.ToGodot();
         TreadIn(e.PlayerId, at);
-        if (!pressed && !(_painted is not null && _boots.TryGetValue(e.PlayerId, out (Color, int Left) boots) && boots.Left > 0))
+        // Stepping in water wets the boots; in the water itself no print shows.
+        bool inWater = _wet is not null && _inWater!(at);
+        if (inWater)
+        {
+            _wetBoots[e.PlayerId] = _def.WetSteps;
+        }
+
+        bool wetGround = _wet is not null && !inWater && _wetSurfaces.Contains(e.Surface.Value);
+        bool wetBoots = !inWater && _wetBoots.TryGetValue(e.PlayerId, out int wetLeft) && wetLeft > 0;
+        if (!pressed && !wetBoots && !(_painted is not null && _boots.TryGetValue(e.PlayerId, out (Color, int Left) boots) && boots.Left > 0))
         {
             return;
         }
@@ -157,14 +179,14 @@ public partial class Footprints : Node3D, ISimEventListener
         Vector3 right = forward.Cross(Vector3.Up);
         if (kind == FootstepKind.Land)
         {
-            Foot(e.PlayerId, at - right * 0.12f, forward, false, pressed);
-            Foot(e.PlayerId, at + right * 0.12f, forward, true, pressed);
+            Foot(e.PlayerId, at - right * 0.12f, forward, false, pressed, wetBoots, wetGround);
+            Foot(e.PlayerId, at + right * 0.12f, forward, true, pressed, wetBoots, wetGround);
             return;
         }
 
         bool left = _leftFoot.TryGetValue(e.PlayerId, out bool l) && l;
         _leftFoot[e.PlayerId] = !left;
-        Foot(e.PlayerId, at + right * (left ? -0.11f : 0.11f), forward, !left, pressed);
+        Foot(e.PlayerId, at + right * (left ? -0.11f : 0.11f), forward, !left, pressed, wetBoots, wetGround);
     }
 
     public override void _Process(double delta)
@@ -172,6 +194,7 @@ public partial class Footprints : Node3D, ISimEventListener
         _now += delta;
         _pressed?.Material.SetShaderParameter(Now, (float)_now);
         _painted?.Material.SetShaderParameter(Now, (float)_now);
+        _wet?.Material.SetShaderParameter(Now, (float)_now);
     }
 
     /// <summary>A foot treading in fresh paint on the ground picks it up on its sole.</summary>
@@ -192,8 +215,11 @@ public partial class Footprints : Node3D, ISimEventListener
         }
     }
 
-    /// <summary>One foot down: pressed into the ground if it takes prints, and in paint while the boots still carry some.</summary>
-    private void Foot(int player, Vector3 at, Vector3 forward, bool rightFoot, bool pressed)
+    /// <summary>
+    /// One foot down: pressed into the ground if it takes prints, in paint while the boots still carry some,
+    /// and wet while they're wet (they dry a step at a time on any ground, but leave prints only on hard ground).
+    /// </summary>
+    private void Foot(int player, Vector3 at, Vector3 forward, bool rightFoot, bool pressed, bool wetBoots, bool wetGround)
     {
         // A little askew, as feet are.
         Vector3 along = forward.Rotated(Vector3.Up, ((float)_random.NextDouble() - 0.5f) * 0.25f + (rightFoot ? -0.06f : 0.06f));
@@ -204,25 +230,37 @@ public partial class Footprints : Node3D, ISimEventListener
         {
             Color colour = Color.FromHtml(_def.Color) * (0.9f + 0.2f * (float)_random.NextDouble());
             colour.A = _def.Opacity * (0.75f + 0.25f * (float)_random.NextDouble());
-            Stamp(_pressed!, new Transform3D(basis, at + Vector3.Up * Lift), colour, rightFoot);
+            Stamp(_pressed!, new Transform3D(basis, at + Vector3.Up * Lift), colour, rightFoot, _def.Fade_s);
+        }
+
+        if (wetBoots && _wetBoots.TryGetValue(player, out int wetLeft) && wetLeft > 0)
+        {
+            if (wetGround)
+            {
+                Color water = Color.FromHtml(_def.WetColor);
+                water.A = _def.WetOpacity * wetLeft / _def.WetSteps;
+                Stamp(_wet!, new Transform3D(basis, at + Vector3.Up * Lift), water, rightFoot, _def.WetDry_s * (0.5f + 0.5f * wetLeft / _def.WetSteps));
+            }
+
+            _wetBoots[player] = wetLeft - 1;
         }
 
         if (_painted is not null && _boots.TryGetValue(player, out (Color Color, int Left) boots) && boots.Left > 0)
         {
             Color paint = boots.Color;
             paint.A = _def.PaintOpacity * boots.Left / _def.PaintSteps;
-            Stamp(_painted, new Transform3D(basis, at + Vector3.Up * PaintLift), paint, rightFoot);
+            Stamp(_painted, new Transform3D(basis, at + Vector3.Up * PaintLift), paint, rightFoot, _def.Fade_s);
             _boots[player] = (boots.Color, boots.Left - 1);
         }
     }
 
-    private void Stamp(Ring ring, Transform3D transform, Color colour, bool rightFoot)
+    private void Stamp(Ring ring, Transform3D transform, Color colour, bool rightFoot, float life)
     {
         int i = ring.Next;
         ring.Next = (ring.Next + 1) % _def.Max;
         ring.Multimesh.SetInstanceTransform(i, transform);
         ring.Multimesh.SetInstanceColor(i, colour);
-        ring.Multimesh.SetInstanceCustomData(i, new Color((float)_now, _def.Fade_s, rightFoot ? 1f : 0f, 0f));
+        ring.Multimesh.SetInstanceCustomData(i, new Color((float)_now, life, rightFoot ? 1f : 0f, 0f));
     }
 
     /// <summary>
