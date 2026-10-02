@@ -296,6 +296,10 @@ public sealed class BuildingDef : IValidatable
     [Optional]
     public string? CeilingLights { get; set; }
 
+    /// <summary>Paint on the floors and walls: lines, hatched areas, stencilled numbers, striped columns (presentation only).</summary>
+    [Optional]
+    public MarkingsDef? Markings { get; set; }
+
     public WallDef[] Walls { get; set; } = Array.Empty<WallDef>();
 
     [Optional]
@@ -374,6 +378,7 @@ public sealed class BuildingDef : IValidatable
         LevelDefChecks.Items(v, nameof(Floors), Floors);
         Roof?.Validate(v.Scope(nameof(Roof)));
         Trusses?.Validate(v.Scope(nameof(Trusses)));
+        Markings?.Validate(v.Scope(nameof(Markings)));
         LevelDefChecks.Items(v, nameof(Stairs), Stairs);
         LevelDefChecks.Items(v, nameof(Columns), Columns);
         LevelDefChecks.Items(v, nameof(Props), Props);
@@ -607,6 +612,89 @@ public sealed class TrussesDef : IValidatable
         v.InRange(nameof(Spacing_m), Spacing_m, 1, 20);
         v.InRange(nameof(Depth_m), Depth_m, 0.2, 3);
         v.InRange(nameof(LampsPerTruss), LampsPerTruss, 0, 20);
+    }
+}
+
+/// <summary>
+/// Worn paint on a building (presentation only), in plan metres in its frame: lines and hatched areas
+/// on the ground floor, numbers stencilled on a floor or a wall, and stripes round the foot of the
+/// ground floor's columns, all in this colour unless a stencil gives its own.
+/// </summary>
+public sealed class MarkingsDef : IValidatable
+{
+    /// <summary>The paint's colour, as #rrggbb.</summary>
+    public string Color { get; set; } = "";
+
+    public float LineWidth_m { get; set; }
+
+    /// <summary>Lines on the ground floor: [x0, z0, x1, z1] each.</summary>
+    [Optional]
+    public float[][]? Lines_m { get; set; }
+
+    /// <summary>Areas on the ground floor hatched with diagonal stripes: [x0, z0, x1, z1] each.</summary>
+    [Optional]
+    public float[][]? Hatches_m { get; set; }
+
+    [Optional]
+    public StencilDef[]? Stencils { get; set; }
+
+    /// <summary>How high the stripes go round the foot of the ground floor's columns (0 for none).</summary>
+    [Optional]
+    public float ColumnStripes_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        LevelDefChecks.Colour(v, nameof(Color), Color);
+        v.InRange(nameof(LineWidth_m), LineWidth_m, 0.02, 1);
+        for (int i = 0; Lines_m is not null && i < Lines_m.Length; i++)
+        {
+            v.Vector(nameof(Lines_m) + "[" + i.ToString(CultureInfo.InvariantCulture) + "]", Lines_m[i], 4);
+        }
+
+        LevelDefChecks.Rects(v, nameof(Hatches_m), Hatches_m);
+        LevelDefChecks.Items(v, nameof(Stencils), Stencils);
+        v.InRange(nameof(ColumnStripes_m), ColumnStripes_m, 0, 5);
+    }
+}
+
+/// <summary>
+/// Digits stencilled on a floor or, upright, on a wall: their middle at [x, y, z] (y is the height of
+/// the floor or of the middle on the wall), each this tall. Yaw turns them as anything in the plan: at
+/// 0 they read from the +Z side, a wall's at 0 facing +Z.
+/// </summary>
+public sealed class StencilDef : IValidatable
+{
+    public string Text { get; set; } = "";
+
+    public float[] At_m { get; set; } = Array.Empty<float>();
+
+    public float Size_m { get; set; }
+
+    [Optional]
+    public float Yaw_deg { get; set; }
+
+    /// <summary>On a wall rather than the floor.</summary>
+    [Optional]
+    public bool Wall { get; set; }
+
+    /// <summary>A colour of its own, as #rrggbb.</summary>
+    [Optional]
+    public string? Color { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (string.IsNullOrEmpty(Text) || !Text.All(char.IsAsciiDigit))
+        {
+            v.Error(nameof(Text), $"'{Text}' must be digits");
+        }
+
+        v.Vector(nameof(At_m), At_m);
+        v.InRange(nameof(Size_m), Size_m, 0.05, 5);
+        v.InRange(nameof(Yaw_deg), Yaw_deg, -360, 360);
+        if (Color is not null)
+        {
+            LevelDefChecks.Colour(v, nameof(Color), Color);
+        }
     }
 }
 
@@ -862,12 +950,17 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public SceneryDef? Scenery { get; set; }
 
+    /// <summary>Paint on the open ground, in world [x, z]: lines, hatched areas, stencilled numbers (presentation only).</summary>
+    [Optional]
+    public MarkingsDef? Markings { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
         LevelDefChecks.Items(v, nameof(Viewpoints), Viewpoints);
         Scenery?.Validate(v.Scope(nameof(Scenery)));
+        Markings?.Validate(v.Scope(nameof(Markings)));
         v.Vector(nameof(BoundsMin_m), BoundsMin_m);
         v.Vector(nameof(BoundsMax_m), BoundsMax_m);
         if (BoundsMin_m is { Length: 3 } && BoundsMax_m is { Length: 3 } &&
@@ -1183,6 +1276,15 @@ internal static class LevelDefChecks
         for (int i = 0; items is not null && i < items.Length; i++)
         {
             items[i].Validate(v.Item(property, i));
+        }
+    }
+
+    /// <summary>A colour written #rrggbb.</summary>
+    public static void Colour(Validator v, string property, string? value)
+    {
+        if (value is not { Length: 7 } || value[0] != '#' || !value.Skip(1).All(char.IsAsciiHexDigit))
+        {
+            v.Error(property, $"'{value}' must be a colour written #rrggbb");
         }
     }
 

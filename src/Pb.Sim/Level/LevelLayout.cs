@@ -112,6 +112,9 @@ public sealed class LevelLayout
     /// <summary>What the game draws out beyond the level, if anything (presentation only).</summary>
     public SceneryDef? Scenery { get; init; }
 
+    /// <summary>Paint on the open ground (the level's "markings"), passed through for the game to draw.</summary>
+    public MarkingsDef? Markings { get; init; }
+
     /// <summary>Debug names for primitive owners ("warehouse#0", "prop:oil_drum#3", "wall#1").</summary>
     public required IReadOnlyList<string> Owners { get; init; }
 

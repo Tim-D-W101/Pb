@@ -18,7 +18,8 @@ The match HUD is in, and the art pass is well along: photographic textures on th
 ground; every prop modelled (built in code from its colliders, with generated models replacing
 them as they arrive); framed windows with broken glass; gutters, roof trusses, lamps and fittings on
 the buildings; barbed wire on the perimeter wall and pylons on the skyline; oil, puddles, leaves,
-litter, ivy and old paint from past games; a proper marker in your gloved hands, with your paint in
+litter, ivy and old paint from past games; worn paint markings in the warehouse and on the yard;
+crows wheeling overhead; a proper marker in your gloved hands, with your paint in
 its see-through loader; a rigged character model for the opponents, ready to play walk and run
 clips; the compound itself behind the main menu; and the training ground dressed to match, with
 netting, a timber backstop, inflatable bunkers and masked dummies covered in old paint. More

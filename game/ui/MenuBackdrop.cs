@@ -10,7 +10,7 @@ namespace Pb.Game.Ui;
 
 /// <summary>
 /// The level behind the main menu (presentation.jsonc "menuBackdrop"): its buildings, props, weeds,
-/// things on the ground and ivy under the level's light, at the saved graphics preset, seen from a
+/// things on the ground, ivy, painted markings and crows overhead under the level's light, at the saved graphics preset, seen from a
 /// camera drifting slowly from one point to another and back. No sim, no bots: just the place. It's
 /// built a piece a frame after the menu first shows, so the menu never waits for it, and says when
 /// it's ready (<see cref="Shown"/>) so the menu can fade it in.
@@ -72,6 +72,13 @@ public partial class MenuBackdrop : Node3D
                 var creepers = new Creepers { Name = "Creepers" };
                 AddChild(creepers);
                 creepers.Build(level, collision, view.Creepers);
+                var markings = new Markings { Name = "Markings" };
+                AddChild(markings);
+                markings.Build(level, view.Markings);
+                var birds = new Birds { Name = "Birds" };
+                AddChild(birds);
+                Pb.Sim.Collision.Aabb bounds = level.Bounds;
+                birds.Build(new Vector3((bounds.Min.X + bounds.Max.X) * 0.5f, 0f, (bounds.Min.Z + bounds.Max.Z) * 0.5f), LevelBuilder.StableHash(level.Id), view.Birds);
             },
             () =>
             {

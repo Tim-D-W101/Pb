@@ -193,10 +193,17 @@ public partial class LevelMain : Node3D, ISimEventListener
         _creepers = new Creepers { Name = "Creepers" };
         AddChild(_creepers);
         _creepers.Build(_level, _sim.Collision, _view.Creepers);
+        var markings = new Markings { Name = "Markings" };
+        AddChild(markings);
+        markings.Build(_level, _view.Markings);
+        var birds = new Birds { Name = "Birds" };
+        AddChild(birds);
+        Pb.Sim.Collision.Aabb bounds = _level.Bounds;
+        birds.Build(new Vector3((bounds.Min.X + bounds.Max.X) * 0.5f, 0f, (bounds.Min.Z + bounds.Max.Z) * 0.5f), LevelBuilder.StableHash(_level.Id), _view.Birds);
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {markings.CardCount} marking cards, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);

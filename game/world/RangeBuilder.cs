@@ -18,7 +18,7 @@ namespace Pb.Game.World;
 /// <item>a timber backstop banked with earth, netting above;</item>
 /// <item>distance boards;</item>
 /// <item>inflatable bunkers and target dummies built in code (<see cref="RangeShapes"/>);</item>
-/// <item>old paint, scenery and tree lines beyond.</item>
+/// <item>old paint, scenery and tree lines beyond, and crows overhead.</item>
 /// </list>
 /// Each prop's walking collision comes from the same <see cref="PropSpec"/> that builds its ball
 /// collider in the sim, so they always match. The nets, backstop and boards only stop you walking
@@ -89,6 +89,9 @@ public partial class RangeBuilder : Node3D
         }
 
         AddChild(Horizon.Build(new Vector3(0f, 0f, -layout.Length * 0.5f), LevelBuilder.StableHash(layout.Id), view.Horizon));
+        var birds = new Birds { Name = "Birds" };
+        AddChild(birds);
+        birds.Build(new Vector3(0f, 0f, -layout.Length * 0.5f), LevelBuilder.StableHash(layout.Id), view.Birds);
         BuildOldPaint(layout, backstopZ);
     }
 

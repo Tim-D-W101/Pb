@@ -219,6 +219,7 @@ public static class LevelFactory
             Buildings = buildings,
             Walls = walls,
             Scenery = def.Scenery,
+            Markings = def.Markings,
             Owners = owners,
             PlayerSpawns = playerSpawns,
             SpawnArea = spawnArea.Box,

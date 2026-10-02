@@ -44,6 +44,10 @@ public sealed class PresentationDef : IValidatable
 
     public OldPaintDef OldPaint { get; set; } = new();
 
+    public MarkingsViewDef Markings { get; set; } = new();
+
+    public BirdsDef Birds { get; set; } = new();
+
     public CreepersDef Creepers { get; set; } = new();
 
     public MenuBackdropDef MenuBackdrop { get; set; } = new();
@@ -94,6 +98,8 @@ public sealed class PresentationDef : IValidatable
         Weeds.Validate(v.Scope(nameof(Weeds)));
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
+        Markings.Validate(v.Scope(nameof(Markings)));
+        Birds.Validate(v.Scope(nameof(Birds)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
         TrainingGround.Validate(v.Scope(nameof(TrainingGround)));
@@ -932,6 +938,13 @@ public sealed class HorizonDef : IValidatable
 
     public HorizonRingDef[] Rings { get; set; } = System.Array.Empty<HorizonRingDef>();
 
+    /// <summary>Buildings far off among the trees, and their colour (looks only).</summary>
+    [Optional]
+    public LandmarkDef[]? Landmarks { get; set; }
+
+    [Optional]
+    public string? LandmarkColor { get; set; }
+
     public void Validate(Validator v)
     {
         if (!Godot.Color.HtmlIsValid(Color))
@@ -943,6 +956,49 @@ public sealed class HorizonDef : IValidatable
         {
             Rings[i].Validate(v.Item(nameof(Rings), i));
         }
+
+        for (int i = 0; Landmarks is not null && i < Landmarks.Length; i++)
+        {
+            Landmarks[i].Validate(v.Item(nameof(Landmarks), i));
+        }
+
+        if (LandmarkColor is not null && !Godot.Color.HtmlIsValid(LandmarkColor))
+        {
+            v.Error(nameof(LandmarkColor), $"'{LandmarkColor}' is not a valid colour");
+        }
+    }
+}
+
+/// <summary>
+/// A building far off on the horizon, a silhouette in the fog: a chimney, a shed with a sawtooth roof,
+/// a gasholder's frame or a block of flats, at a compass bearing (0 north, 90 east) and distance from
+/// the place's middle, this tall and this wide.
+/// </summary>
+public sealed class LandmarkDef : IValidatable
+{
+    public static readonly string[] Kinds = { "chimney", "shed", "gasholder", "flats" };
+
+    public string Kind { get; set; } = "";
+
+    public float Bearing_deg { get; set; }
+
+    public float Distance_m { get; set; }
+
+    public float Height_m { get; set; }
+
+    public float Width_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (System.Array.IndexOf(Kinds, Kind) < 0)
+        {
+            v.Error(nameof(Kind), $"'{Kind}' must be one of {string.Join(", ", Kinds)}");
+        }
+
+        v.InRange(nameof(Bearing_deg), Bearing_deg, -360, 360);
+        v.InRange(nameof(Distance_m), Distance_m, 100, 5000);
+        v.InRange(nameof(Height_m), Height_m, 2, 300);
+        v.InRange(nameof(Width_m), Width_m, 1, 400);
     }
 }
 
@@ -1205,6 +1261,96 @@ public sealed class OldPaintDef : IValidatable
         {
             v.Error(name, $"must be [least, most] within [{min}, {max}]");
         }
+    }
+}
+
+/// <summary>
+/// Crows wheeling over each level and the training ground (game/world/Birds.cs): flocks circling round
+/// points [x, z] from the place's middle, at a speed, their wingspan and colour, gliding for a while
+/// (flapEvery_s, least and most) between bursts of wingbeats (flapFor_s).
+/// </summary>
+public sealed class BirdsDef : IValidatable
+{
+    public FlockDef[] Flocks { get; set; } = System.Array.Empty<FlockDef>();
+
+    public float Speed_mps { get; set; }
+
+    public float Wingspan_m { get; set; }
+
+    public string Color { get; set; } = "";
+
+    public float[] FlapEvery_s { get; set; } = System.Array.Empty<float>();
+
+    public float[] FlapFor_s { get; set; } = System.Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        for (int i = 0; i < Flocks.Length; i++)
+        {
+            Flocks[i].Validate(v.Item(nameof(Flocks), i));
+        }
+
+        v.InRange(nameof(Speed_mps), Speed_mps, 1, 40);
+        v.InRange(nameof(Wingspan_m), Wingspan_m, 0.1, 3);
+        TrainingGroundDef.Colour(v, nameof(Color), Color);
+        FlockDef.Pair(v, nameof(FlapEvery_s), FlapEvery_s, 0.5f, 60f);
+        FlockDef.Pair(v, nameof(FlapFor_s), FlapFor_s, 0.1f, 20f);
+    }
+}
+
+/// <summary>A flock: this many birds round [x, z], each on a circle of a radius and at a height between the two given.</summary>
+public sealed class FlockDef : IValidatable
+{
+    public float[] Center_m { get; set; } = System.Array.Empty<float>();
+
+    public int Count { get; set; }
+
+    public float[] Radius_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] Height_m { get; set; } = System.Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        if (Center_m.Length != 2)
+        {
+            v.Error(nameof(Center_m), "must be [x, z]");
+        }
+
+        v.InRange(nameof(Count), Count, 0, 200);
+        Pair(v, nameof(Radius_m), Radius_m, 2f, 500f);
+        Pair(v, nameof(Height_m), Height_m, 3f, 300f);
+    }
+
+    internal static void Pair(Validator v, string name, float[] pair, float min, float max)
+    {
+        if (pair.Length != 2 || !(pair[0] >= min && pair[0] <= pair[1] && pair[1] <= max))
+        {
+            v.Error(name, $"must be [least, most] within [{min}, {max}]");
+        }
+    }
+}
+
+/// <summary>
+/// How the buildings' paint markings are drawn (game/world/Markings.cs; where they are is each building
+/// template's "markings"): least and most opacity of the worn paint, and the distances they fade out over.
+/// </summary>
+public sealed class MarkingsViewDef : IValidatable
+{
+    public float[] Opacity { get; set; } = System.Array.Empty<float>();
+
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (Opacity.Length != 2 || !(Opacity[0] >= 0f && Opacity[0] <= Opacity[1] && Opacity[1] <= 1f))
+        {
+            v.Error(nameof(Opacity), "must be [least, most] within [0, 1]");
+        }
+
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 5, 500);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 600);
     }
 }
 

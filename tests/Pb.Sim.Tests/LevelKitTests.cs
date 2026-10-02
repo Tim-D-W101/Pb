@@ -472,6 +472,33 @@ public class LevelKitTests
     }
 
     [Fact]
+    public void MarkingsPassThroughAndBadOnesNameTheFileAndKey()
+    {
+        GameData data = GameData.Load(TestData.Source);
+        MarkingsDef markings = data.Kit.Buildings["warehouse"].Def.Markings!;
+        Assert.NotEmpty(markings.Lines_m!);
+        Assert.NotEmpty(markings.Hatches_m!);
+        Assert.Contains(markings.Stencils!, s => s.Wall && s.Text == "1");
+        Assert.NotEmpty(data.Levels["oxbarrow_works"].Markings!.Stencils!);
+
+        var colour = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
+            s => s.Replace("\"color\": \"#d4aa2c\"", "\"color\": \"yellow\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(colour));
+        Assert.Contains("warehouse.jsonc", ex.Message);
+        Assert.Contains("markings.color", ex.Message);
+
+        var text = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
+            s => s.Replace("\"text\": \"2\"", "\"text\": \"B2\""));
+        ex = Assert.Throws<DataException>(() => GameData.Load(text));
+        Assert.Contains("stencils[1].text", ex.Message);
+
+        var hatch = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
+            s => s.Replace("[6, 21.6, 10, 23.8]", "[10, 21.6, 6, 23.8]"));
+        ex = Assert.Throws<DataException>(() => GameData.Load(hatch));
+        Assert.Contains("hatches_m", ex.Message);
+    }
+
+    [Fact]
     public void BadTextureTintNamesTheFileAndKey()
     {
         var source = new EditedDataSource(TestData.Source).Edit("kit/materials.jsonc",

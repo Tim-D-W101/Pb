@@ -148,6 +148,18 @@
     "rings": [
       { "radius_m": 340, "minHeight_m": 6, "maxHeight_m": 17, "gaps": 0.3 },
       { "radius_m": 680, "minHeight_m": 12, "maxHeight_m": 34, "gaps": 0.15 }
+    ],
+    // A town's edge far off, grey in the haze: chimneys and sawtooth sheds to the north-east, a
+    // gasholder's frame to the north-west, flats to the south-west. Bearing: 0 north, 90 east.
+    "landmarkColor": "#3c3e3e",
+    "landmarks": [
+      { "kind": "chimney", "bearing_deg": 34, "distance_m": 520, "height_m": 55, "width_m": 4.5 },
+      { "kind": "chimney", "bearing_deg": 40, "distance_m": 545, "height_m": 41, "width_m": 3.6 },
+      { "kind": "shed", "bearing_deg": 28, "distance_m": 470, "height_m": 15, "width_m": 70 },
+      { "kind": "shed", "bearing_deg": 46, "distance_m": 500, "height_m": 13, "width_m": 50 },
+      { "kind": "gasholder", "bearing_deg": 302, "distance_m": 430, "height_m": 32, "width_m": 44 },
+      { "kind": "flats", "bearing_deg": 208, "distance_m": 600, "height_m": 38, "width_m": 22 },
+      { "kind": "flats", "bearing_deg": 221, "distance_m": 640, "height_m": 30, "width_m": 26 }
     ]
   },
 
@@ -318,6 +330,29 @@
       "powerLines": [ { "points_m": [[-520, -330], [-90, -290], [520, -260]], "spacing_m": 230, "height_m": 28, "material": "steel_galvanised", "wire": "steel_painted" } ],
       "poleLines": [ { "points_m": [[44, 70], [48, -140], [60, -420]], "spacing_m": 42, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" } ]
     }
+  },
+
+  // Crows wheeling over each level and the training ground (looks only): each flock circles round a
+  // point [x, z] from the place's middle, each bird on its own circle and height, gliding for a few
+  // seconds (flapEvery_s) between bursts of wingbeats (flapFor_s).
+  "birds": {
+    "flocks": [
+      { "center_m": [-12, -18], "count": 6, "radius_m": [16, 34], "height_m": [26, 44] },
+      { "center_m": [36, 24], "count": 3, "radius_m": [9, 18], "height_m": [16, 26] }
+    ],
+    "speed_mps": 8.5,
+    "wingspan_m": 0.9,
+    "color": "#1b1b1d",
+    "flapEvery_s": [3, 9],
+    "flapFor_s": [0.8, 2.2]
+  },
+
+  // Worn paint on the buildings (each template's "markings": floor lines, hatched bays, stencilled
+  // numbers, striped columns): how opaque the paint is that's left, and where it fades out.
+  "markings": {
+    "opacity": [0.55, 0.9],
+    "fadeStart_m": 55,
+    "fadeEnd_m": 85
   },
 
   // Ivy and dead vines climbing the outside walls: patches standing on the ground against walls of
