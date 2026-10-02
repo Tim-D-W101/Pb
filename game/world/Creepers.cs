@@ -130,7 +130,14 @@ public partial class Creepers : Node3D
             multimesh.SetInstanceCustomData(i, new Color(cards[i].Variant, 0f, 0f, 0f));
         }
 
-        AddChild(new MultiMeshInstance3D { Name = "CreeperCards", Multimesh = multimesh, MaterialOverride = material });
+        // No shadows: they're 2 cm off a wall that's already in the shade of whatever's in front of it.
+        AddChild(new MultiMeshInstance3D
+        {
+            Name = "CreeperCards",
+            Multimesh = multimesh,
+            MaterialOverride = material,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        });
     }
 
     /// <summary>Whether there's wall behind the card all the way: at its top corners, its middle and halfway up each side.</summary>
