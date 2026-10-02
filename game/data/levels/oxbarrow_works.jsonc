@@ -147,7 +147,8 @@
     { "name": "from the mezzanine", "position_m": [-30.6, 5.7, -21], "yaw_deg": -78, "pitch_deg": -14 },
     { "name": "office corridor", "position_m": [-21.5, 1.7, 16], "yaw_deg": 90, "pitch_deg": 0 },
     { "name": "office upstairs", "position_m": [-27, 4.9, 19], "yaw_deg": 120, "pitch_deg": -5 },
-    { "name": "east field", "position_m": [50, 1.7, 30], "yaw_deg": 30, "pitch_deg": 3 }
+    { "name": "east field", "position_m": [50, 1.7, 30], "yaw_deg": 30, "pitch_deg": 3 },
+    { "name": "the containers", "position_m": [-1, 1.7, 9], "yaw_deg": 32, "pitch_deg": 4 }
   ],
   "pickups": [
     { "id": "pod_guardhouse", "kind": "pod", "position_m": [0.5, 0, 33] },

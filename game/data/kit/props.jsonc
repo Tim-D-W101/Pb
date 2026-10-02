@@ -135,7 +135,7 @@
     },
     {
       "id": "roller_door_half", "displayName": "Half-open roller door",
-      "colliders": [ { "shape": "box", "center_m": [0, 2.9, 0], "size_m": [4.0, 3.2, 0.08], "material": "steel_rust" } ]
+      "colliders": [ { "shape": "box", "center_m": [0, 2.9, 0], "size_m": [4.0, 3.2, 0.08], "material": "steel_painted" } ]
     }
   ]
 }
