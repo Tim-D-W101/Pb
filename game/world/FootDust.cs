@@ -32,6 +32,7 @@ public partial class FootDust : Node3D, ISimEventListener
     private ShaderMaterial _material = null!;
     private double _now;
     private int _next;
+    private int _budget;
 
     /// <summary>How many puffs have been raised.</summary>
     public int Raised { get; private set; }
@@ -41,6 +42,7 @@ public partial class FootDust : Node3D, ISimEventListener
         _sim = sim;
         _def = def;
         _steps = sim.Config.Movement.Footsteps;
+        _budget = def.PerFrame;
         foreach ((string surface, string colour) in def.Colors)
         {
             if (sim.Config.Surfaces.TryGet(surface, out SurfaceId id))
@@ -143,6 +145,7 @@ public partial class FootDust : Node3D, ISimEventListener
 
     public override void _Process(double delta)
     {
+        _budget = _def.PerFrame;
         _now += delta;
         _material.SetShaderParameter(Now, (float)_now);
         // Sliding feet raise a trail until the slide ends.
@@ -173,10 +176,13 @@ public partial class FootDust : Node3D, ISimEventListener
     /// <summary>Raises a puff at <paramref name="at"/> (on the ground), <paramref name="delay"/> seconds from now.</summary>
     private void Raise(Vector3 at, float size, Color colour, float delay, float heading = -1f)
     {
-        if (GetViewport().GetCamera3D() is { } camera && camera.GlobalPosition.DistanceSquaredTo(at) > _def.Reach_m * _def.Reach_m)
+        // A hail of paint raises only so many a frame.
+        if (_budget <= 0 || GetViewport().GetCamera3D() is { } camera && camera.GlobalPosition.DistanceSquaredTo(at) > _def.Reach_m * _def.Reach_m)
         {
             return;
         }
+
+        _budget--;
 
         int i = _next;
         _next = (_next + 1) % _def.Max;

@@ -85,6 +85,9 @@ public partial class RangeMain : Node3D, ISimEventListener
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
         _splats.Initialize(_view, (i, _, _) => _world.TargetNode(i) is { } target ? new SplatAnchor(target) : null);
         GetNode<ImpactFx>("ImpactFx").Initialize(_view);
+        var dust = new FootDust { Name = "FootDust" };
+        AddChild(dust);
+        dust.Initialize(_sim, _view.FootDust, _view.GroundWind);
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
         // Headless runs (CI) use Godot's dummy audio driver, which never retires finished
@@ -106,6 +109,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         _driver.AddListener(_balls);
         _driver.AddListener(_splats);
         _driver.AddListener(GetNode<ImpactFx>("ImpactFx"));
+        _driver.AddListener(dust);
         if (!headless)
         {
             _driver.AddListener(audio);

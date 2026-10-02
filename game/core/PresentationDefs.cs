@@ -1904,9 +1904,10 @@ public sealed class LitterKindDef : IValidatable
 /// Dust kicked up underfoot (game/world/FootDust.cs): its colour (sRGB) on each surface that has any
 /// (break_model.jsonc names; elsewhere feet raise none); a step's puff size from a walk's to a sprint's
 /// (crouched steps raise none), a landing's (a ring of five), a jump's and a slide's, laid every so many
-/// metres along it, and a ball's breaking or bouncing on the ground; how long a puff lasts, how many times its size it grows to, how fast it rises, the
-/// share of the ground wind it drifts with, how thick it starts (0-1), how many can be up at once, and how
-/// far from the camera any are raised.
+/// metres along it, and a ball's breaking or bouncing on the ground; how long a puff lasts, how many times
+/// its size it grows to, how fast it rises, the share of the ground wind it drifts with, how thick it
+/// starts (0-1), how many can be up at once, how many are raised in a frame at most, and how far from the
+/// camera any are raised.
 /// </summary>
 public sealed class FootDustDef : IValidatable
 {
@@ -1938,6 +1939,8 @@ public sealed class FootDustDef : IValidatable
 
     public int Max { get; set; }
 
+    public int PerFrame { get; set; }
+
     public float Reach_m { get; set; }
 
     public void Validate(Validator v)
@@ -1960,6 +1963,7 @@ public sealed class FootDustDef : IValidatable
         v.InRange(nameof(WindShare), WindShare, 0, 1);
         v.InRange(nameof(Opacity), Opacity, 0, 1);
         v.InRange(nameof(Max), Max, 1, 4096);
+        v.InRange(nameof(PerFrame), PerFrame, 1, 4096);
         v.InRange(nameof(Reach_m), Reach_m, 1, 500);
     }
 }

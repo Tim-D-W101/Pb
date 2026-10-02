@@ -347,7 +347,8 @@
   // jumpSize_m, and a slide one of slideSize_m every slideEvery_m; a ball breaking on the ground raises one
   // of breakSize_m, and one bouncing off it one of bounceSize_m. A puff lasts about lifetime_s, grows
   // to grow times its size, rises at rise_mps and drifts with windShare of the ground wind, starting
-  // opacity thick. At most max are up at once, and none are raised further than reach_m from the camera.
+  // opacity thick. At most max are up at once, at most perFrame are raised in a frame (a hail of paint),
+  // and none further than reach_m from the camera.
   "footDust": {
     "colors": { "dirt": "#9c8667", "gravel": "#a6a094", "turf": "#a69a72" },
     "stepSize_m": [0.2, 0.5],
@@ -363,6 +364,7 @@
     "windShare": 0.35,
     "opacity": 0.45,
     "max": 256,
+    "perFrame": 24,
     "reach_m": 60
   },
 
