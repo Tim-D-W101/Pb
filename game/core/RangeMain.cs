@@ -32,6 +32,7 @@ public partial class RangeMain : Node3D, ISimEventListener
     private PlayerController _player = null!;
     private BallRenderer _balls = null!;
     private SplatSystem _splats = null!;
+    private PaintDrips _drips = null!;
     private ArcPreview _arc = null!;
     private Hud _hud = null!;
     private SmokeTest? _smoke;
@@ -88,6 +89,9 @@ public partial class RangeMain : Node3D, ISimEventListener
         var dust = new FootDust { Name = "FootDust" };
         AddChild(dust);
         dust.Initialize(_sim, _view.FootDust, _view.GroundWind);
+        _drips = new PaintDrips { Name = "PaintDrips" };
+        AddChild(_drips);
+        _drips.Initialize(_view);
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
         // Headless runs (CI) use Godot's dummy audio driver, which never retires finished
@@ -110,6 +114,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         _driver.AddListener(_splats);
         _driver.AddListener(GetNode<ImpactFx>("ImpactFx"));
         _driver.AddListener(dust);
+        _driver.AddListener(_drips);
         if (!headless)
         {
             _driver.AddListener(audio);
@@ -282,6 +287,7 @@ public partial class RangeMain : Node3D, ISimEventListener
             Atmosphere.ApplyLighting(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), view.Lighting);
             ApplyGraphics(view.Graphics.Find(_settings.GraphicsPreset));
             _splats.ClearAll();
+            _drips.ClearAll();
             _player.ApplyMovementParams(data.Config.Movement);
             _balls.ApplyView(view);
             _splats.ApplyView(view);

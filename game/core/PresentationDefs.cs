@@ -60,6 +60,8 @@ public sealed class PresentationDef : IValidatable
 
     public FootprintsDef Footprints { get; set; } = new();
 
+    public PaintDripsDef PaintDrips { get; set; } = new();
+
     /// <summary>
     /// The wind near the ground ([x, z] m/s: +x east, +z south): the weeds sway, the bags on the wire
     /// stream and dust drifts with it. The clouds and the chimney smoke, higher up, have their own.
@@ -149,6 +151,7 @@ public sealed class PresentationDef : IValidatable
         Ripples.Validate(v.Scope(nameof(Ripples)));
         RoofTatters.Validate(v.Scope(nameof(RoofTatters)));
         Footprints.Validate(v.Scope(nameof(Footprints)));
+        PaintDrips.Validate(v.Scope(nameof(PaintDrips)));
         if (GroundWind_mps.Length != 2 || System.MathF.Abs(GroundWind_mps[0]) > 30f || System.MathF.Abs(GroundWind_mps[1]) > 30f ||
             GroundWind_mps[0] * GroundWind_mps[0] + GroundWind_mps[1] * GroundWind_mps[1] < 0.01f)
         {
@@ -1738,6 +1741,44 @@ public sealed class SnaggedBagsDef : IValidatable
         FlockDef.Pair(v, nameof(Lean_rad), Lean_rad, 0f, 1.3f);
         v.InRange(nameof(Flap_m), Flap_m, 0, 0.3);
         v.InRange(nameof(Flutter_hz), Flutter_hz, 0, 5);
+    }
+}
+
+/// <summary>
+/// Fresh paint running down the walls (game/ballistics/PaintDrips.cs): the share of breaks on a steep face
+/// of the world that run, how many runs (least, most), how far they run and how wide they are (least, most),
+/// how long they take to run their length (least, most), the steepest a face may lean back for paint to run
+/// on it (the up part of its normal, 0 for a vertical wall), and how many runs can be kept (the oldest go first).
+/// </summary>
+public sealed class PaintDripsDef : IValidatable
+{
+    public float Share { get; set; }
+
+    public int[] Count { get; set; } = System.Array.Empty<int>();
+
+    public float[] Length_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] Width_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] Run_s { get; set; } = System.Array.Empty<float>();
+
+    public float Steepest { get; set; }
+
+    public int Cap { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Share), Share, 0, 1);
+        if (Count.Length != 2 || Count[0] < 0 || Count[0] > Count[1] || Count[1] > 8)
+        {
+            v.Error(nameof(Count), "must be [least, most] within [0, 8]");
+        }
+
+        FlockDef.Pair(v, nameof(Length_m), Length_m, 0.02f, 3f);
+        FlockDef.Pair(v, nameof(Width_m), Width_m, 0.003f, 0.2f);
+        FlockDef.Pair(v, nameof(Run_s), Run_s, 0.1f, 60f);
+        v.InRange(nameof(Steepest), Steepest, 0, 1);
+        v.InRange(nameof(Cap), Cap, 0, 4000);
     }
 }
 
