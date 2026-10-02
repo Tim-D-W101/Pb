@@ -65,6 +65,9 @@ public partial class LevelBuilder : Node3D
     /// <summary>Where the free-standing walls' piers stand (middle, half-width), for things painted on those walls to keep clear of.</summary>
     public List<(Vector3 At, float Half)> Piers { get; } = new();
 
+    /// <summary>Where the walls' barbed wire runs, strand by strand, for <see cref="SnaggedBags"/>.</summary>
+    public List<WireStrand> Strands { get; } = new();
+
     /// <summary>
     /// Builds the level: its primitives, the props, and the buildings' frames and details from their
     /// templates (<see cref="LevelLayout.Buildings"/>).
@@ -79,6 +82,7 @@ public partial class LevelBuilder : Node3D
         _materials = materials;
         Drips.Clear();
         Piers.Clear();
+        Strands.Clear();
         MeshCount = 0;
         ColliderCount = 0;
         ShapeTriangles = 0;
@@ -124,7 +128,7 @@ public partial class LevelBuilder : Node3D
         int glass = materialIds.TryGetValue(GlassMaterial, out int g) ? g : -1;
         FramedOpenings = OpeningFrames.Build(level, owner => frames.TryGetValue(owner, out int m) ? m : -1, glass, at => ChunkMesh(shapes, at.X, at.Z));
         DressedBuildings = BuildingDetails.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z), Drips);
-        DressedWalls = WallDressing.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z), Drips, Piers);
+        DressedWalls = WallDressing.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z), Drips, Piers, Strands);
         SkirtedFaces = Skirting.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
         SceneryCount = Scenery.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
 

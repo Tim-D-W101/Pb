@@ -28,10 +28,11 @@ public static class WallDressing
     /// <summary>
     /// Adds each dressed wall run's details to <paramref name="meshFor"/> (the mesh for a world
     /// position); <paramref name="material"/> resolves a kit material id. Where rain will run off the
-    /// coping and the wire's brackets goes in <paramref name="drips"/>, and where the piers stand (their
-    /// middles and half-widths, cap included) in <paramref name="piers"/>. Returns how many runs were dressed.
+    /// coping and the wire's brackets goes in <paramref name="drips"/>, where the piers stand (their
+    /// middles and half-widths, cap included) in <paramref name="piers"/>, and where the wire's strands
+    /// run in <paramref name="strands"/>. Returns how many runs were dressed.
     /// </summary>
-    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, List<Drip>? drips = null, List<(Vector3 At, float Half)>? piers = null)
+    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, List<Drip>? drips = null, List<(Vector3 At, float Half)>? piers = null, List<WireStrand>? strands = null)
     {
         int dressed = 0;
         foreach (PlacedWall wall in level.Walls)
@@ -41,7 +42,7 @@ public static class WallDressing
                 continue;
             }
 
-            new Run(wall, material, meshFor, new Random(LevelBuilder.StableHash(level.Id) ^ wall.Owner * 104729), drips, piers).Build();
+            new Run(wall, material, meshFor, new Random(LevelBuilder.StableHash(level.Id) ^ wall.Owner * 104729), drips, piers, strands).Build();
             dressed++;
         }
 
@@ -60,10 +61,12 @@ public static class WallDressing
         private readonly Vector2 _middle;
         private readonly List<Drip>? _drips;
         private readonly List<(Vector3 At, float Half)>? _piers;
+        private readonly List<WireStrand>? _strands;
 
-        public Run(PlacedWall placed, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, Random random, List<Drip>? drips, List<(Vector3 At, float Half)>? piers)
+        public Run(PlacedWall placed, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, Random random, List<Drip>? drips, List<(Vector3 At, float Half)>? piers, List<WireStrand>? strands)
         {
             _piers = piers;
+            _strands = strands;
             _def = placed.Def;
             _drips = drips;
             _dressing = placed.Def.Dressing!;
@@ -287,12 +290,16 @@ public static class WallDressing
                 Mesh(root).Bar(_wire, World(root), World(tip), 0.035f, 0.008f);
             }
 
+            // Anything caught on a strand can hang no lower than the top of the wall under it.
+            float under = _base + _height + (_coping >= 0 ? CopingHeight : 0f);
             for (int k = 0; k + 1 < posts.Count; k++)
             {
                 foreach (float along in Strands)
                 {
                     Vector3 p = Arm(posts[k], along), q = Arm(posts[k + 1], along);
-                    Sag(p, q, 0.025f + 0.04f * (float)_random.NextDouble());
+                    float sag = 0.025f + 0.04f * (float)_random.NextDouble();
+                    Sag(p, q, sag);
+                    _strands?.Add(new WireStrand(World(p), World(q), sag, World(new Vector3(p.X, under, p.Z)).Y));
                 }
             }
 

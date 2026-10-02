@@ -321,6 +321,21 @@
     "fadeEnd_m": 60
   },
 
+  // Plastic bags caught on the walls' barbed wire (looks only): at most one on each strand between two
+  // brackets, hanging size_m long (least-most; never below the top of the wall), in one of these colours
+  // (darkened a little at random). The wind ([x, z] m/s: +x east, +z south; only its direction counts,
+  // the same as the chimney smoke's) holds them out at lean_rad (in a lull, in a gust), and ripples flap
+  // their free end flap_m back and forth flutter_hz times a second.
+  "snaggedBags": {
+    "count": 14,
+    "size_m": [0.32, 0.55],
+    "colors": ["#ebe9e1", "#e2e4d8", "#d9d4c2", "#262626", "#4a6fa8", "#b8503f", "#c9b45a"],
+    "wind_mps": [3.2, 0.6],
+    "lean_rad": [0.6, 1.05],
+    "flap_m": 0.08,
+    "flutter_hz": 2.5
+  },
+
   // Things lying on the ground: oil stains round the car and the machines, puddles under the open sky,
   // damp patches, rust run-off by rusting things, tyre tracks, drifts of leaves against walls, litter
   // and broken chips. Painted at load into one atlas and drawn as flat cards in one draw call; seeded

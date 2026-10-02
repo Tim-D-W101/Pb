@@ -48,6 +48,8 @@ public sealed class PresentationDef : IValidatable
 
     public WornPathsDef WornPaths { get; set; } = new();
 
+    public SnaggedBagsDef SnaggedBags { get; set; } = new();
+
     public GroundDetailDef GroundDetail { get; set; } = new();
 
     public OldPaintDef OldPaint { get; set; } = new();
@@ -122,6 +124,7 @@ public sealed class PresentationDef : IValidatable
         Damp.Validate(v.Scope(nameof(Damp)));
         Graffiti.Validate(v.Scope(nameof(Graffiti)));
         WornPaths.Validate(v.Scope(nameof(WornPaths)));
+        SnaggedBags.Validate(v.Scope(nameof(SnaggedBags)));
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Markings.Validate(v.Scope(nameof(Markings)));
@@ -1662,6 +1665,54 @@ public sealed class GraffitiDef : IValidatable
         v.InRange(nameof(Bleach), Bleach, 0, 1);
         v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Plastic bags caught on the walls' barbed wire (game/world/SnaggedBags.cs): how many (at most one on
+/// each strand between two brackets), how long they hang (least, most; never below the top of the wall),
+/// their colours (sRGB, darkened a little at random), the wind ([x, z] m/s: +x east, +z south; only its
+/// direction counts), the angles it holds them out at (rad, in a lull and in a gust), how far ripples flap
+/// their free end, and how often.
+/// </summary>
+public sealed class SnaggedBagsDef : IValidatable
+{
+    public int Count { get; set; }
+
+    public float[] Size_m { get; set; } = System.Array.Empty<float>();
+
+    public string[] Colors { get; set; } = System.Array.Empty<string>();
+
+    public float[] Wind_mps { get; set; } = System.Array.Empty<float>();
+
+    public float[] Lean_rad { get; set; } = System.Array.Empty<float>();
+
+    public float Flap_m { get; set; }
+
+    public float Flutter_hz { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Count), Count, 0, 200);
+        FlockDef.Pair(v, nameof(Size_m), Size_m, 0.1f, 1f);
+        if (Colors.Length == 0)
+        {
+            v.Error(nameof(Colors), "needs at least one colour");
+        }
+
+        foreach (string c in Colors)
+        {
+            TrainingGroundDef.Colour(v, nameof(Colors), c);
+        }
+
+        if (Wind_mps.Length != 2 || System.MathF.Abs(Wind_mps[0]) > 60f || System.MathF.Abs(Wind_mps[1]) > 60f || Wind_mps[0] * Wind_mps[0] + Wind_mps[1] * Wind_mps[1] < 0.01f)
+        {
+            v.Error(nameof(Wind_mps), "takes [x, z], each within ±60 m/s and not both zero");
+        }
+
+        FlockDef.Pair(v, nameof(Lean_rad), Lean_rad, 0f, 1.3f);
+        v.InRange(nameof(Flap_m), Flap_m, 0, 0.3);
+        v.InRange(nameof(Flutter_hz), Flutter_hz, 0, 5);
     }
 }
 
