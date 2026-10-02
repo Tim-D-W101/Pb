@@ -1,7 +1,8 @@
 # Pb launcher (Play.bat runs this): brings the game up to date with the latest test build, then starts it.
 # Only what changed is downloaded: each of the game's own files whose fingerprint (SHA-256) differs from
-# the newest build's (the art is a file of its own, so it only comes down when it changed), or the whole
-# game when the engine changed. Any problem (offline, GitHub down) just starts the version you have.
+# the newest build's (the art comes in packs of its own, one per asset, so a pack only comes down when its
+# asset changed), or the whole game when the engine changed. Any problem (offline, GitHub down) just
+# starts the version you have.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'  # the progress bar makes downloads several times slower
 # GitHub needs TLS 1.2, which Windows PowerShell 5.1 doesn't always offer by default.
@@ -28,6 +29,19 @@ function Get-Sha256([string] $path) {
     return (Get-FileHash $path -Algorithm SHA256).Hash.ToLower()
 }
 
+# Removes art packs the newest build no longer lists (an asset that's gone), and the single art pack of
+# builds before there was one per asset.
+function Remove-OldArt($files) {
+    if ($files.Count -eq 0) { return }
+    $listed = @{}
+    foreach ($f in $files) { $listed[(Split-Path $f.Path -Leaf)] = $true }
+    $old = @(Get-ChildItem (Join-Path $here 'art') -Filter '*.pck' -File -ErrorAction SilentlyContinue)
+    $old += @(Get-Item (Join-Path $here 'Pb-art.pck') -ErrorAction SilentlyContinue)
+    foreach ($item in $old) {
+        if (-not $listed.ContainsKey($item.Name)) { Remove-Item $item.FullName -Force -ErrorAction SilentlyContinue }
+    }
+}
+
 try {
     # Saved to a file and read back: GitHub serves it as binary, which older PowerShell won't hand back as text.
     $remoteFile = Join-Path $env:TEMP 'Pb-manifest.txt'
@@ -47,6 +61,7 @@ try {
             robocopy (Join-Path $unpacked 'Pb') $here /E /R:2 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
             if ($LASTEXITCODE -ge 8) { throw "couldn't copy the new files in (is the game still running?)" }
             Remove-Item $zip, $unpacked -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-OldArt $remote.files
             Write-Host "Updated."
         } else {
             # Just the files that differ, each checked against its fingerprint before it replaces yours.
@@ -75,6 +90,7 @@ try {
                 Write-Host "Updated."
             }
 
+            Remove-OldArt $remote.files
             Copy-Item $remoteFile $localFile -Force
         }
     }

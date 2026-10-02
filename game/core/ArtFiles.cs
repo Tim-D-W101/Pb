@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace Pb.Game.Core;
@@ -6,13 +9,18 @@ namespace Pb.Game.Core;
 /// Loads art from the import pipeline (<c>game/art</c>). A missing file gives null and the caller falls
 /// back (materials to their procedural look, props to greybox, opponents to their hitbox boxes), so the
 /// game never depends on the art. <c>-- --no-art</c> ignores all of it; CI's bot match runs that way to
-/// keep the fallbacks working. Exported builds carry the art in its own pack beside the game
-/// (<see cref="PackFile"/>, made by tools/package/windows-build.sh), so an update that changes only code
-/// or data doesn't download the art again; it's mounted the first time anything asks for art.
+/// keep the fallbacks working. Exported builds carry the art in packs beside the game, one per asset
+/// (<see cref="PackFolder"/>, made by tools/package/art-packs.sh), so an update that changes only code
+/// or data doesn't download the art again, and new art costs just its own packs; they're mounted the
+/// first time anything asks for art.
 /// </summary>
 public static class ArtFiles
 {
-    public const string PackFile = "Pb-art.pck";
+    /// <summary>The folder beside the game holding the art packs (Pb-art-&lt;asset&gt;.pck).</summary>
+    public const string PackFolder = "art";
+
+    /// <summary>The single art pack of builds before there was one per asset.</summary>
+    private const string OldPack = "Pb-art.pck";
 
     private const string Folder = "res://art";
 
@@ -23,21 +31,42 @@ public static class ArtFiles
             return; // the editor and `godot --path game` read game/art directly
         }
 
-        string pack = OS.GetExecutablePath().GetBaseDir().PathJoin(PackFile);
-        if (!FileAccess.FileExists(pack))
+        string home = OS.GetExecutablePath().GetBaseDir();
+        string folder = home.PathJoin(PackFolder);
+        var packs = new List<string>();
+        if (DirAccess.DirExistsAbsolute(folder))
         {
-            GD.Print($"No art pack at {pack}: the procedural look is used");
+            packs.AddRange(DirAccess.GetFilesAt(folder).Where(f => f.EndsWith(".pck", StringComparison.Ordinal))
+                .Order(StringComparer.Ordinal).Select(f => folder.PathJoin(f)));
         }
-        else if (!ProjectSettings.LoadResourcePack(pack, replaceFiles: false))
+
+        if (packs.Count == 0 && FileAccess.FileExists(home.PathJoin(OldPack)))
         {
-            GD.PushWarning($"Couldn't load the art pack {pack}: the procedural look is used");
+            packs.Add(home.PathJoin(OldPack));
         }
-        else
+
+        if (packs.Count == 0)
         {
-            // The pack's own project files (its UID list among them) don't replace the game's, so the
-            // engine is told the art's UIDs here: models find their textures by them.
-            GD.Print($"Art pack {pack}: {RegisterUids(Folder)} art files");
+            GD.Print($"No art packs in {folder}: the procedural look is used");
+            return;
         }
+
+        int mounted = 0;
+        foreach (string pack in packs)
+        {
+            if (ProjectSettings.LoadResourcePack(pack, replaceFiles: false))
+            {
+                mounted++;
+            }
+            else
+            {
+                GD.PushWarning($"Couldn't load the art pack {pack}: what it holds falls back to the procedural look");
+            }
+        }
+
+        // The packs' own project files (their UID lists among them) don't replace the game's, so the
+        // engine is told the art's UIDs here: models find their textures by them.
+        GD.Print($"Art packs in {folder}: {mounted} of {packs.Count} mounted, {RegisterUids(Folder)} art files");
     }
 
     public static bool Disabled { get; } = Args.Has("--no-art");
