@@ -424,6 +424,10 @@ public sealed class WallDef : IValidatable
     [Optional]
     public float PostSpacing_m { get; set; } = 1.5f;
 
+    /// <summary>Piers, coping, barbed wire and rubble the game draws on the wall (presentation only).</summary>
+    [Optional]
+    public WallDressingDef? Dressing { get; set; }
+
     public int SegmentCount => Points_m.Length < 2 ? 0 : Closed ? Points_m.Length : Points_m.Length - 1;
 
     public void Validate(Validator v)
@@ -457,6 +461,7 @@ public sealed class WallDef : IValidatable
         }
 
         LevelDefChecks.Items(v, nameof(Openings), Openings);
+        Dressing?.Validate(v.Scope(nameof(Dressing)));
         for (int i = 0; Openings is not null && i < Openings.Length; i++)
         {
             if (Openings[i].Segment < 0 || Openings[i].Segment >= SegmentCount)
@@ -464,6 +469,44 @@ public sealed class WallDef : IValidatable
                 v.Item(nameof(Openings), i).Error(nameof(OpeningDef.Segment), $"must be a segment index in [0, {SegmentCount - 1}]");
             }
         }
+    }
+}
+
+/// <summary>
+/// What the game draws on a wall run besides the wall (presentation only; paint and walking see just
+/// the wall): piers this far apart (0 for none), this wide, standing a little proud of the wall, a
+/// coping course along its top, barbed wire on brackets leaning out (away from the middle of a closed
+/// run), hanging loose at the breaks, and broken blocks on the ground either side of each break.
+/// </summary>
+public sealed class WallDressingDef : IValidatable
+{
+    [Optional]
+    public float PierSpacing_m { get; set; }
+
+    [Optional]
+    public float PierSize_m { get; set; } = 0.45f;
+
+    /// <summary>The piers' material; the wall's when left out.</summary>
+    [Optional]
+    public string? PierMaterial { get; set; }
+
+    [Optional]
+    public string? Coping { get; set; }
+
+    [Optional]
+    public string? Wire { get; set; }
+
+    [Optional]
+    public bool Rubble { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (PierSpacing_m != 0f)
+        {
+            v.InRange(nameof(PierSpacing_m), PierSpacing_m, 1, 50);
+        }
+
+        v.InRange(nameof(PierSize_m), PierSize_m, 0.1, 2);
     }
 }
 

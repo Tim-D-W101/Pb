@@ -7,6 +7,9 @@ namespace Pb.Sim.Level;
 /// <summary>A building in a level: its template, the owner of its primitives, and its plan frame (origin and yaw).</summary>
 public sealed record PlacedBuilding(BuildingTemplate Template, int Owner, PlanFrame Frame);
 
+/// <summary>A free-standing wall run in a level: its definition, the owner of its primitives, and its plan frame.</summary>
+public sealed record PlacedWall(WallDef Def, int Owner, PlanFrame Frame);
+
 public sealed class PropInstance
 {
     public required PropType Type { get; init; }
@@ -102,6 +105,9 @@ public sealed class LevelLayout
 
     /// <summary>The buildings, each with its template and where it stands (presentation dresses them from their templates).</summary>
     public IReadOnlyList<PlacedBuilding> Buildings { get; init; } = Array.Empty<PlacedBuilding>();
+
+    /// <summary>The free-standing wall runs (the perimeter, yard walls), each with its definition (presentation dresses them).</summary>
+    public IReadOnlyList<PlacedWall> Walls { get; init; } = Array.Empty<PlacedWall>();
 
     /// <summary>Debug names for primitive owners ("warehouse#0", "prop:oil_drum#3", "wall#1").</summary>
     public required IReadOnlyList<string> Owners { get; init; }

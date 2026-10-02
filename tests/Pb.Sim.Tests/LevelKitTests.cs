@@ -420,6 +420,22 @@ public class LevelKitTests
     }
 
     [Fact]
+    public void TheLevelRecordsItsWallRunsWithTheirDressing()
+    {
+        PlacedWall perimeter = Assert.Single(Level.Walls);
+        Assert.Equal("wall#0", Level.Owners[perimeter.Owner]);
+        Assert.True(perimeter.Def.Closed);
+        Assert.NotNull(perimeter.Def.Dressing);
+        Assert.Contains(Level.Primitives, p => p.Owner == perimeter.Owner && p.Role == PrimitiveRole.Wall);
+
+        var badWire = new EditedDataSource(TestData.Source).Edit("levels/oxbarrow_works.jsonc",
+            s => s.Replace("\"wire\": \"steel_rust\"", "\"wire\": \"razor_ribbon\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(badWire));
+        Assert.Contains("oxbarrow_works.jsonc", ex.Message);
+        Assert.Contains("wire", ex.Message);
+    }
+
+    [Fact]
     public void BadGutterOrTrussMaterialNamesTheFileAndKey()
     {
         var gutters = new EditedDataSource(TestData.Source).Edit("kit/buildings/pump_house.jsonc",

@@ -44,6 +44,9 @@ public partial class LevelBuilder : Node3D
     /// <summary>How many buildings got gutters, downpipes or roof trusses (<see cref="BuildingDetails"/>).</summary>
     public int DressedBuildings { get; private set; }
 
+    /// <summary>How many wall runs got piers, coping, wire or rubble (<see cref="WallDressing"/>).</summary>
+    public int DressedWalls { get; private set; }
+
     /// <summary>
     /// Builds the level: its primitives, the props, and the buildings' frames and details from their
     /// templates (<see cref="LevelLayout.Buildings"/>).
@@ -101,6 +104,7 @@ public partial class LevelBuilder : Node3D
         int glass = materialIds.TryGetValue(GlassMaterial, out int g) ? g : -1;
         FramedOpenings = OpeningFrames.Build(level, owner => frames.TryGetValue(owner, out int m) ? m : -1, glass, at => ChunkMesh(shapes, at.X, at.Z));
         DressedBuildings = BuildingDetails.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
+        DressedWalls = WallDressing.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
 
         foreach (((int cx, int cz), ShapeMesh shape) in shapes)
         {

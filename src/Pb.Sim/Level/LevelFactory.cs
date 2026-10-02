@@ -22,6 +22,7 @@ public static class LevelFactory
         var owners = new List<string>();
         var props = new List<PropInstance>();
         var buildings = new List<PlacedBuilding>();
+        var walls = new List<PlacedWall>();
         var areas = new List<AreaSpec>();
         var materials = kit.Materials.ToDictionary(m => m.Id, StringComparer.Ordinal);
 
@@ -96,9 +97,24 @@ public static class LevelFactory
             Validator item = errors.Item(nameof(LevelDef.Walls), i);
             MaterialRef m = Material(item, nameof(WallDef.Material), wall.Material);
             KitGeometry.CheckWall(wall, wall.Height_m, item);
+            if (wall.Dressing is { } dressing)
+            {
+                Validator dressed = item.Scope(nameof(WallDef.Dressing));
+                foreach ((string key, string? id) in new[] { (nameof(WallDressingDef.PierMaterial), dressing.PierMaterial),
+                             (nameof(WallDressingDef.Coping), dressing.Coping), (nameof(WallDressingDef.Wire), dressing.Wire) })
+                {
+                    if (id is not null)
+                    {
+                        Material(dressed, key, id);
+                    }
+                }
+            }
+
             if (!float.IsNaN(wall.BaseElevation_m) && !float.IsNaN(wall.Height_m))
             {
-                KitGeometry.WallRun(sink, PlanFrame.Identity, wall, wall.BaseElevation_m, wall.Height_m, m, Owner($"wall#{i}"));
+                int owner = Owner($"wall#{i}");
+                walls.Add(new PlacedWall(wall, owner, PlanFrame.Identity));
+                KitGeometry.WallRun(sink, PlanFrame.Identity, wall, wall.BaseElevation_m, wall.Height_m, m, owner);
             }
         }
 
@@ -190,6 +206,7 @@ public static class LevelFactory
             Apertures = sink.Apertures,
             Props = props,
             Buildings = buildings,
+            Walls = walls,
             Owners = owners,
             PlayerSpawns = playerSpawns,
             SpawnArea = spawnArea.Box,
