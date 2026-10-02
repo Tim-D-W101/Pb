@@ -241,6 +241,32 @@
     "fadeEnd_m": 55
   },
 
+  // Damp indoors: tide marks of rising damp along the foot of the walls that stand on the ground, black
+  // mould spreading from the top corners of the rooms' walls, and brown water stains on the ceilings.
+  // Painted at load, flat on the walls and ceilings of the indoor areas; looks only (paint lands on the
+  // wall beneath). Switched off for now (rising, mould and stains at 0) until it's tuned: it's still too
+  // faint on the darker walls. Tried at rising 0.5, mould 0.3, stains 0.04.
+  "damp": {
+    // Rising damp: the chance a length of wall has it, the highest a wall's foot can be (on the
+    // ground), and how high the tide mark climbs (least, most).
+    "rising": 0,
+    "risingBelow_m": 0.3,
+    "risingHeight_m": [0.35, 1.0],
+    // Mould: the chance each top corner has a patch, its size (least, most), and the walls that get it
+    // (as tall as a room: least, most).
+    "mould": 0,
+    "mouldSize_m": [0.45, 1.3],
+    "mouldWalls_m": [2.2, 4.0],
+    // Water stains: per square metre of ceiling, their size (least, most), and the highest ceiling
+    // above its floor that gets them (the warehouse's roof is too far up to see).
+    "stains_perM2": 0,
+    "stainSize_m": [0.6, 2.0],
+    "ceilingMaxHeight_m": 4.0,
+    "opacity": [0.55, 0.9],
+    "fadeStart_m": 30,
+    "fadeEnd_m": 50
+  },
+
   // Things lying on the ground: oil stains round the car and the machines, puddles under the open sky,
   // damp patches, rust run-off by rusting things, tyre tracks, drifts of leaves against walls, litter
   // and broken chips. Painted at load into one atlas and drawn as flat cards in one draw call; seeded

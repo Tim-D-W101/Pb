@@ -42,6 +42,8 @@ public sealed class PresentationDef : IValidatable
 
     public CracksDef Cracks { get; set; } = new();
 
+    public DampDef Damp { get; set; } = new();
+
     public GroundDetailDef GroundDetail { get; set; } = new();
 
     public OldPaintDef OldPaint { get; set; } = new();
@@ -113,6 +115,7 @@ public sealed class PresentationDef : IValidatable
         Horizon.Validate(v.Scope(nameof(Horizon)));
         Weeds.Validate(v.Scope(nameof(Weeds)));
         Cracks.Validate(v.Scope(nameof(Cracks)));
+        Damp.Validate(v.Scope(nameof(Damp)));
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Markings.Validate(v.Scope(nameof(Markings)));
@@ -1396,6 +1399,56 @@ public sealed class CracksDef : IValidatable
         v.InRange(nameof(PatchSize_m), PatchSize_m, 1, 200);
         v.InRange(nameof(Drawn), Drawn, 0, 1);
         Alligator.Validate(v.Scope(nameof(Alligator)));
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Damp indoors (game/world/Damp.cs): the chance a length of wall standing on the ground (its foot below
+/// risingBelow_m) has rising damp and how high its tide mark climbs (least, most); the chance each top
+/// corner of a wall as tall as a room (mouldWalls_m: least, most) has mould, and its size; water stains
+/// per square metre of ceiling, their size, and the highest ceiling above a floor that gets them; how
+/// opaque they all are (least, most); and the distances they fade out over.
+/// </summary>
+public sealed class DampDef : IValidatable
+{
+    public float Rising { get; set; }
+
+    public float RisingBelow_m { get; set; }
+
+    public float[] RisingHeight_m { get; set; } = System.Array.Empty<float>();
+
+    public float Mould { get; set; }
+
+    public float[] MouldSize_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] MouldWalls_m { get; set; } = System.Array.Empty<float>();
+
+    public float Stains_perM2 { get; set; }
+
+    public float[] StainSize_m { get; set; } = System.Array.Empty<float>();
+
+    public float CeilingMaxHeight_m { get; set; }
+
+    public float[] Opacity { get; set; } = System.Array.Empty<float>();
+
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Rising), Rising, 0, 1);
+        v.InRange(nameof(RisingBelow_m), RisingBelow_m, 0, 10);
+        FlockDef.Pair(v, nameof(RisingHeight_m), RisingHeight_m, 0.1f, 3f);
+        v.InRange(nameof(Mould), Mould, 0, 1);
+        FlockDef.Pair(v, nameof(MouldSize_m), MouldSize_m, 0.1f, 4f);
+        FlockDef.Pair(v, nameof(MouldWalls_m), MouldWalls_m, 0.5f, 20f);
+        v.InRange(nameof(Stains_perM2), Stains_perM2, 0, 1);
+        FlockDef.Pair(v, nameof(StainSize_m), StainSize_m, 0.1f, 6f);
+        v.InRange(nameof(CeilingMaxHeight_m), CeilingMaxHeight_m, 1, 30);
+        FlockDef.Pair(v, nameof(Opacity), Opacity, 0f, 1f);
         v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
     }
