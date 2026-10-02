@@ -436,6 +436,20 @@ public class LevelKitTests
     }
 
     [Fact]
+    public void SceneryPassesThroughAndItsMaterialsAreChecked()
+    {
+        Assert.NotNull(Level.Scenery);
+        Assert.NotEmpty(Level.Scenery!.PowerLines!);
+        Assert.NotEmpty(Level.Scenery.PoleLines!);
+
+        var badPylon = new EditedDataSource(TestData.Source).Edit("levels/oxbarrow_works.jsonc",
+            s => s.Replace("\"material\": \"steel_galvanised\"", "\"material\": \"unobtainium\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(badPylon));
+        Assert.Contains("oxbarrow_works.jsonc", ex.Message);
+        Assert.Contains("scenery", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void BadGutterOrTrussMaterialNamesTheFileAndKey()
     {
         var gutters = new EditedDataSource(TestData.Source).Edit("kit/buildings/pump_house.jsonc",

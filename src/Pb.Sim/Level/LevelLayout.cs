@@ -109,6 +109,9 @@ public sealed class LevelLayout
     /// <summary>The free-standing wall runs (the perimeter, yard walls), each with its definition (presentation dresses them).</summary>
     public IReadOnlyList<PlacedWall> Walls { get; init; } = Array.Empty<PlacedWall>();
 
+    /// <summary>What the game draws out beyond the level, if anything (presentation only).</summary>
+    public SceneryDef? Scenery { get; init; }
+
     /// <summary>Debug names for primitive owners ("warehouse#0", "prop:oil_drum#3", "wall#1").</summary>
     public required IReadOnlyList<string> Owners { get; init; }
 

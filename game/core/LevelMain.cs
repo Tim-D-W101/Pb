@@ -334,7 +334,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
-                 $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.FramedOpenings} framed openings and {_world.DressedBuildings} buildings with gutters or trusses, {_world.DressedWalls} dressed walls, {_world.ShapeTriangles} triangles), " +
+                 $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.FramedOpenings} framed openings and {_world.DressedBuildings} buildings with gutters or trusses, {_world.DressedWalls} dressed walls, {_world.SceneryCount} pylons and poles beyond, {_world.ShapeTriangles} triangles), " +
                  $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
                  $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");

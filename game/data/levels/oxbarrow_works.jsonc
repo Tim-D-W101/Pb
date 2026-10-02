@@ -32,6 +32,12 @@
   // Opponents dealt random starts (rules.jsonc "spawning") start inside this area.
   "spawnArea": "the compound",
   "deadZone_m": [17, 0, 46],
+  // Out beyond the wall, for the view only: a power line on pylons across the north, and telegraph
+  // poles down the road from the main gate.
+  "scenery": {
+    "powerLines": [ { "points_m": [[-480, -175], [-120, -160], [480, -150]], "spacing_m": 240, "height_m": 28, "material": "steel_galvanised", "wire": "steel_painted" } ],
+    "poleLines": [ { "points_m": [[13, 56], [16, 200], [40, 420]], "spacing_m": 42, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" } ]
+  },
   "buildings": [
     { "building": "warehouse", "position_m": [-34, 0, -36] },
     { "building": "pump_house", "position_m": [30, 0, -34] },

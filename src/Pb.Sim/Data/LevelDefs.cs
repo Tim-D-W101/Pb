@@ -737,6 +737,58 @@ public sealed class AreaDef : IValidatable
 }
 
 /// <summary>levels/*.jsonc: one explorable level.</summary>
+/// <summary>
+/// Things out beyond a level, drawn by the game for the view (presentation only; nothing out there
+/// can be reached or hit): power lines on lattice pylons and lines of wooden telegraph poles.
+/// </summary>
+public sealed class SceneryDef : IValidatable
+{
+    [Optional]
+    public LineDef[]? PowerLines { get; set; }
+
+    [Optional]
+    public LineDef[]? PoleLines { get; set; }
+
+    public void Validate(Validator v)
+    {
+        LevelDefChecks.Items(v, nameof(PowerLines), PowerLines);
+        LevelDefChecks.Items(v, nameof(PoleLines), PoleLines);
+    }
+}
+
+/// <summary>A line of towers or poles along plan points [x, z], this far apart, this tall, with wires between them.</summary>
+public sealed class LineDef : IValidatable
+{
+    public float[][] Points_m { get; set; } = Array.Empty<float[]>();
+
+    public float Spacing_m { get; set; }
+
+    public float Height_m { get; set; }
+
+    /// <summary>The towers' or poles' material, and the wires'.</summary>
+    public string Material { get; set; } = "";
+
+    public string Wire { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        if (Points_m.Length < 2)
+        {
+            v.Error(nameof(Points_m), "needs at least two points");
+        }
+
+        for (int i = 0; i < Points_m.Length; i++)
+        {
+            v.Vector(nameof(Points_m) + "[" + i.ToString(CultureInfo.InvariantCulture) + "]", Points_m[i], 2);
+        }
+
+        v.InRange(nameof(Spacing_m), Spacing_m, 5, 1000);
+        v.InRange(nameof(Height_m), Height_m, 2, 200);
+        v.NotEmpty(nameof(Material), Material);
+        v.NotEmpty(nameof(Wire), Wire);
+    }
+}
+
 public sealed class LevelDef : IValidatable
 {
     public string Id { get; set; } = "";
@@ -787,11 +839,16 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public ViewpointDef[]? Viewpoints { get; set; }
 
+    /// <summary>What the game draws out beyond the level (presentation only).</summary>
+    [Optional]
+    public SceneryDef? Scenery { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
         LevelDefChecks.Items(v, nameof(Viewpoints), Viewpoints);
+        Scenery?.Validate(v.Scope(nameof(Scenery)));
         v.Vector(nameof(BoundsMin_m), BoundsMin_m);
         v.Vector(nameof(BoundsMax_m), BoundsMax_m);
         if (BoundsMin_m is { Length: 3 } && BoundsMax_m is { Length: 3 } &&

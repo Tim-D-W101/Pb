@@ -118,6 +118,17 @@ public static class LevelFactory
             }
         }
 
+        // Scenery beyond the level: only its materials matter here.
+        foreach ((string key, LineDef[]? lines) in new[] { (nameof(SceneryDef.PowerLines), def.Scenery?.PowerLines), (nameof(SceneryDef.PoleLines), def.Scenery?.PoleLines) })
+        {
+            for (int i = 0; lines is not null && i < lines.Length; i++)
+            {
+                Validator item = errors.Scope(nameof(LevelDef.Scenery)).Item(key, i);
+                Material(item, nameof(LineDef.Material), lines[i].Material);
+                Material(item, nameof(LineDef.Wire), lines[i].Wire);
+            }
+        }
+
         // Props.
         for (int i = 0; def.Props is not null && i < def.Props.Length; i++)
         {
@@ -207,6 +218,7 @@ public static class LevelFactory
             Props = props,
             Buildings = buildings,
             Walls = walls,
+            Scenery = def.Scenery,
             Owners = owners,
             PlayerSpawns = playerSpawns,
             SpawnArea = spawnArea.Box,
