@@ -58,6 +58,8 @@ public sealed class PresentationDef : IValidatable
 
     public RoofTattersDef RoofTatters { get; set; } = new();
 
+    public FootprintsDef Footprints { get; set; } = new();
+
     /// <summary>
     /// The wind near the ground ([x, z] m/s: +x east, +z south): the weeds sway, the bags on the wire
     /// stream and dust drifts with it. The clouds and the chimney smoke, higher up, have their own.
@@ -146,6 +148,7 @@ public sealed class PresentationDef : IValidatable
         BlowingLitter.Validate(v.Scope(nameof(BlowingLitter)));
         Ripples.Validate(v.Scope(nameof(Ripples)));
         RoofTatters.Validate(v.Scope(nameof(RoofTatters)));
+        Footprints.Validate(v.Scope(nameof(Footprints)));
         if (GroundWind_mps.Length != 2 || System.MathF.Abs(GroundWind_mps[0]) > 30f || System.MathF.Abs(GroundWind_mps[1]) > 30f ||
             GroundWind_mps[0] * GroundWind_mps[0] + GroundWind_mps[1] * GroundWind_mps[1] < 0.01f)
         {
@@ -1735,6 +1738,40 @@ public sealed class SnaggedBagsDef : IValidatable
         FlockDef.Pair(v, nameof(Lean_rad), Lean_rad, 0f, 1.3f);
         v.InRange(nameof(Flap_m), Flap_m, 0, 0.3);
         v.InRange(nameof(Flutter_hz), Flutter_hz, 0, 5);
+    }
+}
+
+/// <summary>
+/// Footprints pressed into soft ground (game/world/Footprints.cs): the surfaces that take them
+/// (break_model.jsonc names), a print's size (width, length), the colour it darkens the ground by (a
+/// multiply) and how far (0-1), how long it lasts before it's gone, and how many can be on the ground at
+/// once (the oldest go first).
+/// </summary>
+public sealed class FootprintsDef : IValidatable
+{
+    public string[] On { get; set; } = System.Array.Empty<string>();
+
+    public float[] Size_m { get; set; } = System.Array.Empty<float>();
+
+    public string Color { get; set; } = "";
+
+    public float Opacity { get; set; }
+
+    public float Fade_s { get; set; }
+
+    public int Max { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (Size_m.Length != 2 || Size_m[0] < 0.03f || Size_m[0] > 1f || Size_m[1] < 0.05f || Size_m[1] > 1f)
+        {
+            v.Error(nameof(Size_m), "takes [width, length], each within 0.03-1 m");
+        }
+
+        TrainingGroundDef.Colour(v, nameof(Color), Color);
+        v.InRange(nameof(Opacity), Opacity, 0, 1);
+        v.InRange(nameof(Fade_s), Fade_s, 1, 3600);
+        v.InRange(nameof(Max), Max, 0, 8192);
     }
 }
 

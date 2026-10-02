@@ -368,6 +368,12 @@
     "reach_m": 60
   },
 
+  // Footprints pressed into soft ground (looks only): on these surfaces (break_model.jsonc names) each
+  // step leaves a boot print, left and right in turn, size_m (width, length), darkening the ground by
+  // color (a multiply, so the soil's grain shows through) as far as opacity says, gone after fade_s; a
+  // landing leaves both feet. At most max lie about at once (the oldest go first). Bots leave them too.
+  "footprints": { "on": ["dirt"], "size_m": [0.11, 0.29], "color": "#6a5c4e", "opacity": 0.85, "fade_s": 180, "max": 600 },
+
   // Tatters hanging from the edges of the holes where a roof has fallen in (looks only): torn strips of
   // roofing felt and insulation about every_m along each edge (share of those places have one), hanging
   // length_m and width_m wide (least, most), in one of these colours. The draught through the hole holds

@@ -86,6 +86,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private WeedField _weeds = null!;
     private FootDust _dust = null!;
     private PuddleRipples _ripples = null!;
+    private Footprints _prints = null!;
     private Birds _birds = null!;
     private GroundDetail _groundDetail = null!;
     private FloorDebris _floorDebris = null!;
@@ -273,6 +274,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _ripples = new PuddleRipples { Name = "PuddleRipples", Visible = _groundDetail.Visible };
         AddChild(_ripples);
         _ripples.Initialize(_groundDetail.Puddles, _view.Ripples);
+        _prints = new Footprints { Name = "Footprints" };
+        AddChild(_prints);
+        _prints.Initialize(_sim, _view.Footprints);
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
 
@@ -324,6 +328,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.AddListener(fx);
         _driver.AddListener(_dust);
         _driver.AddListener(_ripples);
+        _driver.AddListener(_prints);
         _driver.AddListener(_birds);
         if (!headless)
         {
