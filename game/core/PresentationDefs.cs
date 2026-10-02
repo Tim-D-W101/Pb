@@ -52,6 +52,8 @@ public sealed class PresentationDef : IValidatable
 
     public ContactShadowsDef ContactShadows { get; set; } = new();
 
+    public RunOffDef RunOff { get; set; } = new();
+
     public CreepersDef Creepers { get; set; } = new();
 
     public MenuBackdropDef MenuBackdrop { get; set; } = new();
@@ -106,6 +108,7 @@ public sealed class PresentationDef : IValidatable
         Birds.Validate(v.Scope(nameof(Birds)));
         Cobwebs.Validate(v.Scope(nameof(Cobwebs)));
         ContactShadows.Validate(v.Scope(nameof(ContactShadows)));
+        RunOff.Validate(v.Scope(nameof(RunOff)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
         TrainingGround.Validate(v.Scope(nameof(TrainingGround)));
@@ -1300,6 +1303,64 @@ public sealed class ContactShadowsDef : IValidatable
         v.InRange(nameof(MinHeight_m), MinHeight_m, 0, 3);
         v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Run-off streaks down the outside walls (game/world/RunOff.cs), from under the windows' sills, the
+/// fittings, the downpipes' collars and the wire's brackets, and along the gutters and copings: the
+/// grime and rust colours (sRGB), how much rust each kit material sheds (0 grime only, 1 all rust;
+/// materials not listed shed grime), the chance a source leaves a streak, how far streaks run from
+/// sills, from fittings and from lines, how wide and how far apart they are along a line, least and
+/// most opacity, and where they fade out.
+/// </summary>
+public sealed class RunOffDef : IValidatable
+{
+    public string Grime { get; set; } = "";
+
+    public string Rust { get; set; } = "";
+
+    public System.Collections.Generic.Dictionary<string, float> RustFrom { get; set; } = new();
+
+    public float Chance { get; set; }
+
+    public float[] SillLength_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] FittingLength_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] LineLength_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] LineWidth_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] LineSpacing_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] Opacity { get; set; } = System.Array.Empty<float>();
+
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        TrainingGroundDef.Colour(v, nameof(Grime), Grime);
+        TrainingGroundDef.Colour(v, nameof(Rust), Rust);
+        foreach ((string material, float share) in RustFrom)
+        {
+            if (share is < 0f or > 1f)
+            {
+                v.Error(nameof(RustFrom), $"{material}: share must be in [0, 1] (got {share})");
+            }
+        }
+
+        v.InRange(nameof(Chance), Chance, 0, 1);
+        FlockDef.Pair(v, nameof(SillLength_m), SillLength_m, 0.1f, 6f);
+        FlockDef.Pair(v, nameof(FittingLength_m), FittingLength_m, 0.1f, 6f);
+        FlockDef.Pair(v, nameof(LineLength_m), LineLength_m, 0.1f, 6f);
+        FlockDef.Pair(v, nameof(LineWidth_m), LineWidth_m, 0.05f, 3f);
+        FlockDef.Pair(v, nameof(LineSpacing_m), LineSpacing_m, 0.3f, 20f);
+        FlockDef.Pair(v, nameof(Opacity), Opacity, 0f, 1f);
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 200);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 300);
     }
 }
 

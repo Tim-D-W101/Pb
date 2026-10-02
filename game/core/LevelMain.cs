@@ -194,6 +194,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _creepers = new Creepers { Name = "Creepers" };
         AddChild(_creepers);
         _creepers.Build(_level, _sim.Collision, _view.Creepers);
+        var runOff = new RunOff { Name = "RunOff" };
+        AddChild(runOff);
+        runOff.Build(_level, _sim.Collision, _world.Drips, _view.RunOff);
         var markings = new Markings { Name = "Markings" };
         AddChild(markings);
         markings.Build(_level, _view.Markings);
@@ -210,7 +213,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);

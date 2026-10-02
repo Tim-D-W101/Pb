@@ -41,12 +41,12 @@ public partial class MenuBackdrop : Node3D
         var sun = new DirectionalLight3D { Name = "Sun", ShadowEnabled = true };
         var collision = new CollisionWorld();
         var watch = new System.Diagnostics.Stopwatch();
+        var world = new LevelBuilder { Name = "World" };
         _steps = new Action[]
         {
             () =>
             {
                 watch.Start();
-                var world = new LevelBuilder { Name = "World" };
                 AddChild(world);
                 world.Build(level, new MaterialLibrary(level.Materials), preset.AmbientProbes, view.Horizon);
                 level.BuildCollision(collision);
@@ -72,6 +72,9 @@ public partial class MenuBackdrop : Node3D
                 var creepers = new Creepers { Name = "Creepers" };
                 AddChild(creepers);
                 creepers.Build(level, collision, view.Creepers);
+                var runOff = new RunOff { Name = "RunOff" };
+                AddChild(runOff);
+                runOff.Build(level, collision, world.Drips, view.RunOff);
                 var markings = new Markings { Name = "Markings" };
                 AddChild(markings);
                 markings.Build(level, view.Markings);

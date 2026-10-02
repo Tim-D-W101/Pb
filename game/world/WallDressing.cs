@@ -27,9 +27,10 @@ public static class WallDressing
 
     /// <summary>
     /// Adds each dressed wall run's details to <paramref name="meshFor"/> (the mesh for a world
-    /// position); <paramref name="material"/> resolves a kit material id. Returns how many runs were dressed.
+    /// position); <paramref name="material"/> resolves a kit material id. Where rain will run off the
+    /// coping and the wire's brackets goes in <paramref name="drips"/>. Returns how many runs were dressed.
     /// </summary>
-    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor)
+    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, List<Drip>? drips = null)
     {
         int dressed = 0;
         foreach (PlacedWall wall in level.Walls)
@@ -39,7 +40,7 @@ public static class WallDressing
                 continue;
             }
 
-            new Run(wall, material, meshFor, new Random(LevelBuilder.StableHash(level.Id) ^ wall.Owner * 104729)).Build();
+            new Run(wall, material, meshFor, new Random(LevelBuilder.StableHash(level.Id) ^ wall.Owner * 104729), drips).Build();
             dressed++;
         }
 
@@ -56,10 +57,12 @@ public static class WallDressing
         private readonly int _wall, _pier, _coping, _wire;
         private readonly float _base, _height;
         private readonly Vector2 _middle;
+        private readonly List<Drip>? _drips;
 
-        public Run(PlacedWall placed, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, Random random)
+        public Run(PlacedWall placed, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, Random random, List<Drip>? drips)
         {
             _def = placed.Def;
+            _drips = drips;
             _dressing = placed.Def.Dressing!;
             _frame = placed.Frame;
             _meshFor = meshFor;
@@ -178,11 +181,21 @@ public static class WallDressing
                     float mid = (from + to) * 0.5f;
                     Box(Mesh(Plan(mid, 0f, 0f)), _coping, Plan(mid, top + CopingHeight * 0.5f, 0f),
                         new Vector3(to - from, CopingHeight, _def.Thickness_m + 2f * CopingOverhang), turn);
+                    // Stains down both faces where rain drips off it.
+                    foreach (float face in new[] { -1f, 1f })
+                    {
+                        Drip(Plan(mid, top - 0.02f, face * _def.Thickness_m * 0.5f), new Vector3(outward.X, 0f, outward.Y) * face, 0f, _dressing.Coping!, to - from - 0.3f);
+                    }
                 }
 
                 if (_wire >= 0)
                 {
                     Wire(from, to, length, piers, Plan, side != 0f);
+                    // Rust runs from each bracket down the outside of the pier under it.
+                    foreach (float t in piers)
+                    {
+                        Drip(Plan(t, top + CopingHeight - 0.01f, size * 0.5f), new Vector3(outward.X, 0f, outward.Y), 0.08f, _dressing.Wire!);
+                    }
                 }
             }
 
@@ -330,6 +343,10 @@ public static class WallDressing
         }
 
         private Vector3 World(Vector3 plan) => _frame.ToWorld(new SVector3(plan.X, plan.Y, plan.Z)).ToGodot();
+
+        /// <summary>Reports where rain runs off down the face at plan point <paramref name="plan"/>, facing plan direction <paramref name="outward"/>.</summary>
+        private void Drip(Vector3 plan, Vector3 outward, float width, string material, float run = 0f) =>
+            _drips?.Add(new Drip(World(plan), (new Basis(Vector3.Up, _frame.Yaw) * outward).Normalized(), width, material, run));
 
         private void Box(ShapeMesh mesh, int material, Vector3 plan, Vector3 size, Basis rotation) =>
             mesh.Box(material, World(plan), size, new Basis(Vector3.Up, _frame.Yaw) * rotation);

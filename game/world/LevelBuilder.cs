@@ -53,6 +53,9 @@ public partial class LevelBuilder : Node3D
     /// <summary>How many pylons and poles stand out beyond the level (<see cref="Scenery"/>).</summary>
     public int SceneryCount { get; private set; }
 
+    /// <summary>Where rain runs off the buildings' and walls' details down their faces, for <see cref="RunOff"/>.</summary>
+    public List<Drip> Drips { get; } = new();
+
     /// <summary>
     /// Builds the level: its primitives, the props, and the buildings' frames and details from their
     /// templates (<see cref="LevelLayout.Buildings"/>).
@@ -65,6 +68,7 @@ public partial class LevelBuilder : Node3D
         }
 
         _materials = materials;
+        Drips.Clear();
         MeshCount = 0;
         ColliderCount = 0;
         ShapeTriangles = 0;
@@ -109,8 +113,8 @@ public partial class LevelBuilder : Node3D
 
         int glass = materialIds.TryGetValue(GlassMaterial, out int g) ? g : -1;
         FramedOpenings = OpeningFrames.Build(level, owner => frames.TryGetValue(owner, out int m) ? m : -1, glass, at => ChunkMesh(shapes, at.X, at.Z));
-        DressedBuildings = BuildingDetails.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
-        DressedWalls = WallDressing.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
+        DressedBuildings = BuildingDetails.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z), Drips);
+        DressedWalls = WallDressing.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z), Drips);
         SkirtedFaces = Skirting.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
         SceneryCount = Scenery.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
 

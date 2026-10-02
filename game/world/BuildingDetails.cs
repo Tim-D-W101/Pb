@@ -34,9 +34,10 @@ public static class BuildingDetails
 
     /// <summary>
     /// Adds every building's details to <paramref name="meshFor"/> (the mesh for a world position);
-    /// <paramref name="material"/> resolves a kit material id. Returns how many buildings got any.
+    /// <paramref name="material"/> resolves a kit material id. Where rain will run off them down the
+    /// walls goes in <paramref name="drips"/>. Returns how many buildings got any.
     /// </summary>
-    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor)
+    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, List<Drip>? drips = null)
     {
         int dressed = 0;
         foreach (PlacedBuilding building in level.Buildings)
@@ -47,7 +48,7 @@ public static class BuildingDetails
                 continue;
             }
 
-            var on = new Building(def, building.Frame, meshFor, new Random(LevelBuilder.StableHash(level.Id) ^ building.Owner * 7919));
+            var on = new Building(def, building.Frame, meshFor, new Random(LevelBuilder.StableHash(level.Id) ^ building.Owner * 7919), drips);
             if (def.Gutters is not null && material(def.Gutters) is var gutters and >= 0)
             {
                 on.Gutters(gutters);
@@ -91,10 +92,12 @@ public static class BuildingDetails
         private readonly Rect2 _roof;
         private readonly Rect2 _footprint;
         private readonly List<Rect2> _holes = new();
+        private readonly List<Drip>? _drips;
 
-        public Building(BuildingDef def, PlanFrame frame, Func<Vector3, ShapeMesh> meshFor, Random random)
+        public Building(BuildingDef def, PlanFrame frame, Func<Vector3, ShapeMesh> meshFor, Random random, List<Drip>? drips)
         {
             _def = def;
+            _drips = drips;
             _frame = frame;
             _meshFor = meshFor;
             _random = random;
@@ -148,6 +151,8 @@ public static class BuildingDetails
                     // Half-round, its top just under the roof's edge, half under the overhang.
                     Vector3 middle = Plan(start + length * 0.5f, _roofBottom - 0.01f, edge);
                     Extrude(mesh, material, middle, run, GutterProfile(), length - 0.02f);
+                    // Where it overflows, down the wall under it.
+                    Drip(Plan(start + length * 0.5f, _roofBottom - 0.02f, wallFace), outward, 0f, _def.Gutters!, length - 0.6f);
                 }
 
                 foreach (float end in new[] { 0.45f, length - 0.45f })
@@ -165,6 +170,7 @@ public static class BuildingDetails
                     {
                         // A rainwater head on the parapet's face, the pipe straight down from it.
                         Box(mesh, material, Plan(u, _roofTop + 0.05f, edge + side * 0.09f), Plan(0.26f, 0.22f, 0.18f), Basis.Identity);
+                        Drip(Plan(u, _roofTop - 0.06f, edge), outward, 0.26f, _def.Gutters!);
                         Pipe(mesh, material, Plan(u, _roofTop - 0.06f, pipeV), Plan(u, 0f, pipeV), outward, standOff);
                     }
                     else
@@ -435,6 +441,7 @@ public static class BuildingDetails
             Vector3 outward = turn.Z, wall = at;
             Vector3 tip = wall + outward * 0.34f + Vector3.Down * 0.08f;
             Box(mesh, material, wall + outward * 0.015f, new Vector3(0.12f, 0.16f, 0.03f), turn);
+            Drip(wall + Vector3.Down * 0.08f, outward, 0.12f, _def.Fittings!);
             mesh.Bar(material, World(wall + outward * 0.02f), World(tip), 0.03f, 0.03f);
             Basis head = turn * new Basis(Vector3.Right, -0.35f);
             Box(mesh, material, tip + Vector3.Down * 0.05f, new Vector3(0.26f, 0.1f, 0.2f), head);
@@ -451,6 +458,7 @@ public static class BuildingDetails
             Vector3 outward = turn.Z, up = Vector3.Up;
             var size = new Vector3(R(0.26f, 0.38f), R(0.34f, 0.48f), R(0.1f, 0.15f));
             Box(mesh, material, at + outward * (size.Z * 0.5f), size, turn);
+            Drip(at + Vector3.Down * (size.Y * 0.5f), outward, size.X, _def.Fittings!);
             // A lid seam and a hinge pin.
             Box(mesh, material, at + outward * (size.Z + 0.004f), new Vector3(size.X - 0.03f, size.Y - 0.03f, 0.008f), turn);
             Vector3 from = at + up * (size.Y * 0.5f) + outward * 0.03f;
@@ -463,6 +471,7 @@ public static class BuildingDetails
             ShapeMesh mesh = Mesh(at, _roofBottom);
             Vector3 outward = turn.Z, along = turn.X;
             float w = R(0.38f, 0.55f), h = w * R(0.8f, 1.1f);
+            Drip(at + Vector3.Down * (h * 0.5f), outward, w, _def.Fittings!);
             foreach (float side in new[] { -1f, 1f })
             {
                 Box(mesh, material, at + along * (side * (w * 0.5f - 0.02f)) + outward * 0.03f, new Vector3(0.04f, h, 0.06f), turn);
@@ -789,9 +798,10 @@ public static class BuildingDetails
             {
                 Vector3 at = new(top.X, y, top.Z);
                 Rod(mesh, material, at + Vector3.Down * 0.025f, at + Vector3.Up * 0.025f, PipeRadius + 0.008f, 8);
-                // The bracket back to the wall.
+                // The bracket back to the wall, rust running from where it's fixed.
                 float reach = MathF.Max(standOff - PipeRadius, 0.01f);
                 Box(mesh, material, at - outward * (PipeRadius + reach * 0.5f), new Vector3(0.012f, 0.03f, 0.012f) + Abs(outward) * reach, Basis.Identity);
+                Drip(at - outward * (PipeRadius + reach) + Vector3.Down * 0.015f, outward, 0.09f, _def.Gutters ?? _def.Fittings ?? "");
             }
         }
 
@@ -827,6 +837,10 @@ public static class BuildingDetails
         }
 
         private Vector3 World(Vector3 plan) => _frame.ToWorld(new SVector3(plan.X, plan.Y, plan.Z)).ToGodot();
+
+        /// <summary>Reports where rain runs off down the face at plan point <paramref name="plan"/>, facing plan direction <paramref name="outward"/>.</summary>
+        private void Drip(Vector3 plan, Vector3 outward, float width, string material, float run = 0f) =>
+            _drips?.Add(new Drip(World(plan), (_turn * outward).Normalized(), width, material, run));
 
         private void Box(ShapeMesh mesh, int material, Vector3 plan, Vector3 size, Basis rotation) =>
             mesh.Box(material, World(plan), size, _turn * rotation);

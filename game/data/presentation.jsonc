@@ -345,6 +345,26 @@
     "fadeEnd_m": 60
   },
 
+  // Run-off streaks down the outside walls (looks only): grime running from under the windows' sills,
+  // rust from the fittings, downpipe collars and the wire's brackets, and stains scattered along the
+  // gutters and copings. Colours are sRGB; rustFrom says how much rust each kit material sheds (0-1;
+  // others shed grime). Lengths are least-most metres a streak runs (cut short above an opening below
+  // it and at the ground); lineWidth_m and lineSpacing_m are for streaks along gutters and copings.
+  "runOff": {
+    "grime": "#2b2720",
+    "rust": "#8a4317",
+    "rustFrom": { "steel_rust": 1.0, "steel_painted": 0.55, "steel_galvanised": 0.35 },
+    "chance": 0.85,
+    "sillLength_m": [0.6, 1.8],
+    "fittingLength_m": [0.7, 1.8],
+    "lineLength_m": [1.0, 2.6],
+    "lineWidth_m": [0.35, 1.1],
+    "lineSpacing_m": [0.8, 2.6],
+    "opacity": [0.55, 0.9],
+    "fadeStart_m": 40,
+    "fadeEnd_m": 65
+  },
+
   // Cobwebs in the corners of the buildings' doorways (the top ones) and windows (looks only): the
   // chance a corner has one, how big, how see-through, their colour, and where they fade out.
   "cobwebs": {
