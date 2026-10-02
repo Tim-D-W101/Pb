@@ -55,12 +55,13 @@ Art is generated with Higgsfield, then the finished result is imported:
 ```bash
 tools/art/import.sh texture <material-id> <job-id> <generator> <url> "<prompt>"   # tiling albedo + normal + roughness maps
 tools/art/import.sh model <prop-id> <job-id> <generator> <url> "<prompt>"         # GLB; prints its measured size
+tools/art/import.sh clip <clip-id> <job-id> <generator> <url> "<prompt>"          # a rigged GLB's movement clip, cut down to rig + animation
 ```
 
 Each import records its provenance (job, generator, prompt, URL, files) in `game/data/assets.jsonc`, and a
 sim test fails if the kit or the characters use a texture or model without a record. Then point the
 material's `albedo`, `normal` and `roughnessMap` (`kit/materials.jsonc`), the prop's `model`
-(`kit/props.jsonc`) or a character model (`presentation.jsonc` → `characters`) at the files. Characters
+(`kit/props.jsonc`) or a character model or movement clip (`presentation.jsonc` → `characters`, `characters.clips`) at the files. Characters
 must use the generator's biped rig (the bone names `CharacterPoser` binds). One generation can hold four
 materials (a 2 × 2 sheet): cut each with `--region=x,y,w,h`. Cut a regular pattern (bricks, planks,
 corrugations) to whole repeats and pass `--repeats=across,down` (and `--stretch` for a cut that isn't

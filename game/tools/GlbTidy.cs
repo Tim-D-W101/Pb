@@ -69,6 +69,121 @@ public static class GlbTidy
         return tidied;
     }
 
+    /// <summary>
+    /// Keeps only a GLB's rig and animations, for a movement clip: the meshes, materials and pictures
+    /// go, with every buffer view only they used, so a clip made on a whole rigged character costs tens
+    /// of kilobytes rather than megabytes. The skins stay (Godot builds the skeleton from them).
+    /// </summary>
+    public static byte[] ClipOnly(byte[] glb, out string report)
+    {
+        (JsonObject json, byte[] bin) = Read(glb);
+        int animations = (json["animations"] as JsonArray)?.Count ?? 0;
+        if (animations == 0 || json["skins"] is not JsonArray { Count: > 0 })
+        {
+            throw new InvalidOperationException("the GLB has no rig with an animation to keep");
+        }
+
+        foreach (JsonObject node in ((JsonArray)json["nodes"]!).OfType<JsonObject>())
+        {
+            node.Remove("mesh");
+            node.Remove("skin");
+        }
+
+        foreach (string part in new[] { "meshes", "materials", "textures", "images", "samplers" })
+        {
+            json.Remove(part);
+        }
+
+        // The accessors the skins and animations still read, and the views under them.
+        var accessors = (JsonArray)json["accessors"]!;
+        var keep = new SortedSet<int>();
+        foreach (JsonObject skin in ((JsonArray)json["skins"]!).OfType<JsonObject>())
+        {
+            if (skin["inverseBindMatrices"] is JsonNode matrices)
+            {
+                keep.Add(matrices.GetValue<int>());
+            }
+        }
+
+        foreach (JsonObject animation in ((JsonArray)json["animations"]!).OfType<JsonObject>())
+        {
+            foreach (JsonObject sampler in ((JsonArray)animation["samplers"]!).OfType<JsonObject>())
+            {
+                keep.Add(sampler["input"]!.GetValue<int>());
+                keep.Add(sampler["output"]!.GetValue<int>());
+            }
+        }
+
+        var views = (JsonArray)json["bufferViews"]!;
+        var accessorMap = new Dictionary<int, int>();
+        var viewMap = new Dictionary<int, int>();
+        var newAccessors = new JsonArray();
+        var newViews = new JsonArray();
+        var output = new MemoryStream();
+        foreach (int a in keep)
+        {
+            var accessor = (JsonObject)accessors[a]!.DeepClone();
+            if (accessor["sparse"] is not null)
+            {
+                throw new InvalidOperationException("sparse accessors in a clip aren't supported");
+            }
+
+            int view = accessor["bufferView"]!.GetValue<int>();
+            if (!viewMap.TryGetValue(view, out int newView))
+            {
+                var copy = (JsonObject)views[view]!.DeepClone();
+                int offset = copy["byteOffset"]?.GetValue<int>() ?? 0;
+                int length = copy["byteLength"]!.GetValue<int>();
+                while (output.Length % 4 != 0)
+                {
+                    output.WriteByte(0);
+                }
+
+                copy["byteOffset"] = output.Length;
+                copy["buffer"] = 0;
+                output.Write(bin, offset, length);
+                newView = newViews.Count;
+                viewMap[view] = newView;
+                newViews.Add(copy);
+            }
+
+            accessor["bufferView"] = newView;
+            accessorMap[a] = newAccessors.Count;
+            newAccessors.Add(accessor);
+        }
+
+        foreach (JsonObject skin in ((JsonArray)json["skins"]!).OfType<JsonObject>())
+        {
+            if (skin["inverseBindMatrices"] is JsonNode matrices)
+            {
+                skin["inverseBindMatrices"] = accessorMap[matrices.GetValue<int>()];
+            }
+        }
+
+        foreach (JsonObject animation in ((JsonArray)json["animations"]!).OfType<JsonObject>())
+        {
+            foreach (JsonObject sampler in ((JsonArray)animation["samplers"]!).OfType<JsonObject>())
+            {
+                sampler["input"] = accessorMap[sampler["input"]!.GetValue<int>()];
+                sampler["output"] = accessorMap[sampler["output"]!.GetValue<int>()];
+            }
+        }
+
+        json["accessors"] = newAccessors;
+        json["bufferViews"] = newViews;
+        while (output.Length % 4 != 0)
+        {
+            output.WriteByte(0);
+        }
+
+        json["buffers"] = new JsonArray(new JsonObject { ["byteLength"] = output.Length });
+        json.Remove("extensionsUsed");
+        json.Remove("extensionsRequired");
+        byte[] clip = Write(json, output.ToArray());
+        report = $"{glb.Length / 1048576f:0.0} MB → {clip.Length / 1024f:0} KB, rig and {animations} animation(s) kept";
+        return clip;
+    }
+
     /// <summary>Wraps the scene in a node that scales it by <paramref name="scale"/> and moves it by <paramref name="offset"/>.</summary>
     public static byte[] Place(byte[] glb, float scale, Vector3 offset)
     {

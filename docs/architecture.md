@@ -468,6 +468,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     - pictures shrunk to JPEG;
     - the baked-in glow and specular boost removed;
     - optionally scaled to a real height.
+  - **Clips** (`clip`): a rigged character's GLB holding a movement clip is cut down to its rig and animation (`GlbTidy.ClipOnly`: no meshes, materials or pictures), so a clip costs tens of kilobytes, not megabytes.
   - **Provenance.** `assets.jsonc` records the job, generator, prompt, source URL, files and import settings. A sim test fails if any art the kit or `presentation.jsonc` names has no record.
   - **Fallbacks.** The game loads art through `ArtFiles`, and anything missing falls back: materials to the procedural look, props to their shapes built in code (then greybox), opponents to their hitbox boxes. `-- --no-art` ignores all the art, and CI's bot match runs that way.
 - **Shipping (as built).** CI exports the Windows build on every run and publishes it as the rolling "test-build" release (`tools/package/windows-build.sh`):
