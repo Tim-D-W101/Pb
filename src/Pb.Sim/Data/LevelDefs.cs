@@ -282,6 +282,13 @@ public sealed class BuildingDef : IValidatable
     [Optional]
     public TrussesDef? Trusses { get; set; }
 
+    /// <summary>
+    /// Material of the fittings on the outside walls: lamps over the doors, junction boxes, vents and
+    /// pipes (presentation only). Omit for none.
+    /// </summary>
+    [Optional]
+    public string? Fittings { get; set; }
+
     public WallDef[] Walls { get; set; } = Array.Empty<WallDef>();
 
     [Optional]

@@ -42,7 +42,7 @@ public static class BuildingDetails
         foreach (PlacedBuilding building in level.Buildings)
         {
             BuildingDef def = building.Template.Def;
-            if (def.Roof is null || def.Gutters is null && def.Trusses is null)
+            if (def.Roof is null || def.Gutters is null && def.Trusses is null && def.Fittings is null)
             {
                 continue;
             }
@@ -56,6 +56,12 @@ public static class BuildingDetails
             if (def.Trusses is not null && material(def.Trusses.Material) is var trusses and >= 0)
             {
                 on.Trusses(def.Trusses, trusses);
+            }
+
+            if (def.Fittings is not null && material(def.Fittings) is var fittings and >= 0)
+            {
+                int pipes = def.Gutters is not null && material(def.Gutters) is var g and >= 0 ? g : fittings;
+                on.Fittings(fittings, pipes, material(LevelBuilder.GlassMaterial));
             }
 
             dressed++;
@@ -286,6 +292,186 @@ public static class BuildingDetails
                 {
                     PurlinPiece(purlins, material, Plan(from, y, s), Plan(end, y, s), alongX);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Fittings on the outside walls: a lamp on a bracket over each door and loading bay, and spread
+        /// along the walls clear of the openings, junction boxes with a conduit running up the wall,
+        /// louvred vents, and pipes along the wall turning down into the ground.
+        /// </summary>
+        public void Fittings(int material, int pipes, int glass)
+        {
+            WallDef? outline = null;
+            foreach (WallDef w in _def.Walls)
+            {
+                if (w.Storey == 0 && w.Closed && w.Style != WallStyle.Railing)
+                {
+                    outline = w;
+                    break;
+                }
+            }
+
+            if (outline is null)
+            {
+                return;
+            }
+
+            // The tops of the doors and bays in every ground-storey run on this outline, by segment and place.
+            var tops = new Dictionary<(int Segment, int At), (float Top, float Width)>();
+            foreach (WallDef w in _def.Walls)
+            {
+                if (w.Storey != 0 || !w.Closed || w.Openings is null || w.Points_m.Length != outline.Points_m.Length)
+                {
+                    continue;
+                }
+
+                float runBase = float.IsNaN(w.BaseElevation_m) ? 0f : w.BaseElevation_m;
+                float runHeight = float.IsNaN(w.Height_m) ? _roofBottom - runBase : w.Height_m;
+                foreach (OpeningDef o in w.Openings)
+                {
+                    if (o.Kind == OpeningKind.Window)
+                    {
+                        continue;
+                    }
+
+                    float top = runBase + o.Sill_m + (float.IsNaN(o.Height_m) || o.Kind == OpeningKind.Gap ? runHeight - o.Sill_m : o.Height_m);
+                    var key = (o.Segment, (int)MathF.Round(o.At_m * 10f));
+                    if (!tops.TryGetValue(key, out (float Top, float Width) known) || top > known.Top)
+                    {
+                        tops[key] = (top, o.Width_m);
+                    }
+                }
+            }
+
+            Vector2 middle = _footprint.GetCenter();
+            float face = outline.Thickness_m * 0.5f;
+            for (int s = 0; s < outline.SegmentCount; s++)
+            {
+                float[] pa = outline.Points_m[s], pb = outline.Points_m[(s + 1) % outline.Points_m.Length];
+                var a = new Vector2(pa[0], pa[1]);
+                var b = new Vector2(pb[0], pb[1]);
+                float length = a.DistanceTo(b);
+                if (length < 1f)
+                {
+                    continue;
+                }
+
+                Vector2 dir = (b - a) / length;
+                var across = new Vector2(-dir.Y, dir.X);
+                float sign = across.Dot(a + dir * (length * 0.5f) - middle) >= 0f ? 1f : -1f;
+                Vector2 outward = across * sign;
+                Vector3 Plan(float t, float y, float off) =>
+                    new(a.X + dir.X * t + outward.X * (face + off), y, a.Y + dir.Y * t + outward.Y * (face + off));
+                // X along the wall, Y up, Z out of it.
+                var turn = new Basis(new Vector3(dir.X, 0f, dir.Y) * sign, Vector3.Up, new Vector3(outward.X, 0f, outward.Y));
+
+                foreach (((int segment, int at10), (float top, float width)) in tops)
+                {
+                    if (segment == s && top + 0.7f < _roofBottom)
+                    {
+                        Lamp(material, glass, Plan(at10 / 10f, top + 0.35f + 0.05f * width, 0f), turn);
+                    }
+                }
+
+                int count = (int)(length / 7f);
+                for (int i = 0; i < count; i++)
+                {
+                    float t = R(1f, length - 1f);
+                    double kind = _random.NextDouble();
+                    float reach = kind < 0.4 ? 0.3f : kind < 0.7 ? 0.35f : 2.5f;
+                    if (Opening(Flat(Plan(t - reach, 0f, -face))) || Opening(Flat(Plan(t, 0f, -face))) || Opening(Flat(Plan(t + reach, 0f, -face))))
+                    {
+                        continue;
+                    }
+
+                    if (kind < 0.4)
+                    {
+                        JunctionBox(material, Plan(t, R(1.35f, 1.8f), 0f), turn, MathF.Min(_roofBottom - 0.3f, R(3f, 5f)));
+                    }
+                    else if (kind < 0.7)
+                    {
+                        Vent(material, Plan(t, MathF.Min(_roofBottom - 0.6f, R(2.1f, 3.2f)), 0f), turn);
+                    }
+                    else
+                    {
+                        float y = MathF.Min(_roofBottom - 0.45f, R(2.4f, 3.4f));
+                        float end = t + (_random.NextDouble() < 0.5 ? -1f : 1f) * R(1.5f, 2.5f);
+                        PipeRun(pipes, Plan(t, y, 0.06f), Plan(end, y, 0.06f), Plan(end, 0f, 0.06f));
+                    }
+                }
+            }
+
+            static Vector2 Flat(Vector3 plan) => new(plan.X, plan.Z);
+        }
+
+        /// <summary>A lamp over a doorway: a bracket out from the wall and a head angled down, its glass underneath (no light: it's long dead).</summary>
+        private void Lamp(int material, int glass, Vector3 at, Basis turn)
+        {
+            ShapeMesh mesh = Mesh(at, _roofBottom);
+            Vector3 outward = turn.Z, wall = at;
+            Vector3 tip = wall + outward * 0.34f + Vector3.Down * 0.08f;
+            Box(mesh, material, wall + outward * 0.015f, new Vector3(0.12f, 0.16f, 0.03f), turn);
+            mesh.Bar(material, World(wall + outward * 0.02f), World(tip), 0.03f, 0.03f);
+            Basis head = turn * new Basis(Vector3.Right, -0.35f);
+            Box(mesh, material, tip + Vector3.Down * 0.05f, new Vector3(0.26f, 0.1f, 0.2f), head);
+            if (glass >= 0)
+            {
+                Box(mesh, glass, tip + Vector3.Down * 0.105f + outward * 0.02f, new Vector3(0.22f, 0.012f, 0.16f), head);
+            }
+        }
+
+        /// <summary>A grey box on the wall with a conduit running up the wall from it.</summary>
+        private void JunctionBox(int material, Vector3 at, Basis turn, float conduitTop)
+        {
+            ShapeMesh mesh = Mesh(at, _roofBottom);
+            Vector3 outward = turn.Z, up = Vector3.Up;
+            var size = new Vector3(R(0.26f, 0.38f), R(0.34f, 0.48f), R(0.1f, 0.15f));
+            Box(mesh, material, at + outward * (size.Z * 0.5f), size, turn);
+            // A lid seam and a hinge pin.
+            Box(mesh, material, at + outward * (size.Z + 0.004f), new Vector3(size.X - 0.03f, size.Y - 0.03f, 0.008f), turn);
+            Vector3 from = at + up * (size.Y * 0.5f) + outward * 0.03f;
+            mesh.Rod(material, World(from), World(new Vector3(from.X, conduitTop, from.Z)), 0.013f, 6);
+        }
+
+        /// <summary>A louvred vent: a frame and slats tilted down and out.</summary>
+        private void Vent(int material, Vector3 at, Basis turn)
+        {
+            ShapeMesh mesh = Mesh(at, _roofBottom);
+            Vector3 outward = turn.Z, along = turn.X;
+            float w = R(0.38f, 0.55f), h = w * R(0.8f, 1.1f);
+            foreach (float side in new[] { -1f, 1f })
+            {
+                Box(mesh, material, at + along * (side * (w * 0.5f - 0.02f)) + outward * 0.03f, new Vector3(0.04f, h, 0.06f), turn);
+                Box(mesh, material, at + Vector3.Up * (side * (h * 0.5f - 0.02f)) + outward * 0.03f, new Vector3(w, 0.04f, 0.06f), turn);
+            }
+
+            Basis slat = turn * new Basis(Vector3.Right, 0.6f);
+            int slats = (int)(h / 0.07f);
+            for (int i = 1; i < slats; i++)
+            {
+                float y = -h * 0.5f + h * i / slats;
+                Box(mesh, material, at + Vector3.Up * y + outward * 0.03f, new Vector3(w - 0.06f, 0.06f, 0.006f), slat);
+            }
+        }
+
+        /// <summary>A pipe along the wall from <paramref name="start"/> to <paramref name="corner"/>, then down to <paramref name="foot"/>, clipped to the wall.</summary>
+        private void PipeRun(int material, Vector3 start, Vector3 corner, Vector3 foot)
+        {
+            ShapeMesh mesh = Mesh(start, _roofBottom);
+            const float radius = 0.035f;
+            mesh.Rod(material, World(start), World(corner), radius, 8);
+            mesh.Rod(material, World(corner), World(foot), radius, 8);
+            mesh.Cylinder(material, World(corner), Basis.Identity, radius * 1.25f, radius * 2.6f, 8);
+            for (float f = 0.1f; f < 1f; f += 0.3f)
+            {
+                Vector3 clip = start.Lerp(corner, f);
+                mesh.Cylinder(material, World(clip), ShapeMesh.BasisAlong((World(corner) - World(start)).Normalized()), radius * 1.3f, 0.03f, 8);
+            }
+
+            for (float y = 0.5f; y < corner.Y - 0.3f; y += 1.2f)
+            {
+                mesh.Cylinder(material, World(new Vector3(corner.X, y, corner.Z)), Basis.Identity, radius * 1.3f, 0.03f, 8);
             }
         }
 

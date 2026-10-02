@@ -189,6 +189,11 @@ public sealed class KitCatalog
             ResolveMaterial(materials, v, nameof(BuildingDef.Gutters), b.Gutters);
         }
 
+        if (b.Fittings is not null)
+        {
+            ResolveMaterial(materials, v, nameof(BuildingDef.Fittings), b.Fittings);
+        }
+
         if (b.Trusses is not null)
         {
             ResolveMaterial(materials, v.Scope(nameof(BuildingDef.Trusses)), nameof(TrussesDef.Material), b.Trusses.Material);

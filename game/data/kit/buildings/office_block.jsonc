@@ -14,6 +14,8 @@
   "frames": "steel_painted",
   // Downpipes from rainwater heads on the parapet (looks only; a parapet roof has no eave gutters).
   "gutters": "steel_painted",
+  // Lamps over the doors, junction boxes, vents and pipes on the outside walls (looks only).
+  "fittings": "steel_painted",
   "walls": [
     // ---- Ground floor ----
     {

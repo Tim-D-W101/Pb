@@ -15,6 +15,8 @@
   // Gutters along the eaves with downpipes, and steel trusses under the roof (looks only), broken
   // off and hanging where the roof has fallen in.
   "gutters": "steel_rust",
+  // Lamps over the doors, junction boxes, vents and pipes on the outside walls (looks only).
+  "fittings": "steel_painted",
   "trusses": { "material": "steel_rust", "spacing_m": 5.0, "depth_m": 0.9 },
   "walls": [
     {
