@@ -60,7 +60,11 @@
     // Barrel tip relative to the marker: [right, up, forward].
     "muzzleTip_m": [0.0, 0.02, 0.43],
     "kickBack_m": 0.012,
-    "kickRecover_s": 0.08
+    "kickRecover_s": 0.08,
+    // Your gloved hands on the grips (coyote brown, so they read against the black marker) and your
+    // sleeves, running back out of view.
+    "gloveColor": "#5e5444",
+    "sleeveColor": "#39412f"
   },
 
   "look": {

@@ -40,8 +40,8 @@ public partial class ViewModel : Node3D
         Position = _rest;
         Basis = _tilt;
 
-        // The marker built in code (MarkerShape): one mesh with a surface per material, the loader's
-        // shell see-through so the paint shows in it.
+        // The marker built in code (MarkerShape) in your gloved hands (HandShape): one mesh with a
+        // surface per material, the loader's shell see-through so the paint shows in it.
         var materials = new Dictionary<int, Material>
         {
             [(int)MarkerPart.Body] = Material(new Color(0.11f, 0.115f, 0.12f), 0.42f, 0.35f),
@@ -52,9 +52,13 @@ public partial class ViewModel : Node3D
             [(int)MarkerPart.Shell] = Material(new Color(0.16f, 0.17f, 0.19f, 0.62f), 0.12f, 0f, clear: true),
             [(int)MarkerPart.Lid] = Material(new Color(0.12f, 0.13f, 0.14f), 0.3f, 0f),
             [(int)MarkerPart.Paint] = Material(loaderColor, 0.25f, 0f),
+            [HandPart.Glove] = Material(Color.FromHtml(def.GloveColor), 0.72f, 0f),
+            [HandPart.Cuff] = Material(Color.FromHtml(def.GloveColor).Darkened(0.2f), 0.85f, 0f),
+            [HandPart.Sleeve] = Material(Color.FromHtml(def.SleeveColor), 0.92f, 0f),
         };
         var shape = new ShapeMesh();
         MarkerShape.Build(shape, closeUp: true);
+        HandShape.Build(shape);
         var mesh = new ArrayMesh();
         shape.Commit(mesh, part => materials[part]);
         AddChild(new MeshInstance3D
@@ -80,7 +84,8 @@ public partial class ViewModel : Node3D
         }
 
         Position = Rest + new Vector3(0, 0, _kickBack * _kick * _kick);
-        Basis = Tilt;
+        // On the left shoulder the hands swap: the whole model is mirrored, while it passes under your chin.
+        Basis = Tilt * Basis.FromScale(new Vector3(Side < 0f ? -1f : 1f, 1f, 1f));
     }
 
     /// <summary>Rest position, mirrored across the face for a left-shoulder hold (and dipped mid-swap).</summary>

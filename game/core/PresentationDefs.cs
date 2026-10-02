@@ -223,8 +223,21 @@ public sealed class ViewModelDef : IValidatable
 
     public float KickRecover_s { get; set; }
 
+    /// <summary>The colours of your gloves and sleeves.</summary>
+    public string GloveColor { get; set; } = "";
+
+    public string SleeveColor { get; set; } = "";
+
     public void Validate(Validator v)
     {
+        foreach ((string name, string color) in new[] { (nameof(GloveColor), GloveColor), (nameof(SleeveColor), SleeveColor) })
+        {
+            if (!Godot.Color.HtmlIsValid(color))
+            {
+                v.Error(name, $"'{color}' is not a valid colour");
+            }
+        }
+
         v.InRange(nameof(Fov_deg), Fov_deg, 20, 120);
         v.Vector(nameof(Offset_m), Offset_m);
         v.Vector(nameof(Rotation_deg), Rotation_deg);

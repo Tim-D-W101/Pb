@@ -418,7 +418,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     - both hands go to grips on the marker (two-bone IK).
 
     `-- --gait-demo` has one opponent stand, walk, run, sprint, strafe, back off and walk crouched along a clear lane, seen from the side, to check it by eye.
-  - **Gear and look.** Until the generated marker arrives, opponents hold the marker built in code (`MarkerShape`, also the first-person marker), split into three groups, each fitted into its hitbox (`GearShapes`): receiver and barrel, the loader with the team's paint in it, the bottle. A team-colour armband sits on each upper arm. Each opponent gets a tint from a list, so copies of one model differ.
+  - **Gear and look.** Until the generated marker arrives, opponents hold the marker built in code (`MarkerShape`, also the first-person marker, which is held in gloved hands built in code, `HandShape`, mirrored with the model on the left shoulder), split into three groups, each fitted into its hitbox (`GearShapes`): receiver and barrel, the loader with the team's paint in it, the bottle. A team-colour armband sits on each upper arm. Each opponent gets a tint from a list, so copies of one model differ.
   - **Data.** `presentation.jsonc` → `characters` holds the models, tints, armband size, movement clips, blend time and leg turn, stride and lift for the steps without clips, pitch shares and grip positions.
   - **The clips themselves** come from the generator (in-place walk and run made on the first opponent's rig). Until they're imported, the procedural steps stand in.
 - **Attachments.** Armbands and paint splats attach to bones (`BoneAttachment3D`), so splats move with the character.
