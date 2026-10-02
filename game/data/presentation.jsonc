@@ -332,6 +332,19 @@
     }
   },
 
+  // Soft contact shadows on the floor round the foot of walls and columns, and of props, where sky
+  // light can't get in under them, on presets without ambient occlusion (looks only): how dark against
+  // the footprint (0-1) and how far out they fade; pieces shorter than minHeight_m get none.
+  "contactShadows": {
+    "wallStrength": 0.45,
+    "wallReach_m": 0.7,
+    "propStrength": 0.55,
+    "propReach_m": 0.5,
+    "minHeight_m": 0.15,
+    "fadeStart_m": 35,
+    "fadeEnd_m": 60
+  },
+
   // Cobwebs in the corners of the buildings' doorways (the top ones) and windows (looks only): the
   // chance a corner has one, how big, how see-through, their colour, and where they fade out.
   "cobwebs": {

@@ -50,6 +50,8 @@ public sealed class PresentationDef : IValidatable
 
     public CobwebsDef Cobwebs { get; set; } = new();
 
+    public ContactShadowsDef ContactShadows { get; set; } = new();
+
     public CreepersDef Creepers { get; set; } = new();
 
     public MenuBackdropDef MenuBackdrop { get; set; } = new();
@@ -103,6 +105,7 @@ public sealed class PresentationDef : IValidatable
         Markings.Validate(v.Scope(nameof(Markings)));
         Birds.Validate(v.Scope(nameof(Birds)));
         Cobwebs.Validate(v.Scope(nameof(Cobwebs)));
+        ContactShadows.Validate(v.Scope(nameof(ContactShadows)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
         TrainingGround.Validate(v.Scope(nameof(TrainingGround)));
@@ -1264,6 +1267,39 @@ public sealed class OldPaintDef : IValidatable
         {
             v.Error(name, $"must be [least, most] within [{min}, {max}]");
         }
+    }
+}
+
+/// <summary>
+/// Soft contact shadows round the foot of walls and columns and of props (game/world/ContactShadows.cs), on
+/// presets without SSAO: how dark they are against the footprint and how far they reach out from it, for
+/// each; pieces shorter than minHeight_m get none; they fade out between the two distances.
+/// </summary>
+public sealed class ContactShadowsDef : IValidatable
+{
+    public float WallStrength { get; set; }
+
+    public float WallReach_m { get; set; }
+
+    public float PropStrength { get; set; }
+
+    public float PropReach_m { get; set; }
+
+    public float MinHeight_m { get; set; }
+
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(WallStrength), WallStrength, 0, 1);
+        v.InRange(nameof(WallReach_m), WallReach_m, 0.05, 3);
+        v.InRange(nameof(PropStrength), PropStrength, 0, 1);
+        v.InRange(nameof(PropReach_m), PropReach_m, 0.05, 3);
+        v.InRange(nameof(MinHeight_m), MinHeight_m, 0, 3);
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
     }
 }
 

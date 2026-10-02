@@ -75,6 +75,12 @@ public partial class MenuBackdrop : Node3D
                 var markings = new Markings { Name = "Markings" };
                 AddChild(markings);
                 markings.Build(level, view.Markings);
+                if (!preset.Ssao)
+                {
+                    var contact = new ContactShadows { Name = "ContactShadows" };
+                    AddChild(contact);
+                    contact.Build(level, view.ContactShadows);
+                }
                 var birds = new Birds { Name = "Birds" };
                 AddChild(birds);
                 Pb.Sim.Collision.Aabb bounds = level.Bounds;

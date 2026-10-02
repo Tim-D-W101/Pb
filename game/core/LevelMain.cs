@@ -86,6 +86,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private WeedField _weeds = null!;
     private GroundDetail _groundDetail = null!;
     private OldPaint _oldPaint = null!;
+    private ContactShadows _contact = null!;
     private Creepers _creepers = null!;
     private LightShafts _shafts = null!;
     private string? _hitBy;
@@ -196,6 +197,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         var markings = new Markings { Name = "Markings" };
         AddChild(markings);
         markings.Build(_level, _view.Markings);
+        _contact = new ContactShadows { Name = "ContactShadows" };
+        AddChild(_contact);
+        _contact.Build(_level, _view.ContactShadows);
         var cobwebs = new Cobwebs { Name = "Cobwebs" };
         AddChild(cobwebs);
         cobwebs.Build(_level, _view.Cobwebs);
@@ -206,7 +210,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {markings.CardCount} marking cards, {cobwebs.Count} cobwebs, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);
@@ -765,6 +769,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         _weeds.ApplyPreset(preset);
         _groundDetail.Visible = preset.GroundDetail;
         _oldPaint.Visible = preset.OldPaint;
+        // Ambient occlusion does their job where the preset has it.
+        _contact.Visible = !preset.Ssao;
         _shafts.ApplyPreset(preset);
     }
 
