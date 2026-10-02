@@ -42,6 +42,8 @@ public sealed class PresentationDef : IValidatable
 
     public GroundDetailDef GroundDetail { get; set; } = new();
 
+    public OldPaintDef OldPaint { get; set; } = new();
+
     public ShaftsDef Shafts { get; set; } = new();
 
     public DustDef Dust { get; set; } = new();
@@ -85,6 +87,7 @@ public sealed class PresentationDef : IValidatable
         Horizon.Validate(v.Scope(nameof(Horizon)));
         Weeds.Validate(v.Scope(nameof(Weeds)));
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
+        OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Shafts.Validate(v.Scope(nameof(Shafts)));
         Dust.Validate(v.Scope(nameof(Dust)));
         WindowLight.Validate(v.Scope(nameof(WindowLight)));
@@ -436,6 +439,9 @@ public sealed class GraphicsPresetDef : IValidatable
 
     /// <summary>Whether things lying on the ground (oil, puddles, litter…) are drawn.</summary>
     public bool GroundDetail { get; set; }
+
+    /// <summary>Whether old paint from past games is drawn on walls, cover and the ground.</summary>
+    public bool OldPaint { get; set; }
 
     /// <summary>Dust motes drifting in the sunbeams.</summary>
     public bool Dust { get; set; }
@@ -1094,6 +1100,88 @@ public sealed class GroundDetailDef : IValidatable
         for (int i = 0; i < Kinds.Length; i++)
         {
             Kinds[i].Validate(v.Item(nameof(Kinds), i));
+        }
+    }
+}
+
+/// <summary>
+/// Old paint from games played here before (game/world/OldPaint.cs): faded splats where people
+/// shooting from one cover spot at another would have hit, on the cover and walls and the ground
+/// short of them. Shots are cast at load from the bots' cover points at others facing them across
+/// their cover, with a spread; seeded by the level id. Presentation only.
+/// </summary>
+public sealed class OldPaintDef : IValidatable
+{
+    /// <summary>How many splats to place (fewer if shots run out).</summary>
+    public int Count { get; set; }
+
+    /// <summary>Farthest a shot is taken from (m).</summary>
+    public float Range_m { get; set; }
+
+    /// <summary>How far a shot strays round its target, about (m).</summary>
+    public float Spread_m { get; set; }
+
+    /// <summary>Smallest and largest card (m); most are small.</summary>
+    public float[] Size_m { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>The paint colours, before fading.</summary>
+    public string[] Colors { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>How far each splat has faded towards a weathered grey (0 fresh, 1 gone), least and most.</summary>
+    public float[] Fade { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>Least and most opacity.</summary>
+    public float[] Opacity { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>
+    /// Props paint shows on (kit/props.jsonc ids), each with how far its shape's faces sit inside its
+    /// colliders (m), so the paint lies on the shape. Walls, columns and the ground always take paint.
+    /// </summary>
+    public System.Collections.Generic.Dictionary<string, float> Props { get; set; } = new();
+
+    /// <summary>Cards fade out between these camera distances.</summary>
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Count), Count, 0, 20000);
+        v.InRange(nameof(Range_m), Range_m, 5, 200);
+        v.InRange(nameof(Spread_m), Spread_m, 0, 5);
+        Pair(v, nameof(Size_m), Size_m, 0.02f, 3f);
+        Pair(v, nameof(Fade), Fade, 0f, 1f);
+        Pair(v, nameof(Opacity), Opacity, 0f, 1f);
+        if (Colors.Length == 0)
+        {
+            v.Error(nameof(Colors), "needs at least one colour");
+        }
+
+        foreach (string c in Colors)
+        {
+            if (!Godot.Color.HtmlIsValid(c))
+            {
+                v.Error(nameof(Colors), $"'{c}' is not a valid colour");
+            }
+        }
+
+        foreach ((string prop, float inset) in Props)
+        {
+            if (inset < 0f || inset > 0.3f)
+            {
+                v.Error(nameof(Props), $"{prop}: inset must be in [0, 0.3] m (got {inset})");
+            }
+        }
+
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 5, 500);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 600);
+    }
+
+    private static void Pair(Validator v, string name, float[] pair, float min, float max)
+    {
+        if (pair.Length != 2 || !(pair[0] >= min && pair[0] <= pair[1] && pair[1] <= max))
+        {
+            v.Error(name, $"must be [least, most] within [{min}, {max}]");
         }
     }
 }

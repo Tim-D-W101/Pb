@@ -85,6 +85,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private PickupVisuals _pickups = null!;
     private WeedField _weeds = null!;
     private GroundDetail _groundDetail = null!;
+    private OldPaint _oldPaint = null!;
     private LightShafts _shafts = null!;
     private string? _hitBy;
     private bool _scripted;
@@ -185,10 +186,13 @@ public partial class LevelMain : Node3D, ISimEventListener
         _groundDetail = new GroundDetail { Name = "GroundDetail" };
         AddChild(_groundDetail);
         _groundDetail.Build(_level, _sim.Collision, _view.GroundDetail);
+        _oldPaint = new OldPaint { Name = "OldPaint" };
+        AddChild(_oldPaint);
+        _oldPaint.Build(_level, _sim.Collision, _squad.Cover.Points, _view.OldPaint);
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_oldPaint.SplatCount} old paint splats, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);
@@ -746,6 +750,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
         _weeds.ApplyPreset(preset);
         _groundDetail.Visible = preset.GroundDetail;
+        _oldPaint.Visible = preset.OldPaint;
         _shafts.ApplyPreset(preset);
     }
 

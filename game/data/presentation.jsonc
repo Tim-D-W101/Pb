@@ -86,7 +86,7 @@
   // depth buffer the sunbeams need to stop at walls, so the beams switch off.
   // Per preset, the compound's lighting extras: the share of weeds drawn and how far (weedDensity,
   // weedDistance_m), sunbeam strength (lightShafts, 0 = off), dust motes in the beams, window fill
-  // lights, and the things lying on the ground (groundDetail; off on Low). Ultra's volumetric fog
+  // lights, the things lying on the ground (groundDetail) and old paint (oldPaint), both off on Low. Ultra's volumetric fog
   // already shows real beams and SDFGI bounces light, so it tones the fake beams down and drops the
   // fill lights.
   "graphics": {
@@ -102,16 +102,16 @@
     "presets": [
       { "name": "low", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
         "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0, "screenAa": "fxaa",
-        "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": false },
+        "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": false, "oldPaint": false },
       { "name": "medium", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
         "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 75, "msaa": 0, "screenAa": "fxaa",
-        "weedDensity": 0.5, "weedDistance_m": 35, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": true },
+        "weedDensity": 0.5, "weedDistance_m": 35, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": true, "oldPaint": true },
       { "name": "high", "ssao": true, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
         "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 90, "msaa": 0, "screenAa": "smaa",
-        "weedDensity": 0.75, "weedDistance_m": 45, "lightShafts": 1.0, "dust": true, "windowLights": true, "groundDetail": true },
+        "weedDensity": 0.75, "weedDistance_m": 45, "lightShafts": 1.0, "dust": true, "windowLights": true, "groundDetail": true, "oldPaint": true },
       { "name": "ultra", "ssao": true, "ssil": true, "sdfgi": true, "volumetricFog": true, "ssr": true, "glow": true,
         "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 130, "msaa": 0, "screenAa": "smaa",
-        "weedDensity": 1.0, "weedDistance_m": 70, "lightShafts": 0.6, "dust": true, "windowLights": false, "groundDetail": true }
+        "weedDensity": 1.0, "weedDistance_m": 70, "lightShafts": 0.6, "dust": true, "windowLights": false, "groundDetail": true, "oldPaint": true }
     ]
   },
 
@@ -203,6 +203,29 @@
       { "kind": "chips", "count": 110, "size_m": [0.6, 1.4], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"],
         "near": ["rubble_pile", "scrap_pile"], "nearShare": 0.5, "edgeShare": 0.35 }
     ]
+  },
+
+  // Old paint from games played here before: faded splats where people shooting from one cover spot at
+  // another would have hit, on the cover and walls and on the ground short of them. Shots are cast at
+  // load from the bots' cover points at others facing them across their cover, straying by about
+  // spread_m; seeded by the level id. A card is placed only where it lies flat on what it hit. Drawn
+  // in one draw call; presentation only.
+  "oldPaint": {
+    "count": 2400,
+    "range_m": 40,
+    "spread_m": 0.8,
+    // A card's width; the splat's middle is about a third of it, its spray reaches the edges.
+    "size_m": [0.4, 1.1],
+    // Typical paint fills, before fading: pink, orange, yellow, green, blue, purple, white.
+    "colors": ["#e8508e", "#f08a2a", "#e6c43a", "#7cc44a", "#3e8ee8", "#9a5ad6", "#ece8dc"],
+    "fade": [0.1, 0.5],
+    "opacity": [0.6, 0.95],
+    // Props paint shows on, with how far each shape's faces sit inside its colliders (m). Walls,
+    // columns and the ground always take paint; round or ragged props (drums, tyres, sandbags, the
+    // car, heaps) don't, since a flat card would stand off them.
+    "props": { "container_red": 0.022, "container_blue": 0.022, "container_green": 0.022, "crate_large": 0.025, "crate_small": 0.025 },
+    "fadeStart_m": 40,
+    "fadeEnd_m": 65
   },
 
   // Sunbeams through windows, doors and holes in the roof, wherever the sun reaches into a roofed
