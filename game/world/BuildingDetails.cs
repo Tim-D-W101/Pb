@@ -35,6 +35,28 @@ public static class BuildingDetails
     /// <summary>Truss members: chords and webs (square sections, m), and the purlins on top (width, depth) and their spacing.</summary>
     private const float Chord = 0.12f, Web = 0.06f, PurlinWidth = 0.07f, PurlinDepth = 0.12f, PurlinSpacing = 1.6f;
 
+    /// <summary>A roof sheet: its width, thickness, and the pitch and depth of its corrugations (m).</summary>
+    private const float SheetWidth = 0.9f, SheetThickness = 0.004f, CorrugationPitch = 0.076f, CorrugationDepth = 0.009f;
+
+    /// <summary>A corrugated sheet's cross-section (x across, y up), counter-clockwise, centred on its middle.</summary>
+    private static readonly Vector2[] Corrugation = CorrugatedOutline();
+
+    private static Vector2[] CorrugatedOutline()
+    {
+        int waves = (int)MathF.Round(SheetWidth / CorrugationPitch), steps = waves * 6;
+        var outline = new Vector2[(steps + 1) * 2];
+        for (int i = 0; i <= steps; i++)
+        {
+            float x = -SheetWidth * 0.5f + SheetWidth * i / steps;
+            float y = CorrugationDepth * MathF.Sin(Mathf.Tau * i / 6f);
+            // The underside left to right, then the top right to left.
+            outline[i] = new Vector2(x, y - SheetThickness);
+            outline[(steps + 1) * 2 - 1 - i] = new Vector2(x, y);
+        }
+
+        return outline;
+    }
+
     /// <summary>
     /// Adds every building's details to <paramref name="meshFor"/> (the mesh for a world position);
     /// <paramref name="material"/> resolves a kit material id. Where rain will run off them down the
@@ -43,6 +65,7 @@ public static class BuildingDetails
     public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, List<Drip>? drips = null)
     {
         int dressed = 0;
+        var ground = new Floors(level);
         foreach (PlacedBuilding building in level.Buildings)
         {
             BuildingDef def = building.Template.Def;
@@ -75,10 +98,71 @@ public static class BuildingDetails
                 on.Fittings(fittings, pipes, material(LevelBuilder.GlassMaterial));
             }
 
+            if (def.Roof.Holes_m is { Length: > 0 } && material(def.Roof.Material) is var sheets and >= 0)
+            {
+                int steel = def.Trusses is not null && material(def.Trusses.Material) is var t and >= 0 ? t : sheets;
+                on.FallenRoof(sheets, steel, ground, new Random(LevelBuilder.StableHash(level.Id) ^ building.Owner * 6007 ^ 0xFA11));
+            }
+
             dressed++;
         }
 
         return dressed;
+    }
+
+    /// <summary>
+    /// The floors and what stands on them, for things lying on a floor: the top of the highest floor under
+    /// a point below a height, and whether anything standing there (a wall, column, prop or stair) is in
+    /// the way.
+    /// </summary>
+    private sealed class Floors
+    {
+        private readonly List<Pb.Sim.Collision.Aabb> _floors = new();
+        private readonly List<Pb.Sim.Collision.Aabb> _standing = new();
+
+        public Floors(LevelLayout level)
+        {
+            foreach (LevelPrimitive p in level.Primitives)
+            {
+                if (p.Role == PrimitiveRole.Floor)
+                {
+                    _floors.Add(p.Bounds);
+                }
+                else if (p.Role is PrimitiveRole.Wall or PrimitiveRole.Column or PrimitiveRole.Prop or PrimitiveRole.Stair or PrimitiveRole.Ramp)
+                {
+                    _standing.Add(p.Bounds);
+                }
+            }
+        }
+
+        /// <summary>The top of the highest floor at (x, z) that lies below <paramref name="under"/>, or null where there's none.</summary>
+        public float? Below(float x, float z, float under)
+        {
+            float? top = null;
+            foreach (Pb.Sim.Collision.Aabb b in _floors)
+            {
+                if (x >= b.Min.X && x <= b.Max.X && z >= b.Min.Z && z <= b.Max.Z && b.Max.Y < under && (top is null || b.Max.Y > top))
+                {
+                    top = b.Max.Y;
+                }
+            }
+
+            return top;
+        }
+
+        /// <summary>Whether something standing on the floor at <paramref name="y"/> covers (x, z), give or take <paramref name="margin"/>.</summary>
+        public bool Blocked(float x, float z, float y, float margin)
+        {
+            foreach (Pb.Sim.Collision.Aabb b in _standing)
+            {
+                if (x >= b.Min.X - margin && x <= b.Max.X + margin && z >= b.Min.Z - margin && z <= b.Max.Z + margin && b.Min.Y < y + 0.3f && b.Max.Y > y)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     /// <summary>One building's details, built in its plan frame: x and z as in its template, y up from its origin.</summary>
@@ -901,6 +985,107 @@ public static class BuildingDetails
             }
 
             return outline;
+        }
+
+        /// <summary>
+        /// Roof sheets fallen in through each hole, lying on whatever floor is below it (the ground floor or
+        /// the mezzanine): corrugated, some flat, some with an end propped up on the rubble, some bent up
+        /// across the middle, with a broken purlin or two among them. Each lies wholly on one floor, clear
+        /// of everything standing on it and of the other sheets.
+        /// </summary>
+        public void FallenRoof(int sheet, int steel, Floors floors, Random random)
+        {
+            float R(float a, float b) => a + (float)random.NextDouble() * (b - a);
+            float under = World(new Vector3(0f, _roofBottom, 0f)).Y - 0.5f;
+            var placed = new List<Vector3>();
+            foreach (Rect2 hole in _holes)
+            {
+                int count = Math.Clamp((int)(hole.Area / 9f), 3, 14);
+                for (int k = 0, tries = 0; k < count && tries < count * 12; tries++)
+                {
+                    float length = R(1.8f, 3.0f);
+                    var plan = new Vector2(R(hole.Position.X - 0.8f, hole.End.X + 0.8f), R(hole.Position.Y - 0.8f, hole.End.Y + 0.8f));
+                    Vector3 at = World(new Vector3(plan.X, 0f, plan.Y));
+                    float yaw = R(0f, Mathf.Tau);
+                    var turn = new Basis(Vector3.Up, yaw);
+                    Vector3 along = turn * Vector3.Back, across = turn * Vector3.Right;
+                    if (floors.Below(at.X, at.Z, under) is not float floor || placed.Exists(o => o.DistanceTo(at) < 1.1f))
+                    {
+                        continue;
+                    }
+
+                    bool fits = true;
+                    foreach ((float u, float v) in new[] { (-0.5f, -0.5f), (0.5f, -0.5f), (0.5f, 0.5f), (-0.5f, 0.5f), (0f, 0f) })
+                    {
+                        Vector3 c = at + along * (u * length) + across * (v * SheetWidth);
+                        if (floors.Below(c.X, c.Z, under) is not float f || MathF.Abs(f - floor) > 0.03f || floors.Blocked(c.X, c.Z, floor, 0.08f))
+                        {
+                            fits = false;
+                            break;
+                        }
+                    }
+
+                    if (!fits)
+                    {
+                        continue;
+                    }
+
+                    ShapeMesh mesh = _meshFor(at);
+                    mesh.Place(Transform3D.Identity, 0.3f);
+                    float rest = floor + CorrugationDepth + SheetThickness + 0.004f;
+                    double kind = random.NextDouble();
+                    if (kind < 0.45)
+                    {
+                        // Flat, a little out of true.
+                        Basis lie = turn * new Basis(Vector3.Right, R(-0.03f, 0.03f)) * new Basis(Vector3.Back, R(-0.02f, 0.02f));
+                        mesh.Extrude(sheet, new Vector3(at.X, rest + 0.01f, at.Z), lie, Corrugation, length);
+                    }
+                    else if (kind < 0.75)
+                    {
+                        // One end propped up on the rubble.
+                        float tilt = R(0.1f, 0.28f);
+                        Basis lie = turn * new Basis(Vector3.Right, -tilt);
+                        mesh.Extrude(sheet, new Vector3(at.X, rest + length * 0.5f * MathF.Sin(tilt), at.Z), lie, Corrugation, length);
+                    }
+                    else
+                    {
+                        // Bent up across the middle where it caught on the way down: two halves meeting at a ridge.
+                        float bend = R(0.18f, 0.5f), half = length * 0.5f;
+                        foreach (float side in new[] { -1f, 1f })
+                        {
+                            Basis lie = turn * new Basis(Vector3.Right, side * bend);
+                            Vector3 centre = at + along * (side * half * 0.5f * MathF.Cos(bend)) + Vector3.Up * (rest - at.Y + half * 0.5f * MathF.Sin(bend));
+                            mesh.Extrude(sheet, centre, lie, Corrugation, half);
+                        }
+                    }
+
+                    placed.Add(at);
+                    k++;
+                }
+
+                // A purlin or two, broken off, lying across the floor.
+                for (int k = 0, bars = random.Next(1, 3), tries = 0; k < bars && tries < 20; tries++)
+                {
+                    float length = R(1.4f, 3.2f);
+                    Vector3 at = World(new Vector3(R(hole.Position.X, hole.End.X), 0f, R(hole.Position.Y, hole.End.Y)));
+                    Vector3 dir = new Basis(Vector3.Up, R(0f, Mathf.Tau)) * Vector3.Back;
+                    Vector3 a = at - dir * (length * 0.5f), b = at + dir * (length * 0.5f);
+                    if (floors.Below(at.X, at.Z, under) is not float floor ||
+                        floors.Below(a.X, a.Z, under) is not float fa || floors.Below(b.X, b.Z, under) is not float fb ||
+                        MathF.Abs(fa - floor) > 0.03f || MathF.Abs(fb - floor) > 0.03f ||
+                        floors.Blocked(a.X, a.Z, floor, 0.05f) || floors.Blocked(b.X, b.Z, floor, 0.05f) || floors.Blocked(at.X, at.Z, floor, 0.05f))
+                    {
+                        continue;
+                    }
+
+                    ShapeMesh mesh = _meshFor(at);
+                    mesh.Place(Transform3D.Identity, 0.3f);
+                    // Resting on the flange, one end a little up on a sheet or a lump.
+                    Vector3 lift = Vector3.Up * (floor + PurlinWidth * 0.5f);
+                    mesh.Bar(steel, new Vector3(a.X, 0f, a.Z) + lift, new Vector3(b.X, 0f, b.Z) + lift + Vector3.Up * R(0f, 0.12f), PurlinDepth, PurlinWidth);
+                    k++;
+                }
+            }
         }
 
         private ShapeMesh Mesh(Vector2 plan, float height) => Mesh(new Vector3(plan.X, 0f, plan.Y), height);

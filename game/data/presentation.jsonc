@@ -294,7 +294,7 @@
     "fadeEnd_m": 65,
     "kinds": [
       { "kind": "damp", "count": 80, "size_m": [1.6, 4.5], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"], "opacity": 0.85 },
-      { "kind": "puddle", "count": 45, "size_m": [1.0, 3.2], "on": ["asphalt_cracked", "dirt"], "sky": "open" },
+      { "kind": "puddle", "count": 50, "size_m": [1.0, 3.2], "on": ["asphalt_cracked", "dirt", "concrete_floor"], "sky": "open" },
       { "kind": "oil", "count": 140, "size_m": [0.5, 1.8], "on": ["asphalt_cracked", "concrete_floor", "gravel"],
         "near": ["car_wreck", "generator", "forklift", "pump_unit", "oil_drum", "oil_drum_rust", "oil_drum_tipped", "skip_bin"], "nearShare": 0.6 },
       { "kind": "rust", "count": 70, "size_m": [0.6, 1.8], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"],
