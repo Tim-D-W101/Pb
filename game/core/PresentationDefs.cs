@@ -44,6 +44,8 @@ public sealed class PresentationDef : IValidatable
 
     public OldPaintDef OldPaint { get; set; } = new();
 
+    public CreepersDef Creepers { get; set; } = new();
+
     public ShaftsDef Shafts { get; set; } = new();
 
     public DustDef Dust { get; set; } = new();
@@ -88,6 +90,7 @@ public sealed class PresentationDef : IValidatable
         Weeds.Validate(v.Scope(nameof(Weeds)));
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
+        Creepers.Validate(v.Scope(nameof(Creepers)));
         Shafts.Validate(v.Scope(nameof(Shafts)));
         Dust.Validate(v.Scope(nameof(Dust)));
         WindowLight.Validate(v.Scope(nameof(WindowLight)));
@@ -1183,6 +1186,47 @@ public sealed class OldPaintDef : IValidatable
         {
             v.Error(name, $"must be [least, most] within [{min}, {max}]");
         }
+    }
+}
+
+/// <summary>
+/// Ivy and dead vines climbing the outside walls (game/world/Creepers.cs): cards standing on the
+/// ground against walls of the listed materials, under the open sky, each with wall behind it all the
+/// way. Seeded by the level id. Presentation only.
+/// </summary>
+public sealed class CreepersDef : IValidatable
+{
+    /// <summary>How many patches (fewer where there isn't room).</summary>
+    public int Count { get; set; }
+
+    /// <summary>Narrowest and widest, shortest and tallest patch (m).</summary>
+    public float[] Width_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] Height_m { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>Wall materials they climb (kit/materials.jsonc ids).</summary>
+    public string[] On { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>They thin out between these camera distances.</summary>
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Count), Count, 0, 5000);
+        if (Width_m.Length != 2 || !(Width_m[0] >= 0.1f && Width_m[0] <= Width_m[1] && Width_m[1] <= 10f))
+        {
+            v.Error(nameof(Width_m), "must be [narrowest, widest] within [0.1, 10]");
+        }
+
+        if (Height_m.Length != 2 || !(Height_m[0] >= 0.1f && Height_m[0] <= Height_m[1] && Height_m[1] <= 20f))
+        {
+            v.Error(nameof(Height_m), "must be [shortest, tallest] within [0.1, 20]");
+        }
+
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 5, 500);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 600);
     }
 }
 

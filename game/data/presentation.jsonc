@@ -210,6 +210,18 @@
   // load from the bots' cover points at others facing them across their cover, straying by about
   // spread_m; seeded by the level id. A card is placed only where it lies flat on what it hit. Drawn
   // in one draw call; presentation only.
+  // Ivy and dead vines climbing the outside walls: patches standing on the ground against walls of
+  // these materials, under the open sky, each with wall behind it all the way up and across (none
+  // climbs over a window or round a corner). Painted at load; seeded by the level id.
+  "creepers": {
+    "count": 110,
+    "width_m": [0.9, 2.2],
+    "height_m": [1.0, 3.6],
+    "on": ["concrete_block", "concrete_wall", "brick_red", "brick_painted", "plaster_peeling"],
+    "fadeStart_m": 45,
+    "fadeEnd_m": 75
+  },
+
   "oldPaint": {
     "count": 2400,
     "range_m": 40,
