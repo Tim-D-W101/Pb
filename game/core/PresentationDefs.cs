@@ -40,6 +40,8 @@ public sealed class PresentationDef : IValidatable
 
     public WeedsDef Weeds { get; set; } = new();
 
+    public GroundDetailDef GroundDetail { get; set; } = new();
+
     public ShaftsDef Shafts { get; set; } = new();
 
     public DustDef Dust { get; set; } = new();
@@ -82,6 +84,7 @@ public sealed class PresentationDef : IValidatable
         Lighting.Validate(v.Scope(nameof(Lighting)));
         Horizon.Validate(v.Scope(nameof(Horizon)));
         Weeds.Validate(v.Scope(nameof(Weeds)));
+        GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         Shafts.Validate(v.Scope(nameof(Shafts)));
         Dust.Validate(v.Scope(nameof(Dust)));
         WindowLight.Validate(v.Scope(nameof(WindowLight)));
@@ -1036,5 +1039,98 @@ public sealed class SpectatorDef : IValidatable
         v.InRange(nameof(Back_m), Back_m, 0, 20);
         v.InRange(nameof(FollowBack_m), FollowBack_m, 0.5, 20);
         v.InRange(nameof(FollowHeight_m), FollowHeight_m, -1, 10);
+    }
+}
+
+/// <summary>
+/// Things lying on the ground (game/world/GroundDetail.cs): oil stains, puddles, damp patches, rust
+/// run-off, tyre tracks, drifts of leaves, litter and broken chips, painted at load into one atlas and
+/// drawn as flat cards in one draw call. Placed at load, seeded by the level id, so the same every run.
+/// Presentation only.
+/// </summary>
+public sealed class GroundDetailDef : IValidatable
+{
+    /// <summary>Cards fade out between these camera distances.</summary>
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public GroundDetailKindDef[] Kinds { get; set; } = System.Array.Empty<GroundDetailKindDef>();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 5, 500);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 600);
+        for (int i = 0; i < Kinds.Length; i++)
+        {
+            Kinds[i].Validate(v.Item(nameof(Kinds), i));
+        }
+    }
+}
+
+public sealed class GroundDetailKindDef : IValidatable
+{
+    /// <summary>oil, puddle, damp, rust, tracks, leaves, litter or chips.</summary>
+    public string Kind { get; set; } = "";
+
+    /// <summary>How many to place (fewer where there isn't room).</summary>
+    public int Count { get; set; }
+
+    /// <summary>Smallest and largest length of a card.</summary>
+    public float[] Size_m { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>A card's width as a share of its length (tyre tracks are long and narrow).</summary>
+    [Optional]
+    public float Aspect { get; set; } = 1f;
+
+    /// <summary>Ground materials it lies on (kit/materials.jsonc ids).</summary>
+    public string[] On { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>"open" (under the sky only), "covered" (indoors only) or "any".</summary>
+    [Optional]
+    public string Sky { get; set; } = "any";
+
+    /// <summary>Props (kit/props.jsonc ids) it gathers round, and the share placed round them; the rest go anywhere.</summary>
+    [Optional]
+    public string[]? Near { get; set; }
+
+    [Optional]
+    public float NearShare { get; set; }
+
+    /// <summary>The share placed along the foot of walls, where wind leaves things.</summary>
+    [Optional]
+    public float EdgeShare { get; set; }
+
+    /// <summary>How opaque, from faint to full (multiplied with the painted coverage).</summary>
+    [Optional]
+    public float Opacity { get; set; } = 1f;
+
+    public void Validate(Validator v)
+    {
+        if (!System.Enum.TryParse<Pb.Game.World.GroundDetailKind>(Kind, true, out _))
+        {
+            v.Error(nameof(Kind), $"'{Kind}' is not one of {string.Join(", ", System.Enum.GetNames<Pb.Game.World.GroundDetailKind>()).ToLowerInvariant()}");
+        }
+
+        v.InRange(nameof(Count), Count, 0, 5000);
+        if (Size_m.Length != 2 || Size_m[0] <= 0f || Size_m[1] < Size_m[0] || Size_m[1] > 30f)
+        {
+            v.Error(nameof(Size_m), "takes [smallest, largest], 0–30 m");
+        }
+
+        v.InRange(nameof(Aspect), Aspect, 0.1, 10);
+        if (On.Length == 0)
+        {
+            v.Error(nameof(On), "needs at least one ground material");
+        }
+
+        if (Sky is not ("open" or "covered" or "any"))
+        {
+            v.Error(nameof(Sky), $"'{Sky}' is not one of open, covered, any");
+        }
+
+        v.InRange(nameof(NearShare), NearShare, 0, 1);
+        v.InRange(nameof(EdgeShare), EdgeShare, 0, 1);
+        v.InRange(nameof(Opacity), Opacity, 0, 1);
     }
 }

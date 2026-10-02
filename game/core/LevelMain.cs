@@ -83,6 +83,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private SpectatorView? _spectator;
     private PickupVisuals _pickups = null!;
     private WeedField _weeds = null!;
+    private GroundDetail _groundDetail = null!;
     private LightShafts _shafts = null!;
     private string? _hitBy;
     private bool _scripted;
@@ -178,10 +179,13 @@ public partial class LevelMain : Node3D, ISimEventListener
         _weeds = new WeedField { Name = "Weeds" };
         AddChild(_weeds);
         _weeds.Build(_level, _sim.Collision, _view.Weeds);
+        _groundDetail = new GroundDetail { Name = "GroundDetail" };
+        AddChild(_groundDetail);
+        _groundDetail.Build(_level, _sim.Collision, _view.GroundDetail);
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);

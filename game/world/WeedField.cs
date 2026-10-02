@@ -35,8 +35,7 @@ public partial class WeedField : Node3D
     /// <summary>Radius of the sphere dropped from the sky to find open ground.</summary>
     private const float Clearance = 0.08f;
 
-    /// <summary>Ground surfaces are below this height (patches and floors are a few millimetres thick).</summary>
-    private const float GroundTop = 0.06f;
+    private const float GroundTop = GroundSurvey.GroundTop;
 
     /// <summary>
     /// Variant mix (fine grass, seeding grass, broadleaf weed, wiry weed) and height factor for each kind
@@ -163,32 +162,22 @@ public partial class WeedField : Node3D
     private sealed class Placer
     {
         private readonly LevelLayout _level;
-        private readonly ICollisionWorld _world;
+        private readonly GroundSurvey _survey;
         private readonly WeedsDef _def;
         private readonly uint _seed;
-        private readonly List<LevelPrimitive> _slabs = new();
         private readonly HashSet<string> _cracked;
         private readonly HashSet<string> _grass;
         private readonly Color[] _colors;
-        private readonly float _top;
 
         public Placer(LevelLayout level, ICollisionWorld world, WeedsDef def, uint seed)
         {
             _level = level;
-            _world = world;
+            _survey = new GroundSurvey(level, world);
             _def = def;
             _seed = seed;
             _cracked = new HashSet<string>(def.CrackMaterials, StringComparer.Ordinal);
             _grass = new HashSet<string>(def.GrassMaterials, StringComparer.Ordinal);
             _colors = def.Colors.Select(c => Color.FromHtml(c)).ToArray();
-            _top = level.Bounds.Max.Y;
-            foreach (LevelPrimitive p in level.Primitives)
-            {
-                if ((p.Role is PrimitiveRole.GroundPatch or PrimitiveRole.Floor) && p.Bounds.Max.Y < GroundTop)
-                {
-                    _slabs.Add(p);
-                }
-            }
         }
 
         /// <summary>Tufts over open ground: one chance per cell of a jittered grid, weighted by the ground's density.</summary>
@@ -291,48 +280,10 @@ public partial class WeedField : Node3D
                 rng.Symmetric(0.12f), rng.Symmetric(0.12f), variant, tint.SrgbToLinear());
         }
 
-        /// <summary>The ground material at (x, z): a ground-floor slab beats a ground patch beats the level's ground.</summary>
-        private string MaterialAt(float x, float z)
-        {
-            Aabb b = _level.Bounds;
-            if (x < b.Min.X || x > b.Max.X || z < b.Min.Z || z > b.Max.Z)
-            {
-                return LevelBuilder.SurroundingsMaterial;
-            }
-
-            string? patch = null;
-            for (int i = _slabs.Count - 1; i >= 0; i--)
-            {
-                LevelPrimitive s = _slabs[i];
-                SVector3 local = SVector3.Transform(new SVector3(x - s.Center.X, 0f, z - s.Center.Z), SQuaternion.Conjugate(s.Rotation));
-                if (MathF.Abs(local.X) > s.HalfExtents.X || MathF.Abs(local.Z) > s.HalfExtents.Z)
-                {
-                    continue;
-                }
-
-                if (s.Role == PrimitiveRole.Floor)
-                {
-                    return _level.Materials[s.Material].Id;
-                }
-
-                patch ??= _level.Materials[s.Material].Id;
-            }
-
-            return patch ?? _level.GroundMaterial.Id;
-        }
+        private string MaterialAt(float x, float z) => _survey.MaterialAt(x, z);
 
         /// <summary>True when a small sphere dropped from the sky lands flat on the ground at (x, z).</summary>
-        private bool OpenGround(float x, float z, out float y)
-        {
-            y = 0f;
-            if (!_world.SweepSphere(new SVector3(x, _top, z), new SVector3(x, -0.5f, z), Clearance, out SweepHit hit) || hit.Normal.Y < 0.9f)
-            {
-                return false;
-            }
-
-            y = hit.Point.Y - Clearance;
-            return y < GroundTop;
-        }
+        private bool OpenGround(float x, float z, out float y) => _survey.OpenGround(x, z, Clearance, out y);
 
         private bool NearPickup(float x, float z)
         {

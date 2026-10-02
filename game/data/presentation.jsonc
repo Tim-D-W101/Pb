@@ -179,6 +179,31 @@
     "chunkSize_m": 16
   },
 
+  // Things lying on the ground: oil stains round the car and the machines, puddles under the open sky,
+  // damp patches, rust run-off by rusting things, tyre tracks, drifts of leaves against walls, litter
+  // and broken chips. Painted at load into one atlas and drawn as flat cards in one draw call; seeded
+  // by the level id, so they're the same every run. Presentation only. Each kind: how many, the length
+  // of a card (smallest, largest), width as a share of length ("aspect"), the ground materials it lies
+  // on, "sky" (open, covered or any), props it gathers round with the share placed there ("near",
+  // "nearShare"), the share along the foot of walls ("edgeShare"), and how opaque it is.
+  "groundDetail": {
+    "fadeStart_m": 40,
+    "fadeEnd_m": 65,
+    "kinds": [
+      { "kind": "damp", "count": 80, "size_m": [1.6, 4.5], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"], "opacity": 0.85 },
+      { "kind": "puddle", "count": 45, "size_m": [1.0, 3.2], "on": ["asphalt_cracked", "dirt"], "sky": "open" },
+      { "kind": "oil", "count": 140, "size_m": [0.5, 1.8], "on": ["asphalt_cracked", "concrete_floor", "gravel"],
+        "near": ["car_wreck", "generator", "forklift", "pump_unit", "oil_drum", "oil_drum_rust", "oil_drum_tipped", "skip_bin"], "nearShare": 0.6 },
+      { "kind": "rust", "count": 70, "size_m": [0.6, 1.8], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"],
+        "near": ["oil_drum_rust", "oil_drum_tipped", "scrap_pile", "skip_bin", "car_wreck", "water_tower", "container_red", "container_blue", "container_green", "shelving_rack"], "nearShare": 1.0 },
+      { "kind": "tracks", "count": 20, "size_m": [4, 6], "aspect": 0.45, "on": ["asphalt_cracked", "dirt"], "sky": "open", "opacity": 0.85 },
+      { "kind": "leaves", "count": 160, "size_m": [0.6, 1.3], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"], "edgeShare": 0.8 },
+      { "kind": "litter", "count": 140, "size_m": [0.5, 1.0], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"], "edgeShare": 0.4 },
+      { "kind": "chips", "count": 110, "size_m": [0.6, 1.4], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"],
+        "near": ["rubble_pile", "scrap_pile"], "nearShare": 0.5, "edgeShare": 0.35 }
+    ]
+  },
+
   // Sunbeams through windows, doors and holes in the roof, wherever the sun reaches into a roofed
   // space. A beam is a box of light, ray-marched per pixel and cut off by whatever is in front of it.
   "shafts": {
