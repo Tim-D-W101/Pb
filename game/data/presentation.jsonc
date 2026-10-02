@@ -209,6 +209,38 @@
     "chunkSize_m": 16
   },
 
+  // Cracks in the asphalt and concrete, drawn along the network the weeds grow in ("weeds":
+  // crackMaterials, crackSpacing_m), so the tufts come up out of them. Each is a dark line wandering a
+  // little either side of the network, in a band of grime, with fine spurs branching off; how open they
+  // are varies in patches across the ground. Looks only: multiplied over the ground and its paint.
+  "cracks": {
+    // The open crack's width (narrowest, widest) and how far it wanders from the network's straight line.
+    "width_m": [0.004, 0.028],
+    "wander_m": 0.05,
+    // How open the cracks are on each crack material (a multiple; concrete cracks finer than asphalt).
+    "open": { "asphalt_cracked": 1.0, "concrete_floor": 0.6 },
+    // The grimy band either side: half-width, how dark it gets (0 none, 1 its colour), its colour.
+    "halo_m": 0.09,
+    "haloDarkness": 0.3,
+    "haloColor": "#6b6157",
+    // The crack itself: how dark (0 none, 1 its colour), its colour, and how much lighter its broken edge is.
+    "darkness": 0.85,
+    "color": "#3b332a",
+    "rim": 0.1,
+    // Fine cracks branching off: how many per metre of crack, and how long (shortest, longest).
+    "spurs_perM": 0.3,
+    "spurLength_m": [0.25, 0.9],
+    // Patches about this big where the cracks gape, and others where they close to hairlines.
+    "patchSize_m": 11,
+    // The share of the network drawn (the rest is too fine to see; weeds still find it).
+    "drawn": 0.85,
+    // Patches where the asphalt has broken up into small pieces: how many, how far each reaches
+    // (least, most), and how big the pieces are.
+    "alligator": { "patches": 9, "radius_m": [1.0, 2.6], "spacing_m": 0.32 },
+    "fadeStart_m": 30,
+    "fadeEnd_m": 55
+  },
+
   // Things lying on the ground: oil stains round the car and the machines, puddles under the open sky,
   // damp patches, rust run-off by rusting things, tyre tracks, drifts of leaves against walls, litter
   // and broken chips. Painted at load into one atlas and drawn as flat cards in one draw call; seeded

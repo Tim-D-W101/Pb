@@ -40,6 +40,8 @@ public sealed class PresentationDef : IValidatable
 
     public WeedsDef Weeds { get; set; } = new();
 
+    public CracksDef Cracks { get; set; } = new();
+
     public GroundDetailDef GroundDetail { get; set; } = new();
 
     public OldPaintDef OldPaint { get; set; } = new();
@@ -110,6 +112,7 @@ public sealed class PresentationDef : IValidatable
         Lighting.Validate(v.Scope(nameof(Lighting)));
         Horizon.Validate(v.Scope(nameof(Horizon)));
         Weeds.Validate(v.Scope(nameof(Weeds)));
+        Cracks.Validate(v.Scope(nameof(Cracks)));
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Markings.Validate(v.Scope(nameof(Markings)));
@@ -1324,6 +1327,97 @@ public sealed class OldPaintDef : IValidatable
         {
             v.Error(name, $"must be [least, most] within [{min}, {max}]");
         }
+    }
+}
+
+/// <summary>
+/// Cracks in the asphalt and concrete (game/world/Cracks.cs), drawn along the network the weeds grow in
+/// (weeds → crackMaterials and crackSpacing_m): the open crack's width (narrowest, widest), how far it
+/// wanders either side of the network, how open the cracks are on each crack material (a multiple, 1 if
+/// not listed), the grimy band either side (half-width, how dark, colour), the crack's own darkness and
+/// colour, how much lighter its broken edge is, the spurs branching off (per metre of crack, length), the
+/// size of the patches where cracks gape or close to hairlines, the share of the network drawn at all,
+/// and the distances they fade out over.
+/// </summary>
+public sealed class CracksDef : IValidatable
+{
+    public float[] Width_m { get; set; } = System.Array.Empty<float>();
+
+    public float Wander_m { get; set; }
+
+    public Dictionary<string, float> Open { get; set; } = new();
+
+    public float Halo_m { get; set; }
+
+    public float HaloDarkness { get; set; }
+
+    public string HaloColor { get; set; } = "";
+
+    public float Darkness { get; set; }
+
+    public string Color { get; set; } = "";
+
+    public float Rim { get; set; }
+
+    public float Spurs_perM { get; set; }
+
+    public float[] SpurLength_m { get; set; } = System.Array.Empty<float>();
+
+    public float PatchSize_m { get; set; }
+
+    public float Drawn { get; set; }
+
+    public AlligatorDef Alligator { get; set; } = new();
+
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        FlockDef.Pair(v, nameof(Width_m), Width_m, 0.001f, 0.2f);
+        v.InRange(nameof(Wander_m), Wander_m, 0, 0.5);
+        foreach ((string id, float k) in Open)
+        {
+            if (!(k >= 0f && k <= 4f))
+            {
+                v.Error(nameof(Open), $"'{id}' must be within [0, 4]");
+            }
+        }
+
+        v.InRange(nameof(Halo_m), Halo_m, 0.01, 0.5);
+        v.InRange(nameof(HaloDarkness), HaloDarkness, 0, 1);
+        TrainingGroundDef.Colour(v, nameof(HaloColor), HaloColor);
+        v.InRange(nameof(Darkness), Darkness, 0, 1);
+        TrainingGroundDef.Colour(v, nameof(Color), Color);
+        v.InRange(nameof(Rim), Rim, 0, 1);
+        v.InRange(nameof(Spurs_perM), Spurs_perM, 0, 5);
+        FlockDef.Pair(v, nameof(SpurLength_m), SpurLength_m, 0.05f, 5f);
+        v.InRange(nameof(PatchSize_m), PatchSize_m, 1, 200);
+        v.InRange(nameof(Drawn), Drawn, 0, 1);
+        Alligator.Validate(v.Scope(nameof(Alligator)));
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Patches of alligator cracking, where asphalt has broken up into small pieces: how many, how far each
+/// reaches (least, most), and how big the pieces are.
+/// </summary>
+public sealed class AlligatorDef : IValidatable
+{
+    public int Patches { get; set; }
+
+    public float[] Radius_m { get; set; } = System.Array.Empty<float>();
+
+    public float Spacing_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Patches), Patches, 0, 100);
+        FlockDef.Pair(v, nameof(Radius_m), Radius_m, 0.3f, 10f);
+        v.InRange(nameof(Spacing_m), Spacing_m, 0.1, 2);
     }
 }
 

@@ -273,6 +273,7 @@ public partial class WeedField : Node3D
         private readonly WeedsDef _def;
         private readonly uint _seed;
         private readonly HashSet<string> _cracked;
+        private readonly CrackNetwork _network;
         private readonly HashSet<string> _grass;
         private readonly Color[] _colors;
 
@@ -282,6 +283,7 @@ public partial class WeedField : Node3D
             _def = def;
             _seed = seed;
             _cracked = new HashSet<string>(def.CrackMaterials, StringComparer.Ordinal);
+            _network = new CrackNetwork(def.CrackSpacing_m, seed);
             _grass = new HashSet<string>(def.GrassMaterials, StringComparer.Ordinal);
             _colors = def.Colors.Select(c => Color.FromHtml(c)).ToArray();
         }
@@ -400,56 +402,15 @@ public partial class WeedField : Node3D
             return Smoothstep(_def.Bare - 0.12f, _def.Bare + 0.12f, n);
         }
 
-        /// <summary>1 on a crack, 0 away from one: the edges of a jittered cell network.</summary>
-        private float Crack(float x, float z)
-        {
-            float s = _def.CrackSpacing_m;
-            float px = x / s, pz = z / s;
-            int ix = (int)MathF.Floor(px), iz = (int)MathF.Floor(pz);
-            var p = new Vector2(px, pz);
-            Vector2 f1 = default, f2 = default;
-            float d1 = float.MaxValue, d2 = float.MaxValue;
-            for (int j = -1; j <= 1; j++)
-            {
-                for (int i = -1; i <= 1; i++)
-                {
-                    int cx = ix + i, cz = iz + j;
-                    var f = new Vector2(cx + Hash01(cx, cz, _seed + 7), cz + Hash01(cx, cz, _seed + 11));
-                    float d = (f - p).LengthSquared();
-                    if (d < d1)
-                    {
-                        (d2, f2) = (d1, f1);
-                        (d1, f1) = (d, f);
-                    }
-                    else if (d < d2)
-                    {
-                        (d2, f2) = (d, f);
-                    }
-                }
-            }
-
-            // Distance to the bisector of the two nearest cell centres, in metres.
-            float distance = MathF.Abs((p - (f1 + f2) * 0.5f).Dot((f2 - f1).Normalized())) * s;
-            return 1f - Smoothstep(_def.CrackWidth_m * 0.25f, _def.CrackWidth_m * 0.5f, distance);
-        }
+        /// <summary>1 on a crack, 0 away from one (the network <see cref="Cracks"/> draws).</summary>
+        private float Crack(float x, float z) =>
+            1f - Smoothstep(_def.CrackWidth_m * 0.25f, _def.CrackWidth_m * 0.5f, _network.Distance(x, z));
     }
 
     private static float Smoothstep(float edge0, float edge1, float x)
     {
         float t = Math.Clamp((x - edge0) / (edge1 - edge0), 0f, 1f);
         return t * t * (3f - 2f * t);
-    }
-
-    private static float Hash01(int x, int y, uint seed)
-    {
-        unchecked
-        {
-            uint h = ((uint)x * 0x8da6b343u) ^ ((uint)y * 0xd8163841u) ^ (seed * 0xcb1ab31fu);
-            h ^= h >> 13;
-            h *= 0x5bd1e995u;
-            h ^= h >> 15;
-            return (h >> 8) * (1f / 16777216f);
-        }
     }
 
     /// <summary>Smooth value noise in 0–1 with features one unit across.</summary>
@@ -459,8 +420,8 @@ public partial class WeedField : Node3D
         float fx = x - ix, fz = z - iz;
         fx = fx * fx * (3f - 2f * fx);
         fz = fz * fz * (3f - 2f * fz);
-        float top = Mathf.Lerp(Hash01(ix, iz, seed), Hash01(ix + 1, iz, seed), fx);
-        float bottom = Mathf.Lerp(Hash01(ix, iz + 1, seed), Hash01(ix + 1, iz + 1, seed), fx);
+        float top = Mathf.Lerp(CrackNetwork.Hash01(ix, iz, seed), CrackNetwork.Hash01(ix + 1, iz, seed), fx);
+        float bottom = Mathf.Lerp(CrackNetwork.Hash01(ix, iz + 1, seed), CrackNetwork.Hash01(ix + 1, iz + 1, seed), fx);
         return Mathf.Lerp(top, bottom, fz);
     }
 
