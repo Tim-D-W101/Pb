@@ -32,11 +32,16 @@ public static class TextureMaker
     /// Makes <paramref name="source"/> tile. Within <paramref name="band"/> (a share of the size) of each
     /// edge, it blends in a copy shifted by half the image, whose middle has no seam. The blend keeps
     /// the picture's contrast (variance-preserving), so the bands don't look washed out. Everything
-    /// outside the bands is left as it was.
+    /// outside the bands is left as it was. A regular pattern (bricks, planks, corrugations) that
+    /// repeats <paramref name="repeatsX"/> times across or <paramref name="repeatsY"/> times down the
+    /// picture is shifted by the whole number of repeats nearest half instead, so the blended copy
+    /// lines up with it rather than doubling its joints; that way the copies match, so the blend is
+    /// plain (keeping the contrast would strengthen the joints in the bands).
     /// </summary>
-    public static RgbImage MakeTileable(RgbImage source, float band)
+    public static RgbImage MakeTileable(RgbImage source, float band, int repeatsX = 0, int repeatsY = 0)
     {
         int w = source.Width, h = source.Height;
+        int sx = Shift(w, repeatsX), sy = Shift(h, repeatsY);
         var mean = new float[3];
         for (int i = 0; i < source.Data.Length; i++)
         {
@@ -65,16 +70,10 @@ public static class TextureMaker
                 weights[2] = kx * (1f - ky);
                 weights[3] = (1f - kx) * (1f - ky);
                 sources[0] = source.Index(x, y);
-                sources[1] = source.Index((x + w / 2) % w, y);
-                sources[2] = source.Index(x, (y + h / 2) % h);
-                sources[3] = source.Index((x + w / 2) % w, (y + h / 2) % h);
-                float norm = 0f;
-                foreach (float k in weights)
-                {
-                    norm += k * k;
-                }
-
-                norm = MathF.Sqrt(norm);
+                sources[1] = source.Index((x + sx) % w, y);
+                sources[2] = source.Index(x, (y + sy) % h);
+                sources[3] = source.Index((x + sx) % w, (y + sy) % h);
+                float norm = Spread(kx, repeatsX) * Spread(ky, repeatsY);
                 int o = result.Index(x, y);
                 for (int c = 0; c < 3; c++)
                 {
@@ -91,6 +90,17 @@ public static class TextureMaker
 
         return result;
     }
+
+    /// <summary>
+    /// What a blend of the picture (weight <paramref name="k"/>) and its shifted copy is divided by: the
+    /// spread of a sum of unrelated pictures, or 1 where the copy lines up with a repeating pattern.
+    /// </summary>
+    private static float Spread(float k, int repeats) =>
+        repeats >= 2 ? 1f : MathF.Sqrt(k * k + (1f - k) * (1f - k));
+
+    /// <summary>Half of <paramref name="size"/>, or the whole number of pattern repeats nearest it.</summary>
+    private static int Shift(int size, int repeats) =>
+        repeats >= 2 ? (int)MathF.Round(size * MathF.Round(repeats / 2f) / repeats) : size / 2;
 
     /// <summary>
     /// Evens out broad shading: a generated photo is often lit unevenly or vignetted, which shows as a

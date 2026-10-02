@@ -50,7 +50,7 @@ public partial class ArtImport : Node
     private static int Usage()
     {
         GD.PushError("ART usage: --texture|--model|--selftest --id=… --source=FILE --job=… --generator=… --prompt=… --url=… " +
-                     "[texture: --size=1024 --region=x,y,w,h --flatten=0.8 --band=0.12 --normal-strength=2 --roughness=0.9 --roughness-variation=0.15] " +
+                     "[texture: --size=1024 --region=x,y,w,h --stretch --repeats=across,down --flatten=0.8 --band=0.12 --normal-strength=2 --roughness=0.9 --roughness-variation=0.15] " +
                      "[model: --max-texture=1024 --roughness=R --height=M]");
         return 2;
     }
@@ -80,12 +80,26 @@ public partial class ArtImport : Node
             picture = picture.GetRegion(new Rect2I((int)(r[0] * w), (int)(r[1] * h), (int)(r[2] * w), (int)(r[3] * h)));
         }
 
-        int side = Math.Min(picture.GetWidth(), picture.GetHeight());
-        picture = picture.GetRegion(new Rect2I((picture.GetWidth() - side) / 2, (picture.GetHeight() - side) / 2, side, side));
+        if (!Args.Has("--stretch"))
+        {
+            int side = Math.Min(picture.GetWidth(), picture.GetHeight());
+            picture = picture.GetRegion(new Rect2I((picture.GetWidth() - side) / 2, (picture.GetHeight() - side) / 2, side, side));
+        }
+
         picture.Resize(size, size, Image.Interpolation.Lanczos);
 
+        // How many times a regular pattern repeats across and down the region (bricks, courses, planks,
+        // corrugations), so the seams are blended in step with it.
+        int[] repeats = Args.Value("--repeats") is { } counts
+            ? Array.ConvertAll(counts.Split(','), n => int.Parse(n, CultureInfo.InvariantCulture))
+            : [0, 0];
+        if (repeats.Length != 2)
+        {
+            throw new ArgumentException("--repeats=across,down takes two whole numbers");
+        }
+
         RgbImage source = ToRgb(picture);
-        RgbImage tiled = TextureMaker.MakeTileable(TextureMaker.Flatten(source, flatten, size / 8), band);
+        RgbImage tiled = TextureMaker.MakeTileable(TextureMaker.Flatten(source, flatten, size / 8), band, repeats[0], repeats[1]);
         float[] height = TextureMaker.Height(tiled);
         RgbImage normal = TextureMaker.NormalMap(height, size, size, strength);
         float[] roughness = TextureMaker.Roughness(height, roughnessBase, variation);
@@ -104,7 +118,8 @@ public partial class ArtImport : Node
         }
 
         Record("texture", id, files, string.Create(CultureInfo.InvariantCulture,
-            $"{size} px{(Args.Value("--region") is { } cut ? $", region {cut}" : "")}, flatten {flatten}, seam band {band}, normal strength {strength}, roughness {roughnessBase} ± {variation}"));
+            $"{size} px{(Args.Value("--region") is { } cut ? $", region {cut}" : "")}{(Args.Has("--stretch") ? " stretched square" : "")}" +
+            $"{(Args.Value("--repeats") is { } n ? $", pattern repeats {n}" : "")}, flatten {flatten}, seam band {band}, normal strength {strength}, roughness {roughnessBase} ± {variation}"));
         GD.Print(string.Create(CultureInfo.InvariantCulture,
             $"ART texture {id}: seam ratio {TextureMaker.SeamRatio(source):0.00} → {TextureMaker.SeamRatio(tiled):0.00}. ") +
             $"In kit/materials.jsonc, set albedo, normal and roughnessMap to {string.Join(", ", files)}");
@@ -244,10 +259,30 @@ public partial class ArtImport : Node
         int c = small / 2;
         bool bumpOk = R(c - 4, c) < 0.45f && R(c + 4, c) > 0.55f && G(c, c - 4) > 0.55f && G(c, c + 4) < 0.45f;
 
-        bool ok = before > 1.5f && after < 1.25f && rampAfter < rampBefore * 0.35f && normalError < 1e-3f && roughnessError < 1e-3f && bumpOk;
+        // A pattern that repeats three times across and twice down already tiles: blended in step with
+        // its repeats it comes through unchanged, while the plain half-picture shift muddles it.
+        const int grid = 240;
+        var pattern = new RgbImage(grid, grid);
+        for (int y = 0; y < grid; y++)
+        {
+            for (int x = 0; x < grid; x++)
+            {
+                float v = 0.5f + 0.2f * MathF.Cos(MathF.Tau * x / 80f) + 0.2f * MathF.Cos(MathF.Tau * y / 120f);
+                int o = pattern.Index(x, y);
+                pattern.Data[o] = pattern.Data[o + 1] = pattern.Data[o + 2] = v;
+            }
+        }
+
+        float Change(RgbImage a, RgbImage b) => a.Data.Zip(b.Data, (p, q) => MathF.Abs(p - q)).Max();
+        float inStep = Change(pattern, TextureMaker.MakeTileable(pattern, 0.12f, 3, 2));
+        float halfShift = Change(pattern, TextureMaker.MakeTileable(pattern, 0.12f));
+        bool repeatsOk = inStep < 0.01f && halfShift > 0.1f;
+
+        bool ok = before > 1.5f && after < 1.25f && rampAfter < rampBefore * 0.35f && normalError < 1e-3f && roughnessError < 1e-3f && bumpOk && repeatsOk;
         GD.Print(string.Create(CultureInfo.InvariantCulture,
             $"SMOKE {(ok ? "PASS" : "FAIL")}: art pipeline seam ratio {before:0.00} → {after:0.00}, ramp {rampBefore:0.000} → {rampAfter:0.000}, flat normal error {normalError:0.0000}, " +
-            $"roughness error {roughnessError:0.0000}, bump normals {(bumpOk ? "lean outwards" : "WRONG")}"));
+            $"roughness error {roughnessError:0.0000}, bump normals {(bumpOk ? "lean outwards" : "WRONG")}, " +
+            $"repeating pattern changed by {inStep:0.000} in step with its repeats ({halfShift:0.000} by a half shift)"));
         return ok ? 0 : 1;
     }
 
