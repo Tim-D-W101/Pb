@@ -384,4 +384,36 @@ public class LevelKitTests
         Assert.Contains("kit/materials.jsonc", ex.Message);
         Assert.Contains("unknown surface 'rubbr'", ex.Message);
     }
+
+    [Fact]
+    public void PropsDrawnByAShapeKeepTheirCollidersButAreNotDrawnAsGreybox()
+    {
+        static IEnumerable<LevelPrimitive> PrimitivesOf(LevelLayout level, string prop) =>
+            level.Props.Where(p => p.Type.Id == prop).SelectMany(p => level.Primitives.Skip(p.FirstPrimitive).Take(p.PrimitiveCount));
+
+        // Pallets and crates are drawn by shapes built in code: paint and walking still hit their colliders.
+        foreach (string prop in new[] { "pallet_stack", "crate_large", "car_wreck" })
+        {
+            LevelPrimitive[] parts = PrimitivesOf(Level, prop).ToArray();
+            Assert.NotEmpty(parts);
+            Assert.All(parts, p => Assert.True(p.Has(PrimitiveFlags.Paint) && p.Has(PrimitiveFlags.Walk) && !p.Has(PrimitiveFlags.Render), prop));
+        }
+
+        // Without a shape (and no model), the colliders are drawn again.
+        var noShape = new EditedDataSource(TestData.Source).Edit("kit/props.jsonc",
+            s => s.Replace("\"id\": \"crate_large\", \"displayName\": \"Large crate\", \"shape\": \"crate\"", "\"id\": \"crate_large\", \"displayName\": \"Large crate\""));
+        LevelLayout edited = GameData.Load(noShape).Levels["oxbarrow_works"];
+        Assert.All(PrimitivesOf(edited, "crate_large"), p => Assert.True(p.Has(PrimitiveFlags.Render)));
+        Assert.All(PrimitivesOf(edited, "pallet_stack"), p => Assert.False(p.Has(PrimitiveFlags.Render)));
+    }
+
+    [Fact]
+    public void BadTextureTintNamesTheFileAndKey()
+    {
+        var source = new EditedDataSource(TestData.Source).Edit("kit/materials.jsonc",
+            s => s.Replace("\"tint\": \"#a08e86\"", "\"tint\": \"rusty\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(source));
+        Assert.Contains("kit/materials.jsonc", ex.Message);
+        Assert.Contains("tint", ex.Message);
+    }
 }

@@ -44,6 +44,11 @@ public sealed class PropType
     public required IReadOnlyList<PropColliderTemplate> Colliders { get; init; }
 
     public bool HasModel => !string.IsNullOrWhiteSpace(Def.Model);
+
+    public bool HasShape => !string.IsNullOrWhiteSpace(Def.Shape);
+
+    /// <summary>Drawn by a model or a shape rather than by its colliders.</summary>
+    public bool HasVisual => HasModel || HasShape;
 }
 
 public sealed class BuildingTemplate

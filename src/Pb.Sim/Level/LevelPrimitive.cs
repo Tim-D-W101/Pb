@@ -18,7 +18,7 @@ public enum PrimitiveFlags : byte
     Paint = 1 << 0,
     /// <summary>Blocks walking (Godot collision) and is navigation-mesh source geometry.</summary>
     Walk = 1 << 1,
-    /// <summary>Drawn as greybox geometry (props with a model are drawn by the model instead).</summary>
+    /// <summary>Drawn as greybox geometry (props with a model or a shape are drawn by those instead).</summary>
     Render = 1 << 2,
     /// <summary>Large enough to hide what's behind it (occlusion culling).</summary>
     Occluder = 1 << 3,

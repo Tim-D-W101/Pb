@@ -101,11 +101,22 @@ public sealed class MaterialDef : IValidatable
     [Optional]
     public bool BreakUpRepeat { get; set; }
 
+    /// <summary>
+    /// An sRGB colour multiplied with the texture, so one photo serves several materials (a burnt
+    /// car's duller rust from the rusted-steel photo). White leaves it as it is.
+    /// </summary>
+    [Optional]
+    public string? Tint { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(Surface), Surface);
         LevelDefChecks.HexColor(v, nameof(Color), Color);
+        if (Tint is not null)
+        {
+            LevelDefChecks.HexColor(v, nameof(Tint), Tint);
+        }
         v.InRange(nameof(Tile_m), Tile_m, 0.05, 100);
         v.InRange(nameof(Roughness), Roughness, 0, 1);
         v.InRange(nameof(Weathering), Weathering, 0, 1);
@@ -123,7 +134,8 @@ public sealed class PropsDef : IValidatable
 
 /// <summary>
 /// A placeable prop. Its <c>colliders</c> are what paint and walking actually hit, so a generated 3D
-/// model can be swapped in without changing gameplay. Without a model the colliders are drawn.
+/// model or a shape built in code can be swapped in without changing gameplay. With neither, the
+/// colliders are drawn.
 /// </summary>
 public sealed class PropTypeDef : IValidatable
 {
@@ -133,6 +145,13 @@ public sealed class PropTypeDef : IValidatable
 
     [Optional]
     public string? Model { get; set; }
+
+    /// <summary>
+    /// A detail model the game builds in code from the colliders (pallets, crate, tyres…; the game
+    /// lists them). Drawn when there's no <see cref="Model"/>, or it doesn't load.
+    /// </summary>
+    [Optional]
+    public string? Shape { get; set; }
 
     [Optional]
     public float ModelScale { get; set; } = 1f;

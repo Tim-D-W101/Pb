@@ -31,7 +31,8 @@ namespace Pb.Game.Core;
 ///                         default: the mode's default size
 ///   --tier=ID             which difficulty tier (default: "normal", or the level's first)
 ///   --smoke-test[=ticks]  headless CI check: walk in through the gate firing, exit code 0/1
-///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie)
+///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie); --views=…
+///                         gives your own instead ("x,y,z,yaw,pitch" or "x,y,z>tx,ty,tz", separated by ";")
 ///   --posture-demo        scripted lean / shoulder swap / muzzle-in-cover sequence at a wall corner
 ///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
 ///   --duel-distance=M     how far from the bot the duel starts (default 6 m; 2 for a close-up)
@@ -316,7 +317,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
-                 $"{_world.MeshCount} meshes, {_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
+                 $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.ShapeTriangles} triangles), " +
+                 $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
                  $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");
         _ready = true;

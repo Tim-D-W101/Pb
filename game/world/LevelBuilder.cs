@@ -30,6 +30,11 @@ public partial class LevelBuilder : Node3D
 
     public int ColliderCount { get; private set; }
 
+    /// <summary>How many props are drawn by shapes built in code (<see cref="PropShapes"/>), and their triangles.</summary>
+    public int ShapeCount { get; private set; }
+
+    public int ShapeTriangles { get; private set; }
+
     public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null)
     {
         foreach (Node child in GetChildren())
@@ -40,18 +45,43 @@ public partial class LevelBuilder : Node3D
         _materials = materials;
         MeshCount = 0;
         ColliderCount = 0;
+        ShapeTriangles = 0;
 
+        // Props: a generated model if it loads, else the shape built in code, else the colliders as greybox.
         var render = new List<LevelPrimitive>();
         var missingModels = new HashSet<int>();
+        var shapes = new Dictionary<(int Cx, int Cz), ShapeMesh>();
+        var materialIds = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (KitMaterial m in level.Materials)
+        {
+            materialIds[m.Id] = m.Index;
+        }
+
+        ShapeCount = 0;
         foreach (PropInstance prop in level.Props)
         {
-            if (prop.Type.HasModel && !TryPlaceModel(prop))
+            bool drawn = prop.Type.HasModel && TryPlaceModel(prop);
+            if (!drawn && prop.Type.HasShape)
+            {
+                drawn = TryBuildShape(level, prop, shapes, id => materialIds.TryGetValue(id, out int index) ? index : -1);
+            }
+
+            if (!drawn && prop.Type.HasVisual)
             {
                 for (int i = prop.FirstPrimitive; i < prop.FirstPrimitive + prop.PrimitiveCount; i++)
                 {
                     missingModels.Add(i);
                 }
             }
+        }
+
+        foreach (((int cx, int cz), ShapeMesh shape) in shapes)
+        {
+            var mesh = new ArrayMesh();
+            shape.Commit(mesh, m => _materials[m]);
+            AddChild(new MeshInstance3D { Name = $"Props_{cx}_{cz}", Mesh = mesh });
+            ShapeTriangles += shape.TriangleCount;
+            MeshCount++;
         }
 
         for (int i = 0; i < level.Primitives.Count; i++)
@@ -311,6 +341,43 @@ public partial class LevelBuilder : Node3D
         model.Rotation = new Vector3(0f, prop.Yaw + Mathf.DegToRad(prop.Type.Def.ModelYaw_deg), 0f);
         model.Scale = Vector3.One * prop.Type.Def.ModelScale;
         AddChild(model);
+        return true;
+    }
+
+    /// <summary>
+    /// Builds a prop's shape into the mesh of the chunk it stands in. An unknown shape is reported and
+    /// the prop falls back to greybox.
+    /// </summary>
+    private bool TryBuildShape(LevelLayout level, PropInstance prop, Dictionary<(int Cx, int Cz), ShapeMesh> shapes, Func<string, int> material)
+    {
+        string kind = prop.Type.Def.Shape!;
+        if (!PropShapes.Has(kind))
+        {
+            GD.PushError($"kit/props.jsonc: prop '{prop.Type.Id}' has an unknown shape '{kind}' (known: {string.Join(", ", PropShapes.Kinds)}); drawn as greybox");
+            return false;
+        }
+
+        var key = ((int)MathF.Floor(prop.Position.X / ChunkSize), (int)MathF.Floor(prop.Position.Z / ChunkSize));
+        if (!shapes.TryGetValue(key, out ShapeMesh? mesh))
+        {
+            mesh = new ShapeMesh();
+            shapes[key] = mesh;
+        }
+
+        float top = prop.Position.Y;
+        for (int i = prop.FirstPrimitive; i < prop.FirstPrimitive + prop.PrimitiveCount; i++)
+        {
+            top = MathF.Max(top, level.Primitives[i].Bounds.Max.Y);
+        }
+
+        mesh.Place(new Transform3D(new Basis(Vector3.Up, prop.Yaw), prop.Position.ToGodot()), top - prop.Position.Y);
+        // The seed comes from where the prop stands, so each one differs but a level looks the same every time.
+        int seed = StableHash(prop.Type.Id)
+            ^ (int)MathF.Round(prop.Position.X * 10f) * 73856093
+            ^ (int)MathF.Round(prop.Position.Y * 10f) * 19349663
+            ^ (int)MathF.Round(prop.Position.Z * 10f) * 83492791;
+        PropShapes.Build(kind, mesh, prop.Type, seed, material);
+        ShapeCount++;
         return true;
     }
 

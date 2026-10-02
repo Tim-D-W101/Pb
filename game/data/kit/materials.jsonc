@@ -8,6 +8,7 @@
 //   roughness  0 = mirror, 1 = fully matte
 //   weathering 0..1: grime at the foot of walls, stains, moss
 // Optional: metallic (0..1), alpha (glass), albedo / normal / roughnessMap (res:// texture paths),
+//   tint (sRGB colour multiplied with the albedo texture, so one photo serves several materials),
 //   breakUpRepeat (true: shuffle the texture in patches a few metres across so its repeat doesn't
 //   show as a grid; only for surfaces without a regular pattern, or bricks and planks come apart).
 {
@@ -30,20 +31,20 @@
     // Metal
     { "id": "corrugated_rust", "surface": "metal", "color": "#7d7468", "pattern": "corrugated", "tile_m": 1.0, "roughness": 0.75, "weathering": 0.85, "metallic": 0.35, "albedo": "res://art/textures/corrugated_rust_albedo.jpg", "normal": "res://art/textures/corrugated_rust_normal.jpg", "roughnessMap": "res://art/textures/corrugated_rust_roughness.jpg" },
     { "id": "corrugated_grey", "surface": "metal", "color": "#8a9096", "pattern": "corrugated", "tile_m": 1.2, "roughness": 0.60, "weathering": 0.60, "metallic": 0.6, "albedo": "res://art/textures/corrugated_grey_albedo.jpg", "normal": "res://art/textures/corrugated_grey_normal.jpg", "roughnessMap": "res://art/textures/corrugated_grey_roughness.jpg" },
-    { "id": "steel_painted", "surface": "metal", "color": "#4f5a52", "pattern": "metal", "tile_m": 1.0, "roughness": 0.55, "weathering": 0.50, "metallic": 0.5, "albedo": "res://art/textures/steel_painted_albedo.jpg", "normal": "res://art/textures/steel_painted_normal.jpg", "roughnessMap": "res://art/textures/steel_painted_roughness.jpg", "breakUpRepeat": true },
+    { "id": "steel_painted", "surface": "metal", "color": "#4f5a52", "pattern": "metal", "tile_m": 1.0, "roughness": 0.55, "weathering": 0.50, "metallic": 0.2, "albedo": "res://art/textures/steel_painted_albedo.jpg", "normal": "res://art/textures/steel_painted_normal.jpg", "roughnessMap": "res://art/textures/steel_painted_roughness.jpg", "breakUpRepeat": true },
     { "id": "steel_rust", "surface": "metal", "color": "#6e4a33", "pattern": "rust", "tile_m": 1.0, "roughness": 0.80, "weathering": 0.80, "metallic": 0.3, "albedo": "res://art/textures/steel_rust_albedo.jpg", "normal": "res://art/textures/steel_rust_normal.jpg", "roughnessMap": "res://art/textures/steel_rust_roughness.jpg", "breakUpRepeat": true },
-    { "id": "steel_yellow", "surface": "metal", "color": "#a08a2e", "pattern": "metal", "tile_m": 1.0, "roughness": 0.55, "weathering": 0.60, "metallic": 0.4, "albedo": "res://art/textures/steel_yellow_albedo.jpg", "normal": "res://art/textures/steel_yellow_normal.jpg", "roughnessMap": "res://art/textures/steel_yellow_roughness.jpg", "breakUpRepeat": true },
-    { "id": "machinery", "surface": "metal", "color": "#4a5a5e", "pattern": "metal", "tile_m": 1.0, "roughness": 0.60, "weathering": 0.70, "metallic": 0.5 },
-    { "id": "car_body", "surface": "metal", "color": "#5b5d5c", "pattern": "rust", "tile_m": 1.2, "roughness": 0.70, "weathering": 0.80, "metallic": 0.3 },
+    { "id": "steel_yellow", "surface": "metal", "color": "#a08a2e", "pattern": "metal", "tile_m": 1.0, "roughness": 0.55, "weathering": 0.60, "metallic": 0.2, "albedo": "res://art/textures/steel_yellow_albedo.jpg", "normal": "res://art/textures/steel_yellow_normal.jpg", "roughnessMap": "res://art/textures/steel_yellow_roughness.jpg", "breakUpRepeat": true },
+    { "id": "machinery", "surface": "metal", "color": "#6d8c88", "pattern": "metal", "tile_m": 1.0, "roughness": 0.60, "weathering": 0.50, "metallic": 0.15 },
+    { "id": "car_body", "surface": "metal", "color": "#5b5d5c", "pattern": "rust", "tile_m": 0.6, "roughness": 0.70, "weathering": 0.80, "metallic": 0.3, "tint": "#a08e86", "albedo": "res://art/textures/steel_rust_albedo.jpg", "normal": "res://art/textures/steel_rust_normal.jpg", "roughnessMap": "res://art/textures/steel_rust_roughness.jpg", "breakUpRepeat": true },
     { "id": "container_red", "surface": "metal", "color": "#8b3b2d", "pattern": "corrugated", "tile_m": 0.6, "roughness": 0.65, "weathering": 0.60, "metallic": 0.4, "albedo": "res://art/textures/container_red_albedo.jpg", "normal": "res://art/textures/container_red_normal.jpg", "roughnessMap": "res://art/textures/container_red_roughness.jpg" },
     { "id": "container_blue", "surface": "metal", "color": "#2f4f6b", "pattern": "corrugated", "tile_m": 0.6, "roughness": 0.65, "weathering": 0.60, "metallic": 0.4, "albedo": "res://art/textures/container_blue_albedo.jpg", "normal": "res://art/textures/container_blue_normal.jpg", "roughnessMap": "res://art/textures/container_blue_roughness.jpg" },
     { "id": "container_green", "surface": "metal", "color": "#3f5a3c", "pattern": "corrugated", "tile_m": 0.6, "roughness": 0.65, "weathering": 0.60, "metallic": 0.4, "albedo": "res://art/textures/container_green_albedo.jpg", "normal": "res://art/textures/container_green_normal.jpg", "roughnessMap": "res://art/textures/container_green_roughness.jpg" },
     { "id": "drum_blue", "surface": "metal", "color": "#2c4a73", "pattern": "metal", "tile_m": 1.0, "roughness": 0.50, "weathering": 0.60, "metallic": 0.5 },
-    { "id": "drum_rust", "surface": "metal", "color": "#6d3f27", "pattern": "rust", "tile_m": 1.0, "roughness": 0.80, "weathering": 0.80, "metallic": 0.3 },
+    { "id": "drum_rust", "surface": "metal", "color": "#6d3f27", "pattern": "rust", "tile_m": 0.8, "roughness": 0.80, "weathering": 0.80, "metallic": 0.3, "albedo": "res://art/textures/steel_rust_albedo.jpg", "normal": "res://art/textures/steel_rust_normal.jpg", "roughnessMap": "res://art/textures/steel_rust_roughness.jpg", "breakUpRepeat": true },
 
     // Soft stuff
     { "id": "wood_planks", "surface": "wood", "color": "#896a4b", "pattern": "wood", "tile_m": 0.8, "roughness": 0.85, "weathering": 0.60, "albedo": "res://art/textures/wood_planks_albedo.jpg", "normal": "res://art/textures/wood_planks_normal.jpg", "roughnessMap": "res://art/textures/wood_planks_roughness.jpg" },
-    { "id": "wood_pallet", "surface": "wood", "color": "#a1845d", "pattern": "wood", "tile_m": 0.8, "roughness": 0.90, "weathering": 0.50 },
+    { "id": "wood_pallet", "surface": "wood", "color": "#a1845d", "pattern": "wood", "tile_m": 0.8, "roughness": 0.90, "weathering": 0.20, "tint": "#fff4e4", "albedo": "res://art/textures/wood_planks_albedo.jpg", "normal": "res://art/textures/wood_planks_normal.jpg", "roughnessMap": "res://art/textures/wood_planks_roughness.jpg" },
     { "id": "tyre_rubber", "surface": "rubber", "color": "#202020", "pattern": "rubber", "tile_m": 0.5, "roughness": 0.95, "weathering": 0.40 },
     { "id": "tarp_green", "surface": "tarp", "color": "#3d4a33", "pattern": "tarp", "tile_m": 1.5, "roughness": 0.90, "weathering": 0.50 },
     { "id": "sandbag", "surface": "tarp", "color": "#8c7b5c", "pattern": "tarp", "tile_m": 0.6, "roughness": 0.95, "weathering": 0.40 },

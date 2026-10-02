@@ -60,6 +60,7 @@ public sealed class MaterialLibrary
         {
             material.SetShaderParameter("albedo_tex", albedo);
             material.SetShaderParameter("break_up", def.BreakUpRepeat);
+            material.SetShaderParameter("texture_tint", Conv.ParseColor(def.Tint, Colors.White));
         }
 
         material.SetShaderParameter("has_normal_tex", normal is not null);
