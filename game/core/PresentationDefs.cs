@@ -1822,7 +1822,7 @@ public sealed class LitterKindDef : IValidatable
 /// Dust kicked up underfoot (game/world/FootDust.cs): its colour (sRGB) on each surface that has any
 /// (break_model.jsonc names; elsewhere feet raise none); a step's puff size from a walk's to a sprint's
 /// (crouched steps raise none), a landing's (a ring of five), a jump's and a slide's, laid every so many
-/// metres along it; how long a puff lasts, how many times its size it grows to, how fast it rises, the
+/// metres along it, and a ball's breaking or bouncing on the ground; how long a puff lasts, how many times its size it grows to, how fast it rises, the
 /// share of the ground wind it drifts with, how thick it starts (0-1), how many can be up at once, and how
 /// far from the camera any are raised.
 /// </summary>
@@ -1839,6 +1839,10 @@ public sealed class FootDustDef : IValidatable
     public float SlideSize_m { get; set; }
 
     public float SlideEvery_m { get; set; }
+
+    public float BreakSize_m { get; set; }
+
+    public float BounceSize_m { get; set; }
 
     public float Lifetime_s { get; set; }
 
@@ -1866,6 +1870,8 @@ public sealed class FootDustDef : IValidatable
         v.InRange(nameof(JumpSize_m), JumpSize_m, 0.02, 3);
         v.InRange(nameof(SlideSize_m), SlideSize_m, 0.02, 3);
         v.InRange(nameof(SlideEvery_m), SlideEvery_m, 0.05, 5);
+        v.InRange(nameof(BreakSize_m), BreakSize_m, 0, 3);
+        v.InRange(nameof(BounceSize_m), BounceSize_m, 0, 3);
         v.InRange(nameof(Lifetime_s), Lifetime_s, 0.1, 10);
         v.InRange(nameof(Grow), Grow, 0.5, 6);
         v.InRange(nameof(Rise_mps), Rise_mps, 0, 3);

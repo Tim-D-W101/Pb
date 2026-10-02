@@ -344,7 +344,8 @@
   // Dust kicked up underfoot (looks only), in its colour on each surface that has any (break_model.jsonc
   // names; elsewhere feet raise none). A step raises a puff stepSize_m across, from a walk's to a
   // sprint's (crouched steps raise none); a landing a ring of five landSize_m puffs, a jump one of
-  // jumpSize_m, and a slide one of slideSize_m every slideEvery_m. A puff lasts about lifetime_s, grows
+  // jumpSize_m, and a slide one of slideSize_m every slideEvery_m; a ball breaking on the ground raises one
+  // of breakSize_m, and one bouncing off it one of bounceSize_m. A puff lasts about lifetime_s, grows
   // to grow times its size, rises at rise_mps and drifts with windShare of the ground wind, starting
   // opacity thick. At most max are up at once, and none are raised further than reach_m from the camera.
   "footDust": {
@@ -354,6 +355,8 @@
     "jumpSize_m": 0.4,
     "slideSize_m": 0.5,
     "slideEvery_m": 0.35,
+    "breakSize_m": 0.35,
+    "bounceSize_m": 0.22,
     "lifetime_s": 1.6,
     "grow": 2.2,
     "rise_mps": 0.25,

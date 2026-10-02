@@ -12,9 +12,9 @@ namespace Pb.Game.World;
 /// <summary>
 /// Dust kicked up underfoot (presentation.jsonc "footDust"), on the surfaces that have any: a puff at
 /// each footstep, bigger the harder the step (a walk's to a sprint's; crouched steps raise none), a ring
-/// of them on landing, one on a jump, and a trail along a slide. Driven by the sim's footstep events
-/// and its sliding players, so bots and people raise it alike; soft lit puffs in one MultiMesh, used
-/// round as a ring (foot_dust.gdshader). Looks only.
+/// of them on landing, one on a jump, and a trail along a slide; and where paint breaks or bounces on
+/// the ground. Driven by the sim's footstep and ball events and its sliding players, so bots and people
+/// raise it alike; soft lit puffs in one MultiMesh, used round as a ring (foot_dust.gdshader). Looks only.
 /// </summary>
 public partial class FootDust : Node3D, ISimEventListener
 {
@@ -85,6 +85,18 @@ public partial class FootDust : Node3D, ISimEventListener
 
     public void OnSimEvent(in SimEvent e)
     {
+        if (e.Type is SimEventType.BallBroke or SimEventType.BallBounced)
+        {
+            // A ball hitting the ground there knocks a little up.
+            float size = e.Type == SimEventType.BallBroke ? _def.BreakSize_m : _def.BounceSize_m;
+            if (size > 0f && e.Normal.Y > 0.5f && _colours.TryGetValue(e.Surface.Value, out Color ground))
+            {
+                Raise(e.Position.ToGodot(), size, ground, 0f);
+            }
+
+            return;
+        }
+
         if (e.Type != SimEventType.Footstep || !_colours.TryGetValue(e.Surface.Value, out Color colour))
         {
             return;
