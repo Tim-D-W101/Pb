@@ -153,7 +153,9 @@ public partial class MainMenu : Control
     private Control TitleScreen()
     {
         VBoxContainer column = UiKit.Column(14);
-        column.AddChild(UiKit.Title("PB", 96, UiKit.Accent));
+        var title = new TitleMark { Name = "Title" };
+        title.Configure("PB", UiKit.Accent);
+        column.AddChild(title);
         column.AddChild(UiKit.Body("First-person paintball in an abandoned compound", 22, UiKit.Dim));
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 26) });
         VBoxContainer buttons = UiKit.Column(14);

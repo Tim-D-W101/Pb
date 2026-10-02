@@ -292,7 +292,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   They're painted at load into one atlas (two variants of each, with a surface map so oil and water are glossy), drawn as flat cards in one draw call that fade out with distance, and placed by the same ground survey as the weeds ([screenshot](reports/phase-2/m2.6-20-oil-and-rust-round-the-car.jpg)). They're off on the Low preset, as is the old paint.
 
   Measured over the level's viewpoints under software rendering, the day's art had made frames about 22% dearer; indexing the meshes built in code and giving them generated levels of detail brought that to about 10%. The afternoon's additions (old paint, the wall's dressing, gutters, trusses, fittings and the scenery, about 176,000 triangles built in code in all) add about 3% more, most of it looking across the warehouse under its trusses (11% on that view). Only the owner's hardware can say what that means for the 60 fps target.
-- [x] **The compound behind the main menu** (2026-10-02, `presentation.jsonc` → `"menuBackdrop"`): instead of a flat dark wash, the menu sits over Oxbarrow Works itself (buildings, props, weeds, things on the ground, ivy, the level's light, at the saved graphics preset), seen from a camera drifting slowly among the containers and back, under a shade that's darkest on the left where the panels are. It's built a piece a frame after the menu first shows and then fades in, so the menu never waits for it; CI's headless runs skip it ([screenshot](reports/phase-2/m2.6-31-menu-backdrop.jpg)).
+- [x] **The compound behind the main menu** (2026-10-02, `presentation.jsonc` → `"menuBackdrop"`): instead of a flat dark wash, the menu sits over Oxbarrow Works itself (buildings, props, weeds, things on the ground, ivy, the level's light, at the saved graphics preset), seen from a camera drifting slowly among the containers and back, under a shade that's darkest on the left where the panels are. It's built a piece a frame after the menu first shows and then fades in, so the menu never waits for it; CI's headless runs skip it. The title is stencilled over a splat of orange paint, painted at load (`TitleMark`) ([screenshot](reports/phase-2/m2.6-31-menu-backdrop.jpg)).
 - [x] **Painted markings** (2026-10-02, a building template's or the level's `"markings"`, drawn by `Markings`). In the warehouse:
   - a yellow walkway along the mezzanine's edge;
   - a box round the racking;
@@ -328,7 +328,13 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   - a pickup within 4 m gets a prompt under the crosshair, or says there's no room for it;
   - the crosshair flashes a hit marker when your ball puts someone out;
   - the mask spray is M2.3's.
-- [x] The Phase 1 gear panel stays.
+- [x] The Phase 1 gear panel stays. On 2026-10-02 it's drawn rather than written (`GearPanel`), with the same information:
+  - the fire mode;
+  - a loader whose bowl holds balls of your paint up to how full it is, with its count (and the refill's progress under it);
+  - a pod for each pod, filled to what's left in it, and the balls in them all;
+  - the air as a bar marked where the regulator gives out and at the low warning, green, amber or red, with the figure in bar.
+
+  [Screenshot](reports/phase-2/m2.7-2-gear-panel.jpg).
 
 Callsigns, callout lines and the HUD's timings are in `presentation.jsonc` ("hud"); how often bots shout is in `bots/brain.jsonc`.
 

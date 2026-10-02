@@ -13,7 +13,7 @@ using Pb.Sim.Players;
 namespace Pb.Game.Ui;
 
 /// <summary>
-/// The HUD: crosshair, gear panel (loader, pods, air in bar, fire mode, refill), perf overlay, help and
+/// The HUD: crosshair, gear panel (<see cref="GearPanel"/>: loader, pods, air in bar, fire mode, refill), perf overlay, help and
 /// toasts; on the range the target hit tally, and in a round the match HUD (spec §6): the top bar with
 /// the clock and everyone's in/out icon, the kill feed, subtitles for callouts, pickup prompts and the
 /// hit marker. It reads sim state for display only.
@@ -42,13 +42,11 @@ public partial class Hud : CanvasLayer, ISimEventListener
     private GameSettings _settings = null!;
     private CrosshairControl _crosshair = null!;
     private Label _perf = null!;
-    private Label _gear = null!;
+    private GearPanel _gear = null!;
     private Label _warning = null!;
     private Label _help = null!;
     private Label _toast = null!;
     private Label _hits = null!;
-    private ProgressBar _air = null!;
-    private ProgressBar _refill = null!;
     private Label _error = null!;
     private TopBar? _topBar;
     private KillFeed? _feed;
@@ -91,11 +89,9 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _toast = MakeLabel(root, 24, Control.LayoutPreset.CenterBottom, new Vector2(0, -170), HorizontalAlignment.Center);
         _warning = MakeLabel(root, 22, Control.LayoutPreset.CenterBottom, new Vector2(0, -210), HorizontalAlignment.Center);
         _warning.Modulate = new Color(1f, 0.55f, 0.35f);
-        _gear = MakeLabel(root, 22, Control.LayoutPreset.BottomRight, new Vector2(-24, -124), HorizontalAlignment.Right);
-
-        _air = MakeBar(root, new Vector2(-284, -46), new Color(0.35f, 0.8f, 0.45f));
-        _refill = MakeBar(root, new Vector2(-284, -24), new Color(0.95f, 0.8f, 0.2f));
-        _refill.Visible = false;
+        _gear = new GearPanel { Name = "Gear" };
+        root.AddChild(_gear);
+        Place(_gear, Control.LayoutPreset.BottomRight, new Vector2(-GearPanel.PanelSize.X - 20f, -GearPanel.PanelSize.Y - 20f), GearPanel.PanelSize);
 
         _prompt = MakeLabel(root, 20, Control.LayoutPreset.Center, new Vector2(0, 46), HorizontalAlignment.Center);
         _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
@@ -118,6 +114,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _settings = settings;
         _splats = splats;
         ApplyView(view);
+        _gear.Initialize(player.Marker, Color.FromHtml(view.TeamColors[player.Team % view.TeamColors.Length]));
     }
 
     /// <summary>Switches to the match HUD: top bar (with <paramref name="clock"/>), kill feed, subtitles and pickup prompts.</summary>
@@ -239,7 +236,6 @@ public partial class Hud : CanvasLayer, ISimEventListener
             _help.Visible = false;
         }
 
-        UpdateBars();
         _arc.Text = _arcSummary();
         _uiTimer -= delta;
         if (_uiTimer > 0)
@@ -253,42 +249,10 @@ public partial class Hud : CanvasLayer, ISimEventListener
         UpdateHitsText();
     }
 
-    private void UpdateBars()
-    {
-        AirTank air = _player.Marker.Air;
-        _air.MaxValue = air.Params.FillPressure / Units.BarToPascals;
-        _air.Value = air.Pressure / Units.BarToPascals;
-        Color fill = air.BelowRegulator ? new Color(0.95f, 0.3f, 0.25f)
-            : air.Pressure < air.Params.LowWarningPressure ? new Color(0.95f, 0.7f, 0.2f)
-            : new Color(0.35f, 0.8f, 0.45f);
-        ((StyleBoxFlat)_air.GetThemeStylebox("fill")).BgColor = fill;
-
-        Refill refill = _player.Marker.Refill;
-        _refill.Visible = refill.Active;
-        _refill.Value = refill.Progress(_player.Marker.Paint.Params) * 100.0;
-    }
-
+    /// <summary>The warning over the gear panel: an empty tank or loader, low air, or why you can't fire.</summary>
     private void UpdateGearText()
     {
         Marker m = _player.Marker;
-        ReadOnlySpan<int> pods = m.Paint.Pods;
-        _text.Clear();
-        _text.Append(m.Fire.Mode == FireMode.Ramping ? (m.Fire.IsRamping ? "RAMPING >>" : "RAMPING") : "SEMI").Append('\n');
-        _text.Append("LOADER ").Append(m.Paint.Loader).Append(" / ").Append(m.Paint.Params.Capacity).Append('\n');
-        _text.Append("PODS ");
-        for (int i = 0; i < pods.Length; i++)
-        {
-            _text.Append(i == 0 ? "" : " · ").Append(pods[i]);
-        }
-
-        _text.Append('\n');
-        _text.Append("AIR ").Append((m.Air.Pressure / Units.BarToPascals).ToString("0")).Append(" bar");
-        if (m.Refill.Active)
-        {
-            _text.Append("\nREFILLING...");
-        }
-
-        _gear.Text = _text.ToString();
 
         // In a round there's no gear reset: you find pickups instead.
         bool round = _hudDef is not null;
@@ -427,20 +391,5 @@ public partial class Hud : CanvasLayer, ISimEventListener
         control.OffsetTop = offset.Y;
         control.OffsetRight = offset.X + size.X;
         control.OffsetBottom = offset.Y + size.Y;
-    }
-
-    private static ProgressBar MakeBar(Control parent, Vector2 offset, Color fill)
-    {
-        var bar = new ProgressBar
-        {
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            ShowPercentage = false,
-            CustomMinimumSize = new Vector2(260, 14),
-        };
-        bar.AddThemeStyleboxOverride("fill", new StyleBoxFlat { BgColor = fill });
-        bar.AddThemeStyleboxOverride("background", new StyleBoxFlat { BgColor = new Color(0, 0, 0, 0.45f) });
-        parent.AddChild(bar);
-        Place(bar, Control.LayoutPreset.BottomRight, offset, bar.CustomMinimumSize);
-        return bar;
     }
 }
