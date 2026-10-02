@@ -45,13 +45,21 @@ public static class Atmosphere
             GroundBottomColor = Color.FromHtml(l.GroundColor),
             SkyCurve = 0.12f,
             SkyCover = clouds,
-            SkyCoverModulate = new Color(0.82f, 0.8f, 0.78f, Mathf.Lerp(0.3f, 0.95f, l.CloudCover)),
+            // A faint, still, high layer behind the drifting deck (CloudDeck).
+            SkyCoverModulate = new Color(0.82f, 0.8f, 0.78f, Mathf.Lerp(0.3f, 0.95f, l.CloudCover) * l.Clouds.HighLayer),
             SunAngleMax = 18f,
             SunCurve = 0.08f,
         };
 
         env.BackgroundMode = Environment.BGMode.Sky;
         env.Sky = new Sky { SkyMaterial = sky };
+        if (world.GetNodeOrNull<CloudDeck>("CloudDeck") is not { } deck)
+        {
+            deck = new CloudDeck { Name = "CloudDeck" };
+            world.AddChild(deck);
+        }
+
+        deck.Configure(l);
         env.AmbientLightSource = Environment.AmbientSource.Sky;
         env.AmbientLightEnergy = l.AmbientEnergy;
         env.ReflectedLightSource = Environment.ReflectionSource.Sky;

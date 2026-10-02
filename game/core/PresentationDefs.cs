@@ -869,8 +869,11 @@ public sealed class LightingDef : IValidatable
 
     public float Exposure { get; set; }
 
+    public CloudsDef Clouds { get; set; } = new();
+
     public void Validate(Validator v)
     {
+        Clouds.Validate(v.Scope(nameof(Clouds)));
         v.InRange(nameof(SunElevation_deg), SunElevation_deg, 1, 89);
         v.InRange(nameof(SunAzimuth_deg), SunAzimuth_deg, 0, 360);
         v.InRange(nameof(SunEnergy), SunEnergy, 0, 16);
@@ -890,6 +893,45 @@ public sealed class LightingDef : IValidatable
                 v.Error(key, $"'{value}' is not a valid colour");
             }
         }
+    }
+}
+
+/// <summary>
+/// The deck of cloud drifting over the sky (game/world/CloudDeck.cs): its height, the size of its noise's
+/// tile on it (bigger makes bigger clouds), the wind moving it ([x, z] m/s: +x east, +z south), how
+/// opaque the thickest cloud is, its lit and shaded colours (sRGB), and how much of the sky's own still
+/// cloud cover stays showing behind it as a higher layer (0-1). How much sky it covers is the lighting's
+/// cloudCover.
+/// </summary>
+public sealed class CloudsDef : IValidatable
+{
+    public float Height_m { get; set; }
+
+    public float Tile_m { get; set; }
+
+    public float[] Wind_mps { get; set; } = System.Array.Empty<float>();
+
+    public float Opacity { get; set; }
+
+    public string LitColor { get; set; } = "";
+
+    public string ShadeColor { get; set; } = "";
+
+    public float HighLayer { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Height_m), Height_m, 200, 5000);
+        v.InRange(nameof(Tile_m), Tile_m, 200, 20000);
+        if (Wind_mps.Length != 2 || System.MathF.Abs(Wind_mps[0]) > 60f || System.MathF.Abs(Wind_mps[1]) > 60f)
+        {
+            v.Error(nameof(Wind_mps), "takes [x, z], each within ±60 m/s");
+        }
+
+        v.InRange(nameof(Opacity), Opacity, 0, 1);
+        TrainingGroundDef.Colour(v, nameof(LitColor), LitColor);
+        TrainingGroundDef.Colour(v, nameof(ShadeColor), ShadeColor);
+        v.InRange(nameof(HighLayer), HighLayer, 0, 1);
     }
 }
 

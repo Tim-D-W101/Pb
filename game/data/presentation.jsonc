@@ -137,7 +137,20 @@
     // the world never shows.
     "fogColor": "#a8a59c",
     "fogDensity": 0.0028,
-    "exposure": 1.0
+    "exposure": 1.0,
+    // A deck of cloud drifting over (looks only): its height, the size of its noise tile on it (bigger
+    // makes bigger clouds), the wind moving it ([x, z] m/s: +x east, +z south), how opaque the
+    // thickest cloud is, its sunlit and shaded colours, and how much of the sky's own still cloud
+    // stays showing behind it as a high layer (0-1). cloudCover above sets how much sky it covers.
+    "clouds": {
+      "height_m": 1400,
+      "tile_m": 7000,
+      "wind_mps": [9, -4],
+      "opacity": 0.95,
+      "litColor": "#eee6da",
+      "shadeColor": "#7e828b",
+      "highLayer": 0.45
+    }
   },
 
   // Distant tree lines around compound levels, so the horizon reads as land rather than a ruler-
