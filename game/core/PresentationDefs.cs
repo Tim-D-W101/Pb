@@ -54,6 +54,8 @@ public sealed class PresentationDef : IValidatable
 
     public RunOffDef RunOff { get; set; } = new();
 
+    public FloorDebrisDef FloorDebris { get; set; } = new();
+
     public CreepersDef Creepers { get; set; } = new();
 
     public MenuBackdropDef MenuBackdrop { get; set; } = new();
@@ -109,6 +111,7 @@ public sealed class PresentationDef : IValidatable
         Cobwebs.Validate(v.Scope(nameof(Cobwebs)));
         ContactShadows.Validate(v.Scope(nameof(ContactShadows)));
         RunOff.Validate(v.Scope(nameof(RunOff)));
+        FloorDebris.Validate(v.Scope(nameof(FloorDebris)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
         TrainingGround.Validate(v.Scope(nameof(TrainingGround)));
@@ -1303,6 +1306,75 @@ public sealed class ContactShadowsDef : IValidatable
         v.InRange(nameof(MinHeight_m), MinHeight_m, 0, 3);
         v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Debris on the floors indoors (game/world/FloorDebris.cs): its kinds, and where they all fade out.
+/// </summary>
+public sealed class FloorDebrisDef : IValidatable
+{
+    public FloorDebrisKindDef[] Kinds { get; set; } = System.Array.Empty<FloorDebrisKindDef>();
+
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        for (int i = 0; i < Kinds.Length; i++)
+        {
+            Kinds[i].Validate(v.Scope($"{nameof(Kinds)}[{i}]"));
+        }
+
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 200);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 300);
+    }
+}
+
+/// <summary>
+/// One kind of floor debris: papers, plaster, glass, dust or leaves; how many per square metre of
+/// indoor floor and the share of those along the foot of the walls, and how many under each window
+/// on each side (inside on the floor, outside on the ground); its size (least, most; m), colour (sRGB),
+/// opacity and gloss (0 matte, 1 like glass).
+/// </summary>
+public sealed class FloorDebrisKindDef : IValidatable
+{
+    public string Kind { get; set; } = "";
+
+    [Optional]
+    public float PerSquareMetre { get; set; }
+
+    [Optional]
+    public float EdgeShare { get; set; }
+
+    [Optional]
+    public float PerWindow { get; set; }
+
+    public float[] Size_m { get; set; } = System.Array.Empty<float>();
+
+    public string Color { get; set; } = "";
+
+    [Optional]
+    public float Opacity { get; set; } = 1f;
+
+    [Optional]
+    public float Gloss { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (!System.Enum.TryParse<Pb.Game.World.DebrisKind>(Kind, true, out _))
+        {
+            v.Error(nameof(Kind), $"'{Kind}' is not one of {string.Join(", ", System.Enum.GetNames<Pb.Game.World.DebrisKind>()).ToLowerInvariant()}");
+        }
+
+        v.InRange(nameof(PerSquareMetre), PerSquareMetre, 0, 2);
+        v.InRange(nameof(EdgeShare), EdgeShare, 0, 1);
+        v.InRange(nameof(PerWindow), PerWindow, 0, 10);
+        FlockDef.Pair(v, nameof(Size_m), Size_m, 0.05f, 3f);
+        TrainingGroundDef.Colour(v, nameof(Color), Color);
+        v.InRange(nameof(Opacity), Opacity, 0, 1);
+        v.InRange(nameof(Gloss), Gloss, 0, 1);
     }
 }
 

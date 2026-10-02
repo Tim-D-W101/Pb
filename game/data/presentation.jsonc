@@ -345,6 +345,23 @@
     "fadeEnd_m": 60
   },
 
+  // Debris on the floors indoors, on every storey (looks only): papers lying about or screwed up,
+  // plaster fallen off the walls, dust drifting into corners, leaves blown in, and glass under the
+  // broken windows on both sides. perSquareMetre is per square metre of each room's floor, edgeShare
+  // the share of those along the foot of the walls; perWindow is how many under each window on each
+  // side. Sizes are least-most metres; colours sRGB; gloss 0 matte to 1 like glass.
+  "floorDebris": {
+    "fadeStart_m": 30,
+    "fadeEnd_m": 50,
+    "kinds": [
+      { "kind": "papers", "perSquareMetre": 0.12, "edgeShare": 0.35, "size_m": [0.3, 0.46], "color": "#dcd6c4" },
+      { "kind": "plaster", "perSquareMetre": 0.08, "edgeShare": 0.85, "size_m": [0.4, 1.0], "color": "#cbc3ae" },
+      { "kind": "dust", "perSquareMetre": 0.06, "edgeShare": 0.8, "size_m": [0.7, 1.6], "color": "#4f483d", "opacity": 0.85 },
+      { "kind": "leaves", "perSquareMetre": 0.04, "edgeShare": 0.7, "size_m": [0.35, 0.7], "color": "#7a5530" },
+      { "kind": "glass", "perWindow": 2.5, "size_m": [0.3, 0.7], "color": "#c8d4d0", "gloss": 1.0 }
+    ]
+  },
+
   // Run-off streaks down the outside walls (looks only): grime running from under the windows' sills,
   // rust from the fittings, downpipe collars and the wire's brackets, and stains scattered along the
   // gutters and copings. Colours are sRGB; rustFrom says how much rust each kit material sheds (0-1;

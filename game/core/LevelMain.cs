@@ -85,6 +85,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private PickupVisuals _pickups = null!;
     private WeedField _weeds = null!;
     private GroundDetail _groundDetail = null!;
+    private FloorDebris _floorDebris = null!;
     private OldPaint _oldPaint = null!;
     private ContactShadows _contact = null!;
     private Creepers _creepers = null!;
@@ -188,6 +189,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _groundDetail = new GroundDetail { Name = "GroundDetail" };
         AddChild(_groundDetail);
         _groundDetail.Build(_level, _sim.Collision, _view.GroundDetail);
+        _floorDebris = new FloorDebris { Name = "FloorDebris" };
+        AddChild(_floorDebris);
+        _floorDebris.Build(_level, _sim.Collision, _view.FloorDebris);
         _oldPaint = new OldPaint { Name = "OldPaint" };
         AddChild(_oldPaint);
         _oldPaint.Build(_level, _sim.Collision, _squad.Cover.Points, _view.OldPaint);
@@ -213,7 +217,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);
@@ -771,6 +775,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
         _weeds.ApplyPreset(preset);
         _groundDetail.Visible = preset.GroundDetail;
+        _floorDebris.Visible = preset.GroundDetail;
         _oldPaint.Visible = preset.OldPaint;
         // Ambient occlusion does their job where the preset has it.
         _contact.Visible = !preset.Ssao;

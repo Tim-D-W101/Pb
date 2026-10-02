@@ -65,6 +65,9 @@ public partial class MenuBackdrop : Node3D
                     var ground = new GroundDetail { Name = "GroundDetail" };
                     AddChild(ground);
                     ground.Build(level, collision, view.GroundDetail);
+                    var debris = new FloorDebris { Name = "FloorDebris" };
+                    AddChild(debris);
+                    debris.Build(level, collision, view.FloorDebris);
                 }
             },
             () =>
