@@ -376,11 +376,14 @@
   // are kept; the oldest are reused first.
   "paintDrips": { "share": 0.55, "count": [1, 3], "length_m": [0.08, 0.45], "width_m": [0.012, 0.03], "run_s": [1.5, 4.5], "steepest": 0.5, "cap": 400 },
 
-  // Footprints pressed into soft ground (looks only): on these surfaces (break_model.jsonc names) each
-  // step leaves a boot print, left and right in turn, size_m (width, length), darkening the ground by
-  // color (a multiply, so the soil's grain shows through) as far as opacity says, gone after fade_s; a
-  // landing leaves both feet. At most max lie about at once (the oldest go first). Bots leave them too.
-  "footprints": { "on": ["dirt"], "size_m": [0.11, 0.29], "color": "#6a5c4e", "opacity": 0.85, "fade_s": 180, "max": 600 },
+  // Footprints (looks only): on these surfaces (break_model.jsonc names) each step presses a boot print
+  // in, left and right in turn, size_m (width, length), darkening the ground by color (a multiply, so the
+  // soil's grain shows through) as far as opacity says, gone after fade_s; a landing leaves both feet. At
+  // most max of each kind lie about at once (the oldest go first). Bots leave them too. A foot coming
+  // down within paintReach_m of paint on the ground less than paintFresh_s old picks it up: the next
+  // paintSteps prints are in that paint, on any ground, the first paintOpacity thick, fainter each step.
+  "footprints": { "on": ["dirt"], "size_m": [0.11, 0.29], "color": "#6a5c4e", "opacity": 0.85, "fade_s": 180, "max": 600,
+    "paintSteps": 8, "paintReach_m": 0.35, "paintFresh_s": 90, "paintOpacity": 0.85 },
 
   // Tatters hanging from the edges of the holes where a roof has fallen in (looks only): torn strips of
   // roofing felt and insulation about every_m along each edge (share of those places have one), hanging

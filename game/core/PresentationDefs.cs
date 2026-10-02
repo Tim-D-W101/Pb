@@ -1783,10 +1783,12 @@ public sealed class PaintDripsDef : IValidatable
 }
 
 /// <summary>
-/// Footprints pressed into soft ground (game/world/Footprints.cs): the surfaces that take them
-/// (break_model.jsonc names), a print's size (width, length), the colour it darkens the ground by (a
-/// multiply) and how far (0-1), how long it lasts before it's gone, and how many can be on the ground at
-/// once (the oldest go first).
+/// Footprints (game/world/Footprints.cs): the surfaces that take them pressed in (break_model.jsonc
+/// names), a print's size (width, length), the colour it darkens the ground by (a multiply) and how far
+/// (0-1), how long it lasts before it's gone, and how many can be on the ground at once of each kind (the
+/// oldest go first); and paint trodden about: how many prints a boot leaves in paint after treading in
+/// some on the ground (0: none), how near the paint the foot must come down, how long paint on the ground
+/// stays wet enough, and how thick the first painted print is (0-1).
 /// </summary>
 public sealed class FootprintsDef : IValidatable
 {
@@ -1802,6 +1804,14 @@ public sealed class FootprintsDef : IValidatable
 
     public int Max { get; set; }
 
+    public int PaintSteps { get; set; }
+
+    public float PaintReach_m { get; set; }
+
+    public float PaintFresh_s { get; set; }
+
+    public float PaintOpacity { get; set; }
+
     public void Validate(Validator v)
     {
         if (Size_m.Length != 2 || Size_m[0] < 0.03f || Size_m[0] > 1f || Size_m[1] < 0.05f || Size_m[1] > 1f)
@@ -1813,6 +1823,10 @@ public sealed class FootprintsDef : IValidatable
         v.InRange(nameof(Opacity), Opacity, 0, 1);
         v.InRange(nameof(Fade_s), Fade_s, 1, 3600);
         v.InRange(nameof(Max), Max, 0, 8192);
+        v.InRange(nameof(PaintSteps), PaintSteps, 0, 50);
+        v.InRange(nameof(PaintReach_m), PaintReach_m, 0.05, 2);
+        v.InRange(nameof(PaintFresh_s), PaintFresh_s, 1, 3600);
+        v.InRange(nameof(PaintOpacity), PaintOpacity, 0, 1);
     }
 }
 

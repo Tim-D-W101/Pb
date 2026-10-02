@@ -9,34 +9,53 @@ using Pb.Sim.Events;
 namespace Pb.Game.World;
 
 /// <summary>
-/// Footprints pressed into soft ground (presentation.jsonc "footprints"): each step on a surface that
-/// takes them leaves a boot print, left and right in turn, pointing the way the walker was going, and
-/// fading out over a few minutes; a landing leaves both feet side by side. From the sim's footstep
-/// events, so bots leave tracks too. Flat cards in one MultiMesh, used round as a ring, the sole painted
-/// at load, darkening the ground under them (footprints.gdshader). Looks only.
+/// Footprints (presentation.jsonc "footprints"): each step on a surface that takes them leaves a boot
+/// print pressed into it, left and right in turn, pointing the way the walker was going, and fading out
+/// over a few minutes; a landing leaves both feet side by side. Step in fresh paint on the ground and
+/// the next few prints are in that paint, on any ground, fainter each step. From the sim's footstep and
+/// ball events, so bots leave tracks too. Flat cards in two MultiMeshes, each used round as a ring: the
+/// prints darken the ground under them (footprints.gdshader), the paint lies on it (paint_prints.gdshader).
+/// Looks only.
 /// </summary>
 public partial class Footprints : Node3D, ISimEventListener
 {
     private static readonly StringName Now = "now";
     private static ImageTexture? _sole;
 
-    /// <summary>How far above the ground the prints lie (m), over the ground cards.</summary>
-    private const float Lift = 0.0105f;
+    /// <summary>How far above the ground the prints lie (m), over the ground cards; paint a little higher.</summary>
+    private const float Lift = 0.0105f, PaintLift = 0.0112f;
 
     private readonly HashSet<byte> _surfaces = new();
     private readonly Dictionary<int, bool> _leftFoot = new();
+    private readonly Dictionary<int, (Color Color, int Left)> _boots = new();
+    private readonly (Vector3 At, Color Color, double Time)[] _splats = new (Vector3, Color, double)[96];
     private readonly Random _random = new(0xF007);
     private SimWorld _sim = null!;
     private FootprintsDef _def = null!;
-    private MultiMesh? _multimesh;
-    private ShaderMaterial _material = null!;
+    private Color[] _teamColors = Array.Empty<Color>();
+    private Ring? _pressed, _painted;
     private double _now;
-    private int _next;
+    private int _splatNext;
 
-    public void Initialize(SimWorld sim, FootprintsDef def)
+    private sealed class Ring
+    {
+        public required MultiMesh Multimesh { get; init; }
+
+        public required ShaderMaterial Material { get; init; }
+
+        public int Next { get; set; }
+    }
+
+    public void Initialize(SimWorld sim, FootprintsDef def, string[] teamColors)
     {
         _sim = sim;
         _def = def;
+        _teamColors = new Color[teamColors.Length];
+        for (int i = 0; i < teamColors.Length; i++)
+        {
+            _teamColors[i] = Color.FromHtml(teamColors[i]);
+        }
+
         foreach (string surface in def.On)
         {
             if (sim.Config.Surfaces.TryGet(surface, out SurfaceId id))
@@ -49,45 +68,77 @@ public partial class Footprints : Node3D, ISimEventListener
             }
         }
 
-        if (_surfaces.Count == 0 || def.Max == 0)
+        for (int i = 0; i < _splats.Length; i++)
+        {
+            _splats[i].Time = double.NegativeInfinity;
+        }
+
+        if (def.Max == 0)
         {
             return;
         }
 
-        _material = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/footprints.gdshader"), RenderPriority = -1 };
-        _material.SetShaderParameter("sole", _sole ??= SoleTexture());
-        _multimesh = new MultiMesh
+        _pressed = _surfaces.Count > 0 ? NewRing("Prints", "res://shaders/footprints.gdshader") : null;
+        _painted = def.PaintSteps > 0 ? NewRing("PaintPrints", "res://shaders/paint_prints.gdshader") : null;
+    }
+
+    private Ring NewRing(string name, string shader)
+    {
+        var material = new ShaderMaterial { Shader = GD.Load<Shader>(shader), RenderPriority = -1 };
+        material.SetShaderParameter("sole", _sole ??= SoleTexture());
+        var multimesh = new MultiMesh
         {
             TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
             UseColors = true,
             UseCustomData = true,
             Mesh = new PlaneMesh { Size = Vector2.One },
         };
-        _multimesh.InstanceCount = def.Max;
-        for (int i = 0; i < def.Max; i++)
+        multimesh.InstanceCount = _def.Max;
+        for (int i = 0; i < _def.Max; i++)
         {
-            _multimesh.SetInstanceCustomData(i, new Color(-1000f, 1f, 0f, 0f));
+            multimesh.SetInstanceCustomData(i, new Color(-1000f, 1f, 0f, 0f));
         }
 
         AddChild(new MultiMeshInstance3D
         {
-            Name = "Prints",
-            Multimesh = _multimesh,
-            MaterialOverride = _material,
+            Name = name,
+            Multimesh = multimesh,
+            MaterialOverride = material,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             ExtraCullMargin = 1f,
         });
+        return new Ring { Multimesh = multimesh, Material = material };
     }
 
     public void OnSimEvent(in SimEvent e)
     {
-        if (_multimesh is null || e.Type != SimEventType.Footstep || !_surfaces.Contains(e.Surface.Value))
+        if (e.Type == SimEventType.BallBroke)
+        {
+            // Paint lying on the ground, for boots to tread in.
+            if (e.TargetId < 0 && e.Normal.Y > 0.7f)
+            {
+                _splats[_splatNext] = (e.Position.ToGodot(), _teamColors[e.Team % _teamColors.Length], _now);
+                _splatNext = (_splatNext + 1) % _splats.Length;
+            }
+
+            return;
+        }
+
+        if (e.Type != SimEventType.Footstep)
         {
             return;
         }
 
         var kind = (FootstepKind)e.Extra;
         if (kind is not (FootstepKind.Step or FootstepKind.Land))
+        {
+            return;
+        }
+
+        bool pressed = _pressed is not null && _surfaces.Contains(e.Surface.Value);
+        Vector3 at = e.Position.ToGodot();
+        TreadIn(e.PlayerId, at);
+        if (!pressed && !(_painted is not null && _boots.TryGetValue(e.PlayerId, out (Color, int Left) boots) && boots.Left > 0))
         {
             return;
         }
@@ -104,44 +155,74 @@ public partial class Footprints : Node3D, ISimEventListener
 
         forward = forward.Normalized();
         Vector3 right = forward.Cross(Vector3.Up);
-        Vector3 at = e.Position.ToGodot();
         if (kind == FootstepKind.Land)
         {
-            Press(at - right * 0.12f, forward, false);
-            Press(at + right * 0.12f, forward, true);
+            Foot(e.PlayerId, at - right * 0.12f, forward, false, pressed);
+            Foot(e.PlayerId, at + right * 0.12f, forward, true, pressed);
             return;
         }
 
         bool left = _leftFoot.TryGetValue(e.PlayerId, out bool l) && l;
         _leftFoot[e.PlayerId] = !left;
-        Press(at + right * (left ? -0.11f : 0.11f), forward, !left);
+        Foot(e.PlayerId, at + right * (left ? -0.11f : 0.11f), forward, !left, pressed);
     }
 
     public override void _Process(double delta)
     {
-        if (_multimesh is null)
+        _now += delta;
+        _pressed?.Material.SetShaderParameter(Now, (float)_now);
+        _painted?.Material.SetShaderParameter(Now, (float)_now);
+    }
+
+    /// <summary>A foot treading in fresh paint on the ground picks it up on its sole.</summary>
+    private void TreadIn(int player, Vector3 at)
+    {
+        if (_painted is null)
         {
             return;
         }
 
-        _now += delta;
-        _material.SetShaderParameter(Now, (float)_now);
+        foreach ((Vector3 splat, Color color, double time) in _splats)
+        {
+            if (_now - time < _def.PaintFresh_s && splat.DistanceSquaredTo(at) < _def.PaintReach_m * _def.PaintReach_m)
+            {
+                _boots[player] = (color, _def.PaintSteps);
+                return;
+            }
+        }
     }
 
-    private void Press(Vector3 at, Vector3 forward, bool rightFoot)
+    /// <summary>One foot down: pressed into the ground if it takes prints, and in paint while the boots still carry some.</summary>
+    private void Foot(int player, Vector3 at, Vector3 forward, bool rightFoot, bool pressed)
     {
-        int i = _next;
-        _next = (_next + 1) % _def.Max;
         // A little askew, as feet are.
         Vector3 along = forward.Rotated(Vector3.Up, ((float)_random.NextDouble() - 0.5f) * 0.25f + (rightFoot ? -0.06f : 0.06f));
         Vector3 across = along.Cross(Vector3.Up);
         // The card's x across the sole and z along it, toe towards −z (the top of the painted sole).
         var basis = new Basis(across * _def.Size_m[0], Vector3.Up, -along * _def.Size_m[1]);
-        Color colour = Color.FromHtml(_def.Color) * (0.9f + 0.2f * (float)_random.NextDouble());
-        colour.A = _def.Opacity * (0.75f + 0.25f * (float)_random.NextDouble());
-        _multimesh!.SetInstanceTransform(i, new Transform3D(basis, at + Vector3.Up * Lift));
-        _multimesh.SetInstanceColor(i, colour);
-        _multimesh.SetInstanceCustomData(i, new Color((float)_now, _def.Fade_s, rightFoot ? 1f : 0f, 0f));
+        if (pressed)
+        {
+            Color colour = Color.FromHtml(_def.Color) * (0.9f + 0.2f * (float)_random.NextDouble());
+            colour.A = _def.Opacity * (0.75f + 0.25f * (float)_random.NextDouble());
+            Stamp(_pressed!, new Transform3D(basis, at + Vector3.Up * Lift), colour, rightFoot);
+        }
+
+        if (_painted is not null && _boots.TryGetValue(player, out (Color Color, int Left) boots) && boots.Left > 0)
+        {
+            Color paint = boots.Color;
+            paint.A = _def.PaintOpacity * boots.Left / _def.PaintSteps;
+            Stamp(_painted, new Transform3D(basis, at + Vector3.Up * PaintLift), paint, rightFoot);
+            _boots[player] = (boots.Color, boots.Left - 1);
+        }
+    }
+
+    private void Stamp(Ring ring, Transform3D transform, Color colour, bool rightFoot)
+    {
+        int i = ring.Next;
+        ring.Next = (ring.Next + 1) % _def.Max;
+        ring.Multimesh.SetInstanceTransform(i, transform);
+        ring.Multimesh.SetInstanceColor(i, colour);
+        ring.Multimesh.SetInstanceCustomData(i, new Color((float)_now, _def.Fade_s, rightFoot ? 1f : 0f, 0f));
     }
 
     /// <summary>
