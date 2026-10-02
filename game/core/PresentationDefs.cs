@@ -1688,9 +1688,20 @@ public sealed class BirdsDef : IValidatable
 
     public float FlushDistance_m { get; set; }
 
+    /// <summary>How many feed on the level's open ground, pecking and hopping about, and the ground materials they feed on.</summary>
+    public int Feeding { get; set; }
+
+    public string[] FeedOn { get; set; } = System.Array.Empty<string>();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(Perched), Perched, 0, 100);
+        v.InRange(nameof(Feeding), Feeding, 0, 100);
+        if (Feeding > 0 && FeedOn.Length == 0)
+        {
+            v.Error(nameof(FeedOn), "needs at least one ground material when birds feed");
+        }
+
         v.InRange(nameof(FlushDistance_m), FlushDistance_m, 1, 100);
         for (int i = 0; i < Flocks.Length; i++)
         {

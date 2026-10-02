@@ -469,7 +469,11 @@
     "flapFor_s": [0.8, 2.2],
     // On a level, this many more sit on the tops of its walls, until you come this close.
     "perched": 9,
-    "flushDistance_m": 9
+    "flushDistance_m": 9,
+    // And this many feed together on its open ground (these materials), pecking and hopping about,
+    // until you come as close.
+    "feeding": 6,
+    "feedOn": ["dirt", "grass_dry", "gravel"]
   },
 
   // Worn paint on the buildings (each template's "markings": floor lines, hatched bays, stencilled

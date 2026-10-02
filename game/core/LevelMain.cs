@@ -223,7 +223,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         var birds = new Birds { Name = "Birds" };
         AddChild(birds);
         Pb.Sim.Collision.Aabb bounds = _level.Bounds;
-        birds.Build(new Vector3((bounds.Min.X + bounds.Max.X) * 0.5f, 0f, (bounds.Min.Z + bounds.Max.Z) * 0.5f), LevelBuilder.StableHash(_level.Id), _view.Birds, _level);
+        birds.Build(new Vector3((bounds.Min.X + bounds.Max.X) * 0.5f, 0f, (bounds.Min.Z + bounds.Max.Z) * 0.5f), LevelBuilder.StableHash(_level.Id), _view.Birds, _level, _sim.Collision);
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);

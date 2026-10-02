@@ -21,6 +21,9 @@ public partial class Birds : Node3D
     /// <summary>A bird takes this long to climb from its perch onto its circle (s).</summary>
     private const float TakeOff = 2.5f;
 
+    /// <summary>A feeding bird's peck at the ground and its hop take this long (s).</summary>
+    private const float Peck = 0.35f, Hop = 0.25f;
+
     private MultiMesh? _multimesh;
     private MultiMesh? _perched;
     private Bird[] _birds = Array.Empty<Bird>();
@@ -33,7 +36,7 @@ public partial class Birds : Node3D
     /// Flocks round points given from <paramref name="origin"/>, varied by <paramref name="seed"/>, and,
     /// given a level, birds perched on its walls.
     /// </summary>
-    public void Build(Vector3 origin, int seed, BirdsDef def, Pb.Sim.Level.LevelLayout? level = null)
+    public void Build(Vector3 origin, int seed, BirdsDef def, Pb.Sim.Level.LevelLayout? level = null, Pb.Sim.Collision.ICollisionWorld? world = null)
     {
         foreach (Node child in GetChildren())
         {
@@ -81,6 +84,33 @@ public partial class Birds : Node3D
                     Center = at + new Vector3(R(-10f, 10f), 0f, R(-10f, 10f)),
                     Radius = R(10f, 20f),
                     Height = at.Y + R(12f, 22f),
+                    Direction = _random.Next(2) == 0 ? 1f : -1f,
+                    Speed = def.Speed_mps * R(0.85f, 1.15f),
+                    Phase = R(0f, Mathf.Tau),
+                    Rise = R(0f, Mathf.Tau),
+                    NextFlap = 99f,
+                });
+            }
+        }
+
+        // Feeding: on the ground in a loose group or two, pecking and hopping about until flushed.
+        if (level is not null && world is not null)
+        {
+            foreach ((Vector3 at, float yaw) in Feeding(level, world, def))
+            {
+                birds.Add(new Bird
+                {
+                    State = Perch.Sitting,
+                    Ground = true,
+                    Perch = at,
+                    PerchYaw = yaw,
+                    Yaw = yaw,
+                    TurnIn = R(1f, 4f),
+                    PeckIn = R(0.3f, 2f),
+                    HopIn = R(2f, 7f),
+                    Center = at + new Vector3(R(-10f, 10f), 0f, R(-10f, 10f)),
+                    Radius = R(10f, 20f),
+                    Height = at.Y + R(10f, 20f),
                     Direction = _random.Next(2) == 0 ? 1f : -1f,
                     Speed = def.Speed_mps * R(0.85f, 1.15f),
                     Phase = R(0f, Mathf.Tau),
@@ -155,7 +185,35 @@ public partial class Birds : Node3D
                 }
 
                 b.Yaw = Mathf.MoveToward(b.Yaw, b.TurnTo, dt * 3f);
-                _perched!.SetInstanceTransform(i, new Transform3D(new Basis(Vector3.Up, b.Yaw), b.Perch));
+                var pose = new Basis(Vector3.Up, b.Yaw);
+                Vector3 at = b.Perch;
+                if (b.Ground)
+                {
+                    // Pecking at the ground now and then, and hopping on a little way.
+                    if ((b.PeckIn -= dt) <= 0f)
+                    {
+                        b.PeckT = 1f;
+                        b.PeckIn = R(0.6f, 2.4f);
+                    }
+
+                    b.PeckT = MathF.Max(0f, b.PeckT - dt / Peck);
+                    pose *= new Basis(Vector3.Right, -0.65f * MathF.Sin(MathF.PI * b.PeckT));
+                    if ((b.HopIn -= dt) <= 0f)
+                    {
+                        b.HopT = 1f;
+                        b.HopFrom = b.Perch;
+                        b.Perch += new Basis(Vector3.Up, b.Yaw) * Vector3.Forward * R(0.15f, 0.35f);
+                        b.HopIn = R(2.5f, 8f);
+                    }
+
+                    if (b.HopT > 0f)
+                    {
+                        b.HopT = MathF.Max(0f, b.HopT - dt / Hop);
+                        at = b.Perch.Lerp(b.HopFrom, b.HopT) + Vector3.Up * (0.07f * MathF.Sin(MathF.PI * b.HopT));
+                    }
+                }
+
+                _perched!.SetInstanceTransform(i, new Transform3D(pose, at));
                 _multimesh.SetInstanceTransform(i, hidden);
                 if (camera is { } eye && eye.DistanceTo(b.Perch) < _def.FlushDistance_m)
                 {
@@ -312,6 +370,40 @@ public partial class Birds : Node3D
         return spots;
     }
 
+    /// <summary>
+    /// Spots for feeding birds: one or two loose groups on the listed ground materials under the open sky,
+    /// a metre or more clear of anything standing, each bird a few metres from the last, facing any way.
+    /// </summary>
+    private List<(Vector3 At, float Yaw)> Feeding(Pb.Sim.Level.LevelLayout level, Pb.Sim.Collision.ICollisionWorld world, BirdsDef def)
+    {
+        var spots = new List<(Vector3, float)>();
+        if (def.Feeding <= 0)
+        {
+            return spots;
+        }
+
+        var survey = new GroundSurvey(level, world);
+        var on = new HashSet<string>(def.FeedOn, StringComparer.Ordinal);
+        Pb.Sim.Collision.Aabb b = level.Bounds;
+        Vector3 last = Vector3.Zero;
+        for (int attempt = 0; attempt < def.Feeding * 80 && spots.Count < def.Feeding; attempt++)
+        {
+            // A new group now and then, otherwise near the last bird down.
+            bool fresh = spots.Count == 0 || _random.NextDouble() < 0.15;
+            float x = fresh ? R(b.Min.X, b.Max.X) : last.X + R(-3.5f, 3.5f), z = fresh ? R(b.Min.Z, b.Max.Z) : last.Z + R(-3.5f, 3.5f);
+            if (!on.Contains(survey.SurfaceAt(x, z, out float y)) || y >= GroundSurvey.GroundTop || !survey.OpenGround(x, z, 0.05f, out _)
+                || world.SweepSphere(new System.Numerics.Vector3(x, 1.6f, z), new System.Numerics.Vector3(x, 0.9f, z), 0.8f, out _))
+            {
+                continue;
+            }
+
+            last = new Vector3(x, y, z);
+            spots.Add((last, R(0f, Mathf.Tau)));
+        }
+
+        return spots;
+    }
+
     /// <summary>Whether anything else of the level is over this wall piece's top.</summary>
     private static bool Covered(Pb.Sim.Level.LevelLayout level, Pb.Sim.Level.LevelPrimitive wall, Pb.Sim.Collision.Aabb top)
     {
@@ -362,9 +454,11 @@ public partial class Birds : Node3D
 
     private struct Bird
     {
-        public Vector3 Center, Perch;
+        public Vector3 Center, Perch, HopFrom;
         public Perch State;
+        public bool Ground;
         public float Radius, Height, Angle, Direction, Speed, Phase, Rise, NextFlap, FlapLeft, Flap;
         public float PerchYaw, Yaw, TurnTo, TurnIn, Left;
+        public float PeckIn, PeckT, HopIn, HopT;
     }
 }
