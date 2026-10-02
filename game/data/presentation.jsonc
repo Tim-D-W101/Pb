@@ -358,6 +358,22 @@
     "fadeEnd_m": 60
   },
 
+  // Things left hanging on the inside walls of the offices and the guardhouse (looks only): the chance
+  // a length of wall gets one, the kinds with how often each comes up, where their middles hang above
+  // the floor (eye level; clocks and exit signs higher), how tall a piece of wall must be to take one,
+  // how far they keep from its ends and stand off it, and the share that hang crooked. Nothing on
+  // them can be read.
+  "wallHangings": {
+    "chance": 0.4,
+    "kinds": { "noticeboard": 3, "whiteboard": 2, "clock": 1.5, "planner": 1.5, "exitSign": 1, "picture": 1.5, "hazardSign": 1, "sitePlan": 1 },
+    "eyeCentre_m": 1.55,
+    "highCentre_m": 2.25,
+    "minWallHeight_m": 2.4,
+    "endClearance_m": 0.2,
+    "standOff_m": 0.012,
+    "crooked": 0.25
+  },
+
   // Cast-iron fittings set into the yard (looks only, flush with the ground): manhole covers out in
   // the open and drain gratings, most of them along the foot of the buildings' outside walls
   // (alongWalls is that share). Radius and size are least-most metres; "on" lists the ground materials

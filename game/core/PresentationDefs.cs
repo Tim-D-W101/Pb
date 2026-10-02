@@ -60,6 +60,8 @@ public sealed class PresentationDef : IValidatable
 
     public YardFittingsDef YardFittings { get; set; } = new();
 
+    public WallHangingsDef WallHangings { get; set; } = new();
+
     public CreepersDef Creepers { get; set; } = new();
 
     public MenuBackdropDef MenuBackdrop { get; set; } = new();
@@ -118,6 +120,7 @@ public sealed class PresentationDef : IValidatable
         FloorDebris.Validate(v.Scope(nameof(FloorDebris)));
         Woods.Validate(v.Scope(nameof(Woods)));
         YardFittings.Validate(v.Scope(nameof(YardFittings)));
+        WallHangings.Validate(v.Scope(nameof(WallHangings)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
         TrainingGround.Validate(v.Scope(nameof(TrainingGround)));
@@ -1354,6 +1357,56 @@ public sealed class ContactShadowsDef : IValidatable
         v.InRange(nameof(MinHeight_m), MinHeight_m, 0, 3);
         v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Things hanging on the inside walls of the buildings with finished interiors (game/world/WallHangings.cs):
+/// the chance a length of wall gets one, the kinds (noticeboard, whiteboard, clock, planner, exitSign,
+/// picture, hazardSign, sitePlan) with how often each comes up, where their middles hang above the floor
+/// (most at eye level, clocks and exit signs high), how tall a piece of wall must be to take one, how far
+/// they keep from its ends, how far they stand off it, and the share that hang crooked.
+/// </summary>
+public sealed class WallHangingsDef : IValidatable
+{
+    public float Chance { get; set; }
+
+    public System.Collections.Generic.Dictionary<string, float> Kinds { get; set; } = new();
+
+    public float EyeCentre_m { get; set; }
+
+    public float HighCentre_m { get; set; }
+
+    public float MinWallHeight_m { get; set; }
+
+    public float EndClearance_m { get; set; }
+
+    public float StandOff_m { get; set; }
+
+    public float Crooked { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Chance), Chance, 0, 1);
+        foreach ((string kind, float weight) in Kinds)
+        {
+            if (!System.Enum.TryParse<Pb.Game.World.HangingKind>(kind, true, out _))
+            {
+                v.Error(nameof(Kinds), $"'{kind}' is not one of {string.Join(", ", System.Enum.GetNames<Pb.Game.World.HangingKind>()).ToLowerInvariant()}");
+            }
+
+            if (weight < 0f)
+            {
+                v.Error(nameof(Kinds), $"{kind}: weight can't be negative (got {weight})");
+            }
+        }
+
+        v.InRange(nameof(EyeCentre_m), EyeCentre_m, 0.5, 3);
+        v.InRange(nameof(HighCentre_m), HighCentre_m, 0.5, 4);
+        v.InRange(nameof(MinWallHeight_m), MinWallHeight_m, 0.5, 10);
+        v.InRange(nameof(EndClearance_m), EndClearance_m, 0, 2);
+        v.InRange(nameof(StandOff_m), StandOff_m, 0.001, 0.1);
+        v.InRange(nameof(Crooked), Crooked, 0, 1);
     }
 }
 
