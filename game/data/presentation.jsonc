@@ -358,6 +358,23 @@
     "fadeEnd_m": 60
   },
 
+  // Trees out beyond the levels and the training ground (looks only): copses in the scrubland, the
+  // nearest clearance_m from the place and the farthest reach_m beyond that, kept lineClearance_m from
+  // power and pole lines. treesPerCopse and spread_m are least-most; height_m is least-most tree height.
+  // A copse takes one of leafColors (a few of its trees another): late-summer greens with some turning.
+  "woods": {
+    "copses": 10,
+    "treesPerCopse": [3, 8],
+    "spread_m": [7, 20],
+    "clearance_m": 14,
+    "reach_m": 140,
+    "lineClearance_m": 14,
+    "height_m": [8, 16],
+    "leafColors": ["#4c5a2c", "#56622f", "#465327", "#6a6a32", "#7c6830"],
+    "barkColor": "#3f3a33",
+    "sway_m": 0.12
+  },
+
   // Debris on the floors indoors, on every storey (looks only): papers lying about or screwed up,
   // plaster fallen off the walls, dust drifting into corners, leaves blown in, and glass under the
   // broken windows on both sides. perSquareMetre is per square metre of each room's floor, edgeShare

@@ -53,6 +53,9 @@ public partial class LevelBuilder : Node3D
     /// <summary>How many pylons and poles stand out beyond the level (<see cref="Scenery"/>).</summary>
     public int SceneryCount { get; private set; }
 
+    /// <summary>How many trees stand out beyond the level (<see cref="Woods"/>).</summary>
+    public int TreeCount { get; private set; }
+
     /// <summary>Where rain runs off the buildings' and walls' details down their faces, for <see cref="RunOff"/>.</summary>
     public List<Drip> Drips { get; } = new();
 
@@ -60,7 +63,7 @@ public partial class LevelBuilder : Node3D
     /// Builds the level: its primitives, the props, and the buildings' frames and details from their
     /// templates (<see cref="LevelLayout.Buildings"/>).
     /// </summary>
-    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null)
+    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null, WoodsDef? woods = null)
     {
         foreach (Node child in GetChildren())
         {
@@ -141,6 +144,16 @@ public partial class LevelBuilder : Node3D
         {
             Pb.Sim.Collision.Aabb b = level.Bounds;
             AddChild(Horizon.Build(new Vector3((b.Min.X + b.Max.X) * 0.5f, 0f, (b.Min.Z + b.Max.Z) * 0.5f), StableHash(level.Id), horizon));
+        }
+
+        TreeCount = 0;
+        if (woods is not null)
+        {
+            Pb.Sim.Collision.Aabb b = level.Bounds;
+            var trees = new Woods { Name = "Woods" };
+            AddChild(trees);
+            trees.Build(new Rect2(b.Min.X, b.Min.Z, b.Max.X - b.Min.X, b.Max.Z - b.Min.Z), StableHash(level.Id), woods, level.Scenery);
+            TreeCount = trees.TreeCount;
         }
 
         BuildMeshes(render);

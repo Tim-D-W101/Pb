@@ -56,6 +56,8 @@ public sealed class PresentationDef : IValidatable
 
     public FloorDebrisDef FloorDebris { get; set; } = new();
 
+    public WoodsDef Woods { get; set; } = new();
+
     public CreepersDef Creepers { get; set; } = new();
 
     public MenuBackdropDef MenuBackdrop { get; set; } = new();
@@ -112,6 +114,7 @@ public sealed class PresentationDef : IValidatable
         ContactShadows.Validate(v.Scope(nameof(ContactShadows)));
         RunOff.Validate(v.Scope(nameof(RunOff)));
         FloorDebris.Validate(v.Scope(nameof(FloorDebris)));
+        Woods.Validate(v.Scope(nameof(Woods)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
         TrainingGround.Validate(v.Scope(nameof(TrainingGround)));
@@ -1348,6 +1351,63 @@ public sealed class ContactShadowsDef : IValidatable
         v.InRange(nameof(MinHeight_m), MinHeight_m, 0, 3);
         v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Trees out beyond the levels and the training ground (game/world/Woods.cs): how many copses, how many
+/// trees in each (least, most) and how far they spread from its middle, how far the nearest stand from
+/// the place and the farthest reach beyond that, how far they keep from power and pole lines, how tall
+/// the trees grow (least, most), the leaves' colours (a copse takes one, a few trees another), the bark's,
+/// and how far the leaves sway.
+/// </summary>
+public sealed class WoodsDef : IValidatable
+{
+    public int Copses { get; set; }
+
+    public int[] TreesPerCopse { get; set; } = System.Array.Empty<int>();
+
+    public float[] Spread_m { get; set; } = System.Array.Empty<float>();
+
+    public float Clearance_m { get; set; }
+
+    public float Reach_m { get; set; }
+
+    public float LineClearance_m { get; set; }
+
+    public float[] Height_m { get; set; } = System.Array.Empty<float>();
+
+    public string[] LeafColors { get; set; } = System.Array.Empty<string>();
+
+    public string BarkColor { get; set; } = "";
+
+    public float Sway_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Copses), Copses, 0, 100);
+        if (TreesPerCopse.Length != 2 || TreesPerCopse[0] < 1 || TreesPerCopse[1] < TreesPerCopse[0] || TreesPerCopse[1] > 40)
+        {
+            v.Error(nameof(TreesPerCopse), "takes [least, most], 1-40");
+        }
+
+        FlockDef.Pair(v, nameof(Spread_m), Spread_m, 1f, 100f);
+        v.InRange(nameof(Clearance_m), Clearance_m, 0, 500);
+        v.InRange(nameof(Reach_m), Reach_m, 10, 1000);
+        v.InRange(nameof(LineClearance_m), LineClearance_m, 0, 100);
+        FlockDef.Pair(v, nameof(Height_m), Height_m, 2f, 40f);
+        if (LeafColors.Length == 0)
+        {
+            v.Error(nameof(LeafColors), "needs at least one colour");
+        }
+
+        foreach (string c in LeafColors)
+        {
+            TrainingGroundDef.Colour(v, nameof(LeafColors), c);
+        }
+
+        TrainingGroundDef.Colour(v, nameof(BarkColor), BarkColor);
+        v.InRange(nameof(Sway_m), Sway_m, 0, 2);
     }
 }
 

@@ -94,6 +94,8 @@ public partial class LevelMain : Node3D, ISimEventListener
     private bool _scripted;
     private bool _botMatch;
     private SpawnPlan? _starts;
+    private SpawnPoint _start;
+    private Color _teamColor;
     private bool _summaryShown;
     private bool _summaryEarly;
     private bool _ready;
@@ -163,6 +165,7 @@ public partial class LevelMain : Node3D, ISimEventListener
                 RoundShape.Of(_mode, _size), _data.Config.Movement.StandEyeHeight, seed)
             : null;
         SpawnPoint start = _starts?.You ?? _level.PlayerSpawns[0];
+        _start = start;
         if (_starts is not null)
         {
             static string Describe(OpponentSpawn o) => $"{o.Id} {o.Roles[0]}{(o.Patrol is null ? "" : " on " + o.Patrol.Id)}";
@@ -179,9 +182,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         Color teamColor = TeamColor(state.Team);
+        _teamColor = teamColor;
 
         GraphicsPresetDef preset = _view.Graphics.Find(Args.Value("--preset") ?? _settings.GraphicsPreset);
-        _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon);
+        _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, _view.Woods);
         var dressWatch = Stopwatch.StartNew();
         _weeds = new WeedField { Name = "Weeds" };
         AddChild(_weeds);
@@ -341,7 +345,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (roundTour)
         {
-            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect));
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap()));
             _hud.ShowPerf = false;
             var tour = new RoundTour { Name = "RoundTour" };
             AddChild(tour);
@@ -355,7 +359,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else
         {
-            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect));
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap()));
         }
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
@@ -780,6 +784,20 @@ public partial class LevelMain : Node3D, ISimEventListener
         // Ambient occlusion does their job where the preset has it.
         _contact.Visible = !preset.Ssao;
         _shafts.ApplyPreset(preset);
+    }
+
+    /// <summary>The level's plan for the briefing, with where you and your team start.</summary>
+    private LevelMap BriefingMap()
+    {
+        var map = new LevelMap { Name = "Map" };
+        var team = new List<Vector3>();
+        foreach (OpponentSpawn mate in _starts?.Teammates ?? Array.Empty<OpponentSpawn>())
+        {
+            team.Add(mate.Position.ToGodot());
+        }
+
+        map.Configure(_level, new Vector2(380f, 320f), (_start.Position.ToGodot(), _start.Yaw), team, _teamColor);
+        return map;
     }
 
     private void SaveAndToast(string message)

@@ -98,6 +98,10 @@ public partial class RangeBuilder : Node3D
         }
 
         AddChild(Horizon.Build(new Vector3(0f, 0f, -layout.Length * 0.5f), LevelBuilder.StableHash(layout.Id), view.Horizon));
+        var woods = new Woods { Name = "Woods" };
+        AddChild(woods);
+        // Clear of the lane, its nets and backstop, and the shelter behind the firing point.
+        woods.Build(new Rect2(-layout.Width * 0.5f - 12f, -layout.Length - 25f, layout.Width + 24f, layout.Length + 45f), LevelBuilder.StableHash(layout.Id), view.Woods, _def.Scenery);
         var birds = new Birds { Name = "Birds" };
         AddChild(birds);
         birds.Build(new Vector3(0f, 0f, -layout.Length * 0.5f), LevelBuilder.StableHash(layout.Id), view.Birds);

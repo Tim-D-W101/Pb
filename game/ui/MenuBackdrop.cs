@@ -48,7 +48,7 @@ public partial class MenuBackdrop : Node3D
             {
                 watch.Start();
                 AddChild(world);
-                world.Build(level, new MaterialLibrary(level.Materials), preset.AmbientProbes, view.Horizon);
+                world.Build(level, new MaterialLibrary(level.Materials), preset.AmbientProbes, view.Horizon, view.Woods);
                 level.BuildCollision(collision);
             },
             () =>

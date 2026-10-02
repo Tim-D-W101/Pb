@@ -47,9 +47,10 @@ public static class RoundScreens
 {
     /// <summary>
     /// The briefing card (the sim waits in its briefing phase meanwhile): level, mode, size, difficulty,
-    /// what to do, and Start (Enter, Space or a click begins the round) or Back to level select.
+    /// what to do, and Start (Enter, Space or a click begins the round) or Back to level select; with a
+    /// plan of the level beside it if one is given.
     /// </summary>
-    public static Control Briefing(RoundInfo round, Action start, Action back)
+    public static Control Briefing(RoundInfo round, Action start, Action back, Control? map = null)
     {
         LadderTierDef tier = round.Tier;
         VBoxContainer column = UiKit.Column(12);
@@ -81,7 +82,19 @@ public static class RoundScreens
         buttons.AddChild(go);
         buttons.AddChild(UiKit.Button("Back", back, 200));
         column.AddChild(buttons);
-        Control overlay = UiKit.Overlay(UiKit.Panel(column, 800f), dim: 0.35f);
+        Control content = column;
+        float width = 800f;
+        if (map is not null)
+        {
+            HBoxContainer row = UiKit.Row(24);
+            row.AddChild(column);
+            map.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+            row.AddChild(map);
+            content = row;
+            width += map.CustomMinimumSize.X + 24f;
+        }
+
+        Control overlay = UiKit.Overlay(UiKit.Panel(content, width), dim: 0.35f);
         go.CallDeferred(Control.MethodName.GrabFocus);
         return overlay;
     }
