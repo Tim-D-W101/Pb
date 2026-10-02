@@ -408,6 +408,34 @@ public class LevelKitTests
     }
 
     [Fact]
+    public void TheLevelRecordsWhereEachBuildingStands()
+    {
+        // Presentation dresses buildings from their templates (gutters, trusses), so it needs each one's frame.
+        Assert.Equal(new[] { "warehouse", "pump_house", "office_block", "guardhouse" }, Level.Buildings.Select(b => b.Template.Id));
+        PlacedBuilding warehouse = Level.Buildings[0];
+        Assert.Equal("warehouse#0", Level.Owners[warehouse.Owner]);
+        Assert.Equal(new Vector3(-34f, 0f, -36f), warehouse.Frame.Origin);
+        Assert.Contains(Level.Primitives, p => p.Owner == warehouse.Owner && p.Role == PrimitiveRole.Roof);
+        Assert.NotNull(warehouse.Template.Def.Trusses);
+    }
+
+    [Fact]
+    public void BadGutterOrTrussMaterialNamesTheFileAndKey()
+    {
+        var gutters = new EditedDataSource(TestData.Source).Edit("kit/buildings/pump_house.jsonc",
+            s => s.Replace("\"gutters\": \"steel_rust\"", "\"gutters\": \"tin_foil\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(gutters));
+        Assert.Contains("pump_house.jsonc", ex.Message);
+        Assert.Contains("gutters", ex.Message);
+
+        var trusses = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
+            s => s.Replace("\"spacing_m\": 5.0", "\"spacing_m\": 0.2"));
+        ex = Assert.Throws<DataException>(() => GameData.Load(trusses));
+        Assert.Contains("warehouse.jsonc", ex.Message);
+        Assert.Contains("spacing_m", ex.Message);
+    }
+
+    [Fact]
     public void BadTextureTintNamesTheFileAndKey()
     {
         var source = new EditedDataSource(TestData.Source).Edit("kit/materials.jsonc",

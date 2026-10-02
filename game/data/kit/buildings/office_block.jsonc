@@ -12,6 +12,8 @@
   "floorMaterial": "concrete_floor",
   // Frames the game draws in the windows and doors (looks only: the openings stay open to paint).
   "frames": "steel_painted",
+  // Downpipes from rainwater heads on the parapet (looks only; a parapet roof has no eave gutters).
+  "gutters": "steel_painted",
   "walls": [
     // ---- Ground floor ----
     {

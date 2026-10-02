@@ -183,6 +183,16 @@ public sealed class KitCatalog
         {
             ResolveMaterial(materials, v, nameof(BuildingDef.Frames), b.Frames);
         }
+
+        if (b.Gutters is not null)
+        {
+            ResolveMaterial(materials, v, nameof(BuildingDef.Gutters), b.Gutters);
+        }
+
+        if (b.Trusses is not null)
+        {
+            ResolveMaterial(materials, v.Scope(nameof(BuildingDef.Trusses)), nameof(TrussesDef.Material), b.Trusses.Material);
+        }
         for (int i = 0; i < b.Walls.Length; i++)
         {
             WallDef w = b.Walls[i];

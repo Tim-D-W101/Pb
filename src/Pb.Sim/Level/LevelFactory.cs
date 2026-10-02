@@ -21,6 +21,7 @@ public static class LevelFactory
         var sink = new PrimitiveSink();
         var owners = new List<string>();
         var props = new List<PropInstance>();
+        var buildings = new List<PlacedBuilding>();
         var areas = new List<AreaSpec>();
         var materials = kit.Materials.ToDictionary(m => m.Id, StringComparer.Ordinal);
 
@@ -83,7 +84,9 @@ public static class LevelFactory
             }
 
             var frame = new PlanFrame(Validator.ToVector3(placement.Position_m), placement.Yaw_deg * Units.DegreesToRadians);
-            BuildBuilding(sink, frame, template.Def, materials, Owner($"{template.Id}#{i}"), areas, (scope, p) => PlaceProp(scope, p, frame, $"{template.Id}#{i}/"));
+            int owner = Owner($"{template.Id}#{i}");
+            buildings.Add(new PlacedBuilding(template, owner, frame));
+            BuildBuilding(sink, frame, template.Def, materials, owner, areas, (scope, p) => PlaceProp(scope, p, frame, $"{template.Id}#{i}/"));
         }
 
         // Free-standing wall runs (perimeter, yard walls).
@@ -186,6 +189,7 @@ public static class LevelFactory
             Primitives = sink.Items,
             Apertures = sink.Apertures,
             Props = props,
+            Buildings = buildings,
             Owners = owners,
             PlayerSpawns = playerSpawns,
             SpawnArea = spawnArea.Box,

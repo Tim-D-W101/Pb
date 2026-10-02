@@ -12,6 +12,10 @@
   "floorMaterial": "concrete_floor",
   // Frames the game draws in the windows and doors (looks only: the openings stay open to paint).
   "frames": "steel_painted",
+  // Gutters along the eaves with downpipes, and steel trusses under the roof (looks only), broken
+  // off and hanging where the roof has fallen in.
+  "gutters": "steel_rust",
+  "trusses": { "material": "steel_rust", "spacing_m": 5.0, "depth_m": 0.9 },
   "walls": [
     {
       "storey": 0, "baseElevation_m": 0, "height_m": 2.4,

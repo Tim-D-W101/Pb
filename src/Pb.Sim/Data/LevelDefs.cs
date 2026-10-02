@@ -271,6 +271,17 @@ public sealed class BuildingDef : IValidatable
     [Optional]
     public string? Frames { get; set; }
 
+    /// <summary>
+    /// Material of the gutters along the roof's eaves and the downpipes from them (presentation only;
+    /// a parapet roof gets just the downpipes). Omit for none.
+    /// </summary>
+    [Optional]
+    public string? Gutters { get; set; }
+
+    /// <summary>Steel trusses under the roof (presentation only). Omit for none.</summary>
+    [Optional]
+    public TrussesDef? Trusses { get; set; }
+
     public WallDef[] Walls { get; set; } = Array.Empty<WallDef>();
 
     [Optional]
@@ -348,6 +359,7 @@ public sealed class BuildingDef : IValidatable
 
         LevelDefChecks.Items(v, nameof(Floors), Floors);
         Roof?.Validate(v.Scope(nameof(Roof)));
+        Trusses?.Validate(v.Scope(nameof(Trusses)));
         LevelDefChecks.Items(v, nameof(Stairs), Stairs);
         LevelDefChecks.Items(v, nameof(Columns), Columns);
         LevelDefChecks.Items(v, nameof(Props), Props);
@@ -516,6 +528,26 @@ public sealed class SlabDef : IValidatable
 }
 
 /// <summary>Flat roof on top of the last storey, with holes (collapsed sections) and an optional parapet.</summary>
+/// <summary>
+/// Trusses spanning the roof's short way, this far apart, this deep, with purlins along the long way
+/// under the roof. Over a hole in the roof they're broken off and hang down.
+/// </summary>
+public sealed class TrussesDef : IValidatable
+{
+    public string Material { get; set; } = "";
+
+    public float Spacing_m { get; set; }
+
+    public float Depth_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Material), Material);
+        v.InRange(nameof(Spacing_m), Spacing_m, 1, 20);
+        v.InRange(nameof(Depth_m), Depth_m, 0.2, 3);
+    }
+}
+
 public sealed class RoofDef : IValidatable
 {
     public float[] Rect_m { get; set; } = Array.Empty<float>();

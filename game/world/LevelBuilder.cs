@@ -41,12 +41,14 @@ public partial class LevelBuilder : Node3D
     /// <summary>How many windows and doors got frames (<see cref="OpeningFrames"/>).</summary>
     public int FramedOpenings { get; private set; }
 
+    /// <summary>How many buildings got gutters, downpipes or roof trusses (<see cref="BuildingDetails"/>).</summary>
+    public int DressedBuildings { get; private set; }
+
     /// <summary>
-    /// Builds the level. <paramref name="framesOf"/> gives the frame material id for the building that
-    /// owns an opening (by owner index), or null for a bare opening.
+    /// Builds the level: its primitives, the props, and the buildings' frames and details from their
+    /// templates (<see cref="LevelLayout.Buildings"/>).
     /// </summary>
-    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null,
-        Func<int, string?>? framesOf = null)
+    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null)
     {
         foreach (Node child in GetChildren())
         {
@@ -86,14 +88,19 @@ public partial class LevelBuilder : Node3D
             }
         }
 
-        FramedOpenings = 0;
-        if (framesOf is not null)
+        // The buildings' frames in their openings, gutters and trusses.
+        var frames = new Dictionary<int, int>();
+        foreach (PlacedBuilding b in level.Buildings)
         {
-            int glass = materialIds.TryGetValue(GlassMaterial, out int g) ? g : -1;
-            FramedOpenings = OpeningFrames.Build(level,
-                owner => framesOf(owner) is { } id && materialIds.TryGetValue(id, out int index) ? index : -1,
-                glass, at => ChunkMesh(shapes, at.X, at.Z));
+            if (b.Template.Def.Frames is { } id && materialIds.TryGetValue(id, out int index))
+            {
+                frames[b.Owner] = index;
+            }
         }
+
+        int glass = materialIds.TryGetValue(GlassMaterial, out int g) ? g : -1;
+        FramedOpenings = OpeningFrames.Build(level, owner => frames.TryGetValue(owner, out int m) ? m : -1, glass, at => ChunkMesh(shapes, at.X, at.Z));
+        DressedBuildings = BuildingDetails.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
 
         foreach (((int cx, int cz), ShapeMesh shape) in shapes)
         {

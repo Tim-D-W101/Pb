@@ -9,6 +9,8 @@
   "floorMaterial": "concrete_floor",
   // Frames the game draws in the windows and doors (looks only: the openings stay open to paint).
   "frames": "steel_rust",
+  // Gutters along the eaves with downpipes (looks only).
+  "gutters": "steel_rust",
   "walls": [
     {
       "storey": 0, "points_m": [[0, 0], [8, 0], [8, 6], [0, 6]], "closed": true,
