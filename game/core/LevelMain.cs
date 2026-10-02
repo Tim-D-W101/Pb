@@ -85,6 +85,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private PickupVisuals _pickups = null!;
     private WeedField _weeds = null!;
     private FootDust _dust = null!;
+    private PuddleRipples _ripples = null!;
     private Birds _birds = null!;
     private GroundDetail _groundDetail = null!;
     private FloorDebris _floorDebris = null!;
@@ -239,6 +240,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         var bags = new SnaggedBags { Name = "SnaggedBags" };
         AddChild(bags);
         bags.Build(_level, _world.Strands, _view.SnaggedBags, _view.GroundWind);
+        var tatters = new RoofTatters { Name = "RoofTatters" };
+        AddChild(tatters);
+        tatters.Build(_level, _view.RoofTatters, _view.GroundWind);
         var litter = new BlowingLitter { Name = "BlowingLitter" };
         AddChild(litter);
         litter.Build(_level, _sim.Collision, _view.BlowingLitter, _view.GroundWind);
@@ -249,7 +253,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {paths.Count} worn paths ({paths.Length_m:0} m), {cracks.Count} cracks ({cracks.Length_m:0} m), {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {fittings.Count} manholes and drains, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {hangings.Count} things on the walls, {damp.Count} damp patches, {graffiti.Count} graffiti, {bags.Count} bags on the wire, {litter.Count} bits of litter blowing about, {_birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {paths.Count} worn paths ({paths.Length_m:0} m), {cracks.Count} cracks ({cracks.Length_m:0} m), {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {fittings.Count} manholes and drains, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {hangings.Count} things on the walls, {damp.Count} damp patches, {graffiti.Count} graffiti, {bags.Count} bags on the wire, {litter.Count} bits of litter blowing about, {tatters.Count} tatters under the roof holes, {_birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);
@@ -266,6 +270,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _dust = new FootDust { Name = "FootDust" };
         AddChild(_dust);
         _dust.Initialize(_sim, _view.FootDust, _view.GroundWind);
+        _ripples = new PuddleRipples { Name = "PuddleRipples", Visible = _groundDetail.Visible };
+        AddChild(_ripples);
+        _ripples.Initialize(_groundDetail.Puddles, _view.Ripples);
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
 
@@ -316,6 +323,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.AddListener(_splats);
         _driver.AddListener(fx);
         _driver.AddListener(_dust);
+        _driver.AddListener(_ripples);
         _driver.AddListener(_birds);
         if (!headless)
         {
@@ -812,6 +820,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
         _weeds.ApplyPreset(preset);
         _groundDetail.Visible = preset.GroundDetail;
+        if (_ripples is not null)
+        {
+            _ripples.Visible = preset.GroundDetail;
+        }
         _floorDebris.Visible = preset.GroundDetail;
         _oldPaint.Visible = preset.OldPaint;
         // Ambient occlusion does their job where the preset has it.

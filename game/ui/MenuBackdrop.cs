@@ -97,6 +97,9 @@ public partial class MenuBackdrop : Node3D
                 var bags = new SnaggedBags { Name = "SnaggedBags" };
                 AddChild(bags);
                 bags.Build(level, world.Strands, view.SnaggedBags, view.GroundWind);
+                var tatters = new RoofTatters { Name = "RoofTatters" };
+                AddChild(tatters);
+                tatters.Build(level, view.RoofTatters, view.GroundWind);
                 var litter = new BlowingLitter { Name = "BlowingLitter" };
                 AddChild(litter);
                 litter.Build(level, collision, view.BlowingLitter, view.GroundWind);

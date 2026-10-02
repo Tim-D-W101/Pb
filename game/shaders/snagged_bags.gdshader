@@ -1,8 +1,8 @@
 // Plastic bags caught on the barbed wire (SnaggedBags): a crumpled sheet hanging from the point it's
 // caught on (the instance's origin; UV.y 0 at the top to 1 at the bottom), tinted per bag (instance
 // colour; custom data r = the bag's phase). The wind holds it out downwind by an angle that gusts,
-// ripples run down it and its free end twists, so no two bags move together. Two-sided, glossy and
-// letting some light through, like thin plastic.
+// ripples run down it and its free end twists, so no two bags move together. Two-sided; glossy and
+// letting some light through, like thin plastic, unless told otherwise (the roof tatters).
 shader_type spatial;
 render_mode cull_disabled, diffuse_burley, specular_schlick_ggx, world_vertex_coords;
 
@@ -13,6 +13,10 @@ uniform float lean_least = 0.6;
 uniform float lean_most = 1.0;
 uniform float flap = 0.08;
 uniform float flutter = 9.0;
+// The surface: thin plastic is glossy and lets light through; roofing felt is neither.
+uniform float roughness = 0.42;
+uniform float specular = 0.45;
+uniform float backlight = 0.45;
 
 vec3 turn(vec3 v, vec3 axis, float angle) {
 	return v * cos(angle) + cross(axis, v) * sin(angle) + axis * dot(axis, v) * (1.0 - cos(angle));
@@ -40,7 +44,7 @@ void vertex() {
 
 void fragment() {
 	ALBEDO = COLOR.rgb;
-	ROUGHNESS = 0.42;
-	SPECULAR = 0.45;
-	BACKLIGHT = COLOR.rgb * 0.45;
+	ROUGHNESS = roughness;
+	SPECULAR = specular;
+	BACKLIGHT = COLOR.rgb * backlight;
 }

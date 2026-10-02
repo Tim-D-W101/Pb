@@ -54,6 +54,10 @@ public sealed class PresentationDef : IValidatable
 
     public BlowingLitterDef BlowingLitter { get; set; } = new();
 
+    public RipplesDef Ripples { get; set; } = new();
+
+    public RoofTattersDef RoofTatters { get; set; } = new();
+
     /// <summary>
     /// The wind near the ground ([x, z] m/s: +x east, +z south): the weeds sway, the bags on the wire
     /// stream and dust drifts with it. The clouds and the chimney smoke, higher up, have their own.
@@ -140,6 +144,8 @@ public sealed class PresentationDef : IValidatable
         SnaggedBags.Validate(v.Scope(nameof(SnaggedBags)));
         FootDust.Validate(v.Scope(nameof(FootDust)));
         BlowingLitter.Validate(v.Scope(nameof(BlowingLitter)));
+        Ripples.Validate(v.Scope(nameof(Ripples)));
+        RoofTatters.Validate(v.Scope(nameof(RoofTatters)));
         if (GroundWind_mps.Length != 2 || System.MathF.Abs(GroundWind_mps[0]) > 30f || System.MathF.Abs(GroundWind_mps[1]) > 30f ||
             GroundWind_mps[0] * GroundWind_mps[0] + GroundWind_mps[1] * GroundWind_mps[1] < 0.01f)
         {
@@ -1729,6 +1735,82 @@ public sealed class SnaggedBagsDef : IValidatable
         FlockDef.Pair(v, nameof(Lean_rad), Lean_rad, 0f, 1.3f);
         v.InRange(nameof(Flap_m), Flap_m, 0, 0.3);
         v.InRange(nameof(Flutter_hz), Flutter_hz, 0, 5);
+    }
+}
+
+/// <summary>
+/// Tatters hanging from the edges of holes in the roofs (game/world/RoofTatters.cs): about how far apart
+/// along an edge, the share of those places that have one, how long they hang and how wide they are
+/// (least, most), their colours (sRGB), the angles the draught holds them out at (rad, in a lull and in a
+/// gust), how far their free ends flap, and how often.
+/// </summary>
+public sealed class RoofTattersDef : IValidatable
+{
+    public float Every_m { get; set; }
+
+    public float Share { get; set; }
+
+    public float[] Length_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] Width_m { get; set; } = System.Array.Empty<float>();
+
+    public string[] Colors { get; set; } = System.Array.Empty<string>();
+
+    public float[] Lean_rad { get; set; } = System.Array.Empty<float>();
+
+    public float Flap_m { get; set; }
+
+    public float Flutter_hz { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Every_m), Every_m, 0.1, 10);
+        v.InRange(nameof(Share), Share, 0, 1);
+        FlockDef.Pair(v, nameof(Length_m), Length_m, 0.05f, 4f);
+        FlockDef.Pair(v, nameof(Width_m), Width_m, 0.02f, 2f);
+        if (Colors.Length == 0)
+        {
+            v.Error(nameof(Colors), "needs at least one colour");
+        }
+
+        foreach (string c in Colors)
+        {
+            TrainingGroundDef.Colour(v, nameof(Colors), c);
+        }
+
+        FlockDef.Pair(v, nameof(Lean_rad), Lean_rad, 0f, 1.3f);
+        v.InRange(nameof(Flap_m), Flap_m, 0, 0.5);
+        v.InRange(nameof(Flutter_hz), Flutter_hz, 0, 5);
+    }
+}
+
+/// <summary>
+/// Ripples on the puddles (game/world/PuddleRipples.cs): how far across the rings spread from a step, a
+/// landing and a ball breaking or bouncing in the water (never wider than the water there), how long they
+/// last, how bright they start (0-1), and how many can be spreading at once.
+/// </summary>
+public sealed class RipplesDef : IValidatable
+{
+    public float StepSize_m { get; set; }
+
+    public float LandSize_m { get; set; }
+
+    public float BallSize_m { get; set; }
+
+    public float Lifetime_s { get; set; }
+
+    public float Opacity { get; set; }
+
+    public int Max { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(StepSize_m), StepSize_m, 0.05, 5);
+        v.InRange(nameof(LandSize_m), LandSize_m, 0.05, 5);
+        v.InRange(nameof(BallSize_m), BallSize_m, 0.05, 5);
+        v.InRange(nameof(Lifetime_s), Lifetime_s, 0.1, 10);
+        v.InRange(nameof(Opacity), Opacity, 0, 1);
+        v.InRange(nameof(Max), Max, 0, 1024);
     }
 }
 

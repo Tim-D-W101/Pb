@@ -366,6 +366,28 @@
     "reach_m": 60
   },
 
+  // Tatters hanging from the edges of the holes where a roof has fallen in (looks only): torn strips of
+  // roofing felt and insulation about every_m along each edge (share of those places have one), hanging
+  // length_m and width_m wide (least, most), in one of these colours. The draught through the hole holds
+  // them out at lean_rad (in a lull, in a gust) and flutters their free ends flap_m, flutter_hz times a
+  // second.
+  "roofTatters": {
+    "every_m": 0.6,
+    "share": 0.45,
+    "length_m": [0.15, 1.6],
+    "width_m": [0.1, 0.45],
+    "colors": ["#2b2a28", "#3a3835", "#4a4640", "#c9b45a", "#b9a77a"],
+    "lean_rad": [0.05, 0.3],
+    "flap_m": 0.05,
+    "flutter_hz": 1.3
+  },
+
+  // Ripples on the puddles (looks only): where a foot comes down in a puddle's water, rings spread out
+  // stepSize_m across (landSize_m on landing), and ballSize_m where a ball breaks or bounces in it, never
+  // wider than the water there. They fade over lifetime_s; opacity is how bright they start, and at most
+  // max spread at once. Off with the things on the ground (the graphics presets' groundDetail).
+  "ripples": { "stepSize_m": 0.6, "landSize_m": 0.9, "ballSize_m": 0.4, "lifetime_s": 1.1, "opacity": 0.35, "max": 64 },
+
   // Litter blowing about the yard (looks only): dry leaves, scraps of paper and wrappers lying on open
   // ground outdoors. A gust stronger than lift (0-1; least, most) picks a piece up and it tumbles, hops
   // and skitters off on share of the ground wind (least, most) until the gust drops, it fetches up

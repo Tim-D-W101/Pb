@@ -26,6 +26,14 @@ public partial class GroundDetail : Node3D
 
     public int CardCount { get; private set; }
 
+    /// <summary>The puddles' water, for <see cref="PuddleRipples"/>: its surface's middle, the puddle's turn, and its half-sizes (m).</summary>
+    public List<Puddle> Puddles { get; } = new();
+
+    public readonly record struct Puddle(Vector3 Center, float Yaw, float HalfWidth, float HalfLength);
+
+    /// <summary>The water fills about this share of a puddle card's width and length (StainPainter.Puddle).</summary>
+    private const float Water = 0.5f;
+
     public void Build(LevelLayout level, ICollisionWorld world, GroundDetailDef def)
     {
         foreach (Node child in GetChildren())
@@ -42,6 +50,16 @@ public partial class GroundDetail : Node3D
         }
 
         CardCount = cards.Count;
+        Puddles.Clear();
+        for (int i = 0; i < cards.Count; i++)
+        {
+            Card c = cards[i];
+            if (c.Cell / 2 == (int)GroundDetailKind.Puddle)
+            {
+                Puddles.Add(new Puddle(c.Position + Vector3.Up * (Lift + (i % 16) * Layer), c.Yaw, c.Width * Water * 0.5f, c.Length * Water * 0.5f));
+            }
+        }
+
         if (cards.Count == 0)
         {
             return;
