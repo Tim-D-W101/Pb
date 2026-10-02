@@ -434,6 +434,9 @@ public sealed class GraphicsPresetDef : IValidatable
     /// <summary>Strength of the sunbeams through windows and roof holes (0 = off).</summary>
     public float LightShafts { get; set; }
 
+    /// <summary>Whether things lying on the ground (oil, puddles, litter…) are drawn.</summary>
+    public bool GroundDetail { get; set; }
+
     /// <summary>Dust motes drifting in the sunbeams.</summary>
     public bool Dust { get; set; }
 

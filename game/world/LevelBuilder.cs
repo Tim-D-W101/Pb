@@ -99,7 +99,7 @@ public partial class LevelBuilder : Node3D
         {
             var mesh = new ArrayMesh();
             shape.Commit(mesh, m => _materials[m]);
-            AddChild(new MeshInstance3D { Name = $"Props_{cx}_{cz}", Mesh = mesh });
+            AddChild(new MeshInstance3D { Name = $"Props_{cx}_{cz}", Mesh = ShapeMesh.WithLods(mesh) });
             ShapeTriangles += shape.TriangleCount;
             MeshCount++;
         }

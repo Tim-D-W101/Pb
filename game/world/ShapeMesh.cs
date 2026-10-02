@@ -351,6 +351,8 @@ public sealed class ShapeMesh
             arrays[(int)Mesh.ArrayType.TexUV2] = s.Uv2s.ToArray();
             var tool = new SurfaceTool();
             tool.CreateFromArrays(arrays);
+            // Shared corners become one vertex (an index buffer), then tangents for the normal maps.
+            tool.Index();
             tool.GenerateTangents();
             tool.SetMaterial(materials(material));
             tool.Commit(mesh);
@@ -425,5 +427,21 @@ public sealed class ShapeMesh
         public readonly List<Vector3> Normals = new();
         public readonly List<Vector2> Uvs = new();
         public readonly List<Vector2> Uv2s = new();
+    }
+
+    /// <summary>
+    /// The same mesh with simplified levels of detail, which the renderer picks by how big it is on
+    /// screen (also in the shadow passes), so distant props cost less.
+    /// </summary>
+    public static ArrayMesh WithLods(ArrayMesh mesh)
+    {
+        var importer = new ImporterMesh();
+        for (int i = 0; i < mesh.GetSurfaceCount(); i++)
+        {
+            importer.AddSurface(Mesh.PrimitiveType.Triangles, mesh.SurfaceGetArrays(i), material: mesh.SurfaceGetMaterial(i));
+        }
+
+        importer.GenerateLods(25f, 60f, new Godot.Collections.Array());
+        return importer.GetMesh();
     }
 }

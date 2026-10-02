@@ -85,9 +85,10 @@
   // Antialiasing is screen-space (screenAa: none, fxaa or smaa): with MSAA on, shaders can't read the
   // depth buffer the sunbeams need to stop at walls, so the beams switch off.
   // Per preset, the compound's lighting extras: the share of weeds drawn and how far (weedDensity,
-  // weedDistance_m), sunbeam strength (lightShafts, 0 = off), dust motes in the beams, and window fill
-  // lights. Ultra's volumetric fog already shows real beams and SDFGI bounces light, so it tones the
-  // fake beams down and drops the fill lights.
+  // weedDistance_m), sunbeam strength (lightShafts, 0 = off), dust motes in the beams, window fill
+  // lights, and the things lying on the ground (groundDetail; off on Low). Ultra's volumetric fog
+  // already shows real beams and SDFGI bounces light, so it tones the fake beams down and drops the
+  // fill lights.
   "graphics": {
     "defaultPreset": "medium",
     // V-sync on by default: no tearing, and frames paced to the monitor. F8 (or the pause menu) turns
@@ -101,16 +102,16 @@
     "presets": [
       { "name": "low", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
         "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0, "screenAa": "fxaa",
-        "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false },
+        "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": false },
       { "name": "medium", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
         "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 75, "msaa": 0, "screenAa": "fxaa",
-        "weedDensity": 0.5, "weedDistance_m": 35, "lightShafts": 0, "dust": false, "windowLights": false },
+        "weedDensity": 0.5, "weedDistance_m": 35, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": true },
       { "name": "high", "ssao": true, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
         "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 90, "msaa": 0, "screenAa": "smaa",
-        "weedDensity": 0.75, "weedDistance_m": 45, "lightShafts": 1.0, "dust": true, "windowLights": true },
+        "weedDensity": 0.75, "weedDistance_m": 45, "lightShafts": 1.0, "dust": true, "windowLights": true, "groundDetail": true },
       { "name": "ultra", "ssao": true, "ssil": true, "sdfgi": true, "volumetricFog": true, "ssr": true, "glow": true,
         "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 130, "msaa": 0, "screenAa": "smaa",
-        "weedDensity": 1.0, "weedDistance_m": 70, "lightShafts": 0.6, "dust": true, "windowLights": false }
+        "weedDensity": 1.0, "weedDistance_m": 70, "lightShafts": 0.6, "dust": true, "windowLights": false, "groundDetail": true }
     ]
   },
 

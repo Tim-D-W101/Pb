@@ -744,6 +744,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), preset);
         Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
         _weeds.ApplyPreset(preset);
+        _groundDetail.Visible = preset.GroundDetail;
         _shafts.ApplyPreset(preset);
     }
 
