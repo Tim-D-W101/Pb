@@ -94,6 +94,13 @@ public sealed class MaterialDef : IValidatable
     [Optional]
     public string? RoughnessMap { get; set; }
 
+    /// <summary>
+    /// Shuffles the texture in broad patches so its repeat doesn't show as a grid over a large area.
+    /// Only for surfaces without a regular pattern: bricks, planks or corrugations would come apart.
+    /// </summary>
+    [Optional]
+    public bool BreakUpRepeat { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);

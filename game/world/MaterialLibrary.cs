@@ -59,6 +59,7 @@ public sealed class MaterialLibrary
         if (albedo is not null)
         {
             material.SetShaderParameter("albedo_tex", albedo);
+            material.SetShaderParameter("break_up", def.BreakUpRepeat);
         }
 
         material.SetShaderParameter("has_normal_tex", normal is not null);

@@ -18,6 +18,8 @@ uniform float weathering : hint_range(0.0, 1.0) = 0.5;
 uniform bool use_textures = false;
 uniform bool has_normal_tex = false;
 uniform bool has_roughness_tex = false;
+// Shuffle the textures in patches so their repeat doesn't show (materials.jsonc "breakUpRepeat").
+uniform bool break_up = false;
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D roughness_tex : hint_roughness_r, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -343,6 +345,19 @@ void surface_pattern(vec2 m, vec3 wp, float px, out vec3 col, out float rough, o
 	}
 }
 
+// One of a material's textures at uv. With break_up, two looks at it, each moved by the offset of
+// its patch, blended where the patches meet (after Inigo Quilez, "texture repetition"); textureGrad
+// keeps the mip level steady across the jump between offsets.
+vec4 look(sampler2D tex, vec2 uv, vec2 off_a, vec2 off_b, float blend) {
+	if (!break_up) {
+		return texture(tex, uv);
+	}
+
+	vec2 dx = dFdx(uv);
+	vec2 dy = dFdy(uv);
+	return mix(textureGrad(tex, uv + off_a, dx, dy), textureGrad(tex, uv + off_b, dx, dy), blend);
+}
+
 // Bump mapping without tangents (Mikkelsen 2010): perturbs the view-space normal by the screen-space
 // gradient of a height field given in metres.
 vec3 perturb_normal(vec3 n, vec3 pos, float h) {
@@ -366,15 +381,35 @@ void fragment() {
 	float h;
 	surface_pattern(m, world_pos, px, col, rough, metal, h);
 
-	vec2 tuv = m / tile_m;
+	// A picture's rows run down it, while the level's UVs run up its walls: v is flipped so photos
+	// stand the right way up (rust and damp run down), and the normal map's green with it below.
+	vec2 tuv = vec2(m.x, -m.y) / tile_m;
+	vec2 off_a = vec2(0.0);
+	vec2 off_b = vec2(0.0);
+	float blend = 0.0;
 	if (use_textures) {
-		col = texture(albedo_tex, tuv).rgb;
+		if (break_up) {
+			// A slow noise over the surface steps through offsets into the texture, a few metres
+			// apart; the blend follows the picture's own light and dark, so the joins look natural.
+			float l = noise2(m * 0.09 + 3.7) * 6.0;
+			float i = floor(l);
+			off_a = hash22(vec2(i, 5.3));
+			off_b = hash22(vec2(i + 1.0, 5.3));
+			vec2 dx = dFdx(tuv);
+			vec2 dy = dFdy(tuv);
+			vec3 a = textureGrad(albedo_tex, tuv + off_a, dx, dy).rgb;
+			vec3 b = textureGrad(albedo_tex, tuv + off_b, dx, dy).rgb;
+			blend = smoothstep(0.3, 0.7, fract(l) - 0.15 * dot(a - b, vec3(1.0)));
+			col = mix(a, b, blend);
+		} else {
+			col = texture(albedo_tex, tuv).rgb;
+		}
 		// Broad light and dark patches tens of metres across, so a photo repeating every couple of
 		// metres doesn't read as a grid over a yard or a long wall.
 		col *= mix(0.84, 1.12, fbm2(world_pos.xz * 0.045 + vec2(world_pos.y * 0.03)));
 		h = 0.0;
 		if (has_roughness_tex) {
-			rough = texture(roughness_tex, tuv).r;
+			rough = look(roughness_tex, tuv, off_a, off_b, blend).r;
 		}
 	}
 
@@ -403,7 +438,8 @@ void fragment() {
 	h *= 1.0 - smoothstep(18.0, 45.0, length(VERTEX));
 	NORMAL = perturb_normal(NORMAL, VERTEX, h);
 	if (use_textures && has_normal_tex) {
-		NORMAL_MAP = texture(normal_tex, tuv).rgb;
+		vec3 nm = look(normal_tex, tuv, off_a, off_b, blend).rgb;
+		NORMAL_MAP = vec3(nm.r, 1.0 - nm.g, nm.b);
 	} else {
 		NORMAL_MAP = vec3(0.5, 0.5, 1.0);
 	}
