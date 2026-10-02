@@ -56,7 +56,7 @@ public partial class MenuBackdrop : Node3D
                 var paths = new WornPaths { Name = "WornPaths" };
                 AddChild(paths);
                 paths.Plan(level, collision, view.WornPaths);
-                var weeds = new WeedField { Name = "Weeds" };
+                var weeds = new WeedField { Name = "Weeds", Wind = view.GroundWind };
                 AddChild(weeds);
                 weeds.Build(level, collision, view.Weeds, paths.Clear);
                 paths.Draw(level, collision, view.WornPaths);
@@ -96,7 +96,10 @@ public partial class MenuBackdrop : Node3D
                 graffiti.Build(level, view.Graffiti, world.Piers);
                 var bags = new SnaggedBags { Name = "SnaggedBags" };
                 AddChild(bags);
-                bags.Build(level, world.Strands, view.SnaggedBags);
+                bags.Build(level, world.Strands, view.SnaggedBags, view.GroundWind);
+                var litter = new BlowingLitter { Name = "BlowingLitter" };
+                AddChild(litter);
+                litter.Build(level, collision, view.BlowingLitter, view.GroundWind);
                 if (!preset.Ssao)
                 {
                     var contact = new ContactShadows { Name = "ContactShadows" };

@@ -10,6 +10,9 @@ namespace Pb.Game.World;
 /// </summary>
 public static class Atmosphere
 {
+    private static ImageTexture? _highLayer;
+    private static (float Cover, float From, float To) _highLayerKey;
+
     public static void ApplyLighting(WorldEnvironment world, DirectionalLight3D sun, LightingDef l)
     {
         Environment env = world.Environment ??= new Environment();
@@ -21,21 +24,7 @@ public static class Atmosphere
         sun.DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits;
         sun.ShadowBlur = l.SunShadowBlur;
 
-        var clouds = new NoiseTexture2D
-        {
-            Width = 1024,
-            Height = 512,
-            Seamless = true,
-            Noise = new FastNoiseLite
-            {
-                NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth,
-                Frequency = 0.004f,
-                FractalOctaves = 5,
-                FractalGain = 0.55f,
-                Seed = 12,
-            },
-            ColorRamp = CloudRamp(l.CloudCover),
-        };
+        ImageTexture clouds = HighLayer(l);
         var sky = new ProceduralSkyMaterial
         {
             SkyTopColor = Color.FromHtml(l.SkyTopColor),
@@ -129,15 +118,65 @@ public static class Atmosphere
         viewport.FsrSharpness = graphics.FsrSharpness;
     }
 
-    private static Gradient CloudRamp(float cover)
+    /// <summary>
+    /// The sky's own still cloud (its cover, a panorama: the top row is the point overhead), white with
+    /// the cloud in its alpha. It fades out between <c>clouds.highLayerFade_deg</c>: towards the top
+    /// a panorama's rows squeeze into a point, which drew the noise out into streaks over the player's head.
+    /// It wraps round by blending in a strip of noise past its right-hand end, keeping the noise's
+    /// contrast: Godot's seamless noise averages two fields across the middle (due north and along the
+    /// horizon), which thinned the cloud there into a hazy band.
+    /// </summary>
+    private static ImageTexture HighLayer(LightingDef l)
     {
+        // Painting it takes a fifth of a second, so the menu, the levels and the range share one.
+        var key = (l.CloudCover, l.Clouds.HighLayerFade_deg[0], l.Clouds.HighLayerFade_deg[1]);
+        if (_highLayer is { } cached && _highLayerKey == key)
+        {
+            return cached;
+        }
+
+        const int width = 1024, height = 512, skirt = 160;
+        var noise = new FastNoiseLite
+        {
+            NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth,
+            Frequency = 0.004f,
+            FractalOctaves = 5,
+            FractalGain = 0.55f,
+            Seed = 12,
+        };
+        Image grey = noise.GetImage(width + skirt, height);
+        grey.Convert(Image.Format.L8);
+        byte[] values = grey.GetData();
+        float Value(int x, int y) => values[y * (width + skirt) + x] / 255f - 0.5f;
         // Higher cover pushes the clear-sky threshold down so more of the noise reads as cloud.
-        float clear = Mathf.Lerp(0.62f, 0.3f, cover);
-        var ramp = new Gradient();
-        ramp.SetOffset(0, clear);
-        ramp.SetColor(0, new Color(1f, 1f, 1f, 0f));
-        ramp.SetOffset(1, Mathf.Min(1f, clear + 0.35f));
-        ramp.SetColor(1, new Color(1f, 1f, 1f, 1f));
-        return ramp;
+        float clear = Mathf.Lerp(0.62f, 0.3f, l.CloudCover), full = Mathf.Min(1f, clear + 0.35f);
+        float[] fade = l.Clouds.HighLayerFade_deg;
+        var rgba = new byte[width * height * 4];
+        for (int y = 0; y < height; y++)
+        {
+            float above = (0.5f - (y + 0.5f) / height) * 180f;
+            float keep = 1f - Mathf.SmoothStep(fade[0], fade[1], above);
+            for (int x = 0; x < width; x++)
+            {
+                float n = Value(x, y);
+                if (x < skirt)
+                {
+                    // From the strip past the right-hand end (continuing it) into this column; scaled so
+                    // the mix of two fields keeps one field's contrast.
+                    float t = Mathf.SmoothStep(0f, 1f, (float)x / skirt);
+                    n = (n * t + Value(x + width, y) * (1f - t)) / Mathf.Sqrt(t * t + (1f - t) * (1f - t));
+                }
+
+                int i = y * width + x;
+                float cloud = Mathf.Clamp((n + 0.5f - clear) / (full - clear), 0f, 1f) * keep;
+                rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = 255;
+                rgba[i * 4 + 3] = (byte)(cloud * 255f + 0.5f);
+            }
+        }
+
+        Image image = Image.CreateFromData(width, height, false, Image.Format.Rgba8, rgba);
+        image.GenerateMipmaps();
+        _highLayerKey = key;
+        return _highLayer = ImageTexture.CreateFromImage(image);
     }
 }

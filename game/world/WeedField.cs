@@ -65,6 +65,9 @@ public partial class WeedField : Node3D
 
     public int TuftCount { get; private set; }
 
+    /// <summary>The ground wind the tufts sway in (plan x, z; only its direction counts).</summary>
+    public Vector2 Wind { get; set; } = new(0.82f, 0.57f);
+
     /// <summary>Weeds over a level; nothing grows where <paramref name="clear"/> says (the worn paths).</summary>
     public void Build(LevelLayout level, ICollisionWorld world, WeedsDef def, Func<float, float, bool>? clear = null) =>
         Build(new LevelGround(level, world, clear), (uint)LevelBuilder.StableHash(level.Id), def);
@@ -92,6 +95,7 @@ public partial class WeedField : Node3D
         _material.SetShaderParameter("sway", def.WindSway_m);
         _material.SetShaderParameter("wind_speed", def.WindSpeed);
         _material.SetShaderParameter("gust_size", def.GustSize_m);
+        _material.SetShaderParameter("wind_dir", Wind.Normalized());
 
         ArrayMesh mesh = TuftMesh();
         var groups = new SortedDictionary<(int X, int Z), List<Tuft>>();

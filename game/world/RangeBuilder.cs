@@ -106,7 +106,7 @@ public partial class RangeBuilder : Node3D
         AddChild(birds);
         birds.Build(new Vector3(0f, 0f, -layout.Length * 0.5f), LevelBuilder.StableHash(layout.Id), view.Birds);
         BuildOldPaint(layout, backstopZ);
-        Weeds = new WeedField { Name = "Weeds" };
+        Weeds = new WeedField { Name = "Weeds", Wind = view.GroundWind };
         AddChild(Weeds);
         Weeds.Build(new RangeGround(layout, _def, backstopZ, _feet, _covered), (uint)LevelBuilder.StableHash(layout.Id), view.Weeds);
     }

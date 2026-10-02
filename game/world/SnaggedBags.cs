@@ -15,14 +15,14 @@ public readonly record struct WireStrand(Vector3 From, Vector3 To, float Sag_m, 
 /// <summary>
 /// Plastic bags caught on the barbed wire (presentation.jsonc "snaggedBags"): each hangs from a point
 /// on a strand (<see cref="LevelBuilder.Strands"/>), no lower than the top of the wall under it,
-/// crumpled, held out by the wind and flapping (snagged_bags.gdshader). Seeded by the level; one
+/// crumpled, held out by the ground wind and flapping (snagged_bags.gdshader). Seeded by the level; one
 /// MultiMesh; looks only.
 /// </summary>
 public partial class SnaggedBags : Node3D
 {
     public int Count { get; private set; }
 
-    public void Build(LevelLayout level, IReadOnlyList<WireStrand> strands, SnaggedBagsDef def)
+    public void Build(LevelLayout level, IReadOnlyList<WireStrand> strands, SnaggedBagsDef def, Vector2 wind)
     {
         foreach (Node child in GetChildren())
         {
@@ -75,7 +75,7 @@ public partial class SnaggedBags : Node3D
         }
 
         var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/snagged_bags.gdshader") };
-        material.SetShaderParameter("wind", new Vector3(def.Wind_mps[0], 0f, def.Wind_mps[1]).Normalized());
+        material.SetShaderParameter("wind", new Vector3(wind.X, 0f, wind.Y).Normalized());
         material.SetShaderParameter("lean_least", def.Lean_rad[0]);
         material.SetShaderParameter("lean_most", def.Lean_rad[1]);
         material.SetShaderParameter("flap", def.Flap_m);

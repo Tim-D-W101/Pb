@@ -141,7 +141,9 @@
     // A deck of cloud drifting over (looks only): its height, the size of its noise tile on it (bigger
     // makes bigger clouds), the wind moving it ([x, z] m/s: +x east, +z south), how opaque the
     // thickest cloud is, its sunlit and shaded colours, and how much of the sky's own still cloud
-    // stays showing behind it as a high layer (0-1). cloudCover above sets how much sky it covers.
+    // stays showing behind it as a high layer (0-1). That layer fades out between highLayerFade_deg
+    // (degrees above the horizon): overhead it pinched into a streaky haze. cloudCover above sets how
+    // much sky the deck covers.
     "clouds": {
       "height_m": 1400,
       "tile_m": 7000,
@@ -149,7 +151,8 @@
       "opacity": 0.95,
       "litColor": "#eee6da",
       "shadeColor": "#7e828b",
-      "highLayer": 0.45
+      "highLayer": 0.45,
+      "highLayerFade_deg": [20, 45]
     },
     // The volumetric fog of the presets that turn it on (Ultra): how thick it is per metre, how far
     // from the camera it reaches, its colour, and how much it veils the sky (0: not at all; at 1 it
@@ -323,17 +326,64 @@
 
   // Plastic bags caught on the walls' barbed wire (looks only): at most one on each strand between two
   // brackets, hanging size_m long (least-most; never below the top of the wall), in one of these colours
-  // (darkened a little at random). The wind ([x, z] m/s: +x east, +z south; only its direction counts,
-  // the same as the chimney smoke's) holds them out at lean_rad (in a lull, in a gust), and ripples flap
-  // their free end flap_m back and forth flutter_hz times a second.
+  // (darkened a little at random). The ground wind holds them out at lean_rad (in a lull, in a gust), and
+  // ripples flap their free end flap_m back and forth flutter_hz times a second.
   "snaggedBags": {
     "count": 14,
     "size_m": [0.32, 0.55],
     "colors": ["#ebe9e1", "#e2e4d8", "#d9d4c2", "#262626", "#4a6fa8", "#b8503f", "#c9b45a"],
-    "wind_mps": [3.2, 0.6],
     "lean_rad": [0.6, 1.05],
     "flap_m": 0.08,
     "flutter_hz": 2.5
+  },
+
+  // The wind near the ground ([x, z] m/s: +x east, +z south): the weeds sway, the bags on the wire stream
+  // and dust drifts with it. The clouds and the chimney smoke, higher up, have their own.
+  "groundWind_mps": [3.2, 0.6],
+
+  // Dust kicked up underfoot (looks only), in its colour on each surface that has any (break_model.jsonc
+  // names; elsewhere feet raise none). A step raises a puff stepSize_m across, from a walk's to a
+  // sprint's (crouched steps raise none); a landing a ring of five landSize_m puffs, a jump one of
+  // jumpSize_m, and a slide one of slideSize_m every slideEvery_m. A puff lasts about lifetime_s, grows
+  // to grow times its size, rises at rise_mps and drifts with windShare of the ground wind, starting
+  // opacity thick. At most max are up at once, and none are raised further than reach_m from the camera.
+  "footDust": {
+    "colors": { "dirt": "#9c8667", "gravel": "#a6a094", "turf": "#a69a72" },
+    "stepSize_m": [0.2, 0.5],
+    "landSize_m": 0.55,
+    "jumpSize_m": 0.4,
+    "slideSize_m": 0.5,
+    "slideEvery_m": 0.35,
+    "lifetime_s": 1.6,
+    "grow": 2.2,
+    "rise_mps": 0.25,
+    "windShare": 0.35,
+    "opacity": 0.45,
+    "max": 256,
+    "reach_m": 60
+  },
+
+  // Litter blowing about the yard (looks only): dry leaves, scraps of paper and wrappers lying on open
+  // ground outdoors. A gust stronger than lift (0-1; least, most) picks a piece up and it tumbles, hops
+  // and skitters off on share of the ground wind (least, most) until the gust drops, it fetches up
+  // against something, or it's blown in under a roof. One pinned for recycle_s goes back out onto open
+  // ground once neither place is within hidden_m in front of the camera. Each kind: its shape (leaf,
+  // paper or wrapper), how often it's picked (weight), size_m (least, most), colours, how high it hops,
+  // and how fast it tumbles over and spins round per metre blown.
+  "blowingLitter": {
+    "count": 60,
+    "lift": [0.55, 0.85],
+    "share": [0.5, 0.85],
+    "recycle_s": 20,
+    "hidden_m": 30,
+    "kinds": [
+      { "kind": "leaf", "weight": 6, "size_m": [0.07, 0.12], "colors": ["#8a5a2b", "#a2763a", "#6e4a26", "#b08b4a"],
+        "hop_m": 0.12, "tumble_radPerM": 5, "spin_radPerM": 2 },
+      { "kind": "paper", "weight": 3, "size_m": [0.16, 0.26], "colors": ["#ddd8c8", "#e8e4d6", "#cfc8b4"],
+        "hop_m": 0.04, "tumble_radPerM": 0, "spin_radPerM": 1.2 },
+      { "kind": "wrapper", "weight": 1, "size_m": [0.09, 0.14], "colors": ["#b9bcc0", "#c9a646", "#9e4436"],
+        "hop_m": 0.08, "tumble_radPerM": 3, "spin_radPerM": 2.5 }
+    ]
   },
 
   // Things lying on the ground: oil stains round the car and the machines, puddles under the open sky,
@@ -594,9 +644,14 @@
     "color": "#1b1b1d",
     "flapEvery_s": [3, 9],
     "flapFor_s": [0.8, 2.2],
-    // On a level, this many more sit on the tops of its walls, until you come this close.
+    // On a level, this many more sit on the tops of its walls, until you come this close. A shot this
+    // close puts them up too, so does a ball breaking this close, and anyone's footsteps within this
+    // share of the distance they're heard (a sprint's carry furthest; a crouched step's hardly at all).
     "perched": 9,
     "flushDistance_m": 9,
+    "shotStartle_m": 18,
+    "breakStartle_m": 6,
+    "stepStartle": 0.5,
     // And this many feed together on its open ground (these materials), pecking and hopping about,
     // until you come as close.
     "feeding": 6,

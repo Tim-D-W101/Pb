@@ -50,6 +50,19 @@ public sealed class PresentationDef : IValidatable
 
     public SnaggedBagsDef SnaggedBags { get; set; } = new();
 
+    public FootDustDef FootDust { get; set; } = new();
+
+    public BlowingLitterDef BlowingLitter { get; set; } = new();
+
+    /// <summary>
+    /// The wind near the ground ([x, z] m/s: +x east, +z south): the weeds sway, the bags on the wire
+    /// stream and dust drifts with it. The clouds and the chimney smoke, higher up, have their own.
+    /// </summary>
+    public float[] GroundWind_mps { get; set; } = System.Array.Empty<float>();
+
+    /// <summary><see cref="GroundWind_mps"/> as a plan vector (x, z).</summary>
+    public Godot.Vector2 GroundWind => new(GroundWind_mps[0], GroundWind_mps[1]);
+
     public GroundDetailDef GroundDetail { get; set; } = new();
 
     public OldPaintDef OldPaint { get; set; } = new();
@@ -125,6 +138,13 @@ public sealed class PresentationDef : IValidatable
         Graffiti.Validate(v.Scope(nameof(Graffiti)));
         WornPaths.Validate(v.Scope(nameof(WornPaths)));
         SnaggedBags.Validate(v.Scope(nameof(SnaggedBags)));
+        FootDust.Validate(v.Scope(nameof(FootDust)));
+        BlowingLitter.Validate(v.Scope(nameof(BlowingLitter)));
+        if (GroundWind_mps.Length != 2 || System.MathF.Abs(GroundWind_mps[0]) > 30f || System.MathF.Abs(GroundWind_mps[1]) > 30f ||
+            GroundWind_mps[0] * GroundWind_mps[0] + GroundWind_mps[1] * GroundWind_mps[1] < 0.01f)
+        {
+            v.Error(nameof(GroundWind_mps), "takes [x, z], each within ±30 m/s and not both zero");
+        }
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Markings.Validate(v.Scope(nameof(Markings)));
@@ -950,9 +970,10 @@ public sealed class VolumetricFogDef : IValidatable
 /// <summary>
 /// The deck of cloud drifting over the sky (game/world/CloudDeck.cs): its height, the size of its noise's
 /// tile on it (bigger makes bigger clouds), the wind moving it ([x, z] m/s: +x east, +z south), how
-/// opaque the thickest cloud is, its lit and shaded colours (sRGB), and how much of the sky's own still
-/// cloud cover stays showing behind it as a higher layer (0-1). How much sky it covers is the lighting's
-/// cloudCover.
+/// opaque the thickest cloud is, its lit and shaded colours (sRGB), how much of the sky's own still
+/// cloud cover stays showing behind it as a higher layer (0-1), and the heights in the sky (degrees above
+/// the horizon) that layer fades out between, before it pinches to a smear overhead. How much sky it
+/// covers is the lighting's cloudCover.
 /// </summary>
 public sealed class CloudsDef : IValidatable
 {
@@ -970,6 +991,8 @@ public sealed class CloudsDef : IValidatable
 
     public float HighLayer { get; set; }
 
+    public float[] HighLayerFade_deg { get; set; } = System.Array.Empty<float>();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(Height_m), Height_m, 200, 5000);
@@ -983,6 +1006,7 @@ public sealed class CloudsDef : IValidatable
         TrainingGroundDef.Colour(v, nameof(LitColor), LitColor);
         TrainingGroundDef.Colour(v, nameof(ShadeColor), ShadeColor);
         v.InRange(nameof(HighLayer), HighLayer, 0, 1);
+        FlockDef.Pair(v, nameof(HighLayerFade_deg), HighLayerFade_deg, 0f, 90f);
     }
 }
 
@@ -1671,9 +1695,8 @@ public sealed class GraffitiDef : IValidatable
 /// <summary>
 /// Plastic bags caught on the walls' barbed wire (game/world/SnaggedBags.cs): how many (at most one on
 /// each strand between two brackets), how long they hang (least, most; never below the top of the wall),
-/// their colours (sRGB, darkened a little at random), the wind ([x, z] m/s: +x east, +z south; only its
-/// direction counts), the angles it holds them out at (rad, in a lull and in a gust), how far ripples flap
-/// their free end, and how often.
+/// their colours (sRGB, darkened a little at random), the angles the ground wind holds them out at (rad,
+/// in a lull and in a gust), how far ripples flap their free end, and how often.
 /// </summary>
 public sealed class SnaggedBagsDef : IValidatable
 {
@@ -1682,8 +1705,6 @@ public sealed class SnaggedBagsDef : IValidatable
     public float[] Size_m { get; set; } = System.Array.Empty<float>();
 
     public string[] Colors { get; set; } = System.Array.Empty<string>();
-
-    public float[] Wind_mps { get; set; } = System.Array.Empty<float>();
 
     public float[] Lean_rad { get; set; } = System.Array.Empty<float>();
 
@@ -1705,14 +1726,153 @@ public sealed class SnaggedBagsDef : IValidatable
             TrainingGroundDef.Colour(v, nameof(Colors), c);
         }
 
-        if (Wind_mps.Length != 2 || System.MathF.Abs(Wind_mps[0]) > 60f || System.MathF.Abs(Wind_mps[1]) > 60f || Wind_mps[0] * Wind_mps[0] + Wind_mps[1] * Wind_mps[1] < 0.01f)
-        {
-            v.Error(nameof(Wind_mps), "takes [x, z], each within ±60 m/s and not both zero");
-        }
-
         FlockDef.Pair(v, nameof(Lean_rad), Lean_rad, 0f, 1.3f);
         v.InRange(nameof(Flap_m), Flap_m, 0, 0.3);
         v.InRange(nameof(Flutter_hz), Flutter_hz, 0, 5);
+    }
+}
+
+/// <summary>
+/// Litter blowing about the yard (game/world/BlowingLitter.cs): how many pieces; how strong a gust (0-1)
+/// it takes to lift one (least, most); the share of the ground wind it skitters off with (least, most);
+/// how long one stays pinned against something before it can be put back out on open ground; how far
+/// from the camera (or behind it) that can happen unseen; and the kinds of piece.
+/// </summary>
+public sealed class BlowingLitterDef : IValidatable
+{
+    public int Count { get; set; }
+
+    public float[] Lift { get; set; } = System.Array.Empty<float>();
+
+    public float[] Share { get; set; } = System.Array.Empty<float>();
+
+    public float Recycle_s { get; set; }
+
+    public float Hidden_m { get; set; }
+
+    public LitterKindDef[] Kinds { get; set; } = System.Array.Empty<LitterKindDef>();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Count), Count, 0, 500);
+        FlockDef.Pair(v, nameof(Lift), Lift, 0f, 1f);
+        FlockDef.Pair(v, nameof(Share), Share, 0f, 2f);
+        v.InRange(nameof(Recycle_s), Recycle_s, 0, 600);
+        v.InRange(nameof(Hidden_m), Hidden_m, 1, 200);
+        if (Kinds.Length == 0)
+        {
+            v.Error(nameof(Kinds), "needs at least one kind");
+        }
+
+        for (int i = 0; i < Kinds.Length; i++)
+        {
+            Kinds[i].Validate(v.Item(nameof(Kinds), i));
+        }
+    }
+}
+
+/// <summary>
+/// One kind of blowing litter: which (leaf, paper or wrapper, for its shape), how often it's picked
+/// against the others, its size (least, most), its colours (sRGB), how high it hops as it goes, and how
+/// fast it tumbles over and spins round per metre blown (rad; paper that doesn't tumble slides, lifting
+/// at its edges).
+/// </summary>
+public sealed class LitterKindDef : IValidatable
+{
+    public string Kind { get; set; } = "";
+
+    public float Weight { get; set; }
+
+    public float[] Size_m { get; set; } = System.Array.Empty<float>();
+
+    public string[] Colors { get; set; } = System.Array.Empty<string>();
+
+    public float Hop_m { get; set; }
+
+    public float Tumble_radPerM { get; set; }
+
+    public float Spin_radPerM { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (Kind is not ("leaf" or "paper" or "wrapper"))
+        {
+            v.Error(nameof(Kind), $"'{Kind}' isn't one of leaf, paper, wrapper");
+        }
+
+        v.InRange(nameof(Weight), Weight, 0.001, 100);
+        FlockDef.Pair(v, nameof(Size_m), Size_m, 0.02f, 1f);
+        if (Colors.Length == 0)
+        {
+            v.Error(nameof(Colors), "needs at least one colour");
+        }
+
+        foreach (string c in Colors)
+        {
+            TrainingGroundDef.Colour(v, nameof(Colors), c);
+        }
+
+        v.InRange(nameof(Hop_m), Hop_m, 0, 1);
+        v.InRange(nameof(Tumble_radPerM), Tumble_radPerM, 0, 30);
+        v.InRange(nameof(Spin_radPerM), Spin_radPerM, 0, 30);
+    }
+}
+
+/// <summary>
+/// Dust kicked up underfoot (game/world/FootDust.cs): its colour (sRGB) on each surface that has any
+/// (break_model.jsonc names; elsewhere feet raise none); a step's puff size from a walk's to a sprint's
+/// (crouched steps raise none), a landing's (a ring of five), a jump's and a slide's, laid every so many
+/// metres along it; how long a puff lasts, how many times its size it grows to, how fast it rises, the
+/// share of the ground wind it drifts with, how thick it starts (0-1), how many can be up at once, and how
+/// far from the camera any are raised.
+/// </summary>
+public sealed class FootDustDef : IValidatable
+{
+    public Dictionary<string, string> Colors { get; set; } = new();
+
+    public float[] StepSize_m { get; set; } = System.Array.Empty<float>();
+
+    public float LandSize_m { get; set; }
+
+    public float JumpSize_m { get; set; }
+
+    public float SlideSize_m { get; set; }
+
+    public float SlideEvery_m { get; set; }
+
+    public float Lifetime_s { get; set; }
+
+    public float Grow { get; set; }
+
+    public float Rise_mps { get; set; }
+
+    public float WindShare { get; set; }
+
+    public float Opacity { get; set; }
+
+    public int Max { get; set; }
+
+    public float Reach_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        foreach ((string surface, string colour) in Colors)
+        {
+            TrainingGroundDef.Colour(v, $"{nameof(Colors)}.{surface}", colour);
+        }
+
+        FlockDef.Pair(v, nameof(StepSize_m), StepSize_m, 0.02f, 3f);
+        v.InRange(nameof(LandSize_m), LandSize_m, 0.02, 3);
+        v.InRange(nameof(JumpSize_m), JumpSize_m, 0.02, 3);
+        v.InRange(nameof(SlideSize_m), SlideSize_m, 0.02, 3);
+        v.InRange(nameof(SlideEvery_m), SlideEvery_m, 0.05, 5);
+        v.InRange(nameof(Lifetime_s), Lifetime_s, 0.1, 10);
+        v.InRange(nameof(Grow), Grow, 0.5, 6);
+        v.InRange(nameof(Rise_mps), Rise_mps, 0, 3);
+        v.InRange(nameof(WindShare), WindShare, 0, 1);
+        v.InRange(nameof(Opacity), Opacity, 0, 1);
+        v.InRange(nameof(Max), Max, 1, 4096);
+        v.InRange(nameof(Reach_m), Reach_m, 1, 500);
     }
 }
 
@@ -2097,6 +2257,16 @@ public sealed class BirdsDef : IValidatable
 
     public float FlushDistance_m { get; set; }
 
+    /// <summary>
+    /// Sitting birds also take off at a shot this close, a ball breaking this close, or footsteps within
+    /// this share of the distance they're heard (a sprint's carries furthest, a crouched step's hardly at all).
+    /// </summary>
+    public float ShotStartle_m { get; set; }
+
+    public float BreakStartle_m { get; set; }
+
+    public float StepStartle { get; set; }
+
     /// <summary>How many feed on the level's open ground, pecking and hopping about, and the ground materials they feed on.</summary>
     public int Feeding { get; set; }
 
@@ -2112,6 +2282,9 @@ public sealed class BirdsDef : IValidatable
         }
 
         v.InRange(nameof(FlushDistance_m), FlushDistance_m, 1, 100);
+        v.InRange(nameof(ShotStartle_m), ShotStartle_m, 0, 200);
+        v.InRange(nameof(BreakStartle_m), BreakStartle_m, 0, 200);
+        v.InRange(nameof(StepStartle), StepStartle, 0, 2);
         for (int i = 0; i < Flocks.Length; i++)
         {
             Flocks[i].Validate(v.Item(nameof(Flocks), i));

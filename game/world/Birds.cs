@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Pb.Game.Core;
+using Pb.Sim.Events;
 
 namespace Pb.Game.World;
 
@@ -10,10 +11,11 @@ namespace Pb.Game.World;
 /// bird on a circle and at a height of its own, banked into the turn, gliding with its wings a little
 /// raised and now and then flapping in a burst (birds.gdshader beats the wings). Dark silhouettes in one
 /// MultiMesh, moved every frame. On a level, a few more sit on the tops of its walls under the open sky,
-/// turning now and then, until the camera comes close: then they flap up and away and join the wheeling.
+/// turning now and then, until the camera comes close, or a shot, paint breaking or someone's footsteps
+/// near them (the sim's events) put them up: then they flap up and away and join the wheeling.
 /// Presentation only; seeded, so it's the same every run.
 /// </summary>
-public partial class Birds : Node3D
+public partial class Birds : Node3D, ISimEventListener
 {
     /// <summary>How far the birds bank into the turn (radians), and how far they rise and fall (m).</summary>
     private const float Bank = 0.42f, Bob = 1.4f;
@@ -163,6 +165,41 @@ public partial class Birds : Node3D
 
     public override void _Process(double delta) => Update((float)delta);
 
+    /// <summary>
+    /// Puts up the sitting birds near a shot (birds.shotStartle_m), a ball breaking (breakStartle_m), or
+    /// footsteps (as far as stepStartle times the distance they're heard).
+    /// </summary>
+    public void OnSimEvent(in SimEvent e)
+    {
+        float radius = e.Type switch
+        {
+            SimEventType.ShotFired => _def.ShotStartle_m,
+            SimEventType.BallBroke => _def.BreakStartle_m,
+            SimEventType.Footstep => e.Value * _def.StepStartle,
+            _ => 0f,
+        };
+        if (radius <= 0f)
+        {
+            return;
+        }
+
+        Vector3 at = e.Position.ToGodot();
+        for (int i = 0; i < _birds.Length; i++)
+        {
+            ref Bird b = ref _birds[i];
+            if (b.State == Perch.Sitting && b.Perch.DistanceSquaredTo(at) < radius * radius)
+            {
+                Flush(ref b);
+            }
+        }
+    }
+
+    private static void Flush(ref Bird b)
+    {
+        b.State = Perch.Leaving;
+        b.Angle = Mathf.Atan2(b.Perch.Z - b.Center.Z, b.Perch.X - b.Center.X);
+    }
+
     private void Update(float dt)
     {
         if (_multimesh is null)
@@ -217,8 +254,7 @@ public partial class Birds : Node3D
                 _multimesh.SetInstanceTransform(i, hidden);
                 if (camera is { } eye && eye.DistanceTo(b.Perch) < _def.FlushDistance_m)
                 {
-                    b.State = Perch.Leaving;
-                    b.Angle = Mathf.Atan2(b.Perch.Z - b.Center.Z, b.Perch.X - b.Center.X);
+                    Flush(ref b);
                 }
 
                 continue;
