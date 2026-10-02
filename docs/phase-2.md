@@ -187,6 +187,7 @@ Until the bots of M2.5, practice opponents stood at the opponent spawns, and the
   - briefing card;
   - pause menu (Esc or Start) with basic settings (FOV, sensitivity, invert Y, graphics preset, v-sync, volume);
   - summary screen (Retry, Level select, Main menu).
+  - a loading card while the level builds, naming it with its mode, size and difficulty (or the training ground), so the menu doesn't sit frozen (2026-10-02).
 - [x] Level ladder file (`levels/ladder.jsonc`) listing levels, difficulty tiers, opponent rosters, time limits, starting gear and pickups. Phase 2 ships Level 1 and shows later levels as locked. Easy has 4 opponents, Normal 6 and Hard 9 (ten players in the round, counting you). *Since M2.10 the number is picked separately, and the rosters became one level roster for scripted runs.*
 
 F5 now opens the main menu (`scenes/Main.tscn`). Seven sim tests cover the round flow: the briefing gate, each outcome, the stats, the settle window, time up, pickups, tier rosters, and a live round's tick not allocating. The level smoke test now also checks that being hit ends the round as eliminated. CI gains a menu smoke run that checks every playable tier is offered. Opponents are still the practice dummies until M2.5 replaces them with bots.

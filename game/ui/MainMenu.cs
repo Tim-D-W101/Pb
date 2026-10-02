@@ -162,7 +162,7 @@ public partial class MainMenu : Control
         buttons.CustomMinimumSize = new Vector2(380, 0);
         buttons.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
         buttons.AddChild(UiKit.Button("Play", () => Open(_levels)));
-        buttons.AddChild(UiKit.Button("Training ground", () => GetTree().ChangeSceneToFile(GameSession.RangeScene)));
+        buttons.AddChild(UiKit.Button("Training ground", () => Load(GameSession.RangeScene, "Training ground", "Setting out the targets…")));
         buttons.AddChild(UiKit.Button("Settings", () => Open(_settingsScreen)));
         buttons.AddChild(UiKit.Button("Quit", () => GetTree().Quit()));
         column.AddChild(buttons);
@@ -286,7 +286,32 @@ public partial class MainMenu : Control
         GameSession.ModeId = mode.Id;
         GameSession.Size = size;
         GameSession.TierId = tier.Id;
-        GetTree().ChangeSceneToFile(GameSession.LevelScene);
+        Load(GameSession.LevelScene, entry.DisplayName, $"{mode.DisplayName} · {ModeText.Size(mode, size)} · {tier.DisplayName}");
+    }
+
+    /// <summary>
+    /// A card saying what's loading over the menu, drawn for a frame or two before the scene changes, so
+    /// the screen isn't left frozen on the menu while the place builds.
+    /// </summary>
+    private async void Load(string scene, string name, string line)
+    {
+        // The card stands alone over the backdrop, and nothing under it takes a second click.
+        foreach (Control s in new[] { _title, _levels, _settingsScreen })
+        {
+            s.Visible = false;
+        }
+
+        VBoxContainer column = UiKit.Column(10);
+        column.AddChild(UiKit.Body("LOADING", 18, UiKit.Accent));
+        column.AddChild(UiKit.Title(name, 40));
+        column.AddChild(UiKit.Body(line, 20, UiKit.Dim));
+        AddChild(UiKit.Overlay(UiKit.Panel(column, 520f), dim: 0.6f));
+        for (int i = 0; i < 2; i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+
+        GetTree().ChangeSceneToFile(scene);
     }
 
     /// <summary>A screen laid out at the left third (title, lists) or centred (dialogs).</summary>
