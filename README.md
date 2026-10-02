@@ -22,8 +22,9 @@ drum, and a rigged character model for the opponents. More textures, props and c
 **Just want to play (Windows)?** Download the latest test build,
 [Pb-windows.zip](https://github.com/Tim-D-W101/Pb/releases/download/test-build/Pb-windows.zip), unzip it
 and double-click `Play.bat`. No Godot or .NET needed. `Play.bat` keeps the game up to date: each time,
-it downloads only the files that changed since your version (under 1 MB for a code change; the art is
-a file of its own, so it comes down again only when it changes), then starts the game.
+it downloads only the files that changed since your version (under 1 MB for a code change; the art
+comes in packs of its own, one per texture or model, so only new or changed art comes down), then
+starts the game.
 Windows may ask you to confirm ("More info" → "Run anyway") because the game isn't signed. Every CI
 run publishes the build there (and as the run's "Pb-windows" artifact); `tools/package/windows-build.sh`
 makes the same build locally.

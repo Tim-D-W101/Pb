@@ -86,6 +86,8 @@ The buildings themselves (walls, floors, stairs, roofs) are generated from the l
 | About 12 textures, a sky, concept images | 20 |
 | **Total** | **≈ 390** |
 
+Spent by 2026-10-02: 93 credits (the oil drum and the first character, 68; 20 textures in seven pictures, the marker's reference picture and the concept pictures, 25), so about 307 are left.
+
 Sharing clips depends on the three rigs matching, which the first test will show. If they don't, clips cost about 100 more, and I'd drop to two characters or fewer props rather than go past 400. Spending happens in two steps: one prop and one character first (≈ 75 credits) to prove the whole pipeline, then the rest.
 
 Higgsfield's audio tools only generate speech. They can voice the opponents' callouts ("Hit!", "Contact, office!") in Phase 3. Other sounds stay synthesised for now.
@@ -223,7 +225,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
 **In progress.** The parts that needed no downloads came first, while the container couldn't reach Higgsfield's file host. Now that it can, real art is coming in, at up to five generations a day (the account's daily cap). [Screenshots](reports/phase-2/) from `-- --shots`, `-- --duel-demo` and `-- --bot-demo`.
 
-- [x] Import pipeline (`tools/art/import.sh`, which runs `game/tools/ArtImport` headless). It has brought in the first real files: four textures, the oil drum and the first opponent. Its steps:
+- [x] Import pipeline (`tools/art/import.sh`, which runs `game/tools/ArtImport` headless). It has brought in 20 materials, the oil drum and the first opponent. Its steps:
   - pull a finished Higgsfield job, make textures tileable, derive normal and roughness maps, and resize;
     - the picture is cropped square and resized;
     - broad uneven lighting is evened out, so tiles don't repeat a light and dark pattern;
@@ -231,8 +233,13 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
     - normal and roughness maps are derived from the brightness;
     - textures are saved as JPEG with their import settings;
     - models are tidied (pictures shrunk to JPEG, the baked-in glow removed) and measured, so the prop's colliders can be fitted to them;
-  - record the job ID and prompt in `game/data/assets.jsonc`, as a provenance record that the art is original. A sim test fails if the kit or the characters use a texture or model without a record. CI runs the texture steps on a generated picture (`--selftest`).
-- [ ] Photographic materials across the whole level. Four of 29 so far: cracked asphalt, concrete walls and floors, and red brick, each with normal and roughness maps. The rest still use the procedural weathering shader. Textured materials get broad light and dark patches, so the repeat doesn't read as a grid.
+  - record the job ID and prompt in `game/data/assets.jsonc`, as a provenance record that the art is original. A sim test fails if the kit or the characters use a texture or model without a record. CI runs the texture steps on a generated picture (`--selftest`);
+  - **texture sheets** (added 2026-10-02): with five generations a day, one picture holds four materials in a 2 × 2 grid, each cut out with `--region`. A regular pattern (bricks, blocks, planks, corrugations) is cut to whole repeats, measured by autocorrelation, and `--repeats` blends its seams in step with them, so joints don't double where the tiles meet (`--stretch` squares a cut that isn't square). The self-test checks that a repeating pattern comes through unchanged.
+- [ ] Photographic materials across the whole level. 20 of 29 so far, each with normal and roughness maps:
+  - day 1: cracked asphalt, concrete walls and floors, red brick;
+  - day 2 (four sheets): dirt, gravel, dry grass, roofing felt, concrete block, painted brick, peeling plaster, wooden planks, rusty and galvanised corrugated sheet, rusted, painted and yellow steel, and the red, blue and green containers.
+
+  So the warehouse (corrugated sheet on a block base), the perimeter wall, the offices, the pump house, the guardhouse, the ground and the containers are all photographic now. Left: machinery, car bodies, the two drums' paint, pallets, tyres, tarp, sandbags and glass. Tile sizes follow each pattern's real size (a block 45 cm, a corrugation 7.6 cm). Textures were drawn upside down on walls (the kit's UVs run up a wall, a picture's rows run down it); the shader now flips them, so rust and damp run down. Textured materials get broad light and dark patches, and those without a regular pattern (`breakUpRepeat`: asphalt, dirt, gravel, grass, concrete, plaster, steel) are shuffled in patches a few metres across, so the repeat doesn't read as a grid from the office windows or the water tower. The half-open roller door is painted steel now, not rust.
 - [x] Lighting presets, dust, light shafts and weeds (`presentation.jsonc`: "weeds", "shafts", "dust", "windowLight" and the graphics presets):
   - **Weeds and dry grass** wherever rain falls: about 50,000 tufts in Oxbarrow Works, placed at load from the level and seeded by its id. They're thick on the scrubland, patchy on dirt and gravel, in a network of cracks on asphalt and concrete, along the foot of walls and props, and under the holes in the warehouse roof. They sway in rolling gusts, shrink into the ground with distance, and never grow over a pickup.
   - **Sunbeams** through every window, door and roof hole the sun reaches into a roofed space (38 in Oxbarrow Works). Each is a box of light, ray-marched per pixel, that stops at whatever is in front of it, with dust swirling in it and motes drifting through.
@@ -252,7 +259,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   - A team-colour armband sits on each upper arm.
   - Splats stick to the nearest bone and move with it. They reach through to the model's surface, which lies inside the hitbox in some places and bulges past it in others.
   - The marker, loader and tank are simple shapes fitted inside their hitboxes until the generated marker arrives. Walk and run clips come next.
-- [ ] Realistic first-person marker, loader and tank.
+- [ ] Realistic first-person marker, loader and tank. The reference picture is made (2026-10-02, job `504fef01-d6f7-4ac5-959b-2aea7e92ba90`: a generic black marker with a smoke-grey loader and a silver bottle as the stock, no brand or text); next, the 3D model from it, which the opponents will hold too.
 - [x] Everything falls back when an asset is missing, so the game and CI never depend on the art: materials to the procedural look, props to greybox, opponents to their hitbox boxes. CI's bot match runs with `--no-art` to keep the fallbacks working.
 
 ### M2.7 HUD
@@ -293,13 +300,14 @@ Callsigns, callout lines and the HUD's timings are in `presentation.jsonc` ("hud
   - `Play.bat` checks it, downloads only what changed, then starts the game;
   - without internet, it just starts the game.
 - [x] **Smaller updates.** You asked not to download the whole game for every change.
-  - **Art in its own pack.** The art was 21 of the game's 22.6 MB, so it now ships in a pack of its own, `Pb-art.pck` (`tools/package/art-pack.sh`), which the game mounts when it starts.
+  - **Art in packs of its own.** The art was 21 of the game's 22.6 MB, so it now ships apart from the game, which mounts it when it starts. Since 2026-10-02 there's one pack per asset (`art/Pb-art-<id>.pck`, `tools/package/art-packs.sh`): with art arriving every day (65 MB of it now), a day's new textures cost just their own packs, not all the art again.
   - **Only changed files.** The release lists each game file with its SHA-256, and `Play.bat` downloads only the files that differ from yours. Each is checked against its fingerprint before it replaces yours.
 
-  A code or data change is now under 1 MB (the game's own pack is about 150 KB, and its two code files about 700 KB). The art comes down again only when it changes, and the whole game only when the engine does. A fresh import doesn't give byte-identical art, so CI reuses the published art pack while the art is unchanged. Launchers from before this change still update through `Pb-update.zip`, which brings the new launcher with it. Tested with PowerShell 7 against a local copy of the release:
+  A code or data change is now under 1 MB (the game's own pack is about 150 KB, and its two code files about 700 KB). Art comes down only when it's new or changed, and the whole game only when the engine does. A fresh import doesn't give byte-identical art, so CI reuses each published pack while its asset is unchanged. Launchers from before this change still update through `Pb-update.zip`, which brings the new launcher with it. Tested with PowerShell 7 against a local copy of the release:
   - an old install got just the changed files;
   - a corrupted download was refused and nothing was replaced;
-  - an install that was already up to date downloaded nothing but the manifest.
+  - an install that was already up to date downloaded nothing but the manifest;
+  - with per-asset packs: an install with the single art pack got the 22 packs (65 MB) and, on the next update, lost the old pack; a re-imported asset brought down just its own pack (2.7 MB), and a pack the release no longer lists was removed.
 
 ### M2.10 Modes: free-for-all and teams
 

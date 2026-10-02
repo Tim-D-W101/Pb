@@ -35,15 +35,15 @@ dotnet build Pb.sln                                   # everything, including th
 dotnet test                                           # Pb.Sim tests (fast, no engine)
 dotnet run -c Release --project tools/Pb.Bench        # ballistics report + tick cost
 tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end check
-tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in Pb-art.pck
+tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in art/*.pck
 tools/package/godot-project.sh                        # self-contained project zip for Godot's Import
 ```
 
 The Windows build needs the export templates: `tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe
 windows_release_x86_64_console.exe` pulls just those from the 1.2 GB release archive. Exported builds always
 start on the main menu; `-- --level=ID` (with the level's other options) skips it once. The game's own pack leaves
-`art/` out: `tools/package/art-pack.sh` exports it to `Pb-art.pck`, which `ArtFiles` mounts in exported builds, and
-the release lists every game file's SHA-256 so `Play.bat` downloads only what changed.
+`art/` out: `tools/package/art-packs.sh` exports it as one pack per asset (`art/Pb-art-<id>.pck`), which `ArtFiles`
+mounts in exported builds, and the release lists every game file's SHA-256 so `Play.bat` downloads only what changed.
 
 Godot 4.7.2 .NET is expected on PATH as `godot` (CI installs it with `tools/ci/install-godot.sh`).
 Build `game/Pb.csproj` before running Godot headless.
@@ -61,7 +61,11 @@ Each import records its provenance (job, generator, prompt, URL, files) in `game
 sim test fails if the kit or the characters use a texture or model without a record. Then point the
 material's `albedo`, `normal` and `roughnessMap` (`kit/materials.jsonc`), the prop's `model`
 (`kit/props.jsonc`) or a character model (`presentation.jsonc` → `characters`) at the files. Characters
-must use the generator's biped rig (the bone names `CharacterPoser` binds). The game loads art through
+must use the generator's biped rig (the bone names `CharacterPoser` binds). One generation can hold four
+materials (a 2 × 2 sheet): cut each with `--region=x,y,w,h`. Cut a regular pattern (bricks, planks,
+corrugations) to whole repeats and pass `--repeats=across,down` (and `--stretch` for a cut that isn't
+square), so its seams blend in step with it; set `tile_m` to the cut's real size. Give materials without a
+regular pattern `"breakUpRepeat": true`, so their repeat doesn't show over a yard. The game loads art through
 `ArtFiles`: anything missing falls back to the procedural look, greybox or hitbox boxes, and
 `-- --no-art` ignores all of it (CI's bot match), so the game and CI never depend on art.
 
