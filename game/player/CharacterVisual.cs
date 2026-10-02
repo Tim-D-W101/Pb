@@ -66,7 +66,7 @@ public partial class CharacterVisual : Node3D
             if (_model is not null && IsGear(part))
             {
                 // Gear keeps its size, so its shapes are built once.
-                GearShapes.Build(_parts[i], part, _current[i].HalfExtents.ToGodot() * 2f, MaterialFor(part, jersey));
+                GearShapes.Build(_parts[i], part, _current[i].HalfExtents.ToGodot() * 2f, jersey, index + 1);
                 continue;
             }
 

@@ -16,6 +16,7 @@ public sealed class ShapeMesh
 {
     private readonly Dictionary<int, Surface> _surfaces = new();
     private Transform3D _place = Transform3D.Identity;
+    private Basis _normals = Basis.Identity;
     private float _baseY;
     private float _height = 1f;
 
@@ -23,10 +24,14 @@ public sealed class ShapeMesh
 
     public IEnumerable<int> Materials => _surfaces.Keys;
 
-    /// <summary>Where the next parts go: the prop's transform, and its height for the weathering ramp.</summary>
+    /// <summary>
+    /// Where the next parts go: the prop's transform (it may scale, even unevenly), and its height for
+    /// the weathering ramp.
+    /// </summary>
     public void Place(Transform3D prop, float height)
     {
         _place = prop;
+        _normals = prop.Basis.Inverse().Transposed();
         _baseY = 0f;
         _height = MathF.Max(height, 0.05f);
     }
@@ -409,7 +414,7 @@ public sealed class ShapeMesh
         }
 
         s.Positions.Add(_place * local);
-        s.Normals.Add((_place.Basis * normal).Normalized());
+        s.Normals.Add((_normals * normal).Normalized());
         s.Uvs.Add(uv);
         s.Uv2s.Add(new Vector2(MathF.Max(local.Y - _baseY, 0f), _height));
     }

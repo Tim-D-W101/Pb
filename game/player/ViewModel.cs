@@ -1,11 +1,14 @@
+using System.Collections.Generic;
 using Godot;
 using Pb.Game.Core;
+using Pb.Game.World;
 using Pb.Sim.Data;
 
 namespace Pb.Game.Player;
 
 /// <summary>
-/// Greybox first-person marker with loader and tank (spec §6). It's drawn by viewmodel.gdshader
+/// First-person marker with loader and tank (spec §6), the model built in code (<see cref="MarkerShape"/>),
+/// with the player's paint in its loader. It's drawn by viewmodel.gdshader
 /// with its own FOV and a squashed depth range, so it never clips into the bunker you're
 /// hugging. It sits on its own render layer so paint decals don't project onto it.
 /// </summary>
@@ -14,6 +17,7 @@ public partial class ViewModel : Node3D
     public const uint RenderLayer = 1u << 1;
 
     private Shader _shader = null!;
+    private Shader _clearShader = null!;
     private Vector3 _rest;
     private Basis _tilt = Basis.Identity;
     private Vector3 _muzzleTip;
@@ -25,6 +29,7 @@ public partial class ViewModel : Node3D
     public void Build(ViewModelDef def, Color loaderColor)
     {
         _shader = GD.Load<Shader>("res://shaders/viewmodel.gdshader");
+        _clearShader = GD.Load<Shader>("res://shaders/viewmodel_clear.gdshader");
         _rest = FromRightUpForward(Validator.ToVector3(def.Offset_m));
         System.Numerics.Vector3 tilt = Validator.ToVector3(def.Rotation_deg);
         _tilt = Basis.FromEuler(new Vector3(Mathf.DegToRad(tilt.X), Mathf.DegToRad(tilt.Y), Mathf.DegToRad(tilt.Z)));
@@ -35,22 +40,30 @@ public partial class ViewModel : Node3D
         Position = _rest;
         Basis = _tilt;
 
-        var body = Material(new Color(0.16f, 0.17f, 0.19f), 0.5f, 0.2f);
-        var dark = Material(new Color(0.07f, 0.07f, 0.08f), 0.4f, 0.3f);
-        var loader = Material(loaderColor, 0.35f, 0f);
-        var tank = Material(new Color(0.72f, 0.74f, 0.78f), 0.28f, 0.9f);
-
-        // Local frame: +X right, +Y up, −Z forward (down the barrel).
-        Part(new BoxMesh { Size = new Vector3(0.05f, 0.08f, 0.26f) }, body, new Vector3(0, 0, 0));
-        Part(new CylinderMesh { TopRadius = 0.013f, BottomRadius = 0.013f, Height = 0.30f, RadialSegments = 12 },
-            dark, new Vector3(0, 0.02f, -0.28f), new Vector3(Mathf.Pi / 2, 0, 0));
-        Part(new CylinderMesh { TopRadius = 0.018f, BottomRadius = 0.018f, Height = 0.06f, RadialSegments = 10 },
-            dark, new Vector3(0, 0.055f, -0.02f));
-        Part(new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 16, Rings = 8 },
-            loader, new Vector3(0, 0.1f, 0.01f), Vector3.Zero, new Vector3(0.048f, 0.052f, 0.08f));
-        Part(new BoxMesh { Size = new Vector3(0.03f, 0.1f, 0.036f) }, dark, new Vector3(0, -0.08f, 0.07f), new Vector3(-0.26f, 0, 0));
-        Part(new CylinderMesh { TopRadius = 0.034f, BottomRadius = 0.034f, Height = 0.24f, RadialSegments = 14 },
-            tank, new Vector3(0, -0.09f, -0.04f), new Vector3(Mathf.Pi / 2, 0, 0));
+        // The marker built in code (MarkerShape): one mesh with a surface per material, the loader's
+        // shell see-through so the paint shows in it.
+        var materials = new Dictionary<int, Material>
+        {
+            [(int)MarkerPart.Body] = Material(new Color(0.11f, 0.115f, 0.12f), 0.42f, 0.35f),
+            [(int)MarkerPart.Barrel] = Material(new Color(0.05f, 0.05f, 0.055f), 0.3f, 0.45f),
+            [(int)MarkerPart.Rubber] = Material(new Color(0.045f, 0.045f, 0.05f), 0.85f, 0f),
+            [(int)MarkerPart.Trim] = Material(new Color(0.5f, 0.51f, 0.53f), 0.35f, 0.85f),
+            [(int)MarkerPart.Tank] = Material(new Color(0.78f, 0.79f, 0.81f), 0.22f, 0.95f),
+            [(int)MarkerPart.Shell] = Material(new Color(0.16f, 0.17f, 0.19f, 0.62f), 0.12f, 0f, clear: true),
+            [(int)MarkerPart.Lid] = Material(new Color(0.12f, 0.13f, 0.14f), 0.3f, 0f),
+            [(int)MarkerPart.Paint] = Material(loaderColor, 0.25f, 0f),
+        };
+        var shape = new ShapeMesh();
+        MarkerShape.Build(shape, closeUp: true);
+        var mesh = new ArrayMesh();
+        shape.Commit(mesh, part => materials[part]);
+        AddChild(new MeshInstance3D
+        {
+            Name = "Marker",
+            Mesh = mesh,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            Layers = RenderLayer,
+        });
     }
 
     /// <summary>Which shoulder the marker is on: +1 right, −1 left, in between mid-swap (follows the sim).</summary>
@@ -97,28 +110,13 @@ public partial class ViewModel : Node3D
 
     private static Vector3 FromRightUpForward(System.Numerics.Vector3 v) => new(v.X, v.Y, -v.Z);
 
-    private ShaderMaterial Material(Color albedo, float roughness, float metallic)
+    private ShaderMaterial Material(Color albedo, float roughness, float metallic, bool clear = false)
     {
-        var material = new ShaderMaterial { Shader = _shader };
+        var material = new ShaderMaterial { Shader = clear ? _clearShader : _shader };
         material.SetShaderParameter("albedo", albedo);
         material.SetShaderParameter("roughness", roughness);
         material.SetShaderParameter("metallic", metallic);
         material.SetShaderParameter("viewmodel_fov_deg", _viewFov);
         return material;
-    }
-
-    private void Part(Mesh mesh, Material material, Vector3 position, Vector3 rotation = default, Vector3? scale = null)
-    {
-        var instance = new MeshInstance3D
-        {
-            Mesh = mesh,
-            MaterialOverride = material,
-            Position = position,
-            Rotation = rotation,
-            Scale = scale ?? Vector3.One,
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            Layers = RenderLayer,
-        };
-        AddChild(instance);
     }
 }
