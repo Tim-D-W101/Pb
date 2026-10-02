@@ -65,7 +65,11 @@ public partial class WeedField : Node3D
 
     public int TuftCount { get; private set; }
 
-    public void Build(LevelLayout level, ICollisionWorld world, WeedsDef def)
+    public void Build(LevelLayout level, ICollisionWorld world, WeedsDef def) =>
+        Build(new LevelGround(level, world), (uint)LevelBuilder.StableHash(level.Id), def);
+
+    /// <summary>Weeds over any place that can say what its ground is (the training ground's), seeded by <paramref name="seed"/>.</summary>
+    public void Build(IWeedGround ground, uint seed, WeedsDef def)
     {
         foreach (Node child in GetChildren())
         {
@@ -74,9 +78,8 @@ public partial class WeedField : Node3D
 
         _chunks.Clear();
         _chunkSize = def.ChunkSize_m;
-        uint seed = (uint)LevelBuilder.StableHash(level.Id);
         var rng = new Pcg32(seed, 0x5EED);
-        var placer = new Placer(level, world, def, seed);
+        var placer = new Placer(ground, def, seed);
         var tufts = new List<Tuft>();
         placer.Scatter(tufts, ref rng);
         placer.Edges(tufts, ref rng);
@@ -158,21 +161,124 @@ public partial class WeedField : Node3D
 
     private readonly record struct Tuft(Vector3 Position, float Height, float Yaw, float TiltX, float TiltZ, int Variant, Color Tint);
 
-    /// <summary>Decides where tufts grow: material, patchiness, cracks and the open-sky test.</summary>
-    private sealed class Placer
+    /// <summary>
+    /// What a weed field needs to know about a place: where to scatter, the ground's material at a point,
+    /// whether rain falls on open ground there (and its height), the outlines of what stands on the ground
+    /// (weeds grow along their feet), and the spots to keep clear.
+    /// </summary>
+    public interface IWeedGround
+    {
+        Aabb Bounds { get; }
+
+        string MaterialAt(float x, float z);
+
+        bool OpenGround(float x, float z, float clearance, out float y);
+
+        /// <summary>Each outline on the ground with its middle (edge tufts grow on the side away from it); the list is reused.</summary>
+        IEnumerable<(List<Vector2> Outline, Vector2 Centre)> Feet();
+
+        bool KeepClear(float x, float z, float radius);
+    }
+
+    /// <summary>A compound level's ground: the ground survey, the walls, columns and props standing on it, and its pickups.</summary>
+    private sealed class LevelGround : IWeedGround
     {
         private readonly LevelLayout _level;
         private readonly GroundSurvey _survey;
+
+        public LevelGround(LevelLayout level, ICollisionWorld world)
+        {
+            _level = level;
+            _survey = new GroundSurvey(level, world);
+        }
+
+        public Aabb Bounds => _level.Bounds;
+
+        public string MaterialAt(float x, float z) => _survey.MaterialAt(x, z);
+
+        public bool OpenGround(float x, float z, float clearance, out float y) => _survey.OpenGround(x, z, clearance, out y);
+
+        public IEnumerable<(List<Vector2> Outline, Vector2 Centre)> Feet()
+        {
+            var outline = new List<Vector2>();
+            foreach (LevelPrimitive p in _level.Primitives)
+            {
+                Aabb bounds = p.Bounds;
+                if (p.Role is not (PrimitiveRole.Wall or PrimitiveRole.Prop or PrimitiveRole.Column) || !p.Has(PrimitiveFlags.Paint) ||
+                    bounds.Min.Y > GroundTop || bounds.Max.Y - bounds.Min.Y < 0.2f)
+                {
+                    continue;
+                }
+
+                Footprint(p, outline);
+                yield return (outline, new Vector2(p.Center.X, p.Center.Z));
+            }
+        }
+
+        public bool KeepClear(float x, float z, float radius)
+        {
+            float r2 = radius * radius;
+            foreach (PickupSpec p in _level.Pickups)
+            {
+                float dx = p.Position.X - x, dz = p.Position.Z - z;
+                if (dx * dx + dz * dz < r2)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>The outline of a primitive's foot on the ground (upright boxes and cylinders exactly, anything else by its bounds).</summary>
+        private static void Footprint(LevelPrimitive p, List<Vector2> outline)
+        {
+            outline.Clear();
+            SVector3 up = SVector3.Transform(SVector3.UnitY, p.Rotation);
+            if (up.Y > 0.95f && p.Kind == PrimitiveKind.Box)
+            {
+                SVector3 ax = SVector3.Transform(SVector3.UnitX, p.Rotation) * p.HalfExtents.X;
+                SVector3 az = SVector3.Transform(SVector3.UnitZ, p.Rotation) * p.HalfExtents.Z;
+                foreach ((float u, float w) in new[] { (-1f, -1f), (1f, -1f), (1f, 1f), (-1f, 1f) })
+                {
+                    SVector3 c = p.Center + ax * u + az * w;
+                    outline.Add(new Vector2(c.X, c.Z));
+                }
+            }
+            else if (up.Y > 0.95f)
+            {
+                float r = p.HalfExtents.X;
+                int segments = Math.Clamp((int)(r * 12f), 8, 24);
+                for (int i = 0; i < segments; i++)
+                {
+                    float a = Mathf.Tau * i / segments;
+                    outline.Add(new Vector2(p.Center.X + MathF.Cos(a) * r, p.Center.Z + MathF.Sin(a) * r));
+                }
+            }
+            else
+            {
+                Aabb b = p.Bounds;
+                outline.Add(new Vector2(b.Min.X, b.Min.Z));
+                outline.Add(new Vector2(b.Max.X, b.Min.Z));
+                outline.Add(new Vector2(b.Max.X, b.Max.Z));
+                outline.Add(new Vector2(b.Min.X, b.Max.Z));
+            }
+        }
+    }
+
+    /// <summary>Decides where tufts grow: material, patchiness, cracks and the open-sky test.</summary>
+    private sealed class Placer
+    {
+        private readonly IWeedGround _ground;
         private readonly WeedsDef _def;
         private readonly uint _seed;
         private readonly HashSet<string> _cracked;
         private readonly HashSet<string> _grass;
         private readonly Color[] _colors;
 
-        public Placer(LevelLayout level, ICollisionWorld world, WeedsDef def, uint seed)
+        public Placer(IWeedGround ground, WeedsDef def, uint seed)
         {
-            _level = level;
-            _survey = new GroundSurvey(level, world);
+            _ground = ground;
             _def = def;
             _seed = seed;
             _cracked = new HashSet<string>(def.CrackMaterials, StringComparer.Ordinal);
@@ -190,7 +296,7 @@ public partial class WeedField : Node3D
             }
 
             float cell = Math.Clamp(1f / MathF.Sqrt(maxDensity), 0.2f, 0.6f);
-            Aabb b = _level.Bounds;
+            Aabb b = _ground.Bounds;
             for (float z = b.Min.Z - Margin; z < b.Max.Z + Margin; z += cell)
             {
                 for (float x = b.Min.X - Margin; x < b.Max.X + Margin; x += cell)
@@ -218,18 +324,8 @@ public partial class WeedField : Node3D
         /// <summary>Tufts along the foot of walls, columns and props that stand on open ground.</summary>
         public void Edges(List<Tuft> tufts, ref Pcg32 rng)
         {
-            var outline = new List<Vector2>();
-            foreach (LevelPrimitive p in _level.Primitives)
+            foreach ((List<Vector2> outline, Vector2 centre) in _ground.Feet())
             {
-                Aabb bounds = p.Bounds;
-                if (p.Role is not (PrimitiveRole.Wall or PrimitiveRole.Prop or PrimitiveRole.Column) || !p.Has(PrimitiveFlags.Paint) ||
-                    bounds.Min.Y > GroundTop || bounds.Max.Y - bounds.Min.Y < 0.2f)
-                {
-                    continue;
-                }
-
-                Footprint(p, outline);
-                var centre = new Vector2(p.Center.X, p.Center.Z);
                 for (int i = 0; i < outline.Count; i++)
                 {
                     Vector2 a = outline[i];
@@ -280,30 +376,17 @@ public partial class WeedField : Node3D
                 rng.Symmetric(0.12f), rng.Symmetric(0.12f), variant, tint.SrgbToLinear());
         }
 
-        private string MaterialAt(float x, float z) => _survey.MaterialAt(x, z);
+        private string MaterialAt(float x, float z) => _ground.MaterialAt(x, z);
 
         /// <summary>True when a small sphere dropped from the sky lands flat on the ground at (x, z).</summary>
-        private bool OpenGround(float x, float z, out float y) => _survey.OpenGround(x, z, Clearance, out y);
+        private bool OpenGround(float x, float z, out float y) => _ground.OpenGround(x, z, Clearance, out y);
 
-        private bool NearPickup(float x, float z)
-        {
-            float r2 = _def.PickupClearance_m * _def.PickupClearance_m;
-            foreach (PickupSpec p in _level.Pickups)
-            {
-                float dx = p.Position.X - x, dz = p.Position.Z - z;
-                if (dx * dx + dz * dz < r2)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
+        private bool NearPickup(float x, float z) => _ground.KeepClear(x, z, _def.PickupClearance_m);
 
         /// <summary>1 inside the level bounds, falling to 0 at the edge of the margin past them.</summary>
         private float Inside(float x, float z)
         {
-            Aabb b = _level.Bounds;
+            Aabb b = _ground.Bounds;
             float dx = MathF.Max(0f, MathF.Max(b.Min.X - x, x - b.Max.X));
             float dz = MathF.Max(0f, MathF.Max(b.Min.Z - z, z - b.Max.Z));
             return 1f - Math.Clamp(MathF.Max(dx, dz) / Margin, 0f, 1f);
@@ -348,41 +431,6 @@ public partial class WeedField : Node3D
             // Distance to the bisector of the two nearest cell centres, in metres.
             float distance = MathF.Abs((p - (f1 + f2) * 0.5f).Dot((f2 - f1).Normalized())) * s;
             return 1f - Smoothstep(_def.CrackWidth_m * 0.25f, _def.CrackWidth_m * 0.5f, distance);
-        }
-
-        /// <summary>The outline of a primitive's foot on the ground (upright boxes and cylinders exactly, anything else by its bounds).</summary>
-        private static void Footprint(LevelPrimitive p, List<Vector2> outline)
-        {
-            outline.Clear();
-            SVector3 up = SVector3.Transform(SVector3.UnitY, p.Rotation);
-            if (up.Y > 0.95f && p.Kind == PrimitiveKind.Box)
-            {
-                SVector3 ax = SVector3.Transform(SVector3.UnitX, p.Rotation) * p.HalfExtents.X;
-                SVector3 az = SVector3.Transform(SVector3.UnitZ, p.Rotation) * p.HalfExtents.Z;
-                foreach ((float u, float w) in new[] { (-1f, -1f), (1f, -1f), (1f, 1f), (-1f, 1f) })
-                {
-                    SVector3 c = p.Center + ax * u + az * w;
-                    outline.Add(new Vector2(c.X, c.Z));
-                }
-            }
-            else if (up.Y > 0.95f)
-            {
-                float r = p.HalfExtents.X;
-                int segments = Math.Clamp((int)(r * 12f), 8, 24);
-                for (int i = 0; i < segments; i++)
-                {
-                    float a = Mathf.Tau * i / segments;
-                    outline.Add(new Vector2(p.Center.X + MathF.Cos(a) * r, p.Center.Z + MathF.Sin(a) * r));
-                }
-            }
-            else
-            {
-                Aabb b = p.Bounds;
-                outline.Add(new Vector2(b.Min.X, b.Min.Z));
-                outline.Add(new Vector2(b.Max.X, b.Min.Z));
-                outline.Add(new Vector2(b.Max.X, b.Max.Z));
-                outline.Add(new Vector2(b.Min.X, b.Max.Z));
-            }
         }
     }
 

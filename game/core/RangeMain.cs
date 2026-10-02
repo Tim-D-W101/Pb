@@ -292,7 +292,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         }
     }
 
-    /// <summary>A graphics preset: environment, shadows, anti-aliasing and render scale, and whether the old paint shows.</summary>
+    /// <summary>A graphics preset: environment, shadows, anti-aliasing and render scale, whether the old paint shows, and the weeds.</summary>
     private void ApplyGraphics(GraphicsPresetDef preset)
     {
         Atmosphere.ApplyPreset(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), GetViewport(), preset);
@@ -301,6 +301,8 @@ public partial class RangeMain : Node3D, ISimEventListener
         {
             paint.Visible = preset.OldPaint;
         }
+
+        _world.Weeds?.ApplyPreset(preset);
     }
 
     private void SaveAndToast(string message)

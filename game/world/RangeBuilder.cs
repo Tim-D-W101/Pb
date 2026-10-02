@@ -45,8 +45,15 @@ public partial class RangeBuilder : Node3D
 
     private readonly List<OldPaint> _oldPaint = new();
 
+    /// <summary>The feet of everything standing on the ground (weeds grow along them, not inside), and where a roof keeps rain off.</summary>
+    private readonly List<Vector2[]> _feet = new();
+    private readonly List<Rect2> _covered = new();
+
     /// <summary>The old paint on the backstop, the bunkers, the ground and the dummies, so a graphics preset can hide it.</summary>
     public IReadOnlyList<OldPaint> OldPaint => _oldPaint;
+
+    /// <summary>Grass and weeds outside the lane and along the foot of everything, so a graphics preset can thin them.</summary>
+    public WeedField? Weeds { get; private set; }
 
     public Node3D? TargetNode(int index) => index >= 0 && index < _targets.Count ? _targets[index] : null;
 
@@ -59,6 +66,8 @@ public partial class RangeBuilder : Node3D
 
         _targets.Clear();
         _oldPaint.Clear();
+        _feet.Clear();
+        _covered.Clear();
         _recoloured.Clear();
         _recolouredIds.Clear();
         _materials = new MaterialLibrary(kit);
@@ -93,6 +102,9 @@ public partial class RangeBuilder : Node3D
         AddChild(birds);
         birds.Build(new Vector3(0f, 0f, -layout.Length * 0.5f), LevelBuilder.StableHash(layout.Id), view.Birds);
         BuildOldPaint(layout, backstopZ);
+        Weeds = new WeedField { Name = "Weeds" };
+        AddChild(Weeds);
+        Weeds.Build(new RangeGround(layout, _def, backstopZ, _feet, _covered), (uint)LevelBuilder.StableHash(layout.Id), view.Weeds);
     }
 
     public void UpdateTargets(double time)
@@ -206,11 +218,7 @@ public partial class RangeBuilder : Node3D
                 AlphaCut = Label3D.AlphaCutMode.Discard,
                 Position = new Vector3(x, bottom + height * 0.5f, -d + 0.017f),
             });
-            walls.AddChild(new CollisionShape3D
-            {
-                Shape = new BoxShape3D { Size = new Vector3(width, top, 0.15f) },
-                Position = new Vector3(x, top * 0.5f, -d - 0.03f),
-            });
+            Wall(walls, new Vector3(x, top * 0.5f, -d - 0.03f), new Vector3(width, top, 0.15f));
         }
     }
 
@@ -240,11 +248,7 @@ public partial class RangeBuilder : Node3D
                 }
             }
 
-            walls.AddChild(new CollisionShape3D
-            {
-                Shape = new BoxShape3D { Size = new Vector3(0.1f, nets.Height_m, near - far) },
-                Position = new Vector3(x, nets.Height_m * 0.5f, (near + far) * 0.5f),
-            });
+            Wall(walls, new Vector3(x, nets.Height_m * 0.5f, (near + far) * 0.5f), new Vector3(0.1f, nets.Height_m, near - far));
         }
 
         AddChild(new MeshInstance3D { Name = "Nets", Mesh = tool.Commit(), MaterialOverride = NetMaterial(nets), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
@@ -312,11 +316,7 @@ public partial class RangeBuilder : Node3D
         }
 
         AddChild(new MeshInstance3D { Name = "BackstopNet", Mesh = tool.Commit(), MaterialOverride = NetMaterial(_def.Nets), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
-        walls.AddChild(new CollisionShape3D
-        {
-            Shape = new BoxShape3D { Size = new Vector3(half * 2f, crest, depth) },
-            Position = new Vector3(0f, crest * 0.5f, z - depth * 0.5f),
-        });
+        Wall(walls, new Vector3(0f, crest * 0.5f, z - depth * 0.5f), new Vector3(half * 2f, crest, depth));
     }
 
     /// <summary>
@@ -333,8 +333,9 @@ public partial class RangeBuilder : Node3D
         float high = hut.Height_m, low = high - 0.5f;
         ShapeMesh m = ChunkMesh(shapes, at.X, at.Z);
         m.Place(new Transform3D(Basis.Identity, at), high);
-        void Solid(Vector3 center, Vector3 size) =>
-            walls.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = size }, Position = at + center });
+        void Solid(Vector3 center, Vector3 size) => Wall(walls, at + center, size);
+        // No rain under the roof, so nothing grows there.
+        _covered.Add(new Rect2(at.X - hw - 0.3f, at.Z + front - 0.3f, w + 0.6f, d + 0.6f));
 
         // Posts front and back, beams along their tops, rafters between them.
         int bays = Math.Max(2, Mathf.RoundToInt(w / 2.5f));
@@ -382,6 +383,35 @@ public partial class RangeBuilder : Node3D
         }
 
         m.Cylinder(tank, table + new Vector3(0.3f, 0.845f, 0.1f), ShapeMesh.BasisAlong(new Vector3(0.9f, 0f, 0.44f).Normalized()), 0.055f, 0.3f, 12);
+    }
+
+    /// <summary>Walking collision for a box of the dressing, which weeds also grow round the foot of.</summary>
+    private void Wall(StaticBody3D walls, Vector3 center, Vector3 size)
+    {
+        walls.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = size }, Position = center });
+        Foot(new Vector2(center.X, center.Z), new Vector2(size.X, size.Z) * 0.5f, 0f);
+    }
+
+    /// <summary>Records a rectangle standing on the ground, turned by <paramref name="yaw"/>.</summary>
+    private void Foot(Vector2 centre, Vector2 half, float yaw)
+    {
+        var x = new Vector2(Mathf.Cos(yaw), -Mathf.Sin(yaw)) * half.X;
+        var z = new Vector2(Mathf.Sin(yaw), Mathf.Cos(yaw)) * half.Y;
+        _feet.Add(new[] { centre - x - z, centre + x - z, centre + x + z, centre - x + z });
+    }
+
+    /// <summary>Records a round foot.</summary>
+    private void Foot(Vector2 centre, float radius)
+    {
+        int segments = Math.Clamp((int)(radius * 12f), 8, 24);
+        var outline = new Vector2[segments];
+        for (int i = 0; i < segments; i++)
+        {
+            float a = Mathf.Tau * i / segments;
+            outline[i] = centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * radius;
+        }
+
+        _feet.Add(outline);
     }
 
     /// <summary>A post standing at <paramref name="foot"/>, capped.</summary>
@@ -504,6 +534,15 @@ public partial class RangeBuilder : Node3D
         };
         body.AddChild(new CollisionShape3D { Shape = shape });
         AddChild(body);
+        var at = new Vector2(prop.BasePosition.X, prop.BasePosition.Z);
+        if (prop.Kind == PropShapeKind.Cylinder)
+        {
+            Foot(at, size.X * 0.5f);
+        }
+        else
+        {
+            Foot(at, new Vector2(size.X, size.Z) * 0.5f, prop.Yaw);
+        }
     }
 
     /// <summary>Each target's dummy, and the track under any that moves.</summary>
@@ -532,12 +571,19 @@ public partial class RangeBuilder : Node3D
             _targets.Add(view);
             PaintDummy(layout, spec, view);
 
-            if (spec.Motion is not null)
+            Vector3 at = spec.BasePosition.ToGodot();
+            if (spec.Motion is { } run)
             {
-                Vector3 at = spec.BasePosition.ToGodot();
                 ShapeMesh track = ChunkMesh(shapes, at.X, at.Z);
                 track.Place(Transform3D.Identity, 0.2f);
                 RangeShapes.Track(track, spec, rails, sleepers);
+                // Weeds along the rails: the track's foot, along its axis.
+                Vector3 axis = run.Axis.ToGodot();
+                Foot(new Vector2(at.X, at.Z), new Vector2(run.Amplitude + 0.75f, 0.35f), Mathf.Atan2(-axis.Z, axis.X));
+            }
+            else
+            {
+                Foot(new Vector2(at.X, at.Z), 0.31f);
             }
         }
     }
@@ -659,6 +705,107 @@ public partial class RangeBuilder : Node3D
         }
 
         return mesh;
+    }
+
+    /// <summary>
+    /// The training ground's ground for the weeds: the lane is mown (nothing scattered on it, only along
+    /// the feet of what stands there), the firing point is the kit's gravel and everywhere round it the
+    /// field's grass; nothing grows inside anything standing on the ground or under the shelter's roof.
+    /// </summary>
+    private sealed class RangeGround : WeedField.IWeedGround
+    {
+        /// <summary>Not a kit material: the weeds' densities don't list it, so the lane stays mown.</summary>
+        private const string Mown = "(mown)";
+
+        private readonly Rect2 _lane, _firingPoint;
+        private readonly string _field, _gravel;
+        private readonly List<Vector2[]> _feet;
+        private readonly List<Rect2> _covered;
+        private readonly List<Vector2> _outline = new();
+
+        public RangeGround(RangeLayout layout, TrainingGroundDef def, float backstopZ, List<Vector2[]> feet, List<Rect2> covered)
+        {
+            float half = layout.Width * 0.5f;
+            _lane = new Rect2(-half, backstopZ, layout.Width, FiringLineZ - backstopZ);
+            float back = MathF.Max(layout.BackMargin + 2f, def.Hut.Position_m[1] + def.Hut.Depth_m * 0.5f + 1.5f);
+            _firingPoint = new Rect2(-half - 2f, FiringLineZ, layout.Width + 4f, back - FiringLineZ);
+            _field = def.Field;
+            _gravel = def.FiringPoint;
+            _feet = feet;
+            _covered = covered;
+            Bounds = new Pb.Sim.Collision.Aabb(new System.Numerics.Vector3(-half - 18f, -1f, backstopZ - def.Backstop.BankDepth_m - 8f),
+                new System.Numerics.Vector3(half + 18f, 10f, back + 8f));
+        }
+
+        public Pb.Sim.Collision.Aabb Bounds { get; }
+
+        public string MaterialAt(float x, float z) =>
+            _lane.HasPoint(new Vector2(x, z)) ? Mown : _firingPoint.HasPoint(new Vector2(x, z)) ? _gravel : _field;
+
+        public bool OpenGround(float x, float z, float clearance, out float y)
+        {
+            y = 0f;
+            var p = new Vector2(x, z);
+            foreach (Rect2 r in _covered)
+            {
+                if (r.HasPoint(p))
+                {
+                    return false;
+                }
+            }
+
+            foreach (Vector2[] foot in _feet)
+            {
+                if (Inside(foot, p, clearance))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public IEnumerable<(List<Vector2> Outline, Vector2 Centre)> Feet()
+        {
+            foreach (Vector2[] foot in _feet)
+            {
+                _outline.Clear();
+                _outline.AddRange(foot);
+                Vector2 centre = Vector2.Zero;
+                foreach (Vector2 q in foot)
+                {
+                    centre += q / foot.Length;
+                }
+
+                yield return (_outline, centre);
+            }
+        }
+
+        public bool KeepClear(float x, float z, float radius) => false;
+
+        /// <summary>Whether <paramref name="p"/> is inside a convex outline (either winding), grown by <paramref name="margin"/>.</summary>
+        private static bool Inside(Vector2[] outline, Vector2 p, float margin)
+        {
+            float area = 0f;
+            for (int i = 0; i < outline.Length; i++)
+            {
+                area += outline[i].Cross(outline[(i + 1) % outline.Length]);
+            }
+
+            // The inside is to the left of every edge of an outline with positive area, to the right otherwise.
+            float sign = MathF.Sign(area);
+            for (int i = 0; i < outline.Length; i++)
+            {
+                Vector2 a = outline[i], e = outline[(i + 1) % outline.Length] - a;
+                float length = e.Length();
+                if (length > 1e-5f && e.Cross(p - a) / length * sign < -margin)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 
     /// <summary>Wedge corners centred on the prism's bounding box (Godot's PrismMesh origin).</summary>

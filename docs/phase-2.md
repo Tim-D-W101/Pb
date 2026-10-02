@@ -311,9 +311,10 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   - dummies padded round their hitbox in paintball masks, on tyres filled with concrete. The runner rides a trolley on rails. The targets now face the firing line (`yaw_deg` 180; their hitboxes are round, so nothing they're hit by changes);
   - old paint on the backstop, the bunkers, the ground round the targets and the dummies themselves (the runner carries its own);
   - a shelter behind the firing point (timber frame, corrugated roof, a bench, a table with pods and a tank);
-  - pylons and telegraph poles beyond.
+  - pylons and telegraph poles beyond;
+  - grass and weeds (the levels' `WeedField`, now fed by any place's ground through `IWeedGround`): rough scrub outside the nets, longer grass along their foot and round every bunker, dummy, post and rail, the lane itself mown ([screenshot](reports/phase-2/m2.6-42-training-ground-grass.jpg)).
 
-  The nets, backstop, boards and shelter stop you walking off the lane; what paint hits is still decided by `ranges/phase1.jsonc`, unchanged. Graphics presets now apply there too. The range gained `"viewpoints"`, so `-- --shots` tours it as it does a level. [Screenshots](reports/phase-2/): m2.6-32 to m2.6-37.
+  The nets, backstop, boards and shelter stop you walking off the lane; what paint hits is still decided by `ranges/phase1.jsonc`, unchanged. Graphics presets now apply there too. The range gained `"viewpoints"`, so `-- --shots` tours it as it does a level. [Screenshots](reports/phase-2/): m2.6-32 to m2.6-37 and m2.6-42.
 - [x] Everything falls back when an asset is missing, so the game and CI never depend on the art: materials to the procedural look, props to their shapes built in code (then greybox), opponents to their hitbox boxes. CI's bot match runs with `--no-art` to keep the fallbacks working.
 
 ### M2.7 HUD
