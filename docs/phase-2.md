@@ -223,7 +223,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
 ### M2.6 Art pass (Higgsfield)
 
-**In progress.** The parts that needed no downloads came first, while the container couldn't reach Higgsfield's file host. Now that it can, real art is coming in, at up to five generations a day (the account's daily cap). [Screenshots](reports/phase-2/) from `-- --shots`, `-- --duel-demo` and `-- --bot-demo`.
+**In progress.** The parts that needed no downloads came first, while the container couldn't reach Higgsfield's file host. Now that it can, real art is coming in, at up to five generations a day (the account's daily cap). On 2026-10-02 that day's five had already gone on the texture sheets, so the rest of the day's art was built in code: a detail model for every prop, frames and broken glass in the windows, things lying on the ground, and a proper first-person marker. [Screenshots](reports/phase-2/) from `-- --shots` (with `--views=` for close-ups), `-- --duel-demo` and `-- --bot-demo`.
 
 - [x] Import pipeline (`tools/art/import.sh`, which runs `game/tools/ArtImport` headless). It has brought in 20 materials, the oil drum and the first opponent. Its steps:
   - pull a finished Higgsfield job, make textures tileable, derive normal and roughness maps, and resize;
@@ -235,9 +235,12 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
     - models are tidied (pictures shrunk to JPEG, the baked-in glow removed) and measured, so the prop's colliders can be fitted to them;
   - record the job ID and prompt in `game/data/assets.jsonc`, as a provenance record that the art is original. A sim test fails if the kit or the characters use a texture or model without a record. CI runs the texture steps on a generated picture (`--selftest`);
   - **texture sheets** (added 2026-10-02): with five generations a day, one picture holds four materials in a 2 × 2 grid, each cut out with `--region`. A regular pattern (bricks, blocks, planks, corrugations) is cut to whole repeats, measured by autocorrelation, and `--repeats` blends its seams in step with them, so joints don't double where the tiles meet (`--stretch` squares a cut that isn't square). The self-test checks that a repeating pattern comes through unchanged.
-- [ ] Photographic materials across the whole level. 20 of 29 so far, each with normal and roughness maps:
+- [ ] Photographic materials across the whole level. 23 of 29 so far, each with normal and roughness maps:
   - day 1: cracked asphalt, concrete walls and floors, red brick;
-  - day 2 (four sheets): dirt, gravel, dry grass, roofing felt, concrete block, painted brick, peeling plaster, wooden planks, rusty and galvanised corrugated sheet, rusted, painted and yellow steel, and the red, blue and green containers.
+  - day 2 (four sheets): dirt, gravel, dry grass, roofing felt, concrete block, painted brick, peeling plaster, wooden planks, rusty and galvanised corrugated sheet, rusted, painted and yellow steel, and the red, blue and green containers;
+  - day 3, from those photos: the pallets (the planks), the rusty drums and the burnt-out car (the rusted steel). A material can now tint its photo (`"tint"`), so the car's rust is duller and darker than a drum's.
+
+  The six left (machinery, the blue drum, tyres, tarp, sandbags, glass) are now mostly drawn by the props' shapes, so they show less. Painted steel and machinery are less metallic than before (paint isn't metal), so desks and pumps no longer go black indoors.
 
   So the warehouse (corrugated sheet on a block base), the perimeter wall, the offices, the pump house, the guardhouse, the ground and the containers are all photographic now. Left: machinery, car bodies, the two drums' paint, pallets, tyres, tarp, sandbags and glass. Tile sizes follow each pattern's real size (a block 45 cm, a corrugation 7.6 cm). Textures were drawn upside down on walls (the kit's UVs run up a wall, a picture's rows run down it); the shader now flips them, so rust and damp run down. Textured materials get broad light and dark patches, and those without a regular pattern (`breakUpRepeat`: asphalt, dirt, gravel, grass, concrete, plaster, steel) are shuffled in patches a few metres across, so the repeat doesn't read as a grid from the office windows or the water tower. The half-open roller door is painted steel now, not rust.
 - [x] Lighting presets, dust, light shafts and weeds (`presentation.jsonc`: "weeds", "shafts", "dust", "windowLight" and the graphics presets):
@@ -247,7 +250,15 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   - **Presets:** Low draws a third of the weeds to 28 m, with no beams. Medium draws three quarters to 45 m, with beams, dust and fill lights. High draws all of them to 70 m and keeps the beams softer beside its volumetric fog; it has no fill lights, since SDFGI bounces light.
   - **Antialiasing** is now SMAA (FXAA on Low and Medium) instead of MSAA. With MSAA on, shaders can't read the depth buffer the beams need to stop at walls, so they would shine through them; the beams switch off if MSAA is turned back on.
   - The level kit records every opening as an aperture in world space (`LevelLayout.Apertures`), checked by two new sim tests.
-- [ ] Props in place with their proxy colliders. So far the oil drum: the generated model, 0.88 m tall, matching its collider.
+- [ ] Props in place with their proxy colliders. Every prop now has a detail model **built in code** from its own colliders (`game/world/PropShapes.cs`, `kit/props.jsonc` → `"shape"`) with the kit's photographic materials, and the oil drum has its generated model (0.88 m tall, matching its collider). Generated models will replace coded ones where they look better; the shape stays as the fallback.
+  - **Wood:** pallet stacks made of boards, with a board missing here and there; crates with battens and diagonal braces; a cable reel with plank flanges and a few turns of cable.
+  - **Stacks and walls:** stacked tyres; ribbed oil drums (one tipped over); sandbag walls laid in a proper bond; precast barriers with lifting loops.
+  - **Machinery:** a generator with louvres, doors and an exhaust; pump sets on concrete plinths; a forklift with its mast, forks and overhead guard; pallet racking with things left on it.
+  - **The yard:** a burnt-out car on its hubs (wheel arches, pillars, a gutted interior); a skip; containers with corner posts, castings and locking bars on their doors; the water tower with braced legs, a railed platform, a hooped tank and ladders.
+  - **Offices:** steel desks; filing cabinets, a drawer often left open; a table tipped up as a barricade.
+  - **Heaps:** rubble and scrap lying on a mound; a slatted half-open roller door.
+
+  They're looks only: paint and walking still hit the colliders, which are unchanged, so every shape keeps inside them. 95 props come to about 98,000 triangles, merged per 24 m square and material, and each is varied by a seed from where it stands. [Screenshots](reports/phase-2/): m2.6-16 to m2.6-19 and m2.6-22.
 - [ ] Three rigged, animated opponents, marker in hand, armbands in their team colour. One so far, dealt to every opponent with a different tint (`presentation.jsonc` → `characters`):
   - It's posed to the sim's hitboxes every frame, on top of its idle clip:
     - the hips drop for a crouch;
@@ -259,8 +270,20 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   - A team-colour armband sits on each upper arm.
   - Splats stick to the nearest bone and move with it. They reach through to the model's surface, which lies inside the hitbox in some places and bulges past it in others.
   - The marker, loader and tank are simple shapes fitted inside their hitboxes until the generated marker arrives. Walk and run clips come next.
-- [ ] Realistic first-person marker, loader and tank. The reference picture is made (2026-10-02, job `504fef01-d6f7-4ac5-959b-2aea7e92ba90`: a generic black marker with a smoke-grey loader and a silver bottle as the stock, no brand or text); next, the 3D model from it, which the opponents will hold too.
-- [x] Everything falls back when an asset is missing, so the game and CI never depend on the art: materials to the procedural look, props to greybox, opponents to their hitbox boxes. CI's bot match runs with `--no-art` to keep the fallbacks working.
+- [ ] Realistic first-person marker, loader and tank. **Built in code for now** (`game/player/MarkerShape.cs`), after the reference picture (2026-10-02, job `504fef01-d6f7-4ac5-959b-2aea7e92ba90`: a generic black marker with a smoke-grey loader and a silver bottle as the stock, no brand or text): an angular receiver, a tapered and ported barrel, a pistol grip, foregrip and trigger guard, the bottle on its regulator, and a see-through smoky loader with about 80 balls of your paint in it ([screenshot](reports/phase-2/m2.6-21-first-person-marker.jpg)). Opponents hold the same model, each part fitted into its hitbox, with their team's paint in the loader. Next: the generated 3D model from the picture, with this one as the fallback.
+- [x] **Window and door frames** (2026-10-02). Each building names its frame material (`kit/buildings` → `"frames"`: steel in the offices and warehouse, rusty steel in the pump house, wood in the guardhouse). The game draws a frame in every window, divided by mullions and transoms into panes, with shards of dirty glass left along the edges of about half the panes, and a frame round every doorway: 84 openings. The perimeter wall's breaks stay bare, and the openings stay open to paint and light.
+- [x] **Things on the ground** (2026-10-02, `presentation.jsonc` → `"groundDetail"`). 765 of them in Oxbarrow Works:
+  - oil stains round the car, the machines, the drums and the skip;
+  - puddles under the open sky that shine with it;
+  - damp patches;
+  - rust run-off by rusting things;
+  - tyre tracks;
+  - drifts of leaves against walls;
+  - litter, with nothing printed on it;
+  - broken chips of concrete and brick.
+
+  They're painted at load into one atlas (two variants of each, with a surface map so oil and water are glossy), drawn as flat cards in one draw call that fade out with distance, and placed by the same ground survey as the weeds ([screenshot](reports/phase-2/m2.6-20-oil-and-rust-round-the-car.jpg)).
+- [x] Everything falls back when an asset is missing, so the game and CI never depend on the art: materials to the procedural look, props to their shapes built in code (then greybox), opponents to their hitbox boxes. CI's bot match runs with `--no-art` to keep the fallbacks working.
 
 ### M2.7 HUD
 

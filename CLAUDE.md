@@ -71,8 +71,9 @@ regular pattern `"breakUpRepeat": true`, so their repeat doesn't show over a yar
 
 ## Verifying visuals without a GPU
 
-A cloud container can render with Mesa's software Vulkan (lavapipe) under Xvfb. Godot's Movie
-Maker writes frames you can inspect:
+A cloud container can render with Mesa's software Vulkan (lavapipe) under Xvfb (`apt-get install
+mesa-vulkan-drivers` if `vulkaninfo` finds no device; without it Godot falls back to OpenGL, which
+isn't what players see). Godot's Movie Maker writes frames you can inspect:
 
 ```bash
 # The compound level: hold each of the level's viewpoints for 10 frames, then quit.
@@ -84,7 +85,8 @@ xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulk
 ```
 
 The main scene is the menu (`scenes/Main.tscn`), so name the scene for anything else. Viewpoints
-live in the level file (`viewpoints`). On `Level.tscn`, through the player's own camera,
+live in the level file (`viewpoints`); `--views="x,y,z>tx,ty,tz;…"` (or `x,y,z,yaw,pitch`) replaces them
+for close-ups of anything in the level. On `Level.tscn`, through the player's own camera,
 `-- --posture-demo` runs a short scripted shoulder swap / lean / muzzle-in-cover sequence,
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots

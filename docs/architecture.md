@@ -363,6 +363,11 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   - `BoxOccluder3D` occluders;
   - navigation-mesh source geometry.
 - **Props.** Each prop is a GLB model plus a list of proxy colliders in data (an oil drum is a cylinder of 0.58 × 0.88 m; a car wreck is three boxes). Proxies are fitted to the model's measured bounds at import.
+  - **As built (2026-10-02):** a prop draws its generated `model` if it loads, else a `shape` the game builds in code from its colliders, else the colliders as greybox.
+    - `PropShapes` has 21 recipes (pallets, crate, tyres, drum, sandbags, barrier, car wreck, water tower, racking, forklift and so on).
+    - They're built with `ShapeMesh`: boxes, lathed solids, extruded outlines (ear-clipped, so a car's side can have wheel arches), rounded bags, rods and rings.
+    - They follow the kit shader's mesh contract (UV in metres, UV2 for the weathering ramp) and are merged per 24 m chunk and material.
+    - Shapes are presentation only: the colliders stay the gameplay shape, and the sim drops a prop's greybox flag when it has either a model or a shape.
 - **Cover points** are generated from the same data at load: wall ends, opening edges and prop sides, tagged with peek side and cover height (standing or crouched).
 - **Named areas** (boxes in the level file) carry a callout name, an indoor flag and a light level, which bots use for callouts, searching and sight.
 - **Broadphase.** The XZ grid stays as it is. Multi-storey columns simply hold more candidates. If the benchmark shows a cost, the grid gains Y bands.
@@ -384,6 +389,9 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **Apertures** (as built in M2.6). The level kit records every window, door, gap and roof hole as a rectangle in world space (`LevelLayout.Apertures`). At load the game classifies each one by probing the paint geometry: open sky on one side and a roof on the other makes it an exterior opening, and clear lines to the sun across it make it sunlit.
 - **Sunbeams** (`LightShafts`, `light_shaft.gdshader`). Each sunlit opening into a roofed space gets a box skewed along the light, long enough to reach whatever the light lands on. The shader intersects each pixel's view ray with the box, cuts it off at the depth buffer and at the building's bounds (so a beam never shows outside), and ray-marches soft edges, a fade with distance and drifting dust swirls. GPU particles drift inside each beam as dust motes. Exterior openings also get an unshadowed spotlight angled in and down (neighbours on a wall share one), and a warm bounce light sits where each beam lands.
 - **Weeds** (`WeedField`, `weeds.gdshader`). Crossed cards cut from a procedurally painted four-variant atlas, about 26,000 of them in Oxbarrow Works, placed at load from a seed of the level id. They grow by ground material (thick on scrubland, in a crack network on asphalt and concrete), along the foot of walls and props, and only where a small sphere dropped from the sky lands on the ground, so nothing grows indoors except under a hole in the roof. One MultiMesh per 16 m square for culling; they sway in rolling gusts and shrink into the ground with distance.
+- **Window and door frames** (`OpeningFrames`, as built). A building template names its frame material (`"frames"`); every window and door aperture that building owns gets a frame (windows divided into panes of about 55 × 65 cm, jagged glass shards left in about half of them), drawn in the opening's plane. The perimeter wall's breaks are owned by `wall#n`, not a building, so they stay bare.
+- **Things on the ground** (`GroundDetail`, as built). `StainPainter` paints a 4 × 4 atlas at load (oil, puddle, damp, rust, tyre tracks, leaves, litter, chips; two variants each) plus a roughness/wetness map. `presentation.jsonc` → `groundDetail` lists, per kind, how many, their size, the ground materials they lie on, open sky or covered, the props they gather round and the share along walls. They're drawn as flat cards in one MultiMesh with `ground_detail.gdshader`. `GroundSurvey` (material and surface height at a point, and the sphere drop for open sky) is shared with the weeds.
+- **Material tint.** A material can multiply its photo by a colour (`"tint"`), so one photo serves several materials (the burnt car's rust from the rusted-steel photo).
 - **Culling:**
   - occluders generated from walls and slabs;
   - `visibility_range` on small props and weed squares;
@@ -402,7 +410,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     - the chest and head share the aim pitch;
     - the feet stay planted, or step in a procedural cycle while the body moves (two-bone IK);
     - both hands go to grips on the marker (two-bone IK).
-  - **Gear and look.** Until the generated marker arrives, the marker, loader and tank are simple shapes fitted inside their hitboxes (`GearShapes`): a body, barrel and grip; a hopper; a bottle. A team-colour armband sits on each upper arm. Each opponent gets a tint from a list, so copies of one model differ.
+  - **Gear and look.** Until the generated marker arrives, opponents hold the marker built in code (`MarkerShape`, also the first-person marker), split into three groups, each fitted into its hitbox (`GearShapes`): receiver and barrel, the loader with the team's paint in it, the bottle. A team-colour armband sits on each upper arm. Each opponent gets a tint from a list, so copies of one model differ.
   - **Data.** `presentation.jsonc` → `characters` holds the models, tints, armband size, stride and lift, pitch shares and grip positions.
   - **Walk and run clips** come next.
 - **Attachments.** Armbands and paint splats attach to bones (`BoneAttachment3D`), so splats move with the character.
@@ -456,7 +464,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     - the baked-in glow and specular boost removed;
     - optionally scaled to a real height.
   - **Provenance.** `assets.jsonc` records the job, generator, prompt, source URL, files and import settings. A sim test fails if any art the kit or `presentation.jsonc` names has no record.
-  - **Fallbacks.** The game loads art through `ArtFiles`, and anything missing falls back: materials to the procedural look, props to greybox, opponents to their hitbox boxes. `-- --no-art` ignores all the art, and CI's bot match runs that way.
+  - **Fallbacks.** The game loads art through `ArtFiles`, and anything missing falls back: materials to the procedural look, props to their shapes built in code (then greybox), opponents to their hitbox boxes. `-- --no-art` ignores all the art, and CI's bot match runs that way.
 - **Shipping (as built).** CI exports the Windows build on every run and publishes it as the rolling "test-build" release (`tools/package/windows-build.sh`):
   - **Art in packs of its own, one per asset.** The game's pack leaves `art/` out (`export_presets.cfg`), and `tools/package/art-packs.sh` exports each asset in `assets.jsonc` (a material's three maps, or a model with its pictures) into `art/Pb-art-<id>.pck`, which `ArtFiles` mounts the first time anything asks for art. A code or data change then costs under 1 MB, and new art costs just its own packs, not all 65 MB of it. (Until 2026-10-02 the art was one `Pb-art.pck`; the launcher removes it, and any pack the release no longer lists.)
     - **Mounting.** The pack is mounted without replacing files, so its own copies of the project settings and the UID list don't override the game's. `ArtFiles` then registers each art file's UID, read from its `.import` file, so models find their textures by UID.

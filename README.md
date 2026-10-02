@@ -7,15 +7,18 @@ ten players a round. Built with Godot 4.7 (.NET / C#).
 **Status: Phase 2 in progress ([plan](docs/phase-2.md)).** Phase 1 built the ballistics
 sandbox, a range with real paintball ballistics, break/bounce, splats, a marker with loader,
 pods and air, and a 1,000-ball stress mode ([report](docs/reports/phase-1.md)). Phase 2 has
-started with the first compound, **Oxbarrow Works**: a walkable greybox of a derelict
-works yard with a warehouse, offices, pump house and guardhouse, built from a data kit.
+started with the first compound, **Oxbarrow Works**: a walkable derelict works yard with a
+warehouse, offices, pump house and guardhouse, built from a data kit.
 You pick it, a mode, how many play and a difficulty from the menu, read the briefing, and play:
 **solo** (clear the compound of a squad against the clock), **free-for-all** (up to ten players,
 everyone against everyone) or **teams** (you and bot teammates against a bot team, up to 5 v 5),
 picking up paint and air on the way. The bots hold posts, patrol, hunt and rush, notice you by
 sight and sound, and fight from cover; in free-for-all and teams they fight each other too.
-The match HUD is in, and generated art is arriving: the first photographic textures, an oil
-drum, and a rigged character model for the opponents. More textures, props and characters follow.
+The match HUD is in, and the art pass is well along: photographic textures on the buildings and
+ground; every prop modelled (built in code from its colliders, with generated models replacing
+them as they arrive); framed windows with broken glass; oil, puddles, leaves and litter on the
+ground; a proper marker with your paint in its see-through loader; and a rigged character model for
+the opponents. More generated props, characters and animations follow.
 
 ## Run it
 
@@ -115,8 +118,9 @@ collapse, and the opponents start at random places around the compound, out of y
 a random role, so you can't learn where they are.
 
 They're drawn by a rigged character model, posed every frame to match their hitboxes: crouching,
-leaning, aiming, stepping as they move, both hands on the marker. Each wears an armband in their
-team colour and a slightly different tint. Paint splats stick where the ball hit and move with them.
+leaning, aiming, stepping as they move, both hands on the marker (the same one you hold, with their
+team's paint in the loader). Each wears an armband in their team colour and a slightly different
+tint. Paint splats stick where the ball hit and move with them.
 
 Settings changed in game are saved to `user://settings.json`.
 
