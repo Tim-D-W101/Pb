@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  GODOT_VERSION: "4.7.2"
+
+jobs:
+  sim:
+    name: Build, sim tests, benchmark
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build solution (sim, tests, bench, game)
+        run: dotnet build Pb.sln -c Release
+      - name: Sim tests
+        run: dotnet test tests/Pb.Sim.Tests -c Release --no-build --logger "console;verbosity=normal"
+      - name: Ballistics report and tick benchmark (reported, not gating)
+        run: dotnet run -c Release --no-build --project tools/Pb.Bench -- --quick | tee -a "$GITHUB_STEP_SUMMARY"
+
+  godot-smoke:
+    name: Godot headless smoke test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux-x86_64
+      - name: Install Godot ${{ env.GODOT_VERSION }} (.NET)
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: tools/ci/install-godot.sh "$GODOT_VERSION" ~/.local/godot
+      - name: Build game assembly
+        run: dotnet build game/Pb.csproj -c Debug
+      - name: Import project
+        run: tools/ci/import.sh ~/.local/godot/godot
+      - name: Smoke tests (range autopilot + 1,000-ball stress mode; walk into the compound level)
+        run: tools/ci/smoke-test.sh ~/.local/godot/godot
+
+  windows-build:
+    name: Windows build (download it from the run's Artifacts)
+    needs: godot-smoke
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # publishes the build as the "test-build" release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux-x86_64
+      - name: Install Godot ${{ env.GODOT_VERSION }} (.NET)
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: tools/ci/install-godot.sh "$GODOT_VERSION" ~/.local/godot
+      - name: Cache the Windows export templates
+        id: cache-templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates
+          key: godot-templates-${{ env.GODOT_VERSION }}-mono-windows-x86_64
+      - name: Fetch the Windows export templates (just those, not the whole archive)
+        if: steps.cache-templates.outputs.cache-hit != 'true'
+        run: python3 tools/package/fetch-templates.py "$GODOT_VERSION" windows_release_x86_64.exe windows_release_x86_64_console.exe
+      - name: Build game assembly
+        run: dotnet build game/Pb.csproj -c Debug
+      - name: Import project
+        run: tools/ci/import.sh ~/.local/godot/godot
+      - name: Export the Windows build
+        run: tools/package/windows-build.sh ~/.local/godot/godot builds/windows "$(echo "$HEAD_SHA" | cut -c1-7)"
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Reuse each published art pack while its asset is unchanged, so players don't download it again.
+          PB_RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/test-build
+      - name: Offer it for download
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pb-windows
+          path: builds/windows/Pb
+          retention-days: 30
+      # One link that always has the newest build, which Play.bat updates from (not for pull requests from forks).
+      - name: Publish it as the latest test build
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          notes="The newest build of Pb ($(grep '^version=' builds/windows/release/manifest.txt | cut -d= -f2), $(grep '^date=' builds/windows/release/manifest.txt | cut -d= -f2)).
+          First time: download Pb-windows.zip, unzip it and double-click Play.bat. Play.bat keeps the game up to date: before starting the game it downloads only the files that changed (the art comes in packs of its own, one per asset, Pb-art-*.pck)."
+          gh release view test-build --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create test-build --repo "$GITHUB_REPOSITORY" --prerelease --target "$HEAD_SHA" --title "Pb: latest test build" --notes "$notes"
+          # The files first and the manifest last, so a launcher never reads a manifest whose files aren't up yet.
+          find builds/windows/release -maxdepth 1 -type f ! -name manifest.txt -print0 |
+            xargs -0 gh release upload test-build --repo "$GITHUB_REPOSITORY" --clobber
+          gh release upload test-build builds/windows/release/manifest.txt --repo "$GITHUB_REPOSITORY" --clobber
+          # Then whatever an older build published and this one doesn't (an art pack whose asset is gone,
+          # the single art pack of builds before there was one per asset).
+          gh release view test-build --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | while read -r name; do
+            [ -f "builds/windows/release/$name" ] || gh release delete-asset test-build "$name" --repo "$GITHUB_REPOSITORY" -y
+          done
+          gh release edit test-build --repo "$GITHUB_REPOSITORY" --notes "$notes"

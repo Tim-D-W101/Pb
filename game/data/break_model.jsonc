@@ -1,0 +1,33 @@
+// Break vs bounce (spec §1.1). On impact, vn = impact speed along the surface normal:
+//   P(break) = 1 / (1 + exp(-(vn − break50_mps) / breakWidth_mps))
+// so fast head-on hits almost always break and slow or glancing ones mostly bounce.
+// A bounce keeps `restitution` of the normal speed and `tangentRetain` of the sliding speed.
+// Bounced balls never eliminate. Examples with the inflatable row:
+//   head-on at 20 m (58 m/s) ≈ 100 % break · 15° glancing at 20 m (vn ≈ 15) ≈ 20 % · head-on at 22 m/s = 50 %
+{
+  "surfaces": [
+    { "name": "turf",       "break50_mps": 38, "breakWidth_mps": 8, "restitution": 0.30, "tangentRetain": 0.55 },
+    { "name": "inflatable", "break50_mps": 22, "breakWidth_mps": 5, "restitution": 0.45, "tangentRetain": 0.80 },
+    { "name": "player",     "break50_mps": 17, "breakWidth_mps": 4, "restitution": 0.35, "tangentRetain": 0.70 },
+    { "name": "wood",       "break50_mps": 14, "breakWidth_mps": 4, "restitution": 0.40, "tangentRetain": 0.75 },
+    { "name": "panel",      "break50_mps": 14, "breakWidth_mps": 4, "restitution": 0.40, "tangentRetain": 0.75 },
+
+    // Compound surfaces (Phase 2). Hard, rigid surfaces break paint readily; soft or flexible ones
+    // (dirt, tarps, sandbags, tyres) absorb the hit and make far more balls bounce or roll.
+    { "name": "concrete",   "break50_mps": 15, "breakWidth_mps": 4, "restitution": 0.30, "tangentRetain": 0.70 },
+    { "name": "brick",      "break50_mps": 15, "breakWidth_mps": 4, "restitution": 0.30, "tangentRetain": 0.65 },
+    { "name": "plaster",    "break50_mps": 16, "breakWidth_mps": 4, "restitution": 0.30, "tangentRetain": 0.70 },
+    { "name": "metal",      "break50_mps": 13, "breakWidth_mps": 4, "restitution": 0.50, "tangentRetain": 0.85 },
+    { "name": "glass",      "break50_mps": 12, "breakWidth_mps": 3, "restitution": 0.45, "tangentRetain": 0.90 },
+    { "name": "asphalt",    "break50_mps": 22, "breakWidth_mps": 5, "restitution": 0.30, "tangentRetain": 0.65 },
+    { "name": "gravel",     "break50_mps": 30, "breakWidth_mps": 7, "restitution": 0.30, "tangentRetain": 0.50 },
+    { "name": "dirt",       "break50_mps": 40, "breakWidth_mps": 8, "restitution": 0.20, "tangentRetain": 0.45 },
+    { "name": "tarp",       "break50_mps": 34, "breakWidth_mps": 7, "restitution": 0.25, "tangentRetain": 0.60 },
+    { "name": "rubber",     "break50_mps": 30, "breakWidth_mps": 6, "restitution": 0.60, "tangentRetain": 0.75 }
+  ],
+
+  // A bounced ball slower than this is treated as at rest and removed.
+  "restSpeed_mps": 1.5,
+  // A ball is removed after this many bounces.
+  "maxBounces": 4
+}

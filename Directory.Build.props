@@ -1,0 +1,14 @@
+<Project>
+  <!-- Shared by every C# project in the repo, including the Godot game project. -->
+  <PropertyGroup>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- Godot exports build referenced projects with Godot's configuration names; optimise them like Release. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'ExportRelease'">
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,47 @@
+// Default bindings, applied to Godot's InputMap at startup (rebinding UI arrives in Phase 5).
+// keys: physical key names (layout-independent) · mouse: Left/Right/Middle/WheelUp/WheelDown
+// buttons: gamepad buttons in SDL layout, so Xbox and PlayStation pads both work
+//   (A = Cross, B = Circle, X = Square, Y = Triangle) · axes: axis name + direction.
+{
+  "deadzone": 0.2,
+  "actions": [
+    { "name": "move_forward", "keys": ["W", "Up"], "axes": ["LeftY-"] },
+    { "name": "move_back", "keys": ["S", "Down"], "axes": ["LeftY+"] },
+    { "name": "move_left", "keys": ["A", "Left"], "axes": ["LeftX-"] },
+    { "name": "move_right", "keys": ["D", "Right"], "axes": ["LeftX+"] },
+    { "name": "look_left", "axes": ["RightX-"], "deadzone": 0.15 },
+    { "name": "look_right", "axes": ["RightX+"], "deadzone": 0.15 },
+    { "name": "look_up", "axes": ["RightY-"], "deadzone": 0.15 },
+    { "name": "look_down", "axes": ["RightY+"], "deadzone": 0.15 },
+
+    { "name": "fire", "mouse": ["Left"], "axes": ["TriggerRight+"], "deadzone": 0.4 },
+    { "name": "sprint", "keys": ["Shift"], "buttons": ["LeftStick"] },
+    { "name": "crouch", "keys": ["Ctrl", "C"], "buttons": ["B"] },
+    { "name": "walk", "keys": ["Alt"] },
+    { "name": "refill", "keys": ["R"], "buttons": ["X"] },
+    { "name": "fire_mode", "keys": ["B"], "buttons": ["Y"] },
+    { "name": "lean_left", "keys": ["Q"], "buttons": ["LeftShoulder"] },
+    { "name": "lean_right", "keys": ["E"], "buttons": ["RightShoulder"] },
+    { "name": "swap_shoulder", "keys": ["X"], "mouse": ["Middle"], "buttons": ["RightStick"] },
+    { "name": "slide", "keys": ["V"] },
+    { "name": "jump", "keys": ["Space"], "buttons": ["A"] },
+
+    { "name": "pause", "keys": ["Escape"], "buttons": ["Start"] },
+    { "name": "debug_help", "keys": ["F1"], "buttons": ["Back"] },
+    { "name": "debug_arc", "keys": ["F2"], "buttons": ["DpadUp"] },
+    { "name": "debug_stress", "keys": ["F3"], "buttons": ["DpadDown"] },
+    { "name": "debug_perf", "keys": ["F4"], "buttons": ["DpadRight"] },
+    { "name": "toggle_head_bob", "keys": ["F5"] },
+    { "name": "debug_reset_gear", "keys": ["F6"], "buttons": ["DpadLeft"] },
+    { "name": "toggle_crosshair", "keys": ["F7"] },
+    { "name": "toggle_vsync", "keys": ["F8"] },
+    { "name": "reload_data", "keys": ["F9"] },
+    { "name": "toggle_invert_y", "keys": ["F10"] },
+    { "name": "toggle_fullscreen", "keys": ["F11"] },
+    { "name": "fov_down", "keys": ["BracketLeft"] },
+    { "name": "fov_up", "keys": ["BracketRight"] },
+    { "name": "sensitivity_down", "keys": ["Minus"] },
+    { "name": "sensitivity_up", "keys": ["Equal"] },
+    { "name": "cycle_graphics", "keys": ["F12"] }
+  ]
+}

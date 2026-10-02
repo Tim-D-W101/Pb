@@ -1,0 +1,30 @@
+// Guardhouse by the main gate: one room, door facing the gate road, windows on three sides.
+// Local frame: origin at the north-west corner of the footprint, x east, z south (north is −Z).
+// Wall segments of the closed outline: 0 north (x 0→6), 1 east (z 0→5), 2 south (x 6→0), 3 west (z 5→0).
+{
+  "id": "guardhouse",
+  "displayName": "Guardhouse",
+  "storeys_m": [3.0],
+  "slabThickness_m": 0.2,
+  "footprint_m": [0, 0, 6, 5],
+  "floorMaterial": "concrete_floor",
+  "walls": [
+    {
+      "storey": 0, "points_m": [[0, 0], [6, 0], [6, 5], [0, 5]], "closed": true,
+      "thickness_m": 0.25, "material": "brick_painted",
+      "openings": [
+        { "segment": 1, "at_m": 2.5, "width_m": 0.9, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 3.0, "width_m": 1.6, "sill_m": 0.9, "height_m": 1.1, "kind": "window" },
+        { "segment": 2, "at_m": 3.0, "width_m": 1.6, "sill_m": 0.9, "height_m": 1.1, "kind": "window" },
+        { "segment": 3, "at_m": 2.5, "width_m": 1.0, "sill_m": 1.0, "height_m": 0.9, "kind": "window" }
+      ]
+    }
+  ],
+  "roof": { "rect_m": [-0.3, -0.3, 6.3, 5.3], "material": "roof_felt", "ceilingMaterial": "concrete_floor" },
+  "props": [
+    { "prop": "desk", "position_m": [1.4, 0, 1.1] },
+    { "prop": "filing_cabinet", "position_m": [0.5, 0, 4.2], "yaw_deg": 90 },
+    { "prop": "desk_flipped", "position_m": [4.2, 0, 3.8], "yaw_deg": 20 }
+  ],
+  "areas": [ { "name": "guardhouse", "rect_m": [0, 0, 6, 5], "maxY_m": 3.0, "indoor": true, "light": 0.55 } ]
+}

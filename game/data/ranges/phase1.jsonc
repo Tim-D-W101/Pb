@@ -1,0 +1,47 @@
+// Phase 1 shooting range. Coordinates in metres: X across (right +), Y up, Z toward the shooter.
+// The firing line is Z = 0 and downrange is −Z, so a target 30 m out sits at Z = −30.
+// Note: a level shot from eye height lands ~36 m out, so the 40 m target needs holdover.
+{
+  "id": "range.phase1",
+  "ground": { "width_m": 30, "length_m": 110, "backMargin_m": 6, "surface": "turf" },
+  // Balls leaving the ground area (plus margin) or above the height are removed (netted boundary).
+  "boundary": { "height_m": 60, "margin_m": 2 },
+  "spawn": { "position_m": [0, 0, 0], "yaw_deg": 0 },
+  // Lines every spacing_m; signs (left side) only at labels_m so far signs don't pile up at the horizon.
+  "distanceMarkers": { "spacing_m": 10, "max_m": 100, "labels_m": [10, 20, 30, 40, 50, 70, 100] },
+
+  // Target shapes are hit receivers, like players will be in Phase 2. Local frame: feet at origin.
+  "targetKinds": [
+    {
+      "id": "dummy",
+      "surface": "player",
+      "parts": [
+        { "part": "body", "shape": "capsule", "from_m": [0, 0.30, 0], "to_m": [0, 1.30, 0], "radius_m": 0.21 },
+        { "part": "mask", "shape": "sphere", "center_m": [0, 1.56, 0], "radius_m": 0.13 }
+      ]
+    }
+  ],
+
+  // Staggered across X so no target hides another from the firing line.
+  "targets": [
+    { "id": "d10", "label": "10 m", "kind": "dummy", "position_m": [-3.0, 0, -10] },
+    { "id": "d20", "label": "20 m", "kind": "dummy", "position_m": [-1.0, 0, -20] },
+    { "id": "d30", "label": "30 m", "kind": "dummy", "position_m": [1.0, 0, -30] },
+    { "id": "d40", "label": "40 m", "kind": "dummy", "position_m": [3.0, 0, -40] },
+    {
+      "id": "runner25", "label": "25 m runner", "kind": "dummy", "position_m": [6.5, 0, -25],
+      "motion": { "axis": [1, 0, 0], "amplitude_m": 3.0, "speed_mps": 2.5 }
+    }
+  ],
+
+  // Props sit on the ground at position_m (footprint centre). Same data builds the mesh,
+  // the walking collision and the ball collider.
+  "props": [
+    { "id": "can_left", "shape": "cylinder", "position_m": [-8, 0, -15], "radius_m": 0.6, "height_m": 1.5, "surface": "inflatable", "color": "#2f6fd6" },
+    { "id": "wedge_left", "shape": "wedge", "position_m": [-6, 0, -28], "yaw_deg": 35, "size_m": [2.2, 1.2, 1.4], "surface": "inflatable", "color": "#e8e8e8" },
+    { "id": "wedge_right", "shape": "wedge", "position_m": [8, 0, -12], "yaw_deg": -25, "size_m": [2.2, 1.2, 1.4], "surface": "inflatable", "color": "#e8e8e8" },
+    { "id": "brick_right", "shape": "box", "position_m": [10, 0, -35], "size_m": [1.2, 1.8, 0.9], "surface": "inflatable", "color": "#d6452f" },
+    // 1 cm thick panel: balls cover ~0.73 m per tick, so this only stops them thanks to swept collision.
+    { "id": "panel_ccd", "shape": "box", "position_m": [-10, 0, -8], "size_m": [1.5, 1.5, 0.01], "surface": "panel", "color": "#c8b28a" }
+  ]
+}

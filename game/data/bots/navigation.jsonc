@@ -1,0 +1,35 @@
+// How bots find their way (M2.5). When a level loads, its walkable geometry becomes a grid of
+// places a bot can stand: headroom above, clear of walls by the agent radius. Neighbouring places
+// join up when the step between them is small enough, and paths are searched over that grid.
+{
+  // Grid spacing. Finer finds narrower gaps but costs memory and search time.
+  "cellSize_m": 0.25,
+
+  // How far a bot's centre keeps from walls. A gap narrower than twice this (the narrowest doors
+  // are 0.9 m) is closed to bots. Smaller than the 0.3 m body: bots brush door frames and slide by.
+  "agentRadius_m": 0.25,
+
+  // Headroom a bot needs to stand (the standing body is 1.8 m tall).
+  "agentHeight_m": 1.8,
+
+  // Largest step up or down between neighbouring places. Stairs are ramps, so only kerbs, slabs
+  // and thresholds count as steps.
+  "stepHeight_m": 0.35,
+
+  // A waypoint counts as reached within this distance.
+  "waypointRadius_m": 0.4,
+
+  // No progress toward the next waypoint for this long means stuck: the bot plans again.
+  "stuckTime_s": 1.2,
+
+  // Path searches allowed per tick across all bots, so a crowd replanning at once doesn't stall a
+  // frame. The rest wait a tick or two.
+  "searchesPerTick": 1,
+
+  // A search gives up after expanding this many places (no path, or one absurdly long).
+  "maxSearchNodes": 120000,
+
+  // How eagerly a search heads for the goal. 1 finds the shortest path but explores widely; higher
+  // values search far less, for paths a little longer (straightening hides most of the difference).
+  "heuristicWeight": 1.6
+}

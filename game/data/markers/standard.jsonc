@@ -1,0 +1,42 @@
+// Default marker. Gear variants are cosmetic; any stat difference must be small (spec §1.4).
+{
+  "id": "marker.standard",
+
+  "muzzleVelocity_mps": 88.0,
+  // Each shot's speed varies uniformly by ± this much.
+  "velocityVariance_mps": 1.5,
+
+  // Random cone every shot falls inside (uniform over the cone's solid angle).
+  "dispersionHalfAngle_deg": 0.6,
+  // Extra half-angle per m/s of shooter speed: firing while running (5.5 m/s) adds ~0.55°.
+  "movingDispersion_degPerMps": 0.1,
+  "maxDispersion_deg": 2.5,
+
+  // 0 = the ball ignores the shooter's own velocity; 1 = physically inherits it
+  // (strafing at 5.5 m/s would then push shots ~3.6° sideways).
+  "inheritShooterVelocity": 0.0,
+
+  // Hard cap on balls per second in every mode.
+  "rateCap_bps": 10.5,
+  "defaultFireMode": "semi",
+
+  // Ramping: after `afterShots` pulls at >= minPullRate_hz, the next fast pull fires at the cap
+  // for as long as pulls keep coming at that rate.
+  "ramping": { "afterShots": 3, "minPullRate_hz": 5.0 },
+
+  // Pulls arriving while the cap blocks are queued (then fired as soon as allowed).
+  "bufferedPulls": 1,
+
+  // Muzzle position relative to the eye: [right, up, forward] in metres, for a right-shoulder
+  // hold. A shoulder swap mirrors it, and a lean carries it with the body.
+  "muzzleOffset_m": [0.13, -0.11, 0.55],
+  // Muzzle-in-cover rule: if the barrel is behind a wall edge your eye can see past, the ball
+  // breaks on that wall, as it would in real life. Swap shoulders to shoot round left-hand edges.
+  "muzzleBlockedBreaks": true,
+
+  // Balls fly from the muzzle toward the point under the crosshair. If nothing is under it,
+  // they converge at this distance.
+  "convergenceDistance_m": 60.0,
+  "minAimDistance_m": 2.0,
+  "maxAimDistance_m": 150.0
+}

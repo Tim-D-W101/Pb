@@ -1,0 +1,39 @@
+// Player hitboxes and elimination rules (spec §1.2, §1.3).
+// Every part is a box posed from the player's state every tick: the legs stand on the feet, the
+// torso and head lean with the body, and the mask, arms and gear follow the aim. Characters are
+// drawn from these same boxes until real models arrive, so what you see is what you can hit.
+// Part boxes: size_m = [width, height, depth]; centre_m = [right, up, forward] from the eye, for a
+// right-shoulder hold (arms and gear mirror on a shoulder swap).
+{
+  // Paint-physics surface for every part (break_model.jsonc).
+  "surface": "player",
+
+  // Legs run from the feet to the lean pivot (the hips); the torso from the hips up to this far
+  // below the eye. Both follow the stance.
+  "legsWidth_m": 0.36,
+  "legsDepth_m": 0.24,
+  "torsoWidth_m": 0.46,
+  "torsoDepth_m": 0.28,
+  "torsoTopBelowEye_m": 0.2,
+
+  "head":   { "size_m": [0.20, 0.26, 0.22], "centre_m": [0.00, -0.04, -0.05] },
+  "mask":   { "size_m": [0.22, 0.20, 0.08], "centre_m": [0.00, -0.05, 0.08] },
+  "arms":   { "size_m": [0.34, 0.14, 0.38], "centre_m": [0.07, -0.28, 0.25] },
+  "marker": { "size_m": [0.05, 0.12, 0.55], "centre_m": [0.13, -0.15, 0.29] },
+  "loader": { "size_m": [0.12, 0.15, 0.20], "centre_m": [0.13, -0.02, 0.17] },
+  "tank":   { "size_m": [0.09, 0.09, 0.30], "centre_m": [0.15, -0.22, 0.02] },
+
+  // An eliminated player holds the marker up: arms and gear rise this much and point this far up.
+  "eliminatedRaise_m": 0.45,
+  "eliminatedPitch_deg": 65,
+
+  // A break on any of these parts eliminates (spec: all of them). Take out marker, loader and tank
+  // for "gun hits don't count" rules.
+  "lethalParts": ["mask", "head", "torso", "arms", "legs", "marker", "loader", "tank"],
+
+  // Balls already in the air when their shooter is eliminated still count, as in real paintball.
+  "ballsInFlightCount": true,
+
+  // Balls breaking this close to a player's face spray paint on their mask (spec §1.3).
+  "maskSprayRadius_m": 0.5
+}

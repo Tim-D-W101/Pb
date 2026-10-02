@@ -1,0 +1,24 @@
+# Godot
+.godot/
+/game/export/
+/builds/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+TestResults/
+BenchmarkDotNet.Artifacts/
+
+# IDEs / OS
+.vs/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Godot Movie Maker output / local captures
+/captures/
+*.avi

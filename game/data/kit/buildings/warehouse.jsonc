@@ -1,0 +1,132 @@
+// Warehouse: 40 × 24 m, 8 m to the eaves. A concrete-block base (to 2.4 m) carries corrugated
+// cladding; three loading bays face the yard (one with a jammed roller door you can crawl under);
+// an L-shaped mezzanine runs along the north and west walls at 4 m, and much of the roof has fallen in.
+// Wall segments of both outline runs: 0 north (x 0→40), 1 east (z 0→24), 2 south (x 40→0,
+// at_m = 40 − x), 3 west (z 24→0, at_m = 24 − z).
+{
+  "id": "warehouse",
+  "displayName": "Warehouse",
+  "storeys_m": [8.0],
+  "slabThickness_m": 0.15,
+  "footprint_m": [0, 0, 40, 24],
+  "floorMaterial": "concrete_floor",
+  "walls": [
+    {
+      "storey": 0, "baseElevation_m": 0, "height_m": 2.4,
+      "points_m": [[0, 0], [40, 0], [40, 24], [0, 24]], "closed": true,
+      "thickness_m": 0.3, "material": "concrete_block",
+      "openings": [
+        { "segment": 2, "at_m": 32, "width_m": 4.0, "kind": "gap" },
+        { "segment": 2, "at_m": 22, "width_m": 4.0, "kind": "gap" },
+        { "segment": 2, "at_m": 12, "width_m": 4.0, "kind": "gap" },
+        { "segment": 2, "at_m": 5, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 1, "at_m": 6, "width_m": 4.0, "kind": "gap" },
+        { "segment": 1, "at_m": 18, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 3, "at_m": 4, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 30, "width_m": 1.0, "height_m": 2.1, "kind": "door" }
+      ]
+    },
+    {
+      "storey": 0, "baseElevation_m": 2.4, "height_m": 5.6,
+      "points_m": [[0, 0], [40, 0], [40, 24], [0, 24]], "closed": true,
+      "thickness_m": 0.3, "material": "corrugated_rust",
+      "openings": [
+        { "segment": 2, "at_m": 32, "width_m": 4.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 2, "at_m": 22, "width_m": 4.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 2, "at_m": 12, "width_m": 4.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 1, "at_m": 6, "width_m": 4.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 2, "at_m": 6, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 2, "at_m": 17, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 2, "at_m": 27, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 2, "at_m": 37, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 1, "at_m": 12, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 1, "at_m": 20, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 3, "at_m": 10, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 3, "at_m": 18, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 0, "at_m": 6, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 0, "at_m": 14, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 0, "at_m": 22, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" },
+        { "segment": 0, "at_m": 34, "width_m": 3.0, "sill_m": 3.6, "height_m": 1.0, "kind": "window" }
+      ]
+    },
+    // Mezzanine railings (1.1 m, open): along the north strip's edge and down the west strip, with a
+    // gap where the stair landing joins; and around the landing itself.
+    {
+      "storey": 0, "baseElevation_m": 4.0, "height_m": 1.1, "style": "railing",
+      "points_m": [[39.85, 4.5], [4.5, 4.5], [4.5, 23.85]],
+      "thickness_m": 0.05, "material": "steel_painted",
+      "openings": [ { "segment": 1, "at_m": 4.45, "width_m": 1.5, "kind": "gap" } ]
+    },
+    {
+      "storey": 0, "baseElevation_m": 4.0, "height_m": 1.1, "style": "railing",
+      "points_m": [[4.5, 8.2], [6.0, 8.2], [6.0, 9.7]],
+      "thickness_m": 0.05, "material": "steel_painted"
+    }
+  ],
+  "floors": [
+    { "elevation_m": 4.0, "rect_m": [0, 0, 40, 4.5], "material": "steel_painted" },
+    { "elevation_m": 4.0, "rect_m": [0, 4.5, 4.5, 24], "material": "steel_painted" },
+    { "elevation_m": 4.0, "rect_m": [4.5, 8.2, 6.0, 9.7], "material": "steel_painted" }
+  ],
+  "roof": {
+    "rect_m": [-0.3, -0.3, 40.3, 24.3], "holes_m": [[14, 6, 26, 16], [30, 14, 36, 20]],
+    "material": "corrugated_rust"
+  },
+  "stairs": [
+    { "start_m": [5.2, 15.3], "yaw_deg": 0, "width_m": 1.2, "run_m": 5.6, "rise_m": 4.0, "steps": 18, "material": "steel_painted" }
+  ],
+  "columns": [
+    { "at_m": [10, 4.3], "size_m": [0.3, 0.3], "height_m": 3.8, "material": "steel_painted" },
+    { "at_m": [16, 4.3], "size_m": [0.3, 0.3], "height_m": 3.8, "material": "steel_painted" },
+    { "at_m": [22, 4.3], "size_m": [0.3, 0.3], "height_m": 3.8, "material": "steel_painted" },
+    { "at_m": [28, 4.3], "size_m": [0.3, 0.3], "height_m": 3.8, "material": "steel_painted" },
+    { "at_m": [34, 4.3], "size_m": [0.3, 0.3], "height_m": 3.8, "material": "steel_painted" },
+    { "at_m": [4.3, 13], "size_m": [0.3, 0.3], "height_m": 3.8, "material": "steel_painted" },
+    { "at_m": [4.3, 18.5], "size_m": [0.3, 0.3], "height_m": 3.8, "material": "steel_painted" },
+    { "at_m": [4.3, 23.5], "size_m": [0.3, 0.3], "height_m": 3.8, "material": "steel_painted" },
+    { "at_m": [10, 14], "size_m": [0.4, 0.4], "height_m": 8.0, "material": "steel_rust" },
+    { "at_m": [20, 14], "size_m": [0.4, 0.4], "height_m": 8.0, "material": "steel_rust" },
+    { "at_m": [30, 14], "size_m": [0.4, 0.4], "height_m": 8.0, "material": "steel_rust" }
+  ],
+  "props": [
+    { "prop": "roller_door_half", "position_m": [28, 0, 24] },
+
+    { "prop": "shelving_rack", "position_m": [30.0, 0, 9.0] },
+    { "prop": "shelving_rack", "position_m": [32.7, 0, 9.0] },
+    { "prop": "shelving_rack", "position_m": [35.4, 0, 9.0] },
+    { "prop": "shelving_rack", "position_m": [30.0, 0, 12.5] },
+    { "prop": "shelving_rack", "position_m": [32.7, 0, 12.5] },
+    { "prop": "shelving_rack", "position_m": [35.4, 0, 12.5] },
+
+    { "prop": "rubble_pile", "position_m": [19, 0, 10], "yaw_deg": 20 },
+    { "prop": "rubble_pile", "position_m": [22.5, 0, 13], "yaw_deg": -15 },
+    { "prop": "scrap_pile", "position_m": [16, 0, 8], "yaw_deg": 40 },
+    { "prop": "rubble_pile", "position_m": [33, 0, 17], "yaw_deg": 5 },
+
+    { "prop": "forklift", "position_m": [10, 0, 15], "yaw_deg": 70 },
+    { "prop": "pallet_stack", "position_m": [6.0, 0, 20.0] },
+    { "prop": "pallet_stack_tall", "position_m": [7.3, 0, 20.0] },
+    { "prop": "pallet_stack", "position_m": [14.0, 0, 19.0], "yaw_deg": 10 },
+    { "prop": "pallet_stack_tall", "position_m": [24.0, 0, 20.5] },
+    { "prop": "crate_large", "position_m": [2.5, 0, 13.0] },
+    { "prop": "crate_small", "position_m": [2.5, 0, 14.3] },
+    { "prop": "crate_large", "position_m": [12.0, 0, 2.5] },
+    { "prop": "crate_small", "position_m": [13.3, 0, 2.6] },
+    { "prop": "oil_drum_rust", "position_m": [38.5, 0, 22.5] },
+    { "prop": "oil_drum", "position_m": [37.9, 0, 22.9] },
+    { "prop": "oil_drum_rust", "position_m": [38.6, 0, 23.2] },
+
+    { "prop": "crate_large", "position_m": [20.0, 4.0, 2.0] },
+    { "prop": "crate_small", "position_m": [21.3, 4.0, 2.2] },
+    { "prop": "pallet_stack", "position_m": [32.0, 4.0, 2.2] },
+    { "prop": "filing_cabinet", "position_m": [1.0, 4.0, 18.0], "yaw_deg": 90 },
+    { "prop": "crate_large", "position_m": [2.2, 4.0, 12.0] }
+  ],
+  "areas": [
+    { "name": "warehouse floor", "rect_m": [0, 0, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.55 },
+    { "name": "warehouse mezzanine", "rect_m": [0, 0, 40, 4.5], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5 },
+    { "name": "warehouse mezzanine", "rect_m": [0, 4.5, 4.5, 24], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5 },
+    { "name": "loading bays", "rect_m": [0, 19, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.7 },
+    { "name": "under the fallen roof", "rect_m": [14, 6, 26, 16], "maxY_m": 8.0, "indoor": true, "light": 0.95 }
+  ]
+}

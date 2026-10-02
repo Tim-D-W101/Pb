@@ -1,0 +1,48 @@
+// Bot behaviours (M2.5). An opponent spawn's roles (levels/*.jsonc) name the behaviour: the first
+// role listed here wins.
+//   idle            what they do while nothing's happening: "post" (hold the spawn and scan),
+//                   "patrol" (walk the spawn's patrol route) or "hunt" (sweep the level's opponent
+//                   spawns one by one)
+//   leash_m         how far from home they'll go to fight or search before heading back
+//   useCover        fight from cover (peek, shoot, duck back); rushers just come at you
+//   peekTime_s      time exposed per peek, then hideTime_s back in cover
+//   flankChance     per decision while you're out of sight: chance to work round to a new angle
+//   pushChance      ... or to push straight at your last known position (both scaled by the tier's
+//                   aggression, 0.5 = as written)
+//   fireOnMove      shoots while walking or running (the marker can't fire while sprinting anyway)
+//   engageRange_m   distance they like to fight from: cover is picked around it
+//   searchTime_s    how long they hunt around a last known position before giving up
+//   moveGait        how they move when it matters: "walk" or "run" (patrols are always walked)
+{
+  "archetypes": [
+    {
+      "id": "sentry",
+      "idle": "post", "leash_m": 12, "useCover": true,
+      "peekTime_s": 1.4, "hideTime_s": 1.2,
+      "flankChance": 0.1, "pushChance": 0.05,
+      "fireOnMove": false, "engageRange_m": 25, "searchTime_s": 10, "moveGait": "run"
+    },
+    {
+      "id": "patroller",
+      "idle": "patrol", "leash_m": 35, "useCover": true,
+      "peekTime_s": 1.1, "hideTime_s": 1.0,
+      "flankChance": 0.35, "pushChance": 0.2,
+      "fireOnMove": false, "engageRange_m": 20, "searchTime_s": 16, "moveGait": "run"
+    },
+    {
+      // Plays your slot in the headless bot match (CI): no spawn of its own, it goes looking.
+      "id": "hunter",
+      "idle": "hunt", "leash_m": 500, "useCover": true,
+      "peekTime_s": 1.2, "hideTime_s": 1.0,
+      "flankChance": 0.3, "pushChance": 0.35,
+      "fireOnMove": false, "engageRange_m": 20, "searchTime_s": 12, "moveGait": "run"
+    },
+    {
+      "id": "rusher",
+      "idle": "post", "leash_m": 60, "useCover": false,
+      "peekTime_s": 0.8, "hideTime_s": 0.5,
+      "flankChance": 0.2, "pushChance": 0.85,
+      "fireOnMove": true, "engageRange_m": 10, "searchTime_s": 22, "moveGait": "run"
+    }
+  ]
+}
