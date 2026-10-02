@@ -86,6 +86,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private WeedField _weeds = null!;
     private FootDust _dust = null!;
     private PuddleRipples _ripples = null!;
+    private RoofDrips? _roofDrips;
     private Footprints _prints = null!;
     private PaintDrips _drips = null!;
     private Birds _birds = null!;
@@ -275,6 +276,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _ripples = new PuddleRipples { Name = "PuddleRipples", Visible = _groundDetail.Visible };
         AddChild(_ripples);
         _ripples.Initialize(_groundDetail.Puddles, _view.Ripples);
+        _roofDrips = new RoofDrips { Name = "RoofDrips", Visible = _groundDetail.Visible };
+        AddChild(_roofDrips);
+        _roofDrips.Build(_level, _sim.Collision, _ripples, _view.RoofDrips, _sim.Config.Projectile.Gravity);
         _drips = new PaintDrips { Name = "PaintDrips" };
         AddChild(_drips);
         _drips.Initialize(_view);
@@ -834,6 +838,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             _ripples.Visible = preset.GroundDetail;
         }
+
+        if (_roofDrips is not null)
+        {
+            _roofDrips.Visible = preset.GroundDetail;
+        }
+
         _floorDebris.Visible = preset.GroundDetail;
         _oldPaint.Visible = preset.OldPaint;
         // Ambient occlusion does their job where the preset has it.

@@ -62,6 +62,8 @@ public sealed class PresentationDef : IValidatable
 
     public PaintDripsDef PaintDrips { get; set; } = new();
 
+    public RoofDripsDef RoofDrips { get; set; } = new();
+
     /// <summary>
     /// The wind near the ground ([x, z] m/s: +x east, +z south): the weeds sway, the bags on the wire
     /// stream and dust drifts with it. The clouds and the chimney smoke, higher up, have their own.
@@ -152,6 +154,7 @@ public sealed class PresentationDef : IValidatable
         RoofTatters.Validate(v.Scope(nameof(RoofTatters)));
         Footprints.Validate(v.Scope(nameof(Footprints)));
         PaintDrips.Validate(v.Scope(nameof(PaintDrips)));
+        RoofDrips.Validate(v.Scope(nameof(RoofDrips)));
         if (GroundWind_mps.Length != 2 || System.MathF.Abs(GroundWind_mps[0]) > 30f || System.MathF.Abs(GroundWind_mps[1]) > 30f ||
             GroundWind_mps[0] * GroundWind_mps[0] + GroundWind_mps[1] * GroundWind_mps[1] < 0.01f)
         {
@@ -1779,6 +1782,40 @@ public sealed class PaintDripsDef : IValidatable
         FlockDef.Pair(v, nameof(Run_s), Run_s, 0.1f, 60f);
         v.InRange(nameof(Steepest), Steepest, 0, 1);
         v.InRange(nameof(Cap), Cap, 0, 4000);
+    }
+}
+
+/// <summary>
+/// Water dripping through the holes in the roofs (game/world/RoofDrips.cs): about how far apart the drips
+/// are along an edge, the share of those places that drip, how long between drops at one place (least,
+/// most), how wide the pool under it is (least, most), how far across a drop's ripple spreads, how long a
+/// falling drop's streak looks, and how many drops can be falling at once.
+/// </summary>
+public sealed class RoofDripsDef : IValidatable
+{
+    public float Every_m { get; set; }
+
+    public float Share { get; set; }
+
+    public float[] Interval_s { get; set; } = System.Array.Empty<float>();
+
+    public float[] PoolSize_m { get; set; } = System.Array.Empty<float>();
+
+    public float RippleSize_m { get; set; }
+
+    public float Streak_m { get; set; }
+
+    public int Max { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Every_m), Every_m, 0.1, 20);
+        v.InRange(nameof(Share), Share, 0, 1);
+        FlockDef.Pair(v, nameof(Interval_s), Interval_s, 0.1f, 60f);
+        FlockDef.Pair(v, nameof(PoolSize_m), PoolSize_m, 0.05f, 3f);
+        v.InRange(nameof(RippleSize_m), RippleSize_m, 0.05, 3);
+        v.InRange(nameof(Streak_m), Streak_m, 0.01, 1);
+        v.InRange(nameof(Max), Max, 0, 512);
     }
 }
 

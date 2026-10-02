@@ -36,7 +36,8 @@ public partial class PuddleRipples : Node3D, ISimEventListener
         _puddles.Clear();
         _puddles.AddRange(puddles);
         _def = def;
-        if (_puddles.Count == 0 || def.Max == 0)
+        // Built even with no puddles yet: a drip's pool may still bring water (AddWater).
+        if (def.Max == 0)
         {
             return;
         }
@@ -89,7 +90,23 @@ public partial class PuddleRipples : Node3D, ISimEventListener
             return;
         }
 
-        Vector3 at = e.Position.ToGodot();
+        Splash(e.Position.ToGodot(), size, rings);
+    }
+
+    /// <summary>More water for ripples to spread on (a drip's pool, say), in the same terms as <see cref="GroundDetail.Puddles"/>.</summary>
+    public void AddWater(GroundDetail.Puddle water) => _puddles.Add(water);
+
+    /// <summary>
+    /// Spreads <paramref name="rings"/> rings up to <paramref name="size"/> across from <paramref name="at"/>, if
+    /// it's in a puddle's water; false when it isn't.
+    /// </summary>
+    public bool Splash(Vector3 at, float size, int rings)
+    {
+        if (_multimesh is null)
+        {
+            return false;
+        }
+
         foreach (GroundDetail.Puddle p in _puddles)
         {
             Vector3 d = at - p.Center;
@@ -116,8 +133,10 @@ public partial class PuddleRipples : Node3D, ISimEventListener
                 Raise(on, across * (1f - 0.22f * k), k * 0.14f);
             }
 
-            return;
+            return true;
         }
+
+        return false;
     }
 
     public override void _Process(double delta)
