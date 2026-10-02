@@ -29,6 +29,9 @@ public partial class LevelBuilder : Node3D
 
     private MaterialLibrary _materials = null!;
 
+    /// <summary>The level's materials, as built (for dressing added after the level).</summary>
+    public MaterialLibrary Materials => _materials;
+
     public int MeshCount { get; private set; }
 
     public int ColliderCount { get; private set; }

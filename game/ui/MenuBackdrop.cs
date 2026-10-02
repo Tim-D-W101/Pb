@@ -57,6 +57,9 @@ public partial class MenuBackdrop : Node3D
                 AddChild(weeds);
                 weeds.Build(level, collision, view.Weeds);
                 weeds.ApplyPreset(preset);
+                var fittings = new YardFittings { Name = "YardFittings" };
+                AddChild(fittings);
+                fittings.Build(level, collision, view.YardFittings, world.Materials);
             },
             () =>
             {

@@ -358,6 +358,20 @@
     "fadeEnd_m": 60
   },
 
+  // Cast-iron fittings set into the yard (looks only, flush with the ground): manhole covers out in
+  // the open and drain gratings, most of them along the foot of the buildings' outside walls
+  // (alongWalls is that share). Radius and size are least-most metres; "on" lists the ground materials
+  // they're set in, and "material" is the kit material they're cast in.
+  "yardFittings": {
+    "manholes": 7,
+    "manholeRadius_m": [0.3, 0.36],
+    "drains": 14,
+    "drainSize_m": [0.45, 0.6],
+    "alongWalls": 0.7,
+    "on": ["asphalt_cracked", "concrete_floor"],
+    "material": "cast_iron"
+  },
+
   // Trees out beyond the levels and the training ground (looks only): copses in the scrubland, the
   // nearest clearance_m from the place and the farthest reach_m beyond that, kept lineClearance_m from
   // power and pole lines. treesPerCopse and spread_m are least-most; height_m is least-most tree height.

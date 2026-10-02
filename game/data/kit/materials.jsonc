@@ -36,6 +36,8 @@
     { "id": "steel_yellow", "surface": "metal", "color": "#a08a2e", "pattern": "metal", "tile_m": 1.0, "roughness": 0.55, "weathering": 0.60, "metallic": 0.2, "albedo": "res://art/textures/steel_yellow_albedo.jpg", "normal": "res://art/textures/steel_yellow_normal.jpg", "roughnessMap": "res://art/textures/steel_yellow_roughness.jpg", "breakUpRepeat": true },
     // White enamel for the light fittings (drawn on ceilings, no photo).
     { "id": "enamel_white", "surface": "metal", "color": "#d3d0c6", "pattern": "plain", "tile_m": 1.0, "roughness": 0.45, "weathering": 0.45, "metallic": 0.1 },
+    // Cast iron for the manhole covers and drain gratings in the yard: the rusted-steel photo, darkened.
+    { "id": "cast_iron", "surface": "metal", "color": "#3a3734", "pattern": "rust", "tile_m": 0.5, "roughness": 0.72, "weathering": 0.5, "metallic": 0.35, "tint": "#6a625b", "albedo": "res://art/textures/steel_rust_albedo.jpg", "normal": "res://art/textures/steel_rust_normal.jpg", "roughnessMap": "res://art/textures/steel_rust_roughness.jpg", "breakUpRepeat": true },
     // Galvanised steel for the pylons out beyond the wall (drawn, never reached, so no photo).
     { "id": "steel_galvanised", "surface": "metal", "color": "#8e959b", "pattern": "metal", "tile_m": 1.0, "roughness": 0.5, "weathering": 0.3, "metallic": 0.55 },
     { "id": "machinery", "surface": "metal", "color": "#6d8c88", "pattern": "metal", "tile_m": 1.0, "roughness": 0.60, "weathering": 0.50, "metallic": 0.15 },

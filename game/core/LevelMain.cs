@@ -193,6 +193,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _groundDetail = new GroundDetail { Name = "GroundDetail" };
         AddChild(_groundDetail);
         _groundDetail.Build(_level, _sim.Collision, _view.GroundDetail);
+        var fittings = new YardFittings { Name = "YardFittings" };
+        AddChild(fittings);
+        fittings.Build(_level, _sim.Collision, _view.YardFittings, _world.Materials);
         _floorDebris = new FloorDebris { Name = "FloorDebris" };
         AddChild(_floorDebris);
         _floorDebris.Build(_level, _sim.Collision, _view.FloorDebris);
@@ -221,7 +224,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {fittings.Count} manholes and drains, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);

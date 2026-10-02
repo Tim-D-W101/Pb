@@ -58,6 +58,8 @@ public sealed class PresentationDef : IValidatable
 
     public WoodsDef Woods { get; set; } = new();
 
+    public YardFittingsDef YardFittings { get; set; } = new();
+
     public CreepersDef Creepers { get; set; } = new();
 
     public MenuBackdropDef MenuBackdrop { get; set; } = new();
@@ -115,6 +117,7 @@ public sealed class PresentationDef : IValidatable
         RunOff.Validate(v.Scope(nameof(RunOff)));
         FloorDebris.Validate(v.Scope(nameof(FloorDebris)));
         Woods.Validate(v.Scope(nameof(Woods)));
+        YardFittings.Validate(v.Scope(nameof(YardFittings)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
         TrainingGround.Validate(v.Scope(nameof(TrainingGround)));
@@ -1351,6 +1354,47 @@ public sealed class ContactShadowsDef : IValidatable
         v.InRange(nameof(MinHeight_m), MinHeight_m, 0, 3);
         v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Cast-iron fittings set into the yard (game/world/YardFittings.cs): how many manhole covers and their
+/// radius (least, most), how many drain gratings and their length (least, most) and the share of them
+/// at the foot of the buildings' outside walls, the ground materials they're set in, and the kit
+/// material they're cast in.
+/// </summary>
+public sealed class YardFittingsDef : IValidatable
+{
+    public int Manholes { get; set; }
+
+    public float[] ManholeRadius_m { get; set; } = System.Array.Empty<float>();
+
+    public int Drains { get; set; }
+
+    public float[] DrainSize_m { get; set; } = System.Array.Empty<float>();
+
+    public float AlongWalls { get; set; }
+
+    public string[] On { get; set; } = System.Array.Empty<string>();
+
+    public string Material { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Manholes), Manholes, 0, 200);
+        FlockDef.Pair(v, nameof(ManholeRadius_m), ManholeRadius_m, 0.15f, 1f);
+        v.InRange(nameof(Drains), Drains, 0, 200);
+        FlockDef.Pair(v, nameof(DrainSize_m), DrainSize_m, 0.2f, 1.5f);
+        v.InRange(nameof(AlongWalls), AlongWalls, 0, 1);
+        if (On.Length == 0)
+        {
+            v.Error(nameof(On), "needs at least one ground material");
+        }
+
+        if (string.IsNullOrWhiteSpace(Material))
+        {
+            v.Error(nameof(Material), "needs a kit material id");
+        }
     }
 }
 
