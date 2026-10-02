@@ -433,6 +433,14 @@ public class LevelKitTests
         DataException ex = Assert.Throws<DataException>(() => GameData.Load(badWire));
         Assert.Contains("oxbarrow_works.jsonc", ex.Message);
         Assert.Contains("wire", ex.Message);
+
+        // A fallen gate lies by one of the wall's gap openings: an index past them is named by file and key.
+        Assert.Equal(new[] { 0 }, perimeter.Def.Dressing!.FallenGates);
+        var badGate = new EditedDataSource(TestData.Source).Edit("levels/oxbarrow_works.jsonc",
+            s => s.Replace("\"fallenGates\": [0]", "\"fallenGates\": [40]"));
+        DataException gate = Assert.Throws<DataException>(() => GameData.Load(badGate));
+        Assert.Contains("oxbarrow_works.jsonc", gate.Message);
+        Assert.Contains("dressing.fallenGates", gate.Message);
     }
 
     [Fact]

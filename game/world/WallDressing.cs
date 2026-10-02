@@ -210,6 +210,55 @@ public static class WallDressing
                     Rubble(from, to, sill, Plan, turn);
                 }
             }
+
+            foreach (int gate in _dressing.FallenGates ?? Array.Empty<int>())
+            {
+                OpeningDef o = _def.Openings![gate];
+                if (o.Segment == index && o.Kind == OpeningKind.Gap)
+                {
+                    FallenGate(o.At_m - o.Width_m * 0.5f, o.At_m + o.Width_m * 0.5f, Plan, turn);
+                }
+            }
+        }
+
+        /// <summary>
+        /// One leaf of the gate that hung in a gap, off its hinges and lying on the ground outside it, in
+        /// front of one half of the gap and turned a little off square: a rusty frame of box section with a
+        /// rail across its middle and bars between, a brace across it, a bar or two gone, one end propped on
+        /// a broken block. A few centimetres high, so it's looks only like the rest.
+        /// </summary>
+        private void FallenGate(float from, float to, Func<float, float, float, Vector3> plan, Basis turn)
+        {
+            float width = MathF.Min((to - from) * 0.5f + 0.15f, 3.8f), depth = 1.9f;
+            int steel = _wire >= 0 ? _wire : _pier;
+            bool left = _random.NextDouble() < 0.5;
+            float t = left ? from + width * 0.5f + R(-0.2f, 0.5f) : to - width * 0.5f - R(-0.2f, 0.5f);
+            Vector3 centre = plan(t, 0f, depth * 0.5f + R(0.7f, 1.4f));
+            ShapeMesh mesh = Mesh(centre);
+            float lift = R(0.03f, 0.08f);
+            Basis leaf = turn * new Basis(Vector3.Up, R(-0.45f, 0.45f)) * new Basis(Vector3.Right, -lift);
+            float rest = 0.03f + depth * 0.5f * MathF.Sin(lift);
+            Vector3 At(float x, float z) => centre + Vector3.Up * rest + leaf * new Vector3(x, 0f, z);
+            void Member(Vector3 a, Vector3 b, float size) => mesh.Bar(steel, World(a), World(b), size, size);
+            float hx = width * 0.5f, hz = depth * 0.5f;
+            Member(At(-hx, -hz), At(hx, -hz), 0.05f);
+            Member(At(-hx, hz), At(hx, hz), 0.05f);
+            Member(At(-hx, -hz), At(-hx, hz), 0.05f);
+            Member(At(hx, -hz), At(hx, hz), 0.05f);
+            Member(At(-hx, 0f), At(hx, 0f), 0.04f);
+            Member(At(-hx, -hz), At(hx, hz), 0.035f);
+            for (float x = -hx + 0.13f; x < hx - 0.06f; x += 0.13f)
+            {
+                if (_random.NextDouble() < 0.08)
+                {
+                    continue;
+                }
+
+                Member(At(x, -hz), At(x, hz), 0.018f);
+            }
+
+            // The block its raised end rests on.
+            Block(mesh, centre + leaf * new Vector3(R(-hx * 0.6f, hx * 0.6f), 0f, hz - 0.1f), 0f, turn);
         }
 
         /// <summary>

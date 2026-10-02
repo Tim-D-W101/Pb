@@ -330,6 +330,43 @@ public static class PropShapes
 
         c.M.Box(steel, new Vector3(center.X - hx + 0.025f, baseY + ph * 0.5f, center.Z), new Vector3(0.03f, ph, size.Z - 0.04f));
         c.M.Box(steel, new Vector3(center.X - pw * 0.5f, baseY + ph - 0.24f, center.Z - hz + 0.04f), new Vector3(size.X - pw - 0.08f, 0.42f, 0.015f));
+
+        // Left on top, each now and then: papers, a keyboard at the front (+Z, the sitting side), a phone at
+        // the back right, a mug at the back left and a box file at the front left. All low, so nothing on a
+        // desk looks like cover the desk isn't.
+        float top = baseY + size.Y;
+        int white = c.Mat("enamel_white"), black = c.Mat("plastic_black");
+        Basis Turn(float most) => new(Vector3.Up, c.R(-most, most));
+        Vector3 On(float x, float z, float y) => new(center.X + x, top + y, center.Z + z);
+        int papers = (int)c.R(0f, 3.99f);
+        for (int i = 0; i < papers; i++)
+        {
+            float thick = c.R(0.004f, 0.03f);
+            c.M.Box(white, On(c.R(-hx + 0.18f, hx - 0.18f), c.R(-hz + 0.17f, hz - 0.17f), thick * 0.5f), new Vector3(0.21f, thick, 0.297f), Turn(0.6f));
+        }
+
+        if (c.R(0f, 1f) < 0.55f)
+        {
+            c.M.Box(black, On(c.R(-0.15f, 0.15f), hz - 0.13f, 0.012f), new Vector3(0.45f, 0.024f, 0.15f), Turn(0.15f));
+        }
+
+        if (c.R(0f, 1f) < 0.35f)
+        {
+            Basis turn = Turn(0.4f);
+            Vector3 at = On(hx - 0.2f, -hz + 0.18f, 0f);
+            c.M.Box(black, at + Vector3.Up * 0.03f, new Vector3(0.2f, 0.06f, 0.18f), turn);
+            c.M.Box(black, at + Vector3.Up * 0.07f + turn * new Vector3(0f, 0f, -0.04f), new Vector3(0.21f, 0.03f, 0.05f), turn);
+        }
+
+        if (c.R(0f, 1f) < 0.4f)
+        {
+            c.M.Cylinder(white, On(-hx + c.R(0.1f, 0.3f), -hz + c.R(0.08f, 0.2f), 0.0475f), Basis.Identity, 0.04f, 0.095f, 10);
+        }
+
+        if (c.R(0f, 1f) < 0.35f)
+        {
+            c.M.Box(steel, On(-hx + 0.22f, hz - 0.2f, 0.035f), new Vector3(0.32f, 0.07f, 0.28f), Turn(0.3f));
+        }
     }
 
     /// <summary>A big table tipped on its edge as a barricade: the top faces the front (−Z), its legs stick out behind.</summary>

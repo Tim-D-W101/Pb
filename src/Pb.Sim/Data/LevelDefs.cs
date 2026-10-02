@@ -485,6 +485,14 @@ public sealed class WallDef : IValidatable
 
         LevelDefChecks.Items(v, nameof(Openings), Openings);
         Dressing?.Validate(v.Scope(nameof(Dressing)));
+        foreach (int gate in Dressing?.FallenGates ?? System.Array.Empty<int>())
+        {
+            if (Openings is null || gate < 0 || gate >= Openings.Length || Openings[gate].Kind != OpeningKind.Gap)
+            {
+                v.Scope(nameof(Dressing)).Error(nameof(WallDressingDef.FallenGates), $"{gate} must be the index of one of the wall's gap openings");
+            }
+        }
+
         for (int i = 0; Openings is not null && i < Openings.Length; i++)
         {
             if (Openings[i].Segment < 0 || Openings[i].Segment >= SegmentCount)
@@ -499,7 +507,8 @@ public sealed class WallDef : IValidatable
 /// What the game draws on a wall run besides the wall (presentation only; paint and walking see just
 /// the wall): piers this far apart (0 for none), this wide, standing a little proud of the wall, a
 /// coping course along its top, barbed wire on brackets leaning out (away from the middle of a closed
-/// run), hanging loose at the breaks, and broken blocks on the ground either side of each break.
+/// run), hanging loose at the breaks, broken blocks on the ground either side of each break, and gates
+/// lying off their hinges outside the gaps listed in fallenGates.
 /// </summary>
 public sealed class WallDressingDef : IValidatable
 {
@@ -521,6 +530,10 @@ public sealed class WallDressingDef : IValidatable
 
     [Optional]
     public bool Rubble { get; set; }
+
+    /// <summary>Openings (indices into the wall's openings, each a gap) whose gate lies off its hinges on the ground outside.</summary>
+    [Optional]
+    public int[]? FallenGates { get; set; }
 
     public void Validate(Validator v)
     {

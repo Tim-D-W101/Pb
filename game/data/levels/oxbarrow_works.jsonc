@@ -75,8 +75,9 @@
       "points_m": [[-55, -40], [55, -40], [55, 40], [-55, 40]], "closed": true,
       "thickness_m": 0.3, "material": "concrete_block",
       // What the game draws on it (looks only): piers every 4.5 m, a concrete coping, barbed wire
-      // leaning out, hanging loose at the breaks, and broken blocks on the ground either side of them.
-      "dressing": { "pierSpacing_m": 4.5, "pierSize_m": 0.45, "coping": "concrete_wall", "wire": "steel_rust", "rubble": true },
+      // leaning out, hanging loose at the breaks, broken blocks on the ground either side of them, and
+      // a leaf of the main gate (opening 0) lying off its hinges outside it.
+      "dressing": { "pierSpacing_m": 4.5, "pierSize_m": 0.45, "coping": "concrete_wall", "wire": "steel_rust", "rubble": true, "fallenGates": [0] },
       "openings": [
         // Main gate (south), a breach in the west wall, a collapse in the north-east corner,
         // and two stretches knocked down to waist height.
