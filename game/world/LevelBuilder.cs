@@ -47,6 +47,9 @@ public partial class LevelBuilder : Node3D
     /// <summary>How many wall runs got piers, coping, wire or rubble (<see cref="WallDressing"/>).</summary>
     public int DressedWalls { get; private set; }
 
+    /// <summary>How many inside wall faces got a skirting board (<see cref="Skirting"/>).</summary>
+    public int SkirtedFaces { get; private set; }
+
     /// <summary>How many pylons and poles stand out beyond the level (<see cref="Scenery"/>).</summary>
     public int SceneryCount { get; private set; }
 
@@ -108,6 +111,7 @@ public partial class LevelBuilder : Node3D
         FramedOpenings = OpeningFrames.Build(level, owner => frames.TryGetValue(owner, out int m) ? m : -1, glass, at => ChunkMesh(shapes, at.X, at.Z));
         DressedBuildings = BuildingDetails.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
         DressedWalls = WallDressing.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
+        SkirtedFaces = Skirting.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
         SceneryCount = Scenery.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
 
         foreach (((int cx, int cz), ShapeMesh shape) in shapes)

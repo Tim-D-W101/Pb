@@ -296,6 +296,10 @@ public sealed class BuildingDef : IValidatable
     [Optional]
     public string? CeilingLights { get; set; }
 
+    /// <summary>Material of the skirting boards along the foot of the inside walls (presentation only). Omit for none.</summary>
+    [Optional]
+    public string? Skirting { get; set; }
+
     /// <summary>Paint on the floors and walls: lines, hatched areas, stencilled numbers, striped columns (presentation only).</summary>
     [Optional]
     public MarkingsDef? Markings { get; set; }
@@ -658,8 +662,8 @@ public sealed class MarkingsDef : IValidatable
 }
 
 /// <summary>
-/// Digits stencilled on a floor or, upright, on a wall: their middle at [x, y, z] (y is the height of
-/// the floor or of the middle on the wall), each this tall. Yaw turns them as anything in the plan: at
+/// Capital letters, digits, spaces and dashes stencilled on a floor or, upright, on a wall: their middle at
+/// [x, y, z] (y is the height of the floor or of the middle on the wall), each this tall. Yaw turns them as anything in the plan: at
 /// 0 they read from the +Z side, a wall's at 0 facing +Z.
 /// </summary>
 public sealed class StencilDef : IValidatable
@@ -683,9 +687,9 @@ public sealed class StencilDef : IValidatable
 
     public void Validate(Validator v)
     {
-        if (string.IsNullOrEmpty(Text) || !Text.All(char.IsAsciiDigit))
+        if (string.IsNullOrWhiteSpace(Text) || !Text.All(c => char.IsAsciiDigit(c) || c is >= 'A' and <= 'Z' or ' ' or '-'))
         {
-            v.Error(nameof(Text), $"'{Text}' must be digits");
+            v.Error(nameof(Text), $"'{Text}' must be capital letters, digits, spaces and dashes");
         }
 
         v.Vector(nameof(At_m), At_m);

@@ -48,6 +48,8 @@ public sealed class PresentationDef : IValidatable
 
     public BirdsDef Birds { get; set; } = new();
 
+    public CobwebsDef Cobwebs { get; set; } = new();
+
     public CreepersDef Creepers { get; set; } = new();
 
     public MenuBackdropDef MenuBackdrop { get; set; } = new();
@@ -100,6 +102,7 @@ public sealed class PresentationDef : IValidatable
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Markings.Validate(v.Scope(nameof(Markings)));
         Birds.Validate(v.Scope(nameof(Birds)));
+        Cobwebs.Validate(v.Scope(nameof(Cobwebs)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
         TrainingGround.Validate(v.Scope(nameof(TrainingGround)));
@@ -1265,6 +1268,35 @@ public sealed class OldPaintDef : IValidatable
 }
 
 /// <summary>
+/// Cobwebs in the corners of the buildings' doorways (the top ones) and windows (game/world/Cobwebs.cs):
+/// the chance a corner has one, their size, least and most opacity, colour, and where they fade out.
+/// </summary>
+public sealed class CobwebsDef : IValidatable
+{
+    public float Chance { get; set; }
+
+    public float[] Size_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] Opacity { get; set; } = System.Array.Empty<float>();
+
+    public string Color { get; set; } = "";
+
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Chance), Chance, 0, 1);
+        FlockDef.Pair(v, nameof(Size_m), Size_m, 0.05f, 2f);
+        FlockDef.Pair(v, nameof(Opacity), Opacity, 0f, 1f);
+        TrainingGroundDef.Colour(v, nameof(Color), Color);
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 200);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 300);
+    }
+}
+
+/// <summary>
 /// Crows wheeling over each level and the training ground (game/world/Birds.cs): flocks circling round
 /// points [x, z] from the place's middle, at a speed, their wingspan and colour, gliding for a while
 /// (flapEvery_s, least and most) between bursts of wingbeats (flapFor_s).
@@ -1283,8 +1315,15 @@ public sealed class BirdsDef : IValidatable
 
     public float[] FlapFor_s { get; set; } = System.Array.Empty<float>();
 
+    /// <summary>How many sit on the level's wall tops, and how close the camera comes before they take off.</summary>
+    public int Perched { get; set; }
+
+    public float FlushDistance_m { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(Perched), Perched, 0, 100);
+        v.InRange(nameof(FlushDistance_m), FlushDistance_m, 1, 100);
         for (int i = 0; i < Flocks.Length; i++)
         {
             Flocks[i].Validate(v.Item(nameof(Flocks), i));

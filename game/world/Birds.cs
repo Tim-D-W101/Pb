@@ -9,22 +9,31 @@ namespace Pb.Game.World;
 /// Crows wheeling over a place (presentation.jsonc "birds"): each flock circles round its point, each
 /// bird on a circle and at a height of its own, banked into the turn, gliding with its wings a little
 /// raised and now and then flapping in a burst (birds.gdshader beats the wings). Dark silhouettes in one
-/// MultiMesh, moved every frame. Presentation only; seeded, so it's the same every run.
+/// MultiMesh, moved every frame. On a level, a few more sit on the tops of its walls under the open sky,
+/// turning now and then, until the camera comes close: then they flap up and away and join the wheeling.
+/// Presentation only; seeded, so it's the same every run.
 /// </summary>
 public partial class Birds : Node3D
 {
     /// <summary>How far the birds bank into the turn (radians), and how far they rise and fall (m).</summary>
     private const float Bank = 0.42f, Bob = 1.4f;
 
+    /// <summary>A bird takes this long to climb from its perch onto its circle (s).</summary>
+    private const float TakeOff = 2.5f;
+
     private MultiMesh? _multimesh;
+    private MultiMesh? _perched;
     private Bird[] _birds = Array.Empty<Bird>();
     private BirdsDef _def = null!;
     private Random _random = new(1);
 
     public int Count => _birds.Length;
 
-    /// <summary>Flocks round points given from <paramref name="origin"/>, varied by <paramref name="seed"/>.</summary>
-    public void Build(Vector3 origin, int seed, BirdsDef def)
+    /// <summary>
+    /// Flocks round points given from <paramref name="origin"/>, varied by <paramref name="seed"/>, and,
+    /// given a level, birds perched on its walls.
+    /// </summary>
+    public void Build(Vector3 origin, int seed, BirdsDef def, Pb.Sim.Level.LevelLayout? level = null)
     {
         foreach (Node child in GetChildren())
         {
@@ -56,11 +65,49 @@ public partial class Birds : Node3D
             }
         }
 
+        // Perched: each on its spot until flushed, then onto a circle of its own above and nearby.
+        int firstPerched = birds.Count;
+        if (level is not null)
+        {
+            foreach ((Vector3 at, float yaw) in Perches(level, def.Perched))
+            {
+                birds.Add(new Bird
+                {
+                    State = Perch.Sitting,
+                    Perch = at,
+                    PerchYaw = yaw,
+                    Yaw = yaw,
+                    TurnIn = R(1f, 6f),
+                    Center = at + new Vector3(R(-10f, 10f), 0f, R(-10f, 10f)),
+                    Radius = R(10f, 20f),
+                    Height = at.Y + R(12f, 22f),
+                    Direction = _random.Next(2) == 0 ? 1f : -1f,
+                    Speed = def.Speed_mps * R(0.85f, 1.15f),
+                    Phase = R(0f, Mathf.Tau),
+                    Rise = R(0f, Mathf.Tau),
+                    NextFlap = 99f,
+                });
+            }
+        }
+
         _birds = birds.ToArray();
         _multimesh = null;
+        _perched = null;
         if (_birds.Length == 0)
         {
             return;
+        }
+
+        if (_birds.Length > firstPerched)
+        {
+            _perched = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = PerchedMesh(def.Wingspan_m) };
+            _perched.InstanceCount = _birds.Length;
+            AddChild(new MultiMeshInstance3D
+            {
+                Name = "PerchedBirds",
+                Multimesh = _perched,
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = Color.FromHtml(def.Color), Roughness = 0.42f },
+            });
         }
 
         float root = def.Wingspan_m * 0.04f;
@@ -93,9 +140,47 @@ public partial class Birds : Node3D
             return;
         }
 
+        Vector3? camera = IsInsideTree() ? GetViewport()?.GetCamera3D()?.GlobalPosition : null;
+        var hidden = new Transform3D(Basis.FromScale(Vector3.Zero), Vector3.Zero);
         for (int i = 0; i < _birds.Length; i++)
         {
             ref Bird b = ref _birds[i];
+            if (b.State == Perch.Sitting)
+            {
+                // Turning now and then; off when the camera comes close.
+                if ((b.TurnIn -= dt) <= 0f)
+                {
+                    b.TurnTo = b.PerchYaw + R(-1.2f, 1.2f);
+                    b.TurnIn = R(2f, 7f);
+                }
+
+                b.Yaw = Mathf.MoveToward(b.Yaw, b.TurnTo, dt * 3f);
+                _perched!.SetInstanceTransform(i, new Transform3D(new Basis(Vector3.Up, b.Yaw), b.Perch));
+                _multimesh.SetInstanceTransform(i, hidden);
+                if (camera is { } eye && eye.DistanceTo(b.Perch) < _def.FlushDistance_m)
+                {
+                    b.State = Perch.Leaving;
+                    b.Angle = Mathf.Atan2(b.Perch.Z - b.Center.Z, b.Perch.X - b.Center.X);
+                }
+
+                continue;
+            }
+
+            if (b.State == Perch.Leaving)
+            {
+                _perched!.SetInstanceTransform(i, hidden);
+                b.Left += dt / TakeOff;
+                if (b.Left >= 1f)
+                {
+                    b.State = Perch.Flying;
+                    b.NextFlap = R(_def.FlapEvery_s[0], _def.FlapEvery_s[1]);
+                }
+            }
+            else if (_perched is not null && i < _perched.InstanceCount)
+            {
+                _perched.SetInstanceTransform(i, hidden);
+            }
+
             b.Angle += b.Direction * b.Speed / b.Radius * dt;
             b.Rise += dt * 0.35f;
             // A burst of wingbeats every few seconds, eased in and out.
@@ -114,6 +199,17 @@ public partial class Birds : Node3D
             // Along the circle, climbing or sinking a little with the bob, banked towards the middle.
             Vector3 forward = new Vector3(-outward.Z, 0f, outward.X) * b.Direction + Vector3.Up * (Mathf.Cos(b.Rise) * Bob * 0.35f / b.Radius);
             Vector3 up = (Vector3.Up - outward * Mathf.Tan(Bank * (1f - 0.5f * b.Flap))).Normalized();
+            if (b.State == Perch.Leaving)
+            {
+                // Up off the perch, flapping hard, easing onto the circle.
+                float t = b.Left * b.Left * (3f - 2f * b.Left);
+                Vector3 from = b.Perch + Vector3.Up * 0.2f;
+                forward = (position - from).LengthSquared() > 0.01f ? (position - from).Normalized() : forward;
+                position = from.Lerp(position, t) + Vector3.Up * (Mathf.Sin(Mathf.Pi * b.Left) * 2f);
+                up = Vector3.Up;
+                b.Flap = 1f;
+            }
+
             Basis basis = Basis.LookingAt(forward.Normalized(), up);
             _multimesh.SetInstanceTransform(i, new Transform3D(basis, position));
             _multimesh.SetInstanceCustomData(i, new Color(b.Phase, b.Flap, 0f, 0f));
@@ -168,11 +264,107 @@ public partial class Birds : Node3D
         return tool.Commit();
     }
 
+    /// <summary>
+    /// Spots for perched birds: along the tops of upright wall pieces at least 2.4 m up with nothing over
+    /// them (the perimeter wall's coping, the buildings' parapets), a bird to a piece, facing off either side
+    /// or along it.
+    /// </summary>
+    private List<(Vector3 At, float Yaw)> Perches(Pb.Sim.Level.LevelLayout level, int count)
+    {
+        var coping = new Dictionary<int, float>();
+        foreach (Pb.Sim.Level.PlacedWall w in level.Walls)
+        {
+            coping[w.Owner] = w.Def.Dressing?.Coping is not null ? 0.07f : 0f;
+        }
+
+        var tops = new List<(Vector3 Mid, Vector3 Along, float Half)>();
+        foreach (Pb.Sim.Level.LevelPrimitive p in level.Primitives)
+        {
+            if (p.Role != Pb.Sim.Level.PrimitiveRole.Wall || p.Kind != Pb.Sim.Level.PrimitiveKind.Box)
+            {
+                continue;
+            }
+
+            Pb.Sim.Collision.Aabb b = p.Bounds;
+            Vector3 x = System.Numerics.Vector3.Transform(System.Numerics.Vector3.UnitX, p.Rotation).ToGodot();
+            Vector3 z = System.Numerics.Vector3.Transform(System.Numerics.Vector3.UnitZ, p.Rotation).ToGodot();
+            bool longX = p.HalfExtents.X >= p.HalfExtents.Z;
+            float half = longX ? p.HalfExtents.X : p.HalfExtents.Z;
+            if (b.Max.Y < 2.4f || half < 0.8f || MathF.Min(p.HalfExtents.X, p.HalfExtents.Z) > 0.4f || Covered(level, p, b))
+            {
+                continue;
+            }
+
+            float lift = coping.TryGetValue(p.Owner, out float c) ? c : 0f;
+            tops.Add((new Vector3(p.Center.X, b.Max.Y + lift, p.Center.Z), longX ? x : z, half));
+        }
+
+        var spots = new List<(Vector3, float)>();
+        for (int i = 0; i < count && tops.Count > 0; i++)
+        {
+            int k = _random.Next(tops.Count);
+            (Vector3 mid, Vector3 along, float half) = tops[k];
+            tops.RemoveAt(k);
+            float yaw = Mathf.Atan2(-along.X, -along.Z) + (_random.Next(4) * Mathf.Pi * 0.5f) + R(-0.3f, 0.3f);
+            spots.Add((mid + along * R(-half + 0.3f, half - 0.3f), yaw));
+        }
+
+        return spots;
+    }
+
+    /// <summary>Whether anything else of the level is over this wall piece's top.</summary>
+    private static bool Covered(Pb.Sim.Level.LevelLayout level, Pb.Sim.Level.LevelPrimitive wall, Pb.Sim.Collision.Aabb top)
+    {
+        foreach (Pb.Sim.Level.LevelPrimitive p in level.Primitives)
+        {
+            Pb.Sim.Collision.Aabb b = p.Bounds;
+            if (p != wall && b.Min.Y >= top.Max.Y - 0.05f && b.Min.X < top.Max.X && b.Max.X > top.Min.X && b.Min.Z < top.Max.Z && b.Max.Z > top.Min.Z)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// A crow sitting, about a wingspan's half long, facing −Z: a body tilted head-up, a round head with a
+    /// beak, a tail angled down behind and two legs to stand on.
+    /// </summary>
+    private static ArrayMesh PerchedMesh(float span)
+    {
+        float s = span / 0.9f;
+        var shape = new ShapeMesh();
+        shape.Place(Transform3D.Identity, 0.3f * s);
+        foreach (float side in new[] { -1f, 1f })
+        {
+            shape.Rod(0, new Vector3(side * 0.025f, 0f, 0.01f) * s, new Vector3(side * 0.025f, 0.07f, 0.015f) * s, 0.006f * s, 4);
+        }
+
+        shape.Pillow(0, new Vector3(0f, 0.14f, 0.02f) * s, new Vector3(0.12f, 0.13f, 0.27f) * s, new Basis(Vector3.Right, 0.42f), 2.4f, 6, 10);
+        shape.Pillow(0, new Vector3(0f, 0.235f, -0.105f) * s, new Vector3(0.075f, 0.075f, 0.085f) * s, Basis.Identity, 2f, 5, 8);
+        shape.Lathe(0, new Vector3(0f, 0.228f, -0.14f) * s, ShapeMesh.BasisAlong(Vector3.Forward),
+            new[] { new Vector2(0f, 0f), new Vector2(0.014f * s, 0f), new Vector2(0f, 0.055f * s) }, 6);
+        shape.Box(0, new Vector3(0f, 0.105f, 0.19f) * s, new Vector3(0.055f, 0.012f, 0.15f) * s, new Basis(Vector3.Right, -0.35f));
+        var mesh = new ArrayMesh();
+        shape.Commit(mesh, _ => new StandardMaterial3D());
+        return mesh;
+    }
+
     private float R(float a, float b) => a + (float)_random.NextDouble() * (b - a);
+
+    private enum Perch : byte
+    {
+        Flying,
+        Sitting,
+        Leaving,
+    }
 
     private struct Bird
     {
-        public Vector3 Center;
+        public Vector3 Center, Perch;
+        public Perch State;
         public float Radius, Height, Angle, Direction, Speed, Phase, Rise, NextFlap, FlapLeft, Flap;
+        public float PerchYaw, Yaw, TurnTo, TurnIn, Left;
     }
 }

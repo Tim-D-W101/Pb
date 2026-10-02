@@ -199,6 +199,11 @@ public sealed class KitCatalog
             ResolveMaterial(materials, v, nameof(BuildingDef.CeilingLights), b.CeilingLights);
         }
 
+        if (b.Skirting is not null)
+        {
+            ResolveMaterial(materials, v, nameof(BuildingDef.Skirting), b.Skirting);
+        }
+
         if (b.Trusses is not null)
         {
             ResolveMaterial(materials, v.Scope(nameof(BuildingDef.Trusses)), nameof(TrussesDef.Material), b.Trusses.Material);

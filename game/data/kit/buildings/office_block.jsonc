@@ -18,6 +18,14 @@
   "fittings": "steel_painted",
   // Fluorescent fittings on the ceilings, some hanging askew, some gone (looks only).
   "ceilingLights": "enamel_white",
+  // Skirting boards along the foot of the inside walls (looks only).
+  "skirting": "enamel_white",
+  // Its name over the front door, in white paint gone grey (looks only).
+  "markings": {
+    "color": "#d8d4c8",
+    "lineWidth_m": 0.1,
+    "stencils": [ { "text": "OFFICES", "at_m": [12, 2.95, 12.16], "size_m": 0.34, "wall": true } ]
+  },
   "walls": [
     // ---- Ground floor ----
     {

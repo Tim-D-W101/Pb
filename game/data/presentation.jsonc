@@ -332,9 +332,21 @@
     }
   },
 
+  // Cobwebs in the corners of the buildings' doorways (the top ones) and windows (looks only): the
+  // chance a corner has one, how big, how see-through, their colour, and where they fade out.
+  "cobwebs": {
+    "chance": 0.4,
+    "size_m": [0.18, 0.45],
+    "opacity": [0.45, 0.8],
+    "color": "#d9d7d0",
+    "fadeStart_m": 18,
+    "fadeEnd_m": 32
+  },
+
   // Crows wheeling over each level and the training ground (looks only): each flock circles round a
   // point [x, z] from the place's middle, each bird on its own circle and height, gliding for a few
-  // seconds (flapEvery_s) between bursts of wingbeats (flapFor_s).
+  // seconds (flapEvery_s) between bursts of wingbeats (flapFor_s). On a level a few more sit on the
+  // wall tops and take off when you come close.
   "birds": {
     "flocks": [
       { "center_m": [-12, -18], "count": 6, "radius_m": [16, 34], "height_m": [26, 44] },
@@ -344,7 +356,10 @@
     "wingspan_m": 0.9,
     "color": "#1b1b1d",
     "flapEvery_s": [3, 9],
-    "flapFor_s": [0.8, 2.2]
+    "flapFor_s": [0.8, 2.2],
+    // On a level, this many more sit on the tops of its walls, until you come this close.
+    "perched": 9,
+    "flushDistance_m": 9
   },
 
   // Worn paint on the buildings (each template's "markings": floor lines, hatched bays, stencilled

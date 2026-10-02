@@ -168,7 +168,7 @@ public partial class Markings : Node3D
         Line(cards, Corner(r[0], r[3]), Corner(r[0], r[1]), width, paint, view, random);
     }
 
-    /// <summary>Digits side by side, centred on the stencil's point, on the floor or upright on a wall.</summary>
+    /// <summary>Stencilled characters side by side, centred on the stencil's point, on the floor or upright on a wall.</summary>
     private static void Stencil(List<Card> cards, PlanFrame frame, StencilDef stencil, Color paint, MarkingsViewDef view, Random random)
     {
         var at = new Vector3(stencil.At_m[0], stencil.At_m[1], stencil.At_m[2]);
@@ -182,9 +182,14 @@ public partial class Markings : Node3D
         float size = stencil.Size_m, step = size * MarkingPainter.DigitAspect * 0.92f;
         for (int i = 0; i < stencil.Text.Length; i++)
         {
+            int cell = MarkingPainter.Cell(stencil.Text[i]);
+            if (cell < 0)
+            {
+                continue;
+            }
+
             float offset = (i - (stencil.Text.Length - 1) * 0.5f) * step;
-            int digit = stencil.Text[i] - '0';
-            cards.Add(new Card(middle + right * offset, right * size, up * size, normal, MarkingPainter.FirstDigit + digit, Shade(paint, random), Opacity(view, random)));
+            cards.Add(new Card(middle + right * offset, right * size, up * size, normal, cell, Shade(paint, random), Opacity(view, random)));
         }
     }
 

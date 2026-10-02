@@ -78,7 +78,7 @@ public partial class MenuBackdrop : Node3D
                 var birds = new Birds { Name = "Birds" };
                 AddChild(birds);
                 Pb.Sim.Collision.Aabb bounds = level.Bounds;
-                birds.Build(new Vector3((bounds.Min.X + bounds.Max.X) * 0.5f, 0f, (bounds.Min.Z + bounds.Max.Z) * 0.5f), LevelBuilder.StableHash(level.Id), view.Birds);
+                birds.Build(new Vector3((bounds.Min.X + bounds.Max.X) * 0.5f, 0f, (bounds.Min.Z + bounds.Max.Z) * 0.5f), LevelBuilder.StableHash(level.Id), view.Birds, level);
             },
             () =>
             {

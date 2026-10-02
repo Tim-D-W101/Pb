@@ -16,6 +16,8 @@
   "fittings": "steel_painted",
   // Fluorescent fittings on the ceilings, some hanging askew, some gone (looks only).
   "ceilingLights": "enamel_white",
+  // Skirting boards along the foot of the inside walls (looks only).
+  "skirting": "wood_planks",
   "walls": [
     {
       "storey": 0, "points_m": [[0, 0], [6, 0], [6, 5], [0, 5]], "closed": true,

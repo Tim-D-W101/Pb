@@ -450,7 +450,7 @@ public class LevelKitTests
     }
 
     [Fact]
-    public void BadGutterTrussOrLightMaterialNamesTheFileAndKey()
+    public void BadGutterTrussLightOrSkirtingMaterialNamesTheFileAndKey()
     {
         var gutters = new EditedDataSource(TestData.Source).Edit("kit/buildings/pump_house.jsonc",
             s => s.Replace("\"gutters\": \"steel_rust\"", "\"gutters\": \"tin_foil\""));
@@ -469,6 +469,12 @@ public class LevelKitTests
         ex = Assert.Throws<DataException>(() => GameData.Load(lights));
         Assert.Contains("office_block.jsonc", ex.Message);
         Assert.Contains("ceilingLights", ex.Message);
+
+        var skirting = new EditedDataSource(TestData.Source).Edit("kit/buildings/office_block.jsonc",
+            s => s.Replace("\"skirting\": \"enamel_white\"", "\"skirting\": \"marble\""));
+        ex = Assert.Throws<DataException>(() => GameData.Load(skirting));
+        Assert.Contains("office_block.jsonc", ex.Message);
+        Assert.Contains("skirting", ex.Message);
     }
 
     [Fact]
@@ -478,7 +484,7 @@ public class LevelKitTests
         MarkingsDef markings = data.Kit.Buildings["warehouse"].Def.Markings!;
         Assert.NotEmpty(markings.Lines_m!);
         Assert.NotEmpty(markings.Hatches_m!);
-        Assert.Contains(markings.Stencils!, s => s.Wall && s.Text == "1");
+        Assert.Contains(markings.Stencils!, s => s.Wall && s.Text == "BAY 1");
         Assert.NotEmpty(data.Levels["oxbarrow_works"].Markings!.Stencils!);
 
         var colour = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
@@ -488,7 +494,7 @@ public class LevelKitTests
         Assert.Contains("markings.color", ex.Message);
 
         var text = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
-            s => s.Replace("\"text\": \"2\"", "\"text\": \"B2\""));
+            s => s.Replace("\"text\": \"BAY 2\"", "\"text\": \"bay 2\""));
         ex = Assert.Throws<DataException>(() => GameData.Load(text));
         Assert.Contains("stencils[1].text", ex.Message);
 

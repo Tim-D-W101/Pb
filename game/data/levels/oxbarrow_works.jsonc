@@ -39,7 +39,7 @@
     "poleLines": [ { "points_m": [[13, 56], [16, 200], [40, 420]], "spacing_m": 42, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" } ]
   },
   // Worn white paint on the asphalt (looks only): numbered parking bays along the office block's south
-  // side, and a stop line across the road inside the main gate.
+  // side, a stop line across the road inside the main gate, and a warning either side of the gate.
   "markings": {
     "color": "#dedbd0",
     "lineWidth_m": 0.12,
@@ -56,7 +56,11 @@
       { "text": "5", "at_m": [-32.75, 0, 26.5], "size_m": 0.6 },
       { "text": "6", "at_m": [-30.25, 0, 26.5], "size_m": 0.6 },
       { "text": "7", "at_m": [-27.75, 0, 26.5], "size_m": 0.6 },
-      { "text": "8", "at_m": [-25.25, 0, 26.5], "size_m": 0.6 }
+      { "text": "8", "at_m": [-25.25, 0, 26.5], "size_m": 0.6 },
+      // Stencilled on the outside of the wall either side of the main gate, in red.
+      { "text": "KEEP OUT", "at_m": [-1, 1.7, 40.16], "size_m": 0.55, "wall": true, "color": "#b8402c" },
+      { "text": "PRIVATE", "at_m": [17, 2.0, 40.16], "size_m": 0.5, "wall": true, "color": "#b8402c" },
+      { "text": "PROPERTY", "at_m": [17, 1.4, 40.16], "size_m": 0.5, "wall": true, "color": "#b8402c" }
     ]
   },
   "buildings": [
