@@ -150,7 +150,11 @@
       "litColor": "#eee6da",
       "shadeColor": "#7e828b",
       "highLayer": 0.45
-    }
+    },
+    // The volumetric fog of the presets that turn it on (Ultra): how thick it is per metre, how far
+    // from the camera it reaches, its colour, and how much it veils the sky (0: not at all; at 1 it
+    // hung a brown haze over the sky overhead). The depth fog above still hazes the horizon.
+    "volumetricFog": { "density": 0.005, "length_m": 64, "albedo": "#dbd5cb", "skyAffect": 0 }
   },
 
   // Distant tree lines around compound levels, so the horizon reads as land rather than a ruler-

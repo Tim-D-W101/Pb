@@ -886,9 +886,12 @@ public sealed class LightingDef : IValidatable
 
     public CloudsDef Clouds { get; set; } = new();
 
+    public VolumetricFogDef VolumetricFog { get; set; } = new();
+
     public void Validate(Validator v)
     {
         Clouds.Validate(v.Scope(nameof(Clouds)));
+        VolumetricFog.Validate(v.Scope(nameof(VolumetricFog)));
         v.InRange(nameof(SunElevation_deg), SunElevation_deg, 1, 89);
         v.InRange(nameof(SunAzimuth_deg), SunAzimuth_deg, 0, 360);
         v.InRange(nameof(SunEnergy), SunEnergy, 0, 16);
@@ -908,6 +911,30 @@ public sealed class LightingDef : IValidatable
                 v.Error(key, $"'{value}' is not a valid colour");
             }
         }
+    }
+}
+
+/// <summary>
+/// The volumetric fog of the presets that turn it on (Ultra): how thick it is per metre, how far from the
+/// camera it reaches, its colour (sRGB), and how much it veils the sky (0: not at all, so the sky overhead
+/// stays clear and the depth fog alone hazes the horizon; 1: as much as anything that far away).
+/// </summary>
+public sealed class VolumetricFogDef : IValidatable
+{
+    public float Density { get; set; }
+
+    public float Length_m { get; set; }
+
+    public string Albedo { get; set; } = "";
+
+    public float SkyAffect { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Density), Density, 0, 0.1);
+        v.InRange(nameof(Length_m), Length_m, 8, 1024);
+        TrainingGroundDef.Colour(v, nameof(Albedo), Albedo);
+        v.InRange(nameof(SkyAffect), SkyAffect, 0, 1);
     }
 }
 

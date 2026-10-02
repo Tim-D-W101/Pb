@@ -71,6 +71,11 @@ public static class Atmosphere
         env.FogDensity = l.FogDensity;
         env.FogSkyAffect = 0.15f;
         env.FogAerialPerspective = 0.3f;
+        // How the volumetric fog looks where a preset turns it on (ApplyPreset).
+        env.VolumetricFogDensity = l.VolumetricFog.Density;
+        env.VolumetricFogLength = l.VolumetricFog.Length_m;
+        env.VolumetricFogAlbedo = Color.FromHtml(l.VolumetricFog.Albedo);
+        env.VolumetricFogSkyAffect = l.VolumetricFog.SkyAffect;
         env.AdjustmentEnabled = true;
         env.AdjustmentSaturation = 0.88f;
         env.AdjustmentContrast = 1.04f;
@@ -94,9 +99,6 @@ public static class Atmosphere
         env.SdfgiEnabled = p.Sdfgi;
         env.SdfgiUseOcclusion = true;
         env.VolumetricFogEnabled = p.VolumetricFog;
-        env.VolumetricFogDensity = 0.012f;
-        env.VolumetricFogAlbedo = new Color(0.86f, 0.83f, 0.78f);
-        env.VolumetricFogLength = 64f;
         env.SsrEnabled = p.Ssr;
         env.GlowEnabled = p.Glow;
         env.GlowIntensity = 0.35f;
