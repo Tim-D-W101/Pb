@@ -738,6 +738,15 @@ public sealed class CharactersDef : IValidatable
 
     public float GripDrop_m { get; set; }
 
+    /// <summary>Movement clips shared by every model; without a walk, the steps above stand in.</summary>
+    public CharacterClipsDef Clips { get; set; } = new();
+
+    /// <summary>How long clips take to blend in and out, and between walk, run and crouch.</summary>
+    public float ClipBlend_s { get; set; }
+
+    /// <summary>How far the legs turn from the facing towards where the body is going.</summary>
+    public float MaxLegYaw_deg { get; set; }
+
     public void Validate(Validator v)
     {
         foreach (string tint in Tints)
@@ -761,7 +770,25 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(TriggerGrip), TriggerGrip, 0, 1);
         v.InRange(nameof(SupportGrip), SupportGrip, 0, 1);
         v.InRange(nameof(GripDrop_m), GripDrop_m, -0.3, 0.3);
+        v.InRange(nameof(ClipBlend_s), ClipBlend_s, 0.02, 2);
+        v.InRange(nameof(MaxLegYaw_deg), MaxLegYaw_deg, 0, 90);
     }
+}
+
+/// <summary>
+/// Movement clips (GLBs from the art pipeline, each one in-place clip on the generator's rig), fitted
+/// to every model by bone name. Any can be left out.
+/// </summary>
+public sealed class CharacterClipsDef
+{
+    [Optional]
+    public string? Walk { get; set; }
+
+    [Optional]
+    public string? Run { get; set; }
+
+    [Optional]
+    public string? CrouchWalk { get; set; }
 }
 
 /// <summary>Sun, sky and atmosphere (spec mood: overcast late afternoon).</summary>

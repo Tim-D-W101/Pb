@@ -30,8 +30,7 @@ public partial class CharacterVisual : Node3D
     private CharacterModel? _model;
     private CharactersDef? _look;
     private float _standEye;
-    private float _stepPhase;
-    private float _stepAmount;
+    private float _crouchEye;
     private Vector3 _lastFeet;
 
     public bool HasModel => _model is not null;
@@ -42,6 +41,7 @@ public partial class CharacterVisual : Node3D
         _state = state;
         _look = characters;
         _standEye = sim.Config.Movement.StandEyeHeight;
+        _crouchEye = sim.Config.Movement.CrouchEyeHeight;
         TopLevel = true;
         var box = new BoxMesh { Size = Vector3.One };
         _sim.PlayerHits.PoseNow(state, _current);
@@ -146,16 +146,12 @@ public partial class CharacterVisual : Node3D
         poser.TriggerHand = Grip(_look.TriggerGrip);
         poser.SupportHand = Grip(_look.SupportGrip);
 
-        // Steps: one stride per half cycle, as far as the feet have moved; they settle when it stops.
+        // The legs, by the ground the feet covered since the last frame.
         Vector3 moved = feet - _lastFeet;
-        moved.Y = 0f;
         _lastFeet = feet;
-        float speed = new Vector2(_state.Velocity.X, _state.Velocity.Z).Length();
-        float target = Mathf.Clamp(speed / _look.FullStrideSpeed_mps, 0f, 1f);
-        _stepAmount = Mathf.MoveToward(_stepAmount, target, (float)GetProcessDeltaTime() / _look.StrideEase_s);
-        _stepPhase = Mathf.Wrap(_stepPhase + moved.Length() / _look.Stride_m * Mathf.Pi, 0f, Mathf.Tau);
-        poser.StepPhase = _stepPhase;
-        poser.StepAmount = _stepAmount;
+        float crouch = (_standEye - eye) / Mathf.Max(_standEye - _crouchEye, 0.01f);
+        _model.Gait.Update(moved, _state.Velocity.ToGodot(), poser.Forward, crouch, _state.Stance == Stance.Sliding,
+            _state.Grounded, (float)GetProcessDeltaTime());
     }
 
     private static bool IsGear(HitboxPart part) => part is HitboxPart.Marker or HitboxPart.Loader or HitboxPart.Tank;

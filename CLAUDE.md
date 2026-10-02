@@ -90,7 +90,8 @@ for close-ups of anything in the level. On `Level.tscn`, through the player's ow
 `-- --posture-demo` runs a short scripted shoulder swap / lean / muzzle-in-cover sequence,
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
-fighting you from cover with the F3 overlay. `-- --bot-match` (CI) has a bot play your slot until
+fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
+sprinting, strafing, backing off and walking crouched, seen from the side (movement clips, or the steps without them). `-- --bot-match` (CI) has a bot play your slot until
 the round ends. `--mode=solo|ffa|teams` and `--size=N` pick the mode and size (the menu's choices; the
 modes are in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's

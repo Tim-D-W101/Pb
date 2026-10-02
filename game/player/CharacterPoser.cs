@@ -4,10 +4,13 @@ using Godot;
 namespace Pb.Game.Player;
 
 /// <summary>
-/// Poses a rigged character to match the sim's hitbox rig, on top of its animation clip:
+/// Poses a rigged character to match the sim's hitbox rig, on top of its idle clip:
 /// <list type="bullet">
+/// <item>movement clips play over the idle as the <see cref="Gait"/> says, the legs turned towards the
+/// travel and the chest turned back onto the aim;</item>
 /// <item>the hips drop for a crouch;</item>
-/// <item>the feet stay planted, or step while the body moves, by two-bone IK;</item>
+/// <item>the feet go where the clips put them, or stay planted, or step while the body moves (without
+/// clips), by two-bone IK, so they stay on the ground however low the hips go;</item>
 /// <item>the spine rolls with the lean, and the chest and head pitch with the aim;</item>
 /// <item>both hands go to the marker by two-bone IK.</item>
 /// </list>
@@ -57,11 +60,10 @@ public partial class CharacterPoser : SkeletonModifier3D
 
     public bool HandsOnMarker { get; set; } = true;
 
-    /// <summary>Walk cycle: phase (rad), how much of a full step to take (0–1), stride and foot lift (m).</summary>
-    public float StepPhase { get; set; }
+    /// <summary>The movement clips and how they play, or the steps without them.</summary>
+    public Gait? Gait { get; set; }
 
-    public float StepAmount { get; set; }
-
+    /// <summary>Steps without clips: stride and foot lift (m).</summary>
     public float Stride { get; set; } = 0.7f;
 
     public float StepLift { get; set; } = 0.12f;
@@ -110,10 +112,34 @@ public partial class CharacterPoser : SkeletonModifier3D
         Vector3 forward = toSkeleton.Basis * Forward;
         Vector3 right = toSkeleton.Basis * Right;
 
-        // Hips down for a crouch, with a little bob while stepping.
+        // Movement clips over the idle, the legs turned towards the travel and the chest back onto the aim.
+        float clips = 0f;
+        if (Gait is { Walk: not null, MoveWeight: > 0f } gait)
+        {
+            clips = gait.MoveWeight;
+            PlayClips(skeleton, gait);
+            if (!Mathf.IsZeroApprox(gait.LegYaw))
+            {
+                Vector3 axis = up.Normalized();
+                Rotate(skeleton, _hips, axis, gait.LegYaw);
+                Rotate(skeleton, _spineLow, axis, -gait.LegYaw * 0.4f);
+                Rotate(skeleton, _spineMid, axis, -gait.LegYaw * 0.3f);
+                Rotate(skeleton, _spineTop, axis, -gait.LegYaw * 0.3f);
+            }
+        }
+
+        // Where the clips put the feet, and which way they bend the knees, before the hips move.
+        Vector3 leftFoot = skeleton.GetBoneGlobalPose(_leftLeg[2]).Origin;
+        Vector3 rightFoot = skeleton.GetBoneGlobalPose(_rightLeg[2]).Origin;
+        Vector3 leftKnee = skeleton.GetBoneGlobalPose(_leftLeg[1]).Origin - skeleton.GetBoneGlobalPose(_leftLeg[0]).Origin;
+        Vector3 rightKnee = skeleton.GetBoneGlobalPose(_rightLeg[1]).Origin - skeleton.GetBoneGlobalPose(_rightLeg[0]).Origin;
+
+        // Hips down for a crouch (less what the clips already lower them), with a little bob while stepping.
+        float stepPhase = Gait?.StepPhase ?? 0f;
+        float stepAmount = Gait?.StepAmount ?? 0f;
         Transform3D hips = skeleton.GetBoneGlobalPose(_hips);
-        float bob = StepAmount * HipBob * (1f - Mathf.Cos(StepPhase * 2f)) * 0.5f;
-        hips.Origin -= up * (HipDrop + bob);
+        float bob = stepAmount * HipBob * (1f - Mathf.Cos(stepPhase * 2f)) * 0.5f;
+        hips.Origin -= up * (Mathf.Max(0f, HipDrop - (Gait?.ClipHipsDrop ?? 0f)) + bob);
         skeleton.SetBoneGlobalPose(_hips, hips);
 
         // The lean rolls the spine about the body's long axis, a third per bone, like the hitboxes
@@ -129,13 +155,17 @@ public partial class CharacterPoser : SkeletonModifier3D
         Rotate(skeleton, _neck, pitchAxis, Pitch * HeadPitch * 0.5f);
         Rotate(skeleton, _head, pitchAxis, Pitch * HeadPitch * 0.5f);
 
-        // Feet: planted where they stand in the rest pose, or swinging through a step.
-        float swing = Stride * 0.5f * StepAmount;
-        float lift = StepLift * StepAmount;
-        Vector3 Step(float phase) => forward * (swing * Mathf.Sin(phase)) + up * (lift * Mathf.Max(0f, Mathf.Cos(phase)));
-        Vector3 knees = forward;
-        SolveTwoBone(skeleton, _leftLeg, _leftAnkleRest + Step(StepPhase), knees, keepEnd: true);
-        SolveTwoBone(skeleton, _rightLeg, _rightAnkleRest + Step(StepPhase + Mathf.Pi), knees, keepEnd: true);
+        // Feet: where the clips put them; without clips, planted where they stand in the rest pose, or
+        // swinging through a step along the travel.
+        float swing = Stride * 0.5f * stepAmount;
+        float lift = StepLift * stepAmount;
+        Vector3 along = toSkeleton.Basis * (Gait?.StepDirection ?? Forward);
+        Vector3 Step(float phase) => along * (swing * Mathf.Sin(phase)) + up * (lift * Mathf.Max(0f, Mathf.Cos(phase)));
+        Vector3 knees = forward.Normalized();
+        SolveTwoBone(skeleton, _leftLeg, (_leftAnkleRest + Step(stepPhase)).Lerp(leftFoot, clips),
+            knees.Lerp(leftKnee.Normalized(), clips), keepEnd: true);
+        SolveTwoBone(skeleton, _rightLeg, (_rightAnkleRest + Step(stepPhase + Mathf.Pi)).Lerp(rightFoot, clips),
+            knees.Lerp(rightKnee.Normalized(), clips), keepEnd: true);
 
         if (HandsOnMarker)
         {
@@ -146,6 +176,46 @@ public partial class CharacterPoser : SkeletonModifier3D
             SolveTwoBone(skeleton, _rightArm, RightHanded ? trigger : support, down * 0.6f + right * 0.4f, keepEnd: false);
             SolveTwoBone(skeleton, _leftArm, RightHanded ? support : trigger, down * 0.6f - right * 0.4f, keepEnd: false);
         }
+    }
+
+    /// <summary>Sets every bone to the gait's blend of its clips, over the idle as far as the gait moves.</summary>
+    private void PlayClips(Skeleton3D skeleton, Gait gait)
+    {
+        MoveClip walk = gait.Walk!;
+        MoveClip? run = gait.RunWeight > 0f ? gait.Run : null;
+        MoveClip? crouch = gait.CrouchWeight > 0f ? gait.Crouch : null;
+        MoveClip.Cursor w = walk.At(gait.Phase);
+        MoveClip.Cursor r = run?.At(gait.Phase) ?? default;
+        MoveClip.Cursor c = crouch?.At(gait.Phase) ?? default;
+        int bones = Mathf.Min(skeleton.GetBoneCount(), walk.Bones);
+        for (int b = 0; b < bones; b++)
+        {
+            Quaternion q = walk.Rotation(w, b);
+            if (run is not null)
+            {
+                q = q.Slerp(run.Rotation(r, b), gait.RunWeight);
+            }
+
+            if (crouch is not null)
+            {
+                q = q.Slerp(crouch.Rotation(c, b), gait.CrouchWeight);
+            }
+
+            skeleton.SetBonePoseRotation(b, skeleton.GetBonePoseRotation(b).Slerp(q, gait.MoveWeight));
+        }
+
+        Vector3 hips = walk.Hips(w);
+        if (run is not null)
+        {
+            hips = hips.Lerp(run.Hips(r), gait.RunWeight);
+        }
+
+        if (crouch is not null)
+        {
+            hips = hips.Lerp(crouch.Hips(c), gait.CrouchWeight);
+        }
+
+        skeleton.SetBonePosePosition(_hips, skeleton.GetBonePosePosition(_hips).Lerp(hips, gait.MoveWeight));
     }
 
     private static void Fill(int[] chain, int a, int b, int c)

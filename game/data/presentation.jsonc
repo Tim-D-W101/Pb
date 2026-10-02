@@ -270,8 +270,19 @@
     // The team-colour armband on each upper arm.
     "armbandRadius_m": 0.068,
     "armbandWidth_m": 0.09,
-    // Steps while moving (until walk clips arrive): stride, foot lift, the speed of a full stride and
-    // how long steps take to reach it from a standstill, and how far the hips bob at each footfall.
+    // Movement clips, shared by every model (each a GLB holding one in-place clip on the generator's
+    // rig, fitted to each model's build by bone name): "walk", "run" and "crouchWalk". Each plays at
+    // the pace that keeps its feet planted; walk blends into run between the two clips' own speeds,
+    // and into the crouched walk as you crouch, all in step. Any can be left out; without a walk, the
+    // steps below stand in.
+    "clips": {},
+    // How long clips take to blend in and out, and between each other.
+    "clipBlend_s": 0.2,
+    // The legs turn from where you face towards where you're going, by up to this much (the chest
+    // stays on the aim); backing off plays the cycle backwards.
+    "maxLegYaw_deg": 65,
+    // Steps while moving without a walk clip: stride, foot lift, the speed of a full stride and how
+    // long steps take to reach it from a standstill, and how far the hips bob at each footfall.
     "stride_m": 0.75,
     "stepLift_m": 0.12,
     "fullStrideSpeed_mps": 3.0,

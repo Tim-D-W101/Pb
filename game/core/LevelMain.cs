@@ -38,6 +38,7 @@ namespace Pb.Game.Core;
 ///   --duel-distance=M     how far from the bot the duel starts (default 6 m; 2 for a close-up)
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
 ///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
+///   --gait-demo           an opponent walks, runs, sprints, strafes, backs off and walks crouched, seen from the side
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
 ///   --preset=NAME         uses that graphics preset instead of the saved one (for comparing their cost)
@@ -136,8 +137,10 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
         bool botDemo = Args.Has("--bot-demo");
+        bool gaitDemo = Args.Has("--gait-demo");
         _botMatch = Args.Has("--bot-match");
-        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo || _botMatch;
+        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
+                    gaitDemo || _botMatch;
         bool roundTour = Args.Has("--round-tour");
 
         // Every round deals a new seed and random starts, so you can't learn where everyone is. Scripted
@@ -294,6 +297,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             _player.AutoPilot = new BotPilot(brain);
             _hud.ShowPerf = false;
             GD.Print($"BOT MATCH a hunter bot plays your slot in {_round.Line} with {_bots.Count} {_tier.Bots} bots, {setup.TimeLimit:0} s on the clock");
+        }
+        else if (gaitDemo)
+        {
+            var demo = new GaitDemo { Name = "GaitDemo" };
+            AddChild(demo);
+            demo.Start(_sim, _pawns, _hud, _view.Camera.FarClip_m);
         }
         else if (botDemo)
         {

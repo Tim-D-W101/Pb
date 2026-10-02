@@ -8,9 +8,10 @@ namespace Pb.Game.Player;
 
 /// <summary>
 /// A rigged character model from the art pipeline standing in for the hitbox boxes. Its idle clip
-/// loops, a <see cref="CharacterPoser"/> bends it to the sim's pose, armbands in the team colour sit on
-/// both upper arms, and bone attachments give splats something to stick to. Gear (marker, loader,
-/// tank) is still drawn by <see cref="CharacterVisual"/> from the hitboxes.
+/// loops, the shared movement clips (fitted to its build by <see cref="MoveClipBaker"/>) play over it
+/// as its <see cref="Gait"/> says, a <see cref="CharacterPoser"/> bends it to the sim's pose, armbands
+/// in the team colour sit on both upper arms, and bone attachments give splats something to stick to.
+/// Gear (marker, loader, tank) is drawn by <see cref="CharacterVisual"/> from the hitboxes.
 /// </summary>
 public partial class CharacterModel : Node3D
 {
@@ -29,6 +30,9 @@ public partial class CharacterModel : Node3D
     private AnimationPlayer? _animation;
 
     public CharacterPoser Poser { get; private set; } = null!;
+
+    /// <summary>How the legs move: the movement clips, or steps without them.</summary>
+    public Gait Gait { get; private set; } = null!;
 
     /// <summary>The model at <paramref name="path"/>, or null when the file is missing or isn't the generator's rig.</summary>
     public static CharacterModel? TryCreate(string path, Color tint, Color team, CharactersDef def)
@@ -57,7 +61,10 @@ public partial class CharacterModel : Node3D
             return null;
         }
 
-        var model = new CharacterModel { Name = "Model", _skeleton = skeleton, Poser = poser };
+        MoveClip? Clip(string name, string? file) => MoveClipBaker.Bake(name, file, path, instance, skeleton);
+        var gait = new Gait(def, Clip("walk", def.Clips.Walk), Clip("run", def.Clips.Run), Clip("crouchWalk", def.Clips.CrouchWalk));
+        poser.Gait = gait;
+        var model = new CharacterModel { Name = "Model", _skeleton = skeleton, Poser = poser, Gait = gait };
         // Generated models face +Z; characters here face −Z.
         instance.RotationDegrees = new Vector3(0f, 180f, 0f);
         model.AddChild(instance);
