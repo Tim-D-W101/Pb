@@ -226,6 +226,100 @@
     "shade": 0.82
   },
 
+  // The training ground (the Phase 1 range, scenes/Range.tscn), dressed with the level kit
+  // (kit/materials.jsonc ids) under the levels' lighting and tree lines. Looks only: ranges/phase1.jsonc
+  // decides what paint hits. The nets, backstop and boards also stop you walking through them.
+  "trainingGround": {
+    // The lane, its photo tinted a little greener than the scrub round it, and the gravel behind the
+    // firing line where you stand; the paint of the lines across the lane and of the firing line.
+    "field": "grass_dry",
+    "fieldTint": "#d9e3b6",
+    "firingPoint": "gravel",
+    "lineColor": "#e6e2d4",
+    "firingLineColor": "#e0b22c",
+    // Netting down both sides, on posts with a cable sagging along their tops. The netting is painted at
+    // load: squares mesh_m across, the twine covering this share of each side, so far off it's a haze.
+    "nets": {
+      "height_m": 6.0,
+      "postSpacing_m": 6.0,
+      "postRadius_m": 0.045,
+      "posts": "steel_galvanised",
+      "color": "#20261f",
+      "mesh_m": 0.05,
+      "twine": 0.1,
+      "sag_m": 0.14
+    },
+    // The far end: a wall of boards on posts, reaching overhang_m past each side of the lane, an earth
+    // bank behind it with grass on top rising bankRise_m above it, and netting on poles up to netHeight_m.
+    "backstop": {
+      "boards": "wood_planks",
+      "posts": "wood_planks",
+      "bank": "dirt",
+      "bankTop": "grass_dry",
+      "height_m": 3.4,
+      "bankRise_m": 0.9,
+      "bankDepth_m": 7.0,
+      "netHeight_m": 9.0,
+      "overhang_m": 6.0
+    },
+    // Distance boards on posts down the left of the lane, at the range's labelled distances: the nearest
+    // width_m[0] across, the farthest width_m[1], so they read from the firing line.
+    "boards": { "board": "enamel_white", "posts": "wood_planks", "textColor": "#232320", "width_m": [0.75, 2.2] },
+    // A lean-to shelter behind the firing point, open to the lane: timber frame, corrugated roof falling
+    // to the back, boarded back wall with a bench, a table with pods and a tank. position_m is its
+    // middle [x, z] (the firing line is z = 0).
+    "hut": { "position_m": [-8, 10.5], "width_m": 7.5, "depth_m": 3.0, "height_m": 2.7, "frame": "wood_planks", "roof": "corrugated_grey", "boards": "wood_pallet" },
+    // The inflatable bunkers: this fabric in each prop's colour (ranges/phase1.jsonc), seams a shade
+    // darker, tethered to pegs; thin board props are this board on stakes.
+    "inflatable": "nylon",
+    "tethers": "sandbag",
+    "panel": "hardboard",
+    "stakes": "wood_planks",
+    // The target dummies: a padded body on a tyre filled with concrete (or a trolley on rails, if it
+    // moves), a head in a mask. They flash this colour when hit.
+    "dummy": {
+      "body": "nylon", "bodyColor": "#e8e2d0", "straps": "plastic_black",
+      "head": "nylon", "headColor": "#8d877c", "mask": "plastic_black", "lens": "glass_dirty",
+      "base": "tyre_rubber", "fill": "concrete_floor",
+      "flashColor": "#ff5a1a"
+    },
+    "rails": "steel_rust",
+    "sleepers": "wood_planks",
+    // Years of practice: shots from the firing line at the targets (landing round and behind them), the
+    // bunkers and the backstop. Same keys as "oldPaint"; the props list doesn't apply here.
+    "oldPaint": {
+      "count": 900,
+      "range_m": 120,
+      "spread_m": 0.5,
+      "size_m": [0.3, 0.9],
+      "colors": ["#e8508e", "#f08a2a", "#e6c43a", "#7cc44a", "#3e8ee8", "#9a5ad6", "#ece8dc"],
+      "fade": [0.05, 0.5],
+      "opacity": [0.65, 0.95],
+      "props": {},
+      "fadeStart_m": 90,
+      "fadeEnd_m": 140
+    },
+    // The same on each dummy, aimed at it: small splats, as a flat card has to lie on its round body.
+    "dummyPaint": {
+      "count": 45,
+      "range_m": 120,
+      "spread_m": 0.12,
+      "size_m": [0.1, 0.26],
+      "colors": ["#e8508e", "#f08a2a", "#e6c43a", "#7cc44a", "#3e8ee8", "#9a5ad6", "#ece8dc"],
+      "fade": [0.05, 0.45],
+      "opacity": [0.7, 0.95],
+      "props": {},
+      "fadeStart_m": 45,
+      "fadeEnd_m": 75
+    },
+    // Out beyond it: a power line across the skyline past the backstop, telegraph poles down the track
+    // to the right. Plan [x, z] with the firing line at z = 0 and the lane running to −z.
+    "scenery": {
+      "powerLines": [ { "points_m": [[-520, -330], [-90, -290], [520, -260]], "spacing_m": 230, "height_m": 28, "material": "steel_galvanised", "wire": "steel_painted" } ],
+      "poleLines": [ { "points_m": [[44, 70], [48, -140], [60, -420]], "spacing_m": 42, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" } ]
+    }
+  },
+
   // Ivy and dead vines climbing the outside walls: patches standing on the ground against walls of
   // these materials, under the open sky, each with wall behind it all the way up and across (none
   // climbs over a window or round a corner). Painted at load; seeded by the level id.

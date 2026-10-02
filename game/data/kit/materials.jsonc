@@ -52,6 +52,12 @@
     { "id": "tyre_rubber", "surface": "rubber", "color": "#202020", "pattern": "rubber", "tile_m": 0.5, "roughness": 0.95, "weathering": 0.40 },
     { "id": "tarp_green", "surface": "tarp", "color": "#3d4a33", "pattern": "tarp", "tile_m": 1.5, "roughness": 0.90, "weathering": 0.50 },
     { "id": "sandbag", "surface": "tarp", "color": "#8c7b5c", "pattern": "tarp", "tile_m": 0.6, "roughness": 0.95, "weathering": 0.40 },
-    { "id": "glass_dirty", "surface": "glass", "color": "#9fb0b0", "pattern": "glass", "tile_m": 1.0, "roughness": 0.15, "weathering": 0.60, "alpha": 0.35 }
+    { "id": "glass_dirty", "surface": "glass", "color": "#9fb0b0", "pattern": "glass", "tile_m": 1.0, "roughness": 0.15, "weathering": 0.60, "alpha": 0.35 },
+
+    // The training ground (drawn, no photos): the inflatable bunkers' fabric, which the game draws in
+    // each bunker's colour, the dummies' masks, and thin hardboard boards.
+    { "id": "nylon", "surface": "inflatable", "color": "#d6d4ce", "pattern": "tarp", "tile_m": 0.6, "roughness": 0.5, "weathering": 0.25 },
+    { "id": "plastic_black", "surface": "rubber", "color": "#1c1d20", "pattern": "plain", "tile_m": 1.0, "roughness": 0.35, "weathering": 0.1 },
+    { "id": "hardboard", "surface": "panel", "color": "#c8b28a", "pattern": "wood", "tile_m": 0.4, "roughness": 0.85, "weathering": 0.3 }
   ]
 }

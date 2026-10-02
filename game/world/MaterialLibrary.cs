@@ -7,13 +7,17 @@ using Pb.Sim.Level;
 namespace Pb.Game.World;
 
 /// <summary>
-/// One Godot material per kit material. Opaque materials use weathered.gdshader, which draws a
-/// procedural pattern (concrete, brick, corrugated metal…) plus grime until a texture is supplied
-/// in kit/materials.jsonc; see-through materials (alpha &lt; 1) use a plain transparent material.
+/// One Godot material per kit material, made the first time it's asked for (so its textures only load
+/// if something uses it). Opaque materials use weathered.gdshader, which draws a procedural pattern
+/// (concrete, brick, corrugated metal…) plus grime until a texture is supplied in
+/// kit/materials.jsonc; see-through materials (alpha &lt; 1) use a plain transparent material.
 /// </summary>
 public sealed class MaterialLibrary
 {
+    private readonly Dictionary<int, MaterialDef> _defs = new();
+    private readonly Dictionary<string, int> _ids = new(System.StringComparer.Ordinal);
     private readonly Dictionary<int, Material> _materials = new();
+    private readonly Dictionary<(int Index, Color Color), Material> _recoloured = new();
     private readonly Shader _shader;
 
     public MaterialLibrary(IReadOnlyList<KitMaterial> materials)
@@ -21,13 +25,54 @@ public sealed class MaterialLibrary
         _shader = GD.Load<Shader>("res://shaders/weathered.gdshader");
         foreach (KitMaterial m in materials)
         {
-            _materials[m.Index] = Create(m.Def);
+            _defs[m.Index] = m.Def;
+            _ids[m.Id] = m.Index;
         }
     }
 
-    public Material this[int index] => _materials[index];
+    public Material this[int index]
+    {
+        get
+        {
+            if (!_materials.TryGetValue(index, out Material? material))
+            {
+                material = Create(_defs[index]);
+                _materials[index] = material;
+            }
 
-    public bool IsTransparent(int index) => _materials[index] is StandardMaterial3D;
+            return material;
+        }
+    }
+
+    public bool IsTransparent(int index) => this[index] is StandardMaterial3D;
+
+    /// <summary>The index of the kit material with this id, or −1.</summary>
+    public int Find(string id) => _ids.TryGetValue(id, out int index) ? index : -1;
+
+    /// <summary>
+    /// The material in another colour: its procedural base colour replaced, or its photo tinted.
+    /// Made once per colour.
+    /// </summary>
+    public Material Recoloured(int index, Color color)
+    {
+        if (_recoloured.TryGetValue((index, color), out Material? material))
+        {
+            return material;
+        }
+
+        material = (Material)this[index].Duplicate();
+        if (material is ShaderMaterial shader)
+        {
+            shader.SetShaderParameter(shader.GetShaderParameter("use_textures").AsBool() ? "texture_tint" : "base_color", color);
+        }
+        else if (material is StandardMaterial3D standard)
+        {
+            standard.AlbedoColor = new Color(color, standard.AlbedoColor.A);
+        }
+
+        _recoloured[(index, color)] = material;
+        return material;
+    }
 
     private Material Create(MaterialDef def)
     {

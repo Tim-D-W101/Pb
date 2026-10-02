@@ -484,9 +484,14 @@ public sealed class RangeDef : IValidatable
 
     public PropDef[] Props { get; set; } = Array.Empty<PropDef>();
 
+    /// <summary>Camera viewpoints for the game's screenshot tour (looks only), as a level's.</summary>
+    [Optional]
+    public ViewpointDef[]? Viewpoints { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
+        LevelDefChecks.Items(v, nameof(Viewpoints), Viewpoints);
         Ground.Validate(v.Scope(nameof(Ground)));
         Boundary.Validate(v.Scope(nameof(Boundary)));
         Spawn.Validate(v.Scope(nameof(Spawn)));

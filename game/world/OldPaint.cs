@@ -31,14 +31,24 @@ public partial class OldPaint : Node3D
 
     public int SplatCount { get; private set; }
 
-    public void Build(LevelLayout level, CollisionWorld world, IReadOnlyList<CoverPoint> cover, OldPaintDef def)
+    public void Build(LevelLayout level, CollisionWorld world, IReadOnlyList<CoverPoint> cover, OldPaintDef def) =>
+        Build(level.Id, world, def, random => cover.Count > 1 ? Aim(cover, def, random) : null);
+
+    /// <summary>
+    /// Old paint from shots chosen another way (the training ground's, from its firing line):
+    /// <paramref name="shot"/> gives where each was fired from and what at, or null for none; it strays
+    /// round its mark by the def's spread and the paint goes where it lands. Seeded by <paramref name="place"/>;
+    /// its splats are painted from <paramref name="atlas"/>'s seed (the place's by default), so several
+    /// sets of old paint in one place can share them.
+    /// </summary>
+    public void Build(string place, CollisionWorld world, OldPaintDef def, Func<Random, (SVector3 Eye, SVector3 Aim)?> shot, string? atlas = null)
     {
         foreach (Node child in GetChildren())
         {
             child.QueueFree();
         }
 
-        uint seed = (uint)LevelBuilder.StableHash(level.Id) ^ 0x01D7A1u;
+        uint seed = (uint)LevelBuilder.StableHash(place) ^ 0x01D7A1u;
         var random = new Random((int)(seed & 0x7fffffff));
         var colors = new List<Color>();
         foreach (string c in def.Colors)
@@ -48,10 +58,16 @@ public partial class OldPaint : Node3D
 
         var cards = new List<Card>();
         int shots = 0;
-        while (cards.Count < def.Count && shots < def.Count * 8 && cover.Count > 1)
+        while (cards.Count < def.Count && shots < def.Count * 8)
         {
             shots++;
-            if (Shot(world, cover, def, random) is not { } hit)
+            if (shot(random) is not { } ray)
+            {
+                continue;
+            }
+
+            SVector3 aim = ray.Aim + new SVector3(Gauss(random) * def.Spread_m, Gauss(random) * def.Spread_m * 0.6f, Gauss(random) * def.Spread_m);
+            if (Land(world, ray.Eye, aim, def) is not { } hit)
             {
                 continue;
             }
@@ -81,14 +97,15 @@ public partial class OldPaint : Node3D
             return;
         }
 
-        if (!Atlases.TryGetValue(seed, out ImageTexture? atlas))
+        uint atlasSeed = atlas is null ? seed : (uint)LevelBuilder.StableHash(atlas) ^ 0x01D7A1u;
+        if (!Atlases.TryGetValue(atlasSeed, out ImageTexture? splats))
         {
-            atlas = new SplatPainter(seed).Paint();
-            Atlases[seed] = atlas;
+            splats = new SplatPainter(atlasSeed).Paint();
+            Atlases[atlasSeed] = splats;
         }
 
         var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/old_paint.gdshader") };
-        material.SetShaderParameter("atlas", atlas);
+        material.SetShaderParameter("atlas", splats);
         material.SetShaderParameter("columns", (float)SplatPainter.Columns);
         material.SetShaderParameter("fade_start", def.FadeStart_m);
         material.SetShaderParameter("fade_end", def.FadeEnd_m);
@@ -118,10 +135,10 @@ public partial class OldPaint : Node3D
     }
 
     /// <summary>
-    /// One shot from a cover point at another facing it across their cover: where it lands, if that's
-    /// somewhere paint shows (a wall, a column, the ground or a listed prop) far enough from the shooter.
+    /// One shot from a cover point at another facing it across their cover: from the shooter's eye at
+    /// whatever of the other shows, or null if no pair turns up.
     /// </summary>
-    private static Hit? Shot(CollisionWorld world, IReadOnlyList<CoverPoint> cover, OldPaintDef def, Random random)
+    private static (SVector3 Eye, SVector3 Aim)? Aim(IReadOnlyList<CoverPoint> cover, OldPaintDef def, Random random)
     {
         CoverPoint from = cover[random.Next(cover.Count)];
         for (int tries = 0; tries < 24; tries++)
@@ -144,32 +161,40 @@ public partial class OldPaint : Node3D
             // Standing or crouched, at whatever of the other shows: a head round an edge, a body over a wall, legs.
             SVector3 eye = Peek(from, 0.55f) + new SVector3(0f, R(random, 1.0f, 1.55f), 0f);
             SVector3 aim = Peek(to, 0.45f) + new SVector3(0f, R(random, 0.35f, to.Height == CoverHeight.Full ? 1.6f : 1.35f), 0f);
-            aim += new SVector3(Gauss(random) * def.Spread_m, Gauss(random) * def.Spread_m * 0.6f, Gauss(random) * def.Spread_m);
-            SVector3 ray = aim - eye;
-            float length = ray.Length();
-            SVector3 end = eye + ray / length * (length + 3f);
-            if (!world.SweepSphere(eye, end, 0f, out SweepHit hit) || hit.T * (length + 3f) < MinDistance)
-            {
-                return null;
-            }
-
-            float inset = 0f;
-            string name = world.Colliders[hit.ColliderId].Name;
-            int prop = name.IndexOf("prop:", StringComparison.Ordinal);
-            if (prop >= 0)
-            {
-                int hash = name.IndexOf('#', prop);
-                string type = hash > prop ? name[(prop + 5)..hash] : name[(prop + 5)..];
-                if (!def.Props.TryGetValue(type, out inset))
-                {
-                    return null;
-                }
-            }
-
-            return new Hit(hit.Point.ToGodot(), hit.Normal.ToGodot().Normalized(), hit.ColliderId, inset);
+            return (eye, aim);
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Where a shot from <paramref name="eye"/> at <paramref name="aim"/> lands, if that's somewhere paint
+    /// shows (a wall, a column, the ground or a listed prop) far enough from the shooter.
+    /// </summary>
+    private static Hit? Land(CollisionWorld world, SVector3 eye, SVector3 aim, OldPaintDef def)
+    {
+        SVector3 ray = aim - eye;
+        float length = ray.Length();
+        SVector3 end = eye + ray / length * (length + 3f);
+        if (!world.SweepSphere(eye, end, 0f, out SweepHit hit) || hit.T * (length + 3f) < MinDistance)
+        {
+            return null;
+        }
+
+        float inset = 0f;
+        string name = world.Colliders[hit.ColliderId].Name;
+        int prop = name.IndexOf("prop:", StringComparison.Ordinal);
+        if (prop >= 0)
+        {
+            int hash = name.IndexOf('#', prop);
+            string type = hash > prop ? name[(prop + 5)..hash] : name[(prop + 5)..];
+            if (!def.Props.TryGetValue(type, out inset))
+            {
+                return null;
+            }
+        }
+
+        return new Hit(hit.Point.ToGodot(), hit.Normal.ToGodot().Normalized(), hit.ColliderId, inset);
     }
 
     /// <summary>Where a cover point's owner shows themselves: round its edge if it has one, else where they stand.</summary>

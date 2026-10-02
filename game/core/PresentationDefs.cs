@@ -48,6 +48,8 @@ public sealed class PresentationDef : IValidatable
 
     public MenuBackdropDef MenuBackdrop { get; set; } = new();
 
+    public TrainingGroundDef TrainingGround { get; set; } = new();
+
     public ShaftsDef Shafts { get; set; } = new();
 
     public DustDef Dust { get; set; } = new();
@@ -94,6 +96,7 @@ public sealed class PresentationDef : IValidatable
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
+        TrainingGround.Validate(v.Scope(nameof(TrainingGround)));
         Shafts.Validate(v.Scope(nameof(Shafts)));
         Dust.Validate(v.Scope(nameof(Dust)));
         WindowLight.Validate(v.Scope(nameof(WindowLight)));
@@ -1356,5 +1359,278 @@ public sealed class GroundDetailKindDef : IValidatable
         v.InRange(nameof(NearShare), NearShare, 0, 1);
         v.InRange(nameof(EdgeShare), EdgeShare, 0, 1);
         v.InRange(nameof(Opacity), Opacity, 0, 1);
+    }
+}
+
+/// <summary>
+/// The training ground (scenes/Range.tscn, the Phase 1 range) dressed with the level kit's materials
+/// (kit/materials.jsonc ids, checked when it's built) under the levels' lighting and tree lines
+/// (game/world/RangeBuilder.cs). Presentation only: ranges/phase1.jsonc decides what paint hits.
+/// </summary>
+public sealed class TrainingGroundDef : IValidatable
+{
+    /// <summary>The lane from the firing line to the backstop, and a tint multiplied with its photo.</summary>
+    public string Field { get; set; } = "";
+
+    public string FieldTint { get; set; } = "";
+
+    /// <summary>The strip behind the firing line where shooters stand.</summary>
+    public string FiringPoint { get; set; } = "";
+
+    /// <summary>Paint of the distance lines and of the firing line.</summary>
+    public string LineColor { get; set; } = "";
+
+    public string FiringLineColor { get; set; } = "";
+
+    public RangeNetsDef Nets { get; set; } = new();
+
+    public BackstopDef Backstop { get; set; } = new();
+
+    public DistanceBoardsDef Boards { get; set; } = new();
+
+    public RangeHutDef Hut { get; set; } = new();
+
+    /// <summary>The inflatable bunkers' fabric, drawn in each prop's colour, with seams a shade darker.</summary>
+    public string Inflatable { get; set; } = "";
+
+    /// <summary>Their tethers and the pegs holding them down.</summary>
+    public string Tethers { get; set; } = "";
+
+    /// <summary>Thin board props (surface "panel"), drawn in the prop's colour, and the stakes behind them.</summary>
+    public string Panel { get; set; } = "";
+
+    public string Stakes { get; set; } = "";
+
+    public DummyViewDef Dummy { get; set; } = new();
+
+    /// <summary>The track a moving target runs on: rails and sleepers.</summary>
+    public string Rails { get; set; } = "";
+
+    public string Sleepers { get; set; } = "";
+
+    /// <summary>
+    /// Old paint from earlier practice: shots from the firing line at the targets, the bunkers and the
+    /// backstop, laid where they'd land (game/world/OldPaint.cs). Its props list is unused here.
+    /// </summary>
+    public OldPaintDef OldPaint { get; set; } = new();
+
+    /// <summary>Old paint on each dummy: shots from the firing line at it, in its own frame so a moving one carries its paint.</summary>
+    public OldPaintDef DummyPaint { get; set; } = new();
+
+    /// <summary>Power lines and telegraph poles out beyond it, as a level's "scenery" (plan [x, z] round the lane).</summary>
+    [Optional]
+    public Pb.Sim.Data.SceneryDef? Scenery { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Field), Field);
+        Colour(v, nameof(FieldTint), FieldTint);
+        v.NotEmpty(nameof(FiringPoint), FiringPoint);
+        Colour(v, nameof(LineColor), LineColor);
+        Colour(v, nameof(FiringLineColor), FiringLineColor);
+        Nets.Validate(v.Scope(nameof(Nets)));
+        Backstop.Validate(v.Scope(nameof(Backstop)));
+        Boards.Validate(v.Scope(nameof(Boards)));
+        Hut.Validate(v.Scope(nameof(Hut)));
+        v.NotEmpty(nameof(Inflatable), Inflatable);
+        v.NotEmpty(nameof(Tethers), Tethers);
+        v.NotEmpty(nameof(Panel), Panel);
+        v.NotEmpty(nameof(Stakes), Stakes);
+        Dummy.Validate(v.Scope(nameof(Dummy)));
+        v.NotEmpty(nameof(Rails), Rails);
+        v.NotEmpty(nameof(Sleepers), Sleepers);
+        OldPaint.Validate(v.Scope(nameof(OldPaint)));
+        DummyPaint.Validate(v.Scope(nameof(DummyPaint)));
+        Scenery?.Validate(v.Scope(nameof(Scenery)));
+    }
+
+    internal static void Colour(Validator v, string name, string value)
+    {
+        if (!Godot.Color.HtmlIsValid(value))
+        {
+            v.Error(name, $"'{value}' is not a valid colour");
+        }
+    }
+}
+
+/// <summary>Netting down both sides of the lane, on posts with a cable along the top.</summary>
+public sealed class RangeNetsDef : IValidatable
+{
+    public float Height_m { get; set; }
+
+    public float PostSpacing_m { get; set; }
+
+    public float PostRadius_m { get; set; }
+
+    public string Posts { get; set; } = "";
+
+    /// <summary>The twine's colour, the size of the netting's square mesh, and how much of each square's side the twine covers.</summary>
+    public string Color { get; set; } = "";
+
+    public float Mesh_m { get; set; }
+
+    public float Twine { get; set; }
+
+    /// <summary>How far the top cable sags between posts.</summary>
+    public float Sag_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Height_m), Height_m, 1, 30);
+        v.InRange(nameof(PostSpacing_m), PostSpacing_m, 1, 30);
+        v.InRange(nameof(PostRadius_m), PostRadius_m, 0.01, 0.5);
+        v.NotEmpty(nameof(Posts), Posts);
+        TrainingGroundDef.Colour(v, nameof(Color), Color);
+        v.InRange(nameof(Mesh_m), Mesh_m, 0.01, 0.5);
+        v.InRange(nameof(Twine), Twine, 0.03, 0.5);
+        v.InRange(nameof(Sag_m), Sag_m, 0, 2);
+    }
+}
+
+/// <summary>
+/// The far end: a wall of boards on posts reaching past each side of the lane, an earth bank behind it
+/// rising a little above it, and netting on poles above that.
+/// </summary>
+public sealed class BackstopDef : IValidatable
+{
+    public string Boards { get; set; } = "";
+
+    public string Posts { get; set; } = "";
+
+    public string Bank { get; set; } = "";
+
+    /// <summary>The grass on top of the bank.</summary>
+    public string BankTop { get; set; } = "";
+
+    public float Height_m { get; set; }
+
+    /// <summary>How far the bank's crest rises above the wall, and how far back its far foot is.</summary>
+    public float BankRise_m { get; set; }
+
+    public float BankDepth_m { get; set; }
+
+    /// <summary>The netting above reaches this high.</summary>
+    public float NetHeight_m { get; set; }
+
+    /// <summary>How far it reaches past each side of the lane.</summary>
+    public float Overhang_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Boards), Boards);
+        v.NotEmpty(nameof(Posts), Posts);
+        v.NotEmpty(nameof(Bank), Bank);
+        v.NotEmpty(nameof(BankTop), BankTop);
+        v.InRange(nameof(Height_m), Height_m, 1, 10);
+        v.InRange(nameof(BankRise_m), BankRise_m, 0, 10);
+        v.InRange(nameof(BankDepth_m), BankDepth_m, 1, 40);
+        v.InRange(nameof(NetHeight_m), NetHeight_m, Height_m, 40);
+        v.InRange(nameof(Overhang_m), Overhang_m, 0, 50);
+    }
+}
+
+/// <summary>
+/// Boards on posts along the left of the lane at the labelled distances, bigger further out so they
+/// read from the firing line: the nearest is width_m[0] across, the farthest width_m[1].
+/// </summary>
+public sealed class DistanceBoardsDef : IValidatable
+{
+    public string Board { get; set; } = "";
+
+    public string Posts { get; set; } = "";
+
+    public string TextColor { get; set; } = "";
+
+    public float[] Width_m { get; set; } = System.Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Board), Board);
+        v.NotEmpty(nameof(Posts), Posts);
+        TrainingGroundDef.Colour(v, nameof(TextColor), TextColor);
+        if (Width_m.Length != 2 || !(Width_m[0] >= 0.2f && Width_m[0] <= Width_m[1] && Width_m[1] <= 5f))
+        {
+            v.Error(nameof(Width_m), "must be [nearest, farthest] within [0.2, 5]");
+        }
+    }
+}
+
+/// <summary>
+/// A lean-to shelter behind the firing point, its open front to the lane: a timber frame, a corrugated
+/// roof sloping to the back, a boarded back wall with a bench along it, and a table with pods and a tank
+/// on it. position_m is its middle [x, z]; it stops you walking through its walls, bench and table.
+/// </summary>
+public sealed class RangeHutDef : IValidatable
+{
+    public float[] Position_m { get; set; } = System.Array.Empty<float>();
+
+    public float Width_m { get; set; }
+
+    public float Depth_m { get; set; }
+
+    /// <summary>Its front's height; the roof falls half a metre to the back.</summary>
+    public float Height_m { get; set; }
+
+    public string Frame { get; set; } = "";
+
+    public string Roof { get; set; } = "";
+
+    public string Boards { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        if (Position_m.Length != 2)
+        {
+            v.Error(nameof(Position_m), "must be [x, z]");
+        }
+
+        v.InRange(nameof(Width_m), Width_m, 3, 30);
+        v.InRange(nameof(Depth_m), Depth_m, 1.5, 10);
+        v.InRange(nameof(Height_m), Height_m, 2.2, 5);
+        v.NotEmpty(nameof(Frame), Frame);
+        v.NotEmpty(nameof(Roof), Roof);
+        v.NotEmpty(nameof(Boards), Boards);
+    }
+}
+
+/// <summary>
+/// The target dummies: a padded body round their hitbox's capsule on a post in a weighted tyre, and a
+/// head in a mask where their mask sphere is. They flash this colour when hit.
+/// </summary>
+public sealed class DummyViewDef : IValidatable
+{
+    public string Body { get; set; } = "";
+
+    public string BodyColor { get; set; } = "";
+
+    public string Straps { get; set; } = "";
+
+    public string Head { get; set; } = "";
+
+    public string HeadColor { get; set; } = "";
+
+    public string Mask { get; set; } = "";
+
+    public string Lens { get; set; } = "";
+
+    public string Base { get; set; } = "";
+
+    /// <summary>What the tyre is filled with.</summary>
+    public string Fill { get; set; } = "";
+
+    public string FlashColor { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Body), Body);
+        TrainingGroundDef.Colour(v, nameof(BodyColor), BodyColor);
+        v.NotEmpty(nameof(Straps), Straps);
+        v.NotEmpty(nameof(Head), Head);
+        TrainingGroundDef.Colour(v, nameof(HeadColor), HeadColor);
+        v.NotEmpty(nameof(Mask), Mask);
+        v.NotEmpty(nameof(Lens), Lens);
+        v.NotEmpty(nameof(Base), Base);
+        v.NotEmpty(nameof(Fill), Fill);
+        TrainingGroundDef.Colour(v, nameof(FlashColor), FlashColor);
     }
 }

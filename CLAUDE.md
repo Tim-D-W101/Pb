@@ -80,13 +80,13 @@ isn't what players see). Godot's Movie Maker writes frames you can inspect:
 # The compound level: hold each of the level's viewpoints for 10 frames, then quit.
 xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan \
   --write-movie /tmp/cap/f.png --fixed-fps 30 res://scenes/Level.tscn -- --shots=10
-# The Phase 1 range: a scripted tour (game/core/DemoTour.cs).
+# The Phase 1 range (the training ground): a scripted tour (game/core/DemoTour.cs), or its viewpoints with --shots.
 xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan \
   --write-movie /tmp/cap/f.png --fixed-fps 30 --quit-after 450 res://scenes/Range.tscn -- --demo
 ```
 
 The main scene is the menu (`scenes/Main.tscn`), so name the scene for anything else. Viewpoints
-live in the level file (`viewpoints`); `--views="x,y,z>tx,ty,tz;…"` (or `x,y,z,yaw,pitch`) replaces them
+live in the level file (`viewpoints`), and the range's in `ranges/phase1.jsonc`; `--views="x,y,z>tx,ty,tz;…"` (or `x,y,z,yaw,pitch`) replaces them
 for close-ups of anything in the level. On `Level.tscn`, through the player's own camera,
 `-- --posture-demo` runs a short scripted shoulder swap / lean / muzzle-in-cover sequence,
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator

@@ -296,7 +296,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             var tour = new ViewpointTour { Name = "ViewpointTour" };
             AddChild(tour);
-            tour.Start(_level, _hud, _player.ViewModel, _view.Camera.FarClip_m);
+            tour.Start(_level.Viewpoints, _hud, _player.ViewModel, _view.Camera.FarClip_m);
         }
         else if (_botMatch)
         {

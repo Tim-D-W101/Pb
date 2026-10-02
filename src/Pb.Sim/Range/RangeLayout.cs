@@ -1,5 +1,6 @@
 using System.Numerics;
 using Pb.Sim.Collision;
+using Pb.Sim.Level;
 
 namespace Pb.Sim.Range;
 
@@ -185,6 +186,9 @@ public sealed class RangeLayout
     public required IReadOnlyList<PropSpec> Props { get; init; }
 
     public required IReadOnlyList<TargetSpec> Targets { get; init; }
+
+    /// <summary>Camera viewpoints for the game's screenshot tour (looks only).</summary>
+    public IReadOnlyList<Viewpoint> Viewpoints { get; init; } = Array.Empty<Viewpoint>();
 
     /// <summary>Balls leaving this box are removed (netted boundary).</summary>
     public Aabb Bounds => new(

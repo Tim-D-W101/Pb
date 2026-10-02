@@ -223,7 +223,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
 ### M2.6 Art pass (Higgsfield)
 
-**In progress.** The parts that needed no downloads came first, while the container couldn't reach Higgsfield's file host. Now that it can, real art is coming in, at up to five generations a day (the account's daily cap). On 2026-10-02 that day's five had already gone on the texture sheets, so the rest of the day's art was built in code: a detail model for every prop, frames and broken glass in the windows, things lying on the ground, a proper first-person marker, gutters and downpipes on the buildings, steel trusses under the warehouse roof, piers and barbed wire on the perimeter wall, pylons and telegraph poles beyond it, ivy on the walls, and old paint from past games on the walls and cover; and the movement clips' playback was built, ready for the walk and run clips. [Screenshots](reports/phase-2/) from `-- --shots` (with `--views=` for close-ups), `-- --duel-demo` and `-- --bot-demo`.
+**In progress.** The parts that needed no downloads came first, while the container couldn't reach Higgsfield's file host. Now that it can, real art is coming in, at up to five generations a day (the account's daily cap). On 2026-10-02 that day's five had already gone on the texture sheets, so the rest of the day's art was built in code: a detail model for every prop, frames and broken glass in the windows, things lying on the ground, a proper first-person marker, gutters and downpipes on the buildings, steel trusses under the warehouse roof, piers and barbed wire on the perimeter wall, pylons and telegraph poles beyond it, ivy on the walls, and old paint from past games on the walls and cover; the training ground was dressed to match; and the movement clips' playback was built, ready for the walk and run clips. [Screenshots](reports/phase-2/) from `-- --shots` (with `--views=` for close-ups), `-- --duel-demo` and `-- --bot-demo`.
 
 - [x] Import pipeline (`tools/art/import.sh`, which runs `game/tools/ArtImport` headless). It has brought in 20 materials, the oil drum and the first opponent. Its steps:
   - pull a finished Higgsfield job, make textures tileable, derive normal and roughness maps, and resize;
@@ -292,6 +292,18 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
 
   Measured over the level's viewpoints under software rendering, the day's art had made frames about 22% dearer; indexing the meshes built in code and giving them generated levels of detail brought that to about 10%. The afternoon's additions (old paint, the wall's dressing, gutters, trusses, fittings and the scenery, about 176,000 triangles built in code in all) add about 3% more, most of it looking across the warehouse under its trusses (11% on that view). Only the owner's hardware can say what that means for the 60 fps target.
 - [x] **The compound behind the main menu** (2026-10-02, `presentation.jsonc` → `"menuBackdrop"`): instead of a flat dark wash, the menu sits over Oxbarrow Works itself (buildings, props, weeds, things on the ground, ivy, the level's light, at the saved graphics preset), seen from a camera drifting slowly among the containers and back, under a shade that's darkest on the left where the panels are. It's built a piece a frame after the menu first shows and then fades in, so the menu never waits for it; CI's headless runs skip it ([screenshot](reports/phase-2/m2.6-31-menu-backdrop.jpg)).
+- [x] **The training ground dressed** (2026-10-02, `presentation.jsonc` → `"trainingGround"`, `game/world/RangeBuilder.cs` and `RangeShapes.cs`). The Phase 1 range behind the menu's **Training ground** was still greybox: flat green turf, primitive props, a plain sky, a grey box at the end. Now it has:
+  - the levels' sky, sun and tree lines, and the kit's photographic dry grass for the lane, with painted lines across it and gravel behind the firing line;
+  - netting down both sides on galvanised posts, a cable sagging along their tops (the netting is painted at load, so far off it thins to a haze);
+  - a timber backstop reaching past the lane, a grassy earth bank behind it and netting on tall poles above;
+  - distance boards on posts, bigger further out so they read from the firing line;
+  - the inflatable bunkers built in code over their colliders, in their own colours: rounded, seamed, tethered to pegs. The thin board stands on stakes;
+  - dummies padded round their hitbox in paintball masks, on tyres filled with concrete. The runner rides a trolley on rails. The targets now face the firing line (`yaw_deg` 180; their hitboxes are round, so nothing they're hit by changes);
+  - old paint on the backstop, the bunkers, the ground round the targets and the dummies themselves (the runner carries its own);
+  - a shelter behind the firing point (timber frame, corrugated roof, a bench, a table with pods and a tank);
+  - pylons and telegraph poles beyond.
+
+  The nets, backstop, boards and shelter stop you walking off the lane; what paint hits is still decided by `ranges/phase1.jsonc`, unchanged. Graphics presets now apply there too. The range gained `"viewpoints"`, so `-- --shots` tours it as it does a level. [Screenshots](reports/phase-2/): m2.6-32 to m2.6-37.
 - [x] Everything falls back when an asset is missing, so the game and CI never depend on the art: materials to the procedural look, props to their shapes built in code (then greybox), opponents to their hitbox boxes. CI's bot match runs with `--no-art` to keep the fallbacks working.
 
 ### M2.7 HUD

@@ -7,7 +7,7 @@ using Pb.Sim.Level;
 namespace Pb.Game.Core;
 
 /// <summary>
-/// <c>-- --shots</c>: shows each of the level's viewpoints in turn through a free camera, then quits.
+/// <c>-- --shots</c>: shows each of the level's (or the training ground's) viewpoints in turn through a free camera, then quits.
 /// Run with Godot's <c>--write-movie</c> and <c>--fixed-fps</c> to capture screenshots; frames are
 /// counted, so the result is the same at any rendering speed. Without <c>--write-movie</c>, each view's
 /// average frame time is printed too (after a few frames to settle), for comparing presets with
@@ -21,18 +21,16 @@ public partial class ViewpointTour : Node
     private int _framesPerView = 40;
 
     private Camera3D _camera = null!;
-    private LevelLayout _level = null!;
-    private IReadOnlyList<Viewpoint> _views = null!;
+    private IReadOnlyList<Viewpoint>? _views;
     private int _frame;
     private ulong _lastUsec;
     private double _viewUsec;
     private int _viewFrames;
     private const int SettleFrames = 3;
 
-    public void Start(LevelLayout level, Hud hud, Node3D viewModel, float farClip)
+    public void Start(IReadOnlyList<Viewpoint> viewpoints, Hud hud, Node3D viewModel, float farClip)
     {
-        _level = level;
-        _views = Args.Value("--views") is { } custom ? ParseViews(custom) : level.Viewpoints;
+        _views = Args.Value("--views") is { } custom ? ParseViews(custom) : viewpoints;
         _framesPerView = Args.Ticks("--shots", 40) ?? 40;
         hud.Visible = false;
         viewModel.Visible = false; // drawn with its own projection, so it would show through any camera
@@ -44,7 +42,7 @@ public partial class ViewpointTour : Node
 
     public override void _Process(double delta)
     {
-        if (_level is null)
+        if (_views is null)
         {
             return;
         }

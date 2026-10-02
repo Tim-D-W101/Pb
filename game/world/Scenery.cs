@@ -22,14 +22,18 @@ public static class Scenery
     /// Adds the level's scenery to <paramref name="meshFor"/> (the mesh for a world position);
     /// <paramref name="material"/> resolves a kit material id. Returns how many towers and poles were built.
     /// </summary>
-    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor)
+    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor) =>
+        Build(level.Scenery, level.Id, material, meshFor);
+
+    /// <summary>The same for scenery round somewhere else (the training ground), varied by <paramref name="place"/>.</summary>
+    public static int Build(SceneryDef? scenery, string place, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor)
     {
-        if (level.Scenery is not { } scenery)
+        if (scenery is null)
         {
             return 0;
         }
 
-        var random = new Random(LevelBuilder.StableHash(level.Id) ^ 0x5CE7E);
+        var random = new Random(LevelBuilder.StableHash(place) ^ 0x5CE7E);
         int built = 0;
         foreach (LineDef line in scenery.PowerLines ?? Array.Empty<LineDef>())
         {

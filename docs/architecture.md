@@ -397,7 +397,14 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **Creepers** (`Creepers`, as built). Ivy cards (`CreeperPainter`, four variants) stand on the ground against the faces of ground-level wall boxes of the listed materials, under the open sky; sweeps at six points over each card check there's wall behind it all the way. Alpha-cut, one MultiMesh (`creepers.gdshader`), seeded by the level id.
 - **Menu backdrop** (`MenuBackdrop`, as built). The main menu builds a level's looks (no sim) behind its panels, a piece a frame after the menu shows, at the saved preset, with a camera drifting between two points (`presentation.jsonc` → `menuBackdrop`), then fades it in under a shade.
 - **Old paint** (`OldPaint`, as built). Faded splats from past games where people would have shot from cover: at load, shots are cast from the bots' cover points (`CoverSet`) at others facing them across their cover, at random heights round where the other would peek, and where one lands on a wall, a column, the ground or a prop listed in `presentation.jsonc` → `oldPaint.props` (each with how far its shape sits inside its colliders), a card is laid on the surface if all four of its corners land on the same plane. `SplatPainter` paints the 4 × 4 atlas (eight shapes with drips for walls, eight without for the ground); the cards are one MultiMesh with `old_paint.gdshader`, coloured per card. Seeded by the level id.
-- **Material tint.** A material can multiply its photo by a colour (`"tint"`), so one photo serves several materials (the burnt car's rust from the rusted-steel photo).
+- **Material tint.** A material can multiply its photo by a colour (`"tint"`), so one photo serves several materials (the burnt car's rust from the rusted-steel photo). `MaterialLibrary` makes each material the first time it's asked for, and can recolour one (`Recoloured`: the procedural base colour, or the photo's tint), which the training ground uses for each bunker's colour.
+- **Training ground** (`RangeBuilder`, `RangeShapes`, as built). The Phase 1 range is dressed with the same kit, under the same `lighting` and `horizon`, from `presentation.jsonc` → `trainingGround`:
+  - kit materials for the lane, the firing point, nets, backstop, boards and shelter;
+  - each inflatable bunker built over its `PropSpec` collider and the dummy built round each target kind's hitbox parts;
+  - old paint cast from the firing line (`OldPaint` takes any shot source; each dummy carries its own, cast in its frame);
+  - scenery as a level's.
+
+  The nets, backstop, boards and shelter get walking collision only; the sim's range is unchanged.
 - **Culling:**
   - occluders generated from walls and slabs;
   - `visibility_range` on small props and weed squares;
