@@ -179,6 +179,10 @@ public sealed class KitCatalog
     private static void CheckBuilding(BuildingDef b, Dictionary<string, KitMaterial> materials, Dictionary<string, PropType> props, Validator v)
     {
         ResolveMaterial(materials, v, nameof(BuildingDef.FloorMaterial), b.FloorMaterial);
+        if (b.Frames is not null)
+        {
+            ResolveMaterial(materials, v, nameof(BuildingDef.Frames), b.Frames);
+        }
         for (int i = 0; i < b.Walls.Length; i++)
         {
             WallDef w = b.Walls[i];

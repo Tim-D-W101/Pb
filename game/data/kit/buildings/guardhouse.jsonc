@@ -8,6 +8,8 @@
   "slabThickness_m": 0.2,
   "footprint_m": [0, 0, 6, 5],
   "floorMaterial": "concrete_floor",
+  // Frames the game draws in the windows and doors (looks only: the openings stay open to paint).
+  "frames": "wood_planks",
   "walls": [
     {
       "storey": 0, "points_m": [[0, 0], [6, 0], [6, 5], [0, 5]], "closed": true,

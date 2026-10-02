@@ -10,6 +10,8 @@
   "slabThickness_m": 0.15,
   "footprint_m": [0, 0, 40, 24],
   "floorMaterial": "concrete_floor",
+  // Frames the game draws in the windows and doors (looks only: the openings stay open to paint).
+  "frames": "steel_painted",
   "walls": [
     {
       "storey": 0, "baseElevation_m": 0, "height_m": 2.4,

@@ -173,7 +173,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         Color teamColor = TeamColor(state.Team);
 
         GraphicsPresetDef preset = _view.Graphics.Find(Args.Value("--preset") ?? _settings.GraphicsPreset);
-        _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon);
+        _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, BuildingFrames);
         var dressWatch = Stopwatch.StartNew();
         _weeds = new WeedField { Name = "Weeds" };
         AddChild(_weeds);
@@ -317,11 +317,19 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
-                 $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.ShapeTriangles} triangles), " +
+                 $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code and {_world.FramedOpenings} framed openings, {_world.ShapeTriangles} triangles), " +
                  $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
                  $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");
         _ready = true;
+    }
+
+    /// <summary>The frame material of the building that owns a window or door ("warehouse#0" → the warehouse's "frames").</summary>
+    private string? BuildingFrames(int owner)
+    {
+        string name = _level.Owners[owner];
+        int hash = name.IndexOf('#');
+        return hash > 0 && _data.Kit.Buildings.TryGetValue(name[..hash], out BuildingTemplate? building) ? building.Def.Frames : null;
     }
 
     public void OnSimEvent(in SimEvent e)

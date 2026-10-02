@@ -264,6 +264,13 @@ public sealed class BuildingDef : IValidatable
 
     public string FloorMaterial { get; set; } = "";
 
+    /// <summary>
+    /// Material of the frames the game draws in this building's windows and doors (presentation
+    /// only: the openings stay open to paint). Omit for bare openings.
+    /// </summary>
+    [Optional]
+    public string? Frames { get; set; }
+
     public WallDef[] Walls { get; set; } = Array.Empty<WallDef>();
 
     [Optional]

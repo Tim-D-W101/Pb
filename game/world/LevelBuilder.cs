@@ -21,6 +21,9 @@ public partial class LevelBuilder : Node3D
     /// <summary>The scrubland around every level is this material.</summary>
     public const string SurroundingsMaterial = "grass_dry";
 
+    /// <summary>What's left of the glass in window frames is this material.</summary>
+    public const string GlassMaterial = "glass_dirty";
+
     /// <summary>Side of the scrubland square around the level (m).</summary>
     private const float SurroundingsSize = 4000f;
 
@@ -35,7 +38,15 @@ public partial class LevelBuilder : Node3D
 
     public int ShapeTriangles { get; private set; }
 
-    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null)
+    /// <summary>How many windows and doors got frames (<see cref="OpeningFrames"/>).</summary>
+    public int FramedOpenings { get; private set; }
+
+    /// <summary>
+    /// Builds the level. <paramref name="framesOf"/> gives the frame material id for the building that
+    /// owns an opening (by owner index), or null for a bare opening.
+    /// </summary>
+    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null,
+        Func<int, string?>? framesOf = null)
     {
         foreach (Node child in GetChildren())
         {
@@ -73,6 +84,15 @@ public partial class LevelBuilder : Node3D
                     missingModels.Add(i);
                 }
             }
+        }
+
+        FramedOpenings = 0;
+        if (framesOf is not null)
+        {
+            int glass = materialIds.TryGetValue(GlassMaterial, out int g) ? g : -1;
+            FramedOpenings = OpeningFrames.Build(level,
+                owner => framesOf(owner) is { } id && materialIds.TryGetValue(id, out int index) ? index : -1,
+                glass, at => ChunkMesh(shapes, at.X, at.Z));
         }
 
         foreach (((int cx, int cz), ShapeMesh shape) in shapes)
@@ -357,13 +377,7 @@ public partial class LevelBuilder : Node3D
             return false;
         }
 
-        var key = ((int)MathF.Floor(prop.Position.X / ChunkSize), (int)MathF.Floor(prop.Position.Z / ChunkSize));
-        if (!shapes.TryGetValue(key, out ShapeMesh? mesh))
-        {
-            mesh = new ShapeMesh();
-            shapes[key] = mesh;
-        }
-
+        ShapeMesh mesh = ChunkMesh(shapes, prop.Position.X, prop.Position.Z);
         float top = prop.Position.Y;
         for (int i = prop.FirstPrimitive; i < prop.FirstPrimitive + prop.PrimitiveCount; i++)
         {
@@ -379,6 +393,19 @@ public partial class LevelBuilder : Node3D
         PropShapes.Build(kind, mesh, prop.Type, seed, material);
         ShapeCount++;
         return true;
+    }
+
+    /// <summary>The shape mesh of the chunk holding (<paramref name="x"/>, <paramref name="z"/>).</summary>
+    private static ShapeMesh ChunkMesh(Dictionary<(int Cx, int Cz), ShapeMesh> shapes, float x, float z)
+    {
+        var key = ((int)MathF.Floor(x / ChunkSize), (int)MathF.Floor(z / ChunkSize));
+        if (!shapes.TryGetValue(key, out ShapeMesh? mesh))
+        {
+            mesh = new ShapeMesh();
+            shapes[key] = mesh;
+        }
+
+        return mesh;
     }
 
     private static int FindMaterial(LevelLayout level, string id, int fallback)
