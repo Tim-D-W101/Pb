@@ -16,9 +16,12 @@ picking up paint and air on the way. The bots hold posts, patrol, hunt and rush,
 sight and sound, and fight from cover; in free-for-all and teams they fight each other too.
 The match HUD is in, and the art pass is well along: photographic textures on the buildings and
 ground; every prop modelled (built in code from its colliders, with generated models replacing
-them as they arrive); framed windows with broken glass; oil, puddles, leaves and litter on the
-ground; a proper marker with your paint in its see-through loader; and a rigged character model for
-the opponents. More generated props, characters and animations follow.
+them as they arrive); framed windows with broken glass; gutters, roof trusses, lamps and fittings on
+the buildings; barbed wire on the perimeter wall and pylons on the skyline; oil, puddles, leaves,
+litter, ivy and old paint from past games; a proper marker in your gloved hands, with your paint in
+its see-through loader; a rigged character model for the opponents, ready to play walk and run
+clips; and the compound itself behind the main menu. More generated props, characters and
+animations follow.
 
 ## Run it
 

@@ -28,13 +28,15 @@ public partial class MainMenu : Control
     private Control _levels = null!;
     private Control _settingsScreen = null!;
     private int _tourFrame = -1;
+    private TextureRect _backdrop = null!;
     private static bool _skippedToLevel;
 
     public override void _Ready()
     {
         SetAnchorsPreset(LayoutPreset.FullRect);
         Theme = UiKit.Theme;
-        AddChild(Backdrop());
+        _backdrop = Backdrop();
+        AddChild(_backdrop);
 
         try
         {
@@ -58,6 +60,24 @@ public partial class MainMenu : Control
         _settings = GameSettings.Load(_view);
         _settings.ApplyVolume();
         Input.MouseMode = Input.MouseModeEnum.Visible;
+
+        // The compound behind the menu, where there's a screen to show it on (not in CI's headless runs):
+        // built a piece a frame behind the plain backdrop, which then fades to a shade over it.
+        if (DisplayServer.GetName() != "headless" && !Args.Has("--smoke-test") && !(Args.Has("--level") && !_skippedToLevel))
+        {
+            var shade = new TextureRect
+            {
+                Name = "Shade", Texture = Shade(_view.MenuBackdrop.Shade), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.Scale, MouseFilter = MouseFilterEnum.Ignore,
+            };
+            shade.SetAnchorsPreset(LayoutPreset.FullRect);
+            AddChild(shade);
+            MoveChild(shade, _backdrop.GetIndex() + 1);
+            var scene = new MenuBackdrop { Name = "Backdrop3D" };
+            AddChild(scene);
+            scene.Shown += () => CreateTween().TweenProperty(_backdrop, "modulate:a", 0f, 1.2);
+            scene.Build(_data, _view, _settings);
+        }
 
         _title = TitleScreen();
         _levels = LevelSelect();
@@ -286,7 +306,19 @@ public partial class MainMenu : Control
         return margin;
     }
 
-    private static Control Backdrop()
+    /// <summary>A wash over the level behind the menu: darkest on the left, where the panels sit.</summary>
+    private static GradientTexture2D Shade(float shade)
+    {
+        var gradient = new Gradient();
+        gradient.SetColor(0, new Color(0.05f, 0.05f, 0.06f, shade));
+        gradient.SetColor(1, new Color(0.05f, 0.05f, 0.06f, shade * 0.25f));
+        return new GradientTexture2D
+        {
+            Gradient = gradient, FillFrom = new Vector2(0.15f, 0f), FillTo = new Vector2(0.85f, 0f), Width = 256, Height = 16,
+        };
+    }
+
+    private static TextureRect Backdrop()
     {
         // A warm-to-cold overcast wash with a darker floor, behind everything.
         var gradient = new Gradient();

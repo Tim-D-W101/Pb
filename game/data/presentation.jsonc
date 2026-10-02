@@ -214,6 +214,18 @@
   // load from the bots' cover points at others facing them across their cover, straying by about
   // spread_m; seeded by the level id. A card is placed only where it lies flat on what it hit. Drawn
   // in one draw call; presentation only.
+  // Behind the main menu: this level, seen from a camera drifting from one point to the other and
+  // back over period_s (vertical fov_deg), with the menu's wash darkest (shade) on the left where the
+  // panels sit. Built at the saved graphics preset; nothing moves in it but the camera and the weeds.
+  "menuBackdrop": {
+    "level": "oxbarrow_works",
+    "from": { "position_m": [9, 2.6, 24], "yaw_deg": 12, "pitch_deg": -4 },
+    "to": { "position_m": [1, 2.3, 25], "yaw_deg": -2, "pitch_deg": -3 },
+    "period_s": 80,
+    "fov_deg": 55,
+    "shade": 0.82
+  },
+
   // Ivy and dead vines climbing the outside walls: patches standing on the ground against walls of
   // these materials, under the open sky, each with wall behind it all the way up and across (none
   // climbs over a window or round a corner). Painted at load; seeded by the level id.

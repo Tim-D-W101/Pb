@@ -46,6 +46,8 @@ public sealed class PresentationDef : IValidatable
 
     public CreepersDef Creepers { get; set; } = new();
 
+    public MenuBackdropDef MenuBackdrop { get; set; } = new();
+
     public ShaftsDef Shafts { get; set; } = new();
 
     public DustDef Dust { get; set; } = new();
@@ -91,6 +93,7 @@ public sealed class PresentationDef : IValidatable
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
+        MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
         Shafts.Validate(v.Scope(nameof(Shafts)));
         Dust.Validate(v.Scope(nameof(Dust)));
         WindowLight.Validate(v.Scope(nameof(WindowLight)));
@@ -1240,6 +1243,52 @@ public sealed class CreepersDef : IValidatable
 
         v.InRange(nameof(FadeStart_m), FadeStart_m, 5, 500);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 600);
+    }
+}
+
+/// <summary>
+/// The level behind the main menu (game/ui/MenuBackdrop.cs), seen from a camera drifting from one
+/// point to the other and back over period_s, at fov_deg (vertical); shade is how dark the menu's
+/// wash gets on its left, where the panels sit (it fades to a quarter of that on the right).
+/// </summary>
+public sealed class MenuBackdropDef : IValidatable
+{
+    public string Level { get; set; } = "";
+
+    public CameraPointDef From { get; set; } = new();
+
+    public CameraPointDef To { get; set; } = new();
+
+    public float Period_s { get; set; }
+
+    public float Fov_deg { get; set; }
+
+    public float Shade { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Level), Level);
+        From.Validate(v.Scope(nameof(From)));
+        To.Validate(v.Scope(nameof(To)));
+        v.InRange(nameof(Period_s), Period_s, 5, 600);
+        v.InRange(nameof(Fov_deg), Fov_deg, 20, 120);
+        v.InRange(nameof(Shade), Shade, 0, 1);
+    }
+}
+
+/// <summary>A camera's place: where, which way (yaw left of north) and how far up or down it looks.</summary>
+public sealed class CameraPointDef : IValidatable
+{
+    public float[] Position_m { get; set; } = System.Array.Empty<float>();
+
+    public float Yaw_deg { get; set; }
+
+    public float Pitch_deg { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.Vector(nameof(Position_m), Position_m);
+        v.InRange(nameof(Pitch_deg), Pitch_deg, -89, 89);
     }
 }
 
