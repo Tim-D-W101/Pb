@@ -1041,6 +1041,10 @@ public sealed class HorizonDef : IValidatable
     [Optional]
     public string? LandmarkColor { get; set; }
 
+    /// <summary>How the smoke off the chimneys marked "smoke" drifts and looks.</summary>
+    [Optional]
+    public SmokeDef? Smoke { get; set; }
+
     public void Validate(Validator v)
     {
         if (!Godot.Color.HtmlIsValid(Color))
@@ -1058,6 +1062,7 @@ public sealed class HorizonDef : IValidatable
             Landmarks[i].Validate(v.Item(nameof(Landmarks), i));
         }
 
+        Smoke?.Validate(v.Scope(nameof(Smoke)));
         if (LandmarkColor is not null && !Godot.Color.HtmlIsValid(LandmarkColor))
         {
             v.Error(nameof(LandmarkColor), $"'{LandmarkColor}' is not a valid colour");
@@ -1084,6 +1089,10 @@ public sealed class LandmarkDef : IValidatable
 
     public float Width_m { get; set; }
 
+    /// <summary>A chimney with smoke drifting off it (the horizon's "smoke").</summary>
+    [Optional]
+    public bool Smoke { get; set; }
+
     public void Validate(Validator v)
     {
         if (System.Array.IndexOf(Kinds, Kind) < 0)
@@ -1095,6 +1104,44 @@ public sealed class LandmarkDef : IValidatable
         v.InRange(nameof(Distance_m), Distance_m, 100, 5000);
         v.InRange(nameof(Height_m), Height_m, 2, 300);
         v.InRange(nameof(Width_m), Width_m, 1, 400);
+    }
+}
+
+/// <summary>
+/// Smoke drifting off far chimneys (game/world/Horizon.cs): how fast it rises, the wind carrying it off
+/// ([x, z] m/s: +x east, +z south), how long a puff lasts, how many are in the air, a puff's size leaving
+/// the chimney and fading out (m), its colour (sRGB, as seen through the haze; it isn't fogged again) and
+/// how opaque it is at most.
+/// </summary>
+public sealed class SmokeDef : IValidatable
+{
+    public float Rise_mps { get; set; }
+
+    public float[] Wind_mps { get; set; } = System.Array.Empty<float>();
+
+    public float Lifetime_s { get; set; }
+
+    public int Puffs { get; set; }
+
+    public float[] Size_m { get; set; } = System.Array.Empty<float>();
+
+    public string Color { get; set; } = "";
+
+    public float Opacity { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Rise_mps), Rise_mps, 0, 20);
+        if (Wind_mps.Length != 2 || !float.IsFinite(Wind_mps[0]) || !float.IsFinite(Wind_mps[1]) || System.MathF.Abs(Wind_mps[0]) > 30f || System.MathF.Abs(Wind_mps[1]) > 30f)
+        {
+            v.Error(nameof(Wind_mps), "must be [x, z] within ±30 m/s");
+        }
+
+        v.InRange(nameof(Lifetime_s), Lifetime_s, 1, 300);
+        v.InRange(nameof(Puffs), Puffs, 1, 400);
+        FlockDef.Pair(v, nameof(Size_m), Size_m, 0.5f, 200f);
+        TrainingGroundDef.Colour(v, nameof(Color), Color);
+        v.InRange(nameof(Opacity), Opacity, 0, 1);
     }
 }
 
@@ -1432,8 +1479,10 @@ public sealed class CracksDef : IValidatable
 }
 
 /// <summary>
-/// Damp indoors (game/world/Damp.cs): the chance a length of wall standing on the ground (its foot below
-/// risingBelow_m) has rising damp and how high its tide mark climbs (least, most); the chance each top
+/// Damp (game/world/Damp.cs): the chance a length of wall standing on the ground (its foot below
+/// risingBelow_m) has rising damp indoors and how high its tide mark climbs (least, most); the chance an
+/// outside one has grime splashed up its foot, how high (least, most), and the colour multiplied into it
+/// on the shady faces looking north (algae); the chance each top
 /// corner of a wall as tall as a room (mouldWalls_m: least, most) has mould, and its size; water stains
 /// per square metre of ceiling, their size, and the highest ceiling above a floor that gets them; how
 /// opaque they all are (least, most); and the distances they fade out over.
@@ -1445,6 +1494,12 @@ public sealed class DampDef : IValidatable
     public float RisingBelow_m { get; set; }
 
     public float[] RisingHeight_m { get; set; } = System.Array.Empty<float>();
+
+    public float Splash { get; set; }
+
+    public float[] SplashHeight_m { get; set; } = System.Array.Empty<float>();
+
+    public string SplashAlgae { get; set; } = "";
 
     public float Mould { get; set; }
 
@@ -1469,6 +1524,9 @@ public sealed class DampDef : IValidatable
         v.InRange(nameof(Rising), Rising, 0, 1);
         v.InRange(nameof(RisingBelow_m), RisingBelow_m, 0, 10);
         FlockDef.Pair(v, nameof(RisingHeight_m), RisingHeight_m, 0.1f, 3f);
+        v.InRange(nameof(Splash), Splash, 0, 1);
+        FlockDef.Pair(v, nameof(SplashHeight_m), SplashHeight_m, 0.05f, 2f);
+        TrainingGroundDef.Colour(v, nameof(SplashAlgae), SplashAlgae);
         v.InRange(nameof(Mould), Mould, 0, 1);
         FlockDef.Pair(v, nameof(MouldSize_m), MouldSize_m, 0.1f, 4f);
         FlockDef.Pair(v, nameof(MouldWalls_m), MouldWalls_m, 0.5f, 20f);

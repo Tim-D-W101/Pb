@@ -9,18 +9,20 @@ using SVector3 = System.Numerics.Vector3;
 namespace Pb.Game.World;
 
 /// <summary>
-/// Damp indoors (presentation.jsonc "damp"): tide marks of rising damp along the foot of the walls that
+/// Damp (presentation.jsonc "damp"): indoors, tide marks of rising damp along the foot of the walls that
 /// stand on the ground, black mould spreading from the top corners of the rooms' walls, and brown water
-/// stains on the ceilings, painted at load (<see cref="DampPainter"/>). Each lies flat on a wall face
-/// that looks into an indoor area and stands on a floor, or on a ceiling with room for all of it, seeded
-/// by the level. Two MultiMeshes under the old paint; looks only (paint lands on the wall beneath).
+/// stains on the ceilings; outdoors, grime splashed up the foot of the walls, greener on the shady side.
+/// Painted at load (<see cref="DampPainter"/>). Each lies flat on a wall face (looking into an indoor
+/// area and standing on a floor, or out under the sky and standing on the ground), or on a ceiling with
+/// room for all of it, seeded by the level. Three MultiMeshes under the old paint; looks only (paint lands
+/// on the wall beneath).
 /// </summary>
 public partial class Damp : Node3D
 {
     /// <summary>Cards lie this far off the wall or ceiling.</summary>
     private const float Lift = 0.003f;
 
-    private static ImageTexture? _band, _atlas;
+    private static ImageTexture? _band, _splash, _atlas;
 
     public int Count { get; private set; }
 
@@ -51,6 +53,7 @@ public partial class Damp : Node3D
         }
 
         var bands = new List<Card>();
+        var splashes = new List<Card>();
         var spots = new List<Card>();
         foreach (LevelPrimitive p in level.Primitives)
         {
@@ -73,13 +76,33 @@ public partial class Damp : Node3D
             {
                 Vector3 n = normal * side;
                 Vector3 face = p.Center.ToGodot() + n * thick;
-                if (!Indoor(level, new Vector3(face.X, foot + 1.2f, face.Z) + n * 0.4f) || !OnFloor(floors, face + n * 0.2f, foot))
+                Vector3 right = Vector3.Up.Cross(n);
+                Vector3 bottom = new Vector3(face.X, foot, face.Z) + n * Lift;
+                if (!Indoor(level, new Vector3(face.X, foot + 1.2f, face.Z) + n * 0.4f))
                 {
+                    // Splash-back up the foot of an outside wall that stands on the ground.
+                    if (foot < def.RisingBelow_m && p.Height > 0.5f && random.NextDouble() < def.Splash)
+                    {
+                        float height = MathF.Min(R(def.SplashHeight_m[0], def.SplashHeight_m[1]), p.Height - 0.05f);
+                        float length = 2f * half - 0.01f;
+                        if (length > 0.2f)
+                        {
+                            var basis = new Basis(right * length, Vector3.Up * height, n);
+                            // Greener on the shady faces looking north (−Z).
+                            Color shade = Shade();
+                            Color tint = n.Z < -0.6f ? Color.FromHtml(def.SplashAlgae) * shade : shade;
+                            splashes.Add(new Card(new Transform3D(basis, bottom + Vector3.Up * (height * 0.5f)),
+                                new Color(length / (4f * height), R(0f, 1f), R(def.Opacity[0], def.Opacity[1]), 0f), tint));
+                        }
+                    }
+
                     continue;
                 }
 
-                Vector3 right = Vector3.Up.Cross(n);
-                Vector3 bottom = new Vector3(face.X, foot, face.Z) + n * Lift;
+                if (!OnFloor(floors, face + n * 0.2f, foot))
+                {
+                    continue;
+                }
 
                 // Rising damp along the foot of a wall that stands on the ground.
                 if (foot < def.RisingBelow_m && random.NextDouble() < def.Rising)
@@ -165,7 +188,7 @@ public partial class Damp : Node3D
             }
         }
 
-        Count = bands.Count + spots.Count;
+        Count = bands.Count + splashes.Count + spots.Count;
         if (Count == 0)
         {
             return;
@@ -173,8 +196,10 @@ public partial class Damp : Node3D
 
         var painter = new DampPainter(0xDA4B);
         _band ??= painter.Band();
+        _splash ??= painter.Splash();
         _atlas ??= painter.Atlas();
         Add("RisingDamp", bands, _band, band: true, def);
+        Add("Splashback", splashes, _splash, band: true, def);
         Add("MouldAndStains", spots, _atlas, band: false, def);
     }
 

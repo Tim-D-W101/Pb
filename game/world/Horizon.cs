@@ -6,8 +6,9 @@ namespace Pb.Game.World;
 /// <summary>
 /// Rings of distant tree lines round a place (presentation.jsonc "horizon"): jagged silhouettes
 /// broken by open country, with a few buildings far off among them (chimneys, sheds, a gasholder,
-/// flats). They're lit like the ground (normals up) so they don't flash where the
-/// sun faces them, and fog does the rest. Used by the compound levels and the training ground.
+/// flats), smoke drifting off the chimneys marked to smoke. They're lit like the ground (normals up)
+/// so they don't flash where the sun faces them, and fog does the rest. Used by the compound levels
+/// and the training ground.
 /// </summary>
 public static class Horizon
 {
@@ -63,7 +64,7 @@ public static class Horizon
             Landmark(tool, center, l, landmark);
         }
 
-        return new MeshInstance3D
+        var rings = new MeshInstance3D
         {
             Name = "Horizon",
             Mesh = tool.Commit(),
@@ -75,6 +76,99 @@ public static class Horizon
                 CullMode = BaseMaterial3D.CullModeEnum.Disabled,
             },
         };
+        foreach (LandmarkDef l in horizon.Landmarks ?? System.Array.Empty<LandmarkDef>())
+        {
+            if (l.Smoke && horizon.Smoke is { } smoke)
+            {
+                rings.AddChild(Plume(center, l, smoke));
+            }
+        }
+
+        return rings;
+    }
+
+    /// <summary>
+    /// Smoke from a chimney's top: puffs rising and carried off on the wind in a slanting plume, each
+    /// turning slowly, growing and thinning until it's gone. Already drawn out when the place loads.
+    /// </summary>
+    private static CpuParticles3D Plume(Vector3 center, LandmarkDef l, SmokeDef smoke)
+    {
+        float bearing = Mathf.DegToRad(l.Bearing_deg);
+        var toward = new Vector3(Mathf.Sin(bearing), 0f, -Mathf.Cos(bearing));
+        Vector3 top = center + toward * l.Distance_m + Vector3.Up * l.Height_m;
+        var drift = new Vector3(smoke.Wind_mps[0], smoke.Rise_mps, smoke.Wind_mps[1]);
+        float speed = drift.Length();
+        var grow = new Curve();
+        grow.AddPoint(new Vector2(0f, smoke.Size_m[0] / smoke.Size_m[1]));
+        grow.AddPoint(new Vector2(1f, 1f));
+        var fade = new Gradient();
+        fade.SetColor(0, new Color(1f, 1f, 1f, 0f));
+        fade.SetColor(1, new Color(1f, 1f, 1f, 0f));
+        fade.AddPoint(0.08f, new Color(1f, 1f, 1f, 1f));
+        fade.AddPoint(0.6f, new Color(1f, 1f, 1f, 0.75f));
+        var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/smoke.gdshader") };
+        material.SetShaderParameter("color", Color.FromHtml(smoke.Color));
+        material.SetShaderParameter("opacity", smoke.Opacity);
+        material.SetShaderParameter("puff", Puff());
+        // CPU particles: a few dozen puffs cost nothing, and their pre-roll is dependable.
+        return new CpuParticles3D
+        {
+            Name = "Smoke",
+            Position = top,
+            Amount = smoke.Puffs,
+            Lifetime = smoke.Lifetime_s,
+            Preprocess = smoke.Lifetime_s,
+            LocalCoords = false,
+            Mesh = new QuadMesh { Size = Vector2.One * smoke.Size_m[1], Material = material },
+            EmissionShape = CpuParticles3D.EmissionShapeEnum.Sphere,
+            EmissionSphereRadius = l.Width_m * 0.3f,
+            Direction = drift / speed,
+            Spread = 7f,
+            Gravity = Vector3.Zero,
+            InitialVelocityMin = speed * 0.85f,
+            InitialVelocityMax = speed * 1.15f,
+            AngleMin = 0f,
+            AngleMax = 360f,
+            AngularVelocityMin = -4f,
+            AngularVelocityMax = 4f,
+            ScaleAmountCurve = grow,
+            ColorRamp = fade,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+    }
+
+    private static ImageTexture? _puff;
+
+    /// <summary>A soft, lumpy puff of smoke (luminance and alpha), painted once.</summary>
+    private static ImageTexture Puff()
+    {
+        if (_puff is not null)
+        {
+            return _puff;
+        }
+
+        const int size = 128;
+        var noise = new FastNoiseLite { NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth, Frequency = 0.05f, FractalOctaves = 4, Seed = 5 };
+        var bytes = new byte[size * size * 2];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x + 0.5f) / size * 2f - 1f, dy = (y + 0.5f) / size * 2f - 1f;
+                float r = Mathf.Sqrt(dx * dx + dy * dy);
+                float lumps = 0.5f + 0.5f * noise.GetNoise2D(x, y);
+                float a = Mathf.Clamp(1f - r * (0.8f + 0.5f * lumps), 0f, 1f);
+                a = a * a * (3f - 2f * a);
+                int i = (y * size + x) * 2;
+                bytes[i] = (byte)(Mathf.Clamp(0.82f + 0.18f * (1f - dy) * 0.5f + 0.1f * lumps, 0f, 1f) * 255f);
+                bytes[i + 1] = (byte)(a * 255f);
+            }
+        }
+
+        Image image = Image.CreateFromData(size, size, false, Image.Format.La8, bytes);
+        image.GenerateMipmaps();
+        _puff = ImageTexture.CreateFromImage(image);
+        return _puff;
     }
 
     /// <summary>

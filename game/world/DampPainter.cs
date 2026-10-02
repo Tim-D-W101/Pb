@@ -4,10 +4,11 @@ using Godot;
 namespace Pb.Game.World;
 
 /// <summary>
-/// Paints the damp indoors once at load (<see cref="Damp"/>): a band of rising damp that repeats along
-/// a wall (a wavy tide mark with a crust of salt, older tide marks under it, the stain darkening towards
-/// the floor), and an atlas of 2 × 2 cells: two patches of black mould spreading from a corner (the
-/// cell's top left) and two brown water stains, ringed where the water stopped spreading each time.
+/// Paints the damp once at load (<see cref="Damp"/>): a band of rising damp that repeats along a wall
+/// (a wavy tide mark with a crust of salt, older tide marks under it, the stain darkening towards the
+/// floor), a band of splash-back for the foot of outside walls, and an atlas of 2 × 2 cells: two patches
+/// of black mould spreading from a corner (the cell's top left) and two brown water stains, ringed where
+/// the water stopped spreading each time.
 /// </summary>
 public sealed class DampPainter
 {
@@ -15,6 +16,9 @@ public sealed class DampPainter
 
     /// <summary>The band is two units wide for one unit tall, and repeats across its width.</summary>
     public const int BandWidth = 1024, BandHeight = 512;
+
+    /// <summary>The splash-back is four units wide for one unit tall, and repeats across its width.</summary>
+    public const int SplashWidth = 1024, SplashHeight = 256;
 
     private readonly int _seed;
 
@@ -49,22 +53,22 @@ public sealed class DampPainter
                 {
                     // The stain under the top mark, patchy, darker and wetter towards the floor.
                     float depth = v - t0;
-                    a = 0.22f + 0.16f * mottle + 0.3f * Smooth((v - 0.65f) / 0.35f);
+                    a = 0.34f + 0.2f * mottle + 0.3f * Smooth((v - 0.6f) / 0.4f);
                     c = stain.Lerp(wet, Smooth((v - 0.6f) / 0.4f));
                     // A brown edge just under the top mark, and fainter ones under the older marks.
                     float rim = MathF.Pow(1f - Math.Clamp(depth / 0.06f, 0f, 1f), 1.6f);
                     float older = Band(v, t1, 0.03f) * 0.6f + Band(v, t2, 0.03f) * 0.45f;
                     float dark = MathF.Max(rim, older);
                     c = c.Lerp(edge, dark);
-                    a = MathF.Max(a, 0.7f * rim + 0.35f * older * (0.6f + 0.4f * mottle));
+                    a = MathF.Max(a, 0.85f * rim + 0.4f * older * (0.6f + 0.4f * mottle));
                 }
 
                 // A crust of salt along each mark, broken in places.
-                float crust = Band(v, t0 - 0.006f, 0.018f) * (0.6f + 0.4f * Periodic(u, 61, 9)) + Band(v, t1 - 0.004f, 0.01f) * 0.45f;
+                float crust = Band(v, t0 - 0.008f, 0.024f) * (0.6f + 0.4f * Periodic(u, 61, 9)) + Band(v, t1 - 0.005f, 0.012f) * 0.5f;
                 if (crust > 0.05f)
                 {
                     c = c.Lerp(salt, Math.Clamp(crust * 1.3f, 0f, 1f));
-                    a = MathF.Max(a, 0.75f * crust);
+                    a = MathF.Max(a, 0.85f * crust);
                 }
 
                 int i = (y * BandWidth + x) * 4;
@@ -76,6 +80,71 @@ public sealed class DampPainter
         }
 
         Image image = Image.CreateFromData(BandWidth, BandHeight, false, Image.Format.Rgba8, rgba);
+        image.GenerateMipmaps();
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>
+    /// Splash-back (sRGB, colour and alpha, four units wide for one tall, repeating across): the grime
+    /// rain splashes up the foot of an outside wall, rising to a soft, wavering top at v ≈ 0.15–0.3,
+    /// streaked where water has run down it, specked with splashes and darkest at the ground (v = 1).
+    /// </summary>
+    public ImageTexture Splash()
+    {
+        const int width = SplashWidth, height = SplashHeight;
+        var alpha = new float[width * height];
+        var dirt = new Color("#3d3427");
+        var foot = new Color("#241d14");
+        for (int x = 0; x < width; x++)
+        {
+            float u = (float)x / width;
+            float top = 0.2f + 0.08f * Periodic(u, 9, 21) + 0.05f * Periodic(u, 29, 22) + 0.025f * Periodic(u, 83, 23);
+            float streak = 0.5f + 0.5f * Periodic(u, 157, 24);
+            for (int y = 0; y < height; y++)
+            {
+                float v = (float)y / height;
+                float soft = Smooth((v - top + 0.06f) / 0.22f);
+                float t = Math.Clamp((v - top) / (1f - top), 0f, 1f);
+                float mottle = 0.5f + 0.5f * Periodic2(u, v, 31, 25);
+                alpha[y * width + x] = soft * (0.16f + 0.42f * MathF.Pow(t, 1.4f) + 0.14f * streak * t + 0.1f * mottle);
+            }
+        }
+
+        // Splashes: dots thickest low down, wrapping round so the band still repeats.
+        var random = new Random(_seed + 9);
+        for (int k = 0; k < 2600; k++)
+        {
+            float cx = (float)random.NextDouble() * width;
+            float cy = height * (1f - 0.75f * MathF.Pow((float)random.NextDouble(), 1.8f));
+            float radius = 0.8f + (float)random.NextDouble() * 2.2f;
+            float strength = 0.25f + 0.35f * (float)random.NextDouble();
+            for (int y = (int)(cy - radius - 1); y <= (int)(cy + radius + 1); y++)
+            {
+                for (int xi = (int)(cx - radius - 1); xi <= (int)(cx + radius + 1); xi++)
+                {
+                    if (y < 0 || y >= height)
+                    {
+                        continue;
+                    }
+
+                    float d = MathF.Sqrt((xi - cx) * (xi - cx) + (y - cy) * (y - cy));
+                    int i = y * width + ((xi % width) + width) % width;
+                    alpha[i] = MathF.Min(1f, alpha[i] + strength * Math.Clamp(radius + 0.5f - d, 0f, 1f));
+                }
+            }
+        }
+
+        var rgba = new byte[width * height * 4];
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                Color c = dirt.Lerp(foot, Smooth(((float)y / height - 0.55f) / 0.45f));
+                Put(rgba, width, x, y, c, alpha[y * width + x]);
+            }
+        }
+
+        Image image = Image.CreateFromData(width, height, false, Image.Format.Rgba8, rgba);
         image.GenerateMipmaps();
         return ImageTexture.CreateFromImage(image);
     }
