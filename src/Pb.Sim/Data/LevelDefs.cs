@@ -289,6 +289,13 @@ public sealed class BuildingDef : IValidatable
     [Optional]
     public string? Fittings { get; set; }
 
+    /// <summary>
+    /// Material of the fluorescent fittings on every storey's ceiling, some hanging askew and some gone
+    /// (presentation only). Omit for none.
+    /// </summary>
+    [Optional]
+    public string? CeilingLights { get; set; }
+
     public WallDef[] Walls { get; set; } = Array.Empty<WallDef>();
 
     [Optional]
@@ -590,11 +597,16 @@ public sealed class TrussesDef : IValidatable
 
     public float Depth_m { get; set; }
 
+    /// <summary>Pendant lamps hanging from each truss on cables (0 for none).</summary>
+    [Optional]
+    public int LampsPerTruss { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Material), Material);
         v.InRange(nameof(Spacing_m), Spacing_m, 1, 20);
         v.InRange(nameof(Depth_m), Depth_m, 0.2, 3);
+        v.InRange(nameof(LampsPerTruss), LampsPerTruss, 0, 20);
     }
 }
 

@@ -450,7 +450,7 @@ public class LevelKitTests
     }
 
     [Fact]
-    public void BadGutterOrTrussMaterialNamesTheFileAndKey()
+    public void BadGutterTrussOrLightMaterialNamesTheFileAndKey()
     {
         var gutters = new EditedDataSource(TestData.Source).Edit("kit/buildings/pump_house.jsonc",
             s => s.Replace("\"gutters\": \"steel_rust\"", "\"gutters\": \"tin_foil\""));
@@ -463,6 +463,12 @@ public class LevelKitTests
         ex = Assert.Throws<DataException>(() => GameData.Load(trusses));
         Assert.Contains("warehouse.jsonc", ex.Message);
         Assert.Contains("spacing_m", ex.Message);
+
+        var lights = new EditedDataSource(TestData.Source).Edit("kit/buildings/office_block.jsonc",
+            s => s.Replace("\"ceilingLights\": \"enamel_white\"", "\"ceilingLights\": \"neon\""));
+        ex = Assert.Throws<DataException>(() => GameData.Load(lights));
+        Assert.Contains("office_block.jsonc", ex.Message);
+        Assert.Contains("ceilingLights", ex.Message);
     }
 
     [Fact]

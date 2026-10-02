@@ -42,7 +42,7 @@ public static class BuildingDetails
         foreach (PlacedBuilding building in level.Buildings)
         {
             BuildingDef def = building.Template.Def;
-            if (def.Roof is null || def.Gutters is null && def.Trusses is null && def.Fittings is null)
+            if (def.Roof is null || def.Gutters is null && def.Trusses is null && def.Fittings is null && def.CeilingLights is null)
             {
                 continue;
             }
@@ -55,7 +55,14 @@ public static class BuildingDetails
 
             if (def.Trusses is not null && material(def.Trusses.Material) is var trusses and >= 0)
             {
-                on.Trusses(def.Trusses, trusses);
+                // Lamp shades in the fittings' paint where there is one.
+                int shades = def.Fittings is not null && material(def.Fittings) is var f and >= 0 ? f : trusses;
+                on.Trusses(def.Trusses, trusses, shades, material(LevelBuilder.GlassMaterial));
+            }
+
+            if (def.CeilingLights is not null && material(def.CeilingLights) is var lights and >= 0)
+            {
+                on.CeilingLights(lights, material(LevelBuilder.GlassMaterial));
             }
 
             if (def.Fittings is not null && material(def.Fittings) is var fittings and >= 0)
@@ -178,7 +185,7 @@ public static class BuildingDetails
         /// Trusses across the short span, under the roof; purlins on top of them along the long way.
         /// Over a hole each is broken off: what's left near the edge hangs down into it.
         /// </summary>
-        public void Trusses(TrussesDef def, int material)
+        public void Trusses(TrussesDef def, int material, int shades, int glass)
         {
             bool alongX = _footprint.Size.X >= _footprint.Size.Y;
             float length = alongX ? _footprint.Size.X : _footprint.Size.Y;
@@ -255,6 +262,22 @@ public static class BuildingDetails
                 }
 
                 Member(hi, bottom, hi, top, Web);
+
+                // Lamps hanging from the bottom chord on cables, where the truss is still whole.
+                for (int k = 1; k <= def.LampsPerTruss; k++)
+                {
+                    float at = lo + (hi - lo) * k / (def.LampsPerTruss + 1) + R(-0.4f, 0.4f);
+                    bool whole = true;
+                    foreach ((float from, float to, _, _) in broken)
+                    {
+                        whole &= at < from - 0.6f || at > to + 0.6f;
+                    }
+
+                    if (whole)
+                    {
+                        PendantLamp(mesh, shades, glass, Plan(u, bottom - Chord * 0.5f, at), R(1.0f, 1.9f));
+                    }
+                }
             }
 
             // Purlins along the building on top of the trusses, wall to wall, but not across a hole.
@@ -472,6 +495,208 @@ public static class BuildingDetails
             for (float y = 0.5f; y < corner.Y - 0.3f; y += 1.2f)
             {
                 mesh.Cylinder(material, World(new Vector3(corner.X, y, corner.Z)), Basis.Identity, radius * 1.3f, 0.03f, 8);
+            }
+        }
+
+        /// <summary>A pendant lamp on a cable <paramref name="drop"/> below <paramref name="hook"/>: a conical shade with its bulb.</summary>
+        private void PendantLamp(ShapeMesh mesh, int material, int glass, Vector3 hook, float drop)
+        {
+            Vector3 top = hook + Vector3.Down * drop;
+            Rod(mesh, material, hook, top, 0.008f, 4);
+            // Inside down to the rim, across the rim, then outside back up, so both faces show.
+            var shade = new[]
+            {
+                new Vector2(0.025f, -0.02f), new Vector2(0.255f, -0.27f), new Vector2(0.255f, -0.27f),
+                new Vector2(0.27f, -0.27f), new Vector2(0.27f, -0.27f), new Vector2(0.04f, 0f),
+            };
+            mesh.Lathe(material, World(top), _turn, shade, 12);
+            if (glass >= 0)
+            {
+                mesh.Cylinder(glass, World(top + Vector3.Down * 0.1f), _turn, 0.045f, 0.1f, 8);
+            }
+        }
+
+        /// <summary>
+        /// Fluorescent fittings on each storey's ceiling, in a row down the middle of each strip between
+        /// walls running the building's long way, about every 3 m, clear of the walls and only where the
+        /// ceiling is whole above them. Most are fixed flat; some hang from one end where the other came
+        /// away, and some are gone but for their mounting plates and a dangling wire.
+        /// </summary>
+        public void CeilingLights(int material, int glass)
+        {
+            bool alongX = _footprint.Size.X >= _footprint.Size.Y;
+            Vector3 Plan(float u, float y, float v) => alongX ? new Vector3(u, y, v) : new Vector3(v, y, u);
+            float u0 = alongX ? _footprint.Position.X : _footprint.Position.Y, u1 = alongX ? _footprint.End.X : _footprint.End.Y;
+            float v0 = alongX ? _footprint.Position.Y : _footprint.Position.X, v1 = alongX ? _footprint.End.Y : _footprint.End.X;
+            float elevation = 0f;
+            for (int storey = 0; storey < _def.Storeys_m.Length; storey++)
+            {
+                elevation += _def.Storeys_m[storey];
+                bool top = storey == _def.Storeys_m.Length - 1;
+                // The ceiling: the floor above (its slabs, less their holes), or the roof.
+                var cover = new List<(Rect2 Rect, List<Rect2> Holes, float Underside)>();
+                if (top)
+                {
+                    cover.Add((_roof, _holes, _roofBottom));
+                }
+                else
+                {
+                    foreach (SlabDef slab in _def.Floors ?? Array.Empty<SlabDef>())
+                    {
+                        if (MathF.Abs(slab.Elevation_m - elevation) < 0.05f)
+                        {
+                            var holes = new List<Rect2>();
+                            foreach (float[] h in slab.Holes_m ?? Array.Empty<float[]>())
+                            {
+                                holes.Add(Rect(h));
+                            }
+
+                            float thickness = float.IsNaN(slab.Thickness_m) ? _def.SlabThickness_m : slab.Thickness_m;
+                            cover.Add((Rect(slab.Rect_m), holes, slab.Elevation_m - thickness));
+                        }
+                    }
+                }
+
+                // Strips between walls running the long way (and the outline), a row of fittings down each.
+                var lines = new List<float> { v0, v1 };
+                foreach (WallDef w in _def.Walls)
+                {
+                    if (w.Storey != storey || w.Style == WallStyle.Railing)
+                    {
+                        continue;
+                    }
+
+                    for (int s = 0; s < w.SegmentCount; s++)
+                    {
+                        float[] pa = w.Points_m[s], pb = w.Points_m[(s + 1) % w.Points_m.Length];
+                        (float da, float db) = alongX ? (pa[1], pb[1]) : (pa[0], pb[0]);
+                        if (MathF.Abs(da - db) < 0.01f)
+                        {
+                            lines.Add(da);
+                        }
+                    }
+                }
+
+                lines.Sort();
+                for (int l = 0; l + 1 < lines.Count; l++)
+                {
+                    if (lines[l + 1] - lines[l] < 1.6f)
+                    {
+                        continue;
+                    }
+
+                    float v = (lines[l] + lines[l + 1]) * 0.5f;
+                    int count = Math.Max(1, (int)MathF.Round((u1 - u0) / 3f));
+                    for (int i = 0; i < count; i++)
+                    {
+                        float u = u0 + (u1 - u0) * (i + 0.5f) / count;
+                        Vector3 a = Plan(u - 0.65f, 0f, v), b = Plan(u + 0.65f, 0f, v);
+                        float underside = float.NaN;
+                        foreach ((Rect2 rect, List<Rect2> holes, float under) in cover)
+                        {
+                            if (Covered(rect, holes, a) && Covered(rect, holes, b) && Covered(rect, holes, (a + b) * 0.5f))
+                            {
+                                underside = under;
+                            }
+                        }
+
+                        if (float.IsNaN(underside) || !ClearOfWalls(storey, a, b, 0.3f))
+                        {
+                            continue;
+                        }
+
+                        FluorescentFitting(material, glass, Plan(u, underside, v), alongX ? Vector3.Right : Vector3.Back);
+                    }
+                }
+            }
+
+            static bool Covered(Rect2 rect, List<Rect2> holes, Vector3 p)
+            {
+                var flat = new Vector2(p.X, p.Z);
+                if (!rect.HasPoint(flat))
+                {
+                    return false;
+                }
+
+                foreach (Rect2 h in holes)
+                {
+                    if (h.Grow(0.15f).HasPoint(flat))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        /// <summary>Whether plan segment a–b keeps <paramref name="margin"/> clear of every wall of the storey.</summary>
+        private bool ClearOfWalls(int storey, Vector3 a, Vector3 b, float margin)
+        {
+            foreach (WallDef w in _def.Walls)
+            {
+                if (w.Storey != storey)
+                {
+                    continue;
+                }
+
+                for (int s = 0; s < w.SegmentCount; s++)
+                {
+                    float[] pa = w.Points_m[s], pb = w.Points_m[(s + 1) % w.Points_m.Length];
+                    var wa = new Vector2(pa[0], pa[1]);
+                    var wb = new Vector2(pb[0], pb[1]);
+                    for (int k = 0; k <= 4; k++)
+                    {
+                        Vector3 p = a.Lerp(b, k / 4f);
+                        var flat = new Vector2(p.X, p.Z);
+                        if (Geometry2D.GetClosestPointToSegment(flat, wa, wb).DistanceTo(flat) < w.Thickness_m * 0.5f + margin)
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>One fluorescent fitting under the ceiling at <paramref name="at"/> (its underside), along plan direction <paramref name="along"/>.</summary>
+        private void FluorescentFitting(int material, int glass, Vector3 at, Vector3 along)
+        {
+            ShapeMesh mesh = Mesh(at, _roofBottom);
+            const float length = 1.25f, half = length * 0.5f;
+            // X along the fitting, Y up, Z across it.
+            var frame = new Basis(along, Vector3.Up, along.Cross(Vector3.Up));
+            double state = _random.NextDouble();
+            if (state < 0.12)
+            {
+                // Gone: the mounting plates and a wire hanging down.
+                foreach (float end in new[] { -0.45f, 0.45f })
+                {
+                    Box(mesh, material, at + along * end + Vector3.Down * 0.005f, new Vector3(0.12f, 0.01f, 0.08f), frame);
+                }
+
+                Rod(mesh, material, at, at + Vector3.Down * R(0.2f, 0.5f) + along * R(-0.1f, 0.1f), 0.006f, 4);
+                return;
+            }
+
+            float drop = state < 0.32 ? R(0.3f, 0.95f) : 0f;
+            float side = _random.NextDouble() < 0.5 ? -1f : 1f;
+            // Hanging from one end (side), the other dropped: turned about the level axis across it.
+            Vector3 pivot = at + along * (side * half) + Vector3.Down * 0.02f;
+            float angle = MathF.Asin(Mathf.Clamp(drop / length, 0f, 1f));
+            Vector3 axis = along.Cross(Vector3.Up).Normalized();
+            Basis tilt = drop > 0f ? new Basis(axis, side * angle) : Basis.Identity;
+            Vector3 middle = drop > 0f ? pivot + tilt * (along * (-side * half)) + Vector3.Down * 0.035f : at + Vector3.Down * 0.045f;
+            Box(mesh, material, middle, new Vector3(length, 0.07f, 0.16f), tilt * frame);
+            if (glass >= 0 && _random.NextDouble() < 0.7)
+            {
+                Box(mesh, glass, middle + tilt * (Vector3.Down * 0.043f), new Vector3(length - 0.05f, 0.015f, 0.13f), tilt * frame);
+            }
+
+            if (drop > 0f)
+            {
+                Rod(mesh, material, at + along * (side * half), pivot, 0.006f, 4);
             }
         }
 
