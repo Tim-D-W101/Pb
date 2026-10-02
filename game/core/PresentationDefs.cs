@@ -1979,8 +1979,8 @@ public sealed class LitterKindDef : IValidatable
 }
 
 /// <summary>
-/// Dust kicked up underfoot (game/world/FootDust.cs): its colour (sRGB) on each surface that has any
-/// (break_model.jsonc names; elsewhere feet raise none); a step's puff size from a walk's to a sprint's
+/// Dust kicked up underfoot (game/world/FootDust.cs): its colour (sRGB, an alpha thinning it) on each
+/// surface that has any (break_model.jsonc names; elsewhere feet raise none); a step's puff size from a walk's to a sprint's
 /// (crouched steps raise none), a landing's (a ring of five), a jump's and a slide's, laid every so many
 /// metres along it, and a ball's breaking or bouncing on the ground; how long a puff lasts, how many times
 /// its size it grows to, how fast it rises, the share of the ground wind it drifts with, how thick it

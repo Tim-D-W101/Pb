@@ -188,7 +188,7 @@ public partial class FootDust : Node3D, ISimEventListener
         _next = (_next + 1) % _def.Max;
         Raised++;
         Color tint = colour * R(0.9f, 1.05f);
-        tint.A = _def.Opacity * R(0.8f, 1f);
+        tint.A = colour.A * _def.Opacity * R(0.8f, 1f);
         _multimesh.SetInstanceTransform(i, new Transform3D(Basis.Identity, at));
         _multimesh.SetInstanceColor(i, tint);
         _multimesh.SetInstanceCustomData(i, new Color((float)_now + delay, size * R(0.85f, 1.15f), _def.Lifetime_s * R(0.8f, 1.2f), heading >= 0f ? heading : (float)_random.NextDouble()));
