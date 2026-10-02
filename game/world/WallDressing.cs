@@ -28,9 +28,10 @@ public static class WallDressing
     /// <summary>
     /// Adds each dressed wall run's details to <paramref name="meshFor"/> (the mesh for a world
     /// position); <paramref name="material"/> resolves a kit material id. Where rain will run off the
-    /// coping and the wire's brackets goes in <paramref name="drips"/>. Returns how many runs were dressed.
+    /// coping and the wire's brackets goes in <paramref name="drips"/>, and where the piers stand (their
+    /// middles and half-widths, cap included) in <paramref name="piers"/>. Returns how many runs were dressed.
     /// </summary>
-    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, List<Drip>? drips = null)
+    public static int Build(LevelLayout level, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, List<Drip>? drips = null, List<(Vector3 At, float Half)>? piers = null)
     {
         int dressed = 0;
         foreach (PlacedWall wall in level.Walls)
@@ -40,7 +41,7 @@ public static class WallDressing
                 continue;
             }
 
-            new Run(wall, material, meshFor, new Random(LevelBuilder.StableHash(level.Id) ^ wall.Owner * 104729), drips).Build();
+            new Run(wall, material, meshFor, new Random(LevelBuilder.StableHash(level.Id) ^ wall.Owner * 104729), drips, piers).Build();
             dressed++;
         }
 
@@ -58,9 +59,11 @@ public static class WallDressing
         private readonly float _base, _height;
         private readonly Vector2 _middle;
         private readonly List<Drip>? _drips;
+        private readonly List<(Vector3 At, float Half)>? _piers;
 
-        public Run(PlacedWall placed, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, Random random, List<Drip>? drips)
+        public Run(PlacedWall placed, Func<string, int> material, Func<Vector3, ShapeMesh> meshFor, Random random, List<Drip>? drips, List<(Vector3 At, float Half)>? piers)
         {
+            _piers = piers;
             _def = placed.Def;
             _drips = drips;
             _dressing = placed.Def.Dressing!;
@@ -171,6 +174,7 @@ public static class WallDressing
                 foreach (float t in piers)
                 {
                     ShapeMesh mesh = Mesh(Plan(t, 0f, 0f));
+                    _piers?.Add((World(Plan(t, 0f, 0f)), size * 0.5f + CapOverhang));
                     float h = _height + CopingHeight;
                     Box(mesh, _pier, Plan(t, _base + h * 0.5f, 0f), new Vector3(size, h, size), turn);
                     Box(mesh, _pier, Plan(t, _base + h + CapHeight * 0.5f, 0f), new Vector3(size + 2f * CapOverhang, CapHeight, size + 2f * CapOverhang), turn);

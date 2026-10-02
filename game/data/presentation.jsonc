@@ -282,6 +282,25 @@
     "fadeEnd_m": 50
   },
 
+  // Graffiti on the outside walls (looks only): throw-ups in fat bubble letters low down and tags (a word
+  // in one thin line) at arm's height, painted at load from these invented words, so nothing is anyone's
+  // mark, on the outside faces of walls standing on the ground. Worn (0 none, 1 gone) and bleached
+  // towards grey by the sun, and drawn under the rust streaks. Widths are least-most metres.
+  "graffiti": {
+    "words": ["ZOKE", "VRAZ", "DRYX", "SKOB", "KRAE", "WUBO", "FEZK", "QOMA", "JIVR", "OXLE"],
+    "fills": ["#d8d8d4", "#e3b53c", "#4f9cd3", "#d4593e", "#7dc26b", "#ae6bd2", "#f1efe7"],
+    "outlines": ["#141414", "#1e2b5e", "#5c1515", "#232323"],
+    "throwUps": 9,
+    "throwUpWidth_m": [2.0, 3.4],
+    "tags": 14,
+    "tagWidth_m": [0.9, 1.6],
+    "opacity": [0.7, 0.95],
+    "wear": [0.1, 0.5],
+    "bleach": 0.3,
+    "fadeStart_m": 35,
+    "fadeEnd_m": 60
+  },
+
   // Things lying on the ground: oil stains round the car and the machines, puddles under the open sky,
   // damp patches, rust run-off by rusting things, tyre tracks, drifts of leaves against walls, litter
   // and broken chips. Painted at load into one atlas and drawn as flat cards in one draw call; seeded

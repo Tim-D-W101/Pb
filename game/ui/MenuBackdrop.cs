@@ -87,6 +87,9 @@ public partial class MenuBackdrop : Node3D
                 var markings = new Markings { Name = "Markings" };
                 AddChild(markings);
                 markings.Build(level, view.Markings);
+                var graffiti = new Graffiti { Name = "Graffiti" };
+                AddChild(graffiti);
+                graffiti.Build(level, view.Graffiti, world.Piers);
                 if (!preset.Ssao)
                 {
                     var contact = new ContactShadows { Name = "ContactShadows" };

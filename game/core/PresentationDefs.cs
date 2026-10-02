@@ -44,6 +44,8 @@ public sealed class PresentationDef : IValidatable
 
     public DampDef Damp { get; set; } = new();
 
+    public GraffitiDef Graffiti { get; set; } = new();
+
     public GroundDetailDef GroundDetail { get; set; } = new();
 
     public OldPaintDef OldPaint { get; set; } = new();
@@ -116,6 +118,7 @@ public sealed class PresentationDef : IValidatable
         Weeds.Validate(v.Scope(nameof(Weeds)));
         Cracks.Validate(v.Scope(nameof(Cracks)));
         Damp.Validate(v.Scope(nameof(Damp)));
+        Graffiti.Validate(v.Scope(nameof(Graffiti)));
         GroundDetail.Validate(v.Scope(nameof(GroundDetail)));
         OldPaint.Validate(v.Scope(nameof(OldPaint)));
         Markings.Validate(v.Scope(nameof(Markings)));
@@ -1534,6 +1537,78 @@ public sealed class DampDef : IValidatable
         FlockDef.Pair(v, nameof(StainSize_m), StainSize_m, 0.1f, 6f);
         v.InRange(nameof(CeilingMaxHeight_m), CeilingMaxHeight_m, 1, 30);
         FlockDef.Pair(v, nameof(Opacity), Opacity, 0f, 1f);
+        v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
+        v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
+    }
+}
+
+/// <summary>
+/// Graffiti on the outside walls (game/world/Graffiti.cs): the words written (invented, capital letters A–Z,
+/// 2–8 of them), the fill and outline colours (sRGB) the pieces are painted from, how many throw-ups and
+/// how wide (least, most), how many tags and how wide, how opaque (least, most), how worn (0 none to 1
+/// gone; least, most), how far the sun has bleached them towards grey, and the distances they fade over.
+/// </summary>
+public sealed class GraffitiDef : IValidatable
+{
+    public string[] Words { get; set; } = System.Array.Empty<string>();
+
+    public string[] Fills { get; set; } = System.Array.Empty<string>();
+
+    public string[] Outlines { get; set; } = System.Array.Empty<string>();
+
+    public int ThrowUps { get; set; }
+
+    public float[] ThrowUpWidth_m { get; set; } = System.Array.Empty<float>();
+
+    public int Tags { get; set; }
+
+    public float[] TagWidth_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] Opacity { get; set; } = System.Array.Empty<float>();
+
+    public float[] Wear { get; set; } = System.Array.Empty<float>();
+
+    public float Bleach { get; set; }
+
+    public float FadeStart_m { get; set; }
+
+    public float FadeEnd_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (Words.Length == 0)
+        {
+            v.Error(nameof(Words), "needs at least one word");
+        }
+
+        foreach (string word in Words)
+        {
+            if (word.Length is < 2 or > 8 || !word.All(c => c is >= 'A' and <= 'Z'))
+            {
+                v.Error(nameof(Words), $"'{word}' must be 2–8 capital letters A–Z");
+            }
+        }
+
+        foreach ((string key, string[] colours) in new[] { (nameof(Fills), Fills), (nameof(Outlines), Outlines) })
+        {
+            if (colours.Length == 0)
+            {
+                v.Error(key, "needs at least one colour");
+            }
+
+            foreach (string c in colours)
+            {
+                TrainingGroundDef.Colour(v, key, c);
+            }
+        }
+
+        v.InRange(nameof(ThrowUps), ThrowUps, 0, 100);
+        FlockDef.Pair(v, nameof(ThrowUpWidth_m), ThrowUpWidth_m, 0.5f, 8f);
+        v.InRange(nameof(Tags), Tags, 0, 200);
+        FlockDef.Pair(v, nameof(TagWidth_m), TagWidth_m, 0.3f, 4f);
+        FlockDef.Pair(v, nameof(Opacity), Opacity, 0f, 1f);
+        FlockDef.Pair(v, nameof(Wear), Wear, 0f, 1f);
+        v.InRange(nameof(Bleach), Bleach, 0, 1);
         v.InRange(nameof(FadeStart_m), FadeStart_m, 2, 300);
         v.InRange(nameof(FadeEnd_m), FadeEnd_m, FadeStart_m, 400);
     }

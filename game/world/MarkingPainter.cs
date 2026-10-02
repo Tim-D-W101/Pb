@@ -184,7 +184,7 @@ public sealed class MarkingPainter
     }
 
     /// <summary>The strokes of a capital letter in its box (x 0–1 right, y 0–1 up).</summary>
-    private static List<Vector2[]> LetterStrokes(char letter)
+    internal static List<Vector2[]> LetterStrokes(char letter)
     {
         static Vector2[] P(params float[] xy)
         {
