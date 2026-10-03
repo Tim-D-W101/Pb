@@ -263,6 +263,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         ApplyGraphics(preset);
 
         _player.Initialize(_sim, state, _view, _settings, teamColor);
+        _player.BuildBody(_view.Characters, teamColor, look: 0);
         SpawnBots(hostile: botDemo || _botMatch || (!_scripted && !roundTour));
         _botDebug = new BotDebugOverlay { Name = "BotDebug" };
         AddChild(_botDebug);
@@ -446,9 +447,14 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             // A ball hitting a body makes it flinch away, whether it breaks or bounces off.
             int id = PlayerHitboxes.PlayerIdOf(e.TargetId);
-            if (id == _player.State.Id && _player.State.Alive)
+            if (id == _player.State.Id)
             {
-                _player.Jolt(-e.Normal.ToGodot(), e.Value);
+                if (_player.State.Alive)
+                {
+                    _player.Jolt(-e.Normal.ToGodot(), e.Value);
+                }
+
+                _player.Body?.Flinch(-e.Normal.ToGodot(), e.Value);
             }
 
             foreach (OpponentPawn pawn in _pawns)
@@ -533,8 +539,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         int id = PlayerHitboxes.PlayerIdOf(receiverId);
-        OpponentPawn? pawn = _pawns.FirstOrDefault(o => o.State.Id == id);
-        return pawn?.Visual.PartNode((Pb.Sim.Collision.HitboxPart)part, point);
+        CharacterVisual? visual = id == _player.State.Id ? _player.Body : _pawns.FirstOrDefault(o => o.State.Id == id)?.Visual;
+        return visual?.PartNode((Pb.Sim.Collision.HitboxPart)part, point);
     }
 
     private void OnEliminated(in SimEvent e)
@@ -581,6 +587,11 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _player.AutoPilot = new IdlePilot();
         _player.ViewModel.Visible = false;
+        // The spectator camera starts behind and above where you stood: you're there, hit, marker up.
+        if (_player.Body is { } body)
+        {
+            body.ShadowOnly = false;
+        }
         _hud.Visible = false;
         Input.MouseMode = Input.MouseModeEnum.Visible;
         _spectator = new SpectatorView { Name = "Spectator" };

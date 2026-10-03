@@ -460,6 +460,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   - A splat sticks to the nearest bone of the part it hit.
   - The hit point lies on the hitbox, which the model doesn't fill and in places bulges past. So the splat's projection box reaches as far as the bone in both directions, and normal fade keeps the paint off the far side.
 - **Hitboxes** come from the sim's `HitboxRig`, never from the mesh, so animation can't change outcomes.
+- **Your own body** (`PlayerController.Body`): the local player gets a `CharacterVisual` of their own state, captured each tick like an opponent's. In first person it's `ShadowOnly`: every mesh casts but isn't drawn, the gear is hidden and the hands leave the marker for the clips' carry, since the viewmodel is lit where it really is and an invisible marker's shadow would fall across it. On elimination it's drawn whole for the spectator camera, and splats and flinches on the player go to it. No model (no art), no body.
 
 ### 14.5 Match rules
 

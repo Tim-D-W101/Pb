@@ -38,8 +38,43 @@ public partial class CharacterVisual : Node3D
     private Node3D? _pod;
     private float _crouchEye;
     private Vector3 _lastFeet;
+    private bool _shadowOnly;
+    private readonly System.Collections.Generic.Dictionary<GeometryInstance3D, (GeometryInstance3D.ShadowCastingSetting Cast, bool Visible)> _drawn = new();
 
     public bool HasModel => _model is not null;
+
+    /// <summary>
+    /// Only the character's shadow shows (your own body in first person): the model casts its shadow but
+    /// isn't drawn, and the gear is left out with the arms in the clips' carry, so no shadow of a marker
+    /// that isn't drawn falls across the one in your hands. False draws all of it.
+    /// </summary>
+    public bool ShadowOnly
+    {
+        get => _shadowOnly;
+        set
+        {
+            _shadowOnly = value;
+            if (_model is null)
+            {
+                return;
+            }
+
+            foreach (Node node in _model.FindChildren("*", nameof(GeometryInstance3D), true, false))
+            {
+                if (node is GeometryInstance3D geometry)
+                {
+                    Draw(geometry);
+                }
+            }
+
+            foreach (HitboxPart gear in new[] { HitboxPart.Marker, HitboxPart.Loader, HitboxPart.Tank })
+            {
+                _parts[_indexOfPart[(int)gear]].Visible = !value;
+            }
+
+            _model.Poser.HandsOnMarker = !value;
+        }
+    }
 
     public void Build(SimWorld sim, PlayerState state, Color jersey, CharactersDef? characters = null, int index = 0)
     {
@@ -192,7 +227,7 @@ public partial class CharacterVisual : Node3D
         Pb.Sim.Gear.Marker marker = _state.Marker;
         float delta = (float)GetProcessDeltaTime();
         _refillPhase = marker.Refill.Active && _state.Alive ? marker.Refill.Progress(marker.Paint.Params) : Mathf.MoveToward(_refillPhase, 1f, delta * 2.5f);
-        float f = _refillPhase;
+        float f = _shadowOnly ? 1f : _refillPhase;
         if (f >= 1f)
         {
             if (_pod is not null)
@@ -222,6 +257,19 @@ public partial class CharacterVisual : Node3D
     }
 
     private static bool IsGear(HitboxPart part) => part is HitboxPart.Marker or HitboxPart.Loader or HitboxPart.Tank;
+
+    /// <summary>Draws <paramref name="geometry"/> as the character is drawn: all of it, or only its shadow.</summary>
+    private void Draw(GeometryInstance3D geometry)
+    {
+        if (!_drawn.TryGetValue(geometry, out var was))
+        {
+            _drawn[geometry] = was = (geometry.CastShadow, geometry.Visible);
+        }
+
+        bool casts = was.Cast != GeometryInstance3D.ShadowCastingSetting.Off;
+        geometry.CastShadow = _shadowOnly && casts ? GeometryInstance3D.ShadowCastingSetting.ShadowsOnly : was.Cast;
+        geometry.Visible = was.Visible && (casts || !_shadowOnly);
+    }
 
     private static Quaternion Quat(in PosedBox b)
     {

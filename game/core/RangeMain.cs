@@ -84,6 +84,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         Atmosphere.ApplyLighting(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), _view.Lighting);
         ApplyGraphics(_view.Graphics.Find(_settings.GraphicsPreset));
         _player.Initialize(_sim, state, _view, _settings, teamColor);
+        _player.BuildBody(_view.Characters, teamColor, look: 0);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
         _splats.Initialize(_view, (i, _, _) => _world.TargetNode(i) is { } target ? new SplatAnchor(target) : null);
         GetNode<ImpactFx>("ImpactFx").Initialize(_view);

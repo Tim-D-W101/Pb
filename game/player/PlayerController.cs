@@ -30,6 +30,13 @@ public partial class PlayerController : PawnBody, IPlayerDriver
 
     public ViewModel ViewModel { get; private set; } = null!;
 
+    /// <summary>
+    /// Your own body, drawn from your hitbox rig like anyone else's: only its shadow while you play, so you
+    /// see yourself on the ground; all of it once you're out, for the spectator camera. Null without a
+    /// character model (no art).
+    /// </summary>
+    public CharacterVisual? Body { get; private set; }
+
     private Vector3 _joltPush;
     private float _joltRoll;
     private float _joltStrength;
@@ -64,12 +71,31 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         ApplyCamera(0f, 1f);
     }
 
+    /// <summary>Gives you a body (see <see cref="Body"/>) in <paramref name="jersey"/>, the <paramref name="look"/>th model and tint.</summary>
+    public void BuildBody(CharactersDef? characters, Color jersey, int look)
+    {
+        var body = new CharacterVisual { Name = "Body" };
+        AddChild(body);
+        body.Build(Sim, State, jersey, characters, look);
+        if (!body.HasModel)
+        {
+            body.QueueFree();
+            return;
+        }
+
+        body.ShadowOnly = true;
+        Body = body;
+    }
+
     public override void Teleport(System.Numerics.Vector3 position, float yaw)
     {
         base.Teleport(position, yaw);
         _yaw = yaw;
         _pitch = 0f;
         _currentEye = _previousEye = State.EyePosition.ToGodot();
+        // Both poses the body interpolates between, so it doesn't slide over from where you were.
+        Body?.Capture();
+        Body?.Capture();
     }
 
     public InputCommand Step(int tick, float dt)
@@ -82,6 +108,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         }
 
         ApplyCommand(cmd, dt);
+        Body?.Capture();
 
         _previousEye = _currentEye;
         _currentEye = State.EyePosition.ToGodot();
