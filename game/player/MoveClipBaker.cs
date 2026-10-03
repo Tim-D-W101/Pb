@@ -170,7 +170,8 @@ public static class MoveClipBaker
                 Vector3 offset = b == rig.Hips ? hips[f] : rig.RestLocal[b].Origin;
                 int parent = rig.Parents[b];
                 globalPosition[b] = parent >= 0 ? globalPosition[parent] + globalRotation[parent] * offset : offset;
-                globalRotation[b] = parent >= 0 ? globalRotation[parent] * local : local;
+                // Kept unit length: rounding builds up down the chain, and turning a vector needs it.
+                globalRotation[b] = (parent >= 0 ? globalRotation[parent] * local : local).Normalized();
             }
 
             Vector3 hipsAt = rig.Frame * globalPosition[rig.Hips];
