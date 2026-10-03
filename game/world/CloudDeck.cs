@@ -20,7 +20,11 @@ public partial class CloudDeck : MeshInstance3D
     public void Configure(LightingDef lighting)
     {
         CloudsDef def = lighting.Clouds;
-        Mesh ??= new SphereMesh { Radius = Radius, Height = Radius, IsHemisphere = true, RadialSegments = 32, Rings = 12 };
+        // A whole sphere, though only its upper half is drawn (the shader discards the rest): Godot closes
+        // a hemisphere with a flat disc through its centre, the camera, and whenever the camera dipped after
+        // the dome had followed it that frame, the disc lay just above the eye and drew the clouds in front
+        // of everything: a band of haze just over your head.
+        Mesh ??= new SphereMesh { Radius = Radius, Height = Radius * 2f, RadialSegments = 32, Rings = 24 };
         CastShadow = ShadowCastingSetting.Off;
         _base ??= Noise(0.0075f, 5, 31);
         _detail ??= Noise(0.02f, 4, 77);
