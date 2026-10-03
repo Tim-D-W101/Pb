@@ -277,6 +277,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _ripples = new PuddleRipples { Name = "PuddleRipples", Visible = _groundDetail.Visible };
         AddChild(_ripples);
         _ripples.Initialize(_groundDetail.Puddles, _view.Ripples);
+        fx.Water = _ripples.InWater;
         _roofDrips = new RoofDrips { Name = "RoofDrips", Visible = _groundDetail.Visible };
         AddChild(_roofDrips);
         _roofDrips.Build(_level, _sim.Collision, _ripples, _view.RoofDrips, _sim.Config.Projectile.Gravity);

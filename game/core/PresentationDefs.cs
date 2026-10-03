@@ -241,8 +241,15 @@ public sealed class FxDef : IValidatable
 
     public float MinCameraDistance_m { get; set; }
 
+    /// <summary>Water splashing up where a ball or a foot comes down in a puddle: how many drops, and their colour (sRGB with alpha).</summary>
+    public int SplashParticles { get; set; }
+
+    public string SplashColor { get; set; } = "";
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(SplashParticles), SplashParticles, 1, 200);
+        TrainingGroundDef.Colour(v, nameof(SplashColor), SplashColor);
         v.InRange(nameof(MaxBurstsPerFrame), MaxBurstsPerFrame, 0, 200);
         v.InRange(nameof(MinCameraDistance_m), MinCameraDistance_m, 0, 10);
         v.InRange(nameof(BreakParticles), BreakParticles, 1, 200);

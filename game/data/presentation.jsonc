@@ -30,7 +30,10 @@
 
   // Impact bursts. Bursts nearer the camera than minCameraDistance_m are skipped: point-blank spray
   // would fill the screen with flecks (paint on your mask is a separate effect).
-  "fx": { "maxBurstsPerFrame": 12, "breakParticles": 14, "bounceParticles": 5, "minCameraDistance_m": 1.0 },
+  // Bursts where balls break and bounce; splashParticles drops of water (splashColor) where a ball or a
+  // foot comes down in a puddle or a drip's pool.
+  "fx": { "maxBurstsPerFrame": 12, "breakParticles": 14, "bounceParticles": 5, "minCameraDistance_m": 1.0,
+    "splashParticles": 8, "splashColor": "#c9d3d9b4" },
 
   "camera": {
     // Horizontal field of view at 16:9 (spec: default 90°, adjustable 70–110°). Wider screens see more.
