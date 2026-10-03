@@ -203,6 +203,27 @@ public class BotTests
     }
 
     [Fact]
+    public void A_bot_whose_enemy_is_gone_between_decisions_stands_down_at_once()
+    {
+        // Decisions come every so often but the bot acts every tick: when whoever it was fighting is out
+        // of the round and forgotten in between, it must stand down then and there, not act on a fight
+        // with nobody in it (which threw, and the game retried the tick until the next decision).
+        BotArena arena = BotArena.Create("hard");
+        BotBrain bot = arena.AddBot("yard_east");
+        arena.Start();
+        arena.PlaceHero(arena.SpotInFront(bot, 14f), bot.Self.Position + new Vector3(0f, 0f, 30f));
+        arena.Run(12 * Second, () => bot.Mode == BotMode.Engage);
+        Assert.Equal(BotMode.Engage, bot.Mode);
+
+        arena.Hero.Present = false;
+        bot.Senses.Reset();
+        arena.Tick();
+        Assert.Null(bot.Senses.Focus);
+        Assert.NotEqual(BotMode.Engage, bot.Mode);
+        arena.Run(Second);
+    }
+
+    [Fact]
     public void A_shot_out_of_sight_makes_an_idle_bot_come_and_look()
     {
         BotArena arena = BotArena.Create("normal");
