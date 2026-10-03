@@ -16,6 +16,7 @@ namespace Pb.Game.Tools;
 /// runs this scene headless.
 /// <list type="bullet">
 /// <item><c>--texture</c>: a picture becomes a tiling material (albedo plus normal and roughness maps derived from it) in <c>art/textures/</c>.</item>
+/// <item><c>--clip</c>: a GLB holding a movement clip is cut down to its rig and animation and goes into <c>art/models/</c>.</item>
 /// <item><c>--model</c>: a GLB is tidied (smaller JPEG textures, no baked glow) and goes into <c>art/models/</c>, optionally scaled to a real height; its measured size is printed so the prop's colliders can be fitted to it.</item>
 /// <item><c>--selftest</c>: runs the texture steps on a generated picture and checks the result (CI).</item>
 /// </list>
@@ -36,7 +37,8 @@ public partial class ArtImport : Node
         int code;
         try
         {
-            code = Args.Has("--selftest") ? SelfTest() : Args.Has("--texture") ? ImportTexture() : Args.Has("--model") ? ImportModel() : Usage();
+            code = Args.Has("--selftest") ? SelfTest() : Args.Has("--texture") ? ImportTexture() : Args.Has("--model") ? ImportModel()
+                : Args.Has("--clip") ? ImportClip() : Usage();
         }
         catch (Exception ex) when (ex is IOException or ArgumentException or FormatException or InvalidOperationException or JsonException)
         {
@@ -49,7 +51,7 @@ public partial class ArtImport : Node
 
     private static int Usage()
     {
-        GD.PushError("ART usage: --texture|--model|--selftest --id=… --source=FILE --job=… --generator=… --prompt=… --url=… " +
+        GD.PushError("ART usage: --texture|--model|--clip|--selftest --id=… --source=FILE --job=… --generator=… --prompt=… --url=… " +
                      "[texture: --size=1024 --region=x,y,w,h --stretch --repeats=across,down --flatten=0.8 --band=0.12 --normal-strength=2 --roughness=0.9 --roughness-variation=0.15] " +
                      "[model: --max-texture=1024 --roughness=R --height=M]");
         return 2;
@@ -157,6 +159,23 @@ public partial class ArtImport : Node
             $"{size.X:0.00} × {size.Y:0.00} × {size.Z:0.00} m (x × y × z), base at y = {bounds.Position.Y:0.00}, centre ({middle.X:0.00}, {middle.Z:0.00})");
         Record("model", id, new List<string> { target }, $"{measured}; {tidied}{placed}");
         GD.Print($"ART model {id}: {measured}; {tidied}{placed}. In kit/props.jsonc, fit the prop's colliders to that and set model to {target}");
+        return 0;
+    }
+
+    /// <summary>
+    /// A movement clip: a GLB from the generator's rigging, cut down to its rig and animation (see
+    /// <see cref="GlbTidy.ClipOnly"/>), into <c>art/models/</c>, for <c>presentation.jsonc</c> → <c>characters.clips</c>.
+    /// </summary>
+    private static int ImportClip()
+    {
+        string id = Required("--id");
+        byte[] clip = GlbTidy.ClipOnly(File.ReadAllBytes(Required("--source")), out string report);
+        const string folder = "res://art/models";
+        string target = $"{folder}/{id}.glb";
+        DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(folder));
+        File.WriteAllBytes(ProjectSettings.GlobalizePath(target), clip);
+        Record("clip", id, new List<string> { target }, report);
+        GD.Print($"ART clip {id}: {report}. In presentation.jsonc, set characters.clips (walk, run or crouchWalk) to {target}");
         return 0;
     }
 

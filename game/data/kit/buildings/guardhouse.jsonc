@@ -8,6 +8,16 @@
   "slabThickness_m": 0.2,
   "footprint_m": [0, 0, 6, 5],
   "floorMaterial": "concrete_floor",
+  // Frames the game draws in the windows and doors (looks only: the openings stay open to paint).
+  "frames": "wood_planks",
+  // Gutters along the eaves with downpipes (looks only).
+  "gutters": "steel_painted",
+  // Lamps over the doors, junction boxes, vents and pipes on the outside walls (looks only).
+  "fittings": "steel_painted",
+  // Fluorescent fittings on the ceilings, some hanging askew, some gone (looks only).
+  "ceilingLights": "enamel_white",
+  // Skirting boards along the foot of the inside walls (looks only).
+  "skirting": "wood_planks",
   "walls": [
     {
       "storey": 0, "points_m": [[0, 0], [6, 0], [6, 5], [0, 5]], "closed": true,

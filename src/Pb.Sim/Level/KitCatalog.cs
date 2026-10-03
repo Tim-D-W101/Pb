@@ -44,6 +44,11 @@ public sealed class PropType
     public required IReadOnlyList<PropColliderTemplate> Colliders { get; init; }
 
     public bool HasModel => !string.IsNullOrWhiteSpace(Def.Model);
+
+    public bool HasShape => !string.IsNullOrWhiteSpace(Def.Shape);
+
+    /// <summary>Drawn by a model or a shape rather than by its colliders.</summary>
+    public bool HasVisual => HasModel || HasShape;
 }
 
 public sealed class BuildingTemplate
@@ -174,6 +179,35 @@ public sealed class KitCatalog
     private static void CheckBuilding(BuildingDef b, Dictionary<string, KitMaterial> materials, Dictionary<string, PropType> props, Validator v)
     {
         ResolveMaterial(materials, v, nameof(BuildingDef.FloorMaterial), b.FloorMaterial);
+        if (b.Frames is not null)
+        {
+            ResolveMaterial(materials, v, nameof(BuildingDef.Frames), b.Frames);
+        }
+
+        if (b.Gutters is not null)
+        {
+            ResolveMaterial(materials, v, nameof(BuildingDef.Gutters), b.Gutters);
+        }
+
+        if (b.Fittings is not null)
+        {
+            ResolveMaterial(materials, v, nameof(BuildingDef.Fittings), b.Fittings);
+        }
+
+        if (b.CeilingLights is not null)
+        {
+            ResolveMaterial(materials, v, nameof(BuildingDef.CeilingLights), b.CeilingLights);
+        }
+
+        if (b.Skirting is not null)
+        {
+            ResolveMaterial(materials, v, nameof(BuildingDef.Skirting), b.Skirting);
+        }
+
+        if (b.Trusses is not null)
+        {
+            ResolveMaterial(materials, v.Scope(nameof(BuildingDef.Trusses)), nameof(TrussesDef.Material), b.Trusses.Material);
+        }
         for (int i = 0; i < b.Walls.Length; i++)
         {
             WallDef w = b.Walls[i];

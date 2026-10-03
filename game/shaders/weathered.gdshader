@@ -20,6 +20,8 @@ uniform bool has_normal_tex = false;
 uniform bool has_roughness_tex = false;
 // Shuffle the textures in patches so their repeat doesn't show (materials.jsonc "breakUpRepeat").
 uniform bool break_up = false;
+// Multiplied with the albedo texture (materials.jsonc "tint"), so one photo serves several materials.
+uniform vec3 texture_tint : source_color = vec3(1.0);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D roughness_tex : hint_roughness_r, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -404,6 +406,7 @@ void fragment() {
 		} else {
 			col = texture(albedo_tex, tuv).rgb;
 		}
+		col *= texture_tint;
 		// Broad light and dark patches tens of metres across, so a photo repeating every couple of
 		// metres doesn't read as a grid over a yard or a long wall.
 		col *= mix(0.84, 1.12, fbm2(world_pos.xz * 0.045 + vec2(world_pos.y * 0.03)));

@@ -21,16 +21,58 @@ public partial class LevelBuilder : Node3D
     /// <summary>The scrubland around every level is this material.</summary>
     public const string SurroundingsMaterial = "grass_dry";
 
+    /// <summary>What's left of the glass in window frames is this material.</summary>
+    public const string GlassMaterial = "glass_dirty";
+
     /// <summary>Side of the scrubland square around the level (m).</summary>
     private const float SurroundingsSize = 4000f;
 
     private MaterialLibrary _materials = null!;
 
+    /// <summary>The level's materials, as built (for dressing added after the level).</summary>
+    public MaterialLibrary Materials => _materials;
+
     public int MeshCount { get; private set; }
 
     public int ColliderCount { get; private set; }
 
-    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null)
+    /// <summary>How many props are drawn by shapes built in code (<see cref="PropShapes"/>), and their triangles.</summary>
+    public int ShapeCount { get; private set; }
+
+    public int ShapeTriangles { get; private set; }
+
+    /// <summary>How many windows and doors got frames (<see cref="OpeningFrames"/>).</summary>
+    public int FramedOpenings { get; private set; }
+
+    /// <summary>How many buildings got gutters, downpipes or roof trusses (<see cref="BuildingDetails"/>).</summary>
+    public int DressedBuildings { get; private set; }
+
+    /// <summary>How many wall runs got piers, coping, wire or rubble (<see cref="WallDressing"/>).</summary>
+    public int DressedWalls { get; private set; }
+
+    /// <summary>How many inside wall faces got a skirting board (<see cref="Skirting"/>).</summary>
+    public int SkirtedFaces { get; private set; }
+
+    /// <summary>How many pylons and poles stand out beyond the level (<see cref="Scenery"/>).</summary>
+    public int SceneryCount { get; private set; }
+
+    /// <summary>How many trees stand out beyond the level (<see cref="Woods"/>).</summary>
+    public int TreeCount { get; private set; }
+
+    /// <summary>Where rain runs off the buildings' and walls' details down their faces, for <see cref="RunOff"/>.</summary>
+    public List<Drip> Drips { get; } = new();
+
+    /// <summary>Where the free-standing walls' piers stand (middle, half-width), for things painted on those walls to keep clear of.</summary>
+    public List<(Vector3 At, float Half)> Piers { get; } = new();
+
+    /// <summary>Where the walls' barbed wire runs, strand by strand, for <see cref="SnaggedBags"/>.</summary>
+    public List<WireStrand> Strands { get; } = new();
+
+    /// <summary>
+    /// Builds the level: its primitives, the props, and the buildings' frames and details from their
+    /// templates (<see cref="LevelLayout.Buildings"/>).
+    /// </summary>
+    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null, WoodsDef? woods = null)
     {
         foreach (Node child in GetChildren())
         {
@@ -38,20 +80,65 @@ public partial class LevelBuilder : Node3D
         }
 
         _materials = materials;
+        Drips.Clear();
+        Piers.Clear();
+        Strands.Clear();
         MeshCount = 0;
         ColliderCount = 0;
+        ShapeTriangles = 0;
 
+        // Props: a generated model if it loads, else the shape built in code, else the colliders as greybox.
         var render = new List<LevelPrimitive>();
         var missingModels = new HashSet<int>();
+        var shapes = new Dictionary<(int Cx, int Cz), ShapeMesh>();
+        var materialIds = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (KitMaterial m in level.Materials)
+        {
+            materialIds[m.Id] = m.Index;
+        }
+
+        ShapeCount = 0;
         foreach (PropInstance prop in level.Props)
         {
-            if (prop.Type.HasModel && !TryPlaceModel(prop))
+            bool drawn = prop.Type.HasModel && TryPlaceModel(prop);
+            if (!drawn && prop.Type.HasShape)
+            {
+                drawn = TryBuildShape(level, prop, shapes, id => materialIds.TryGetValue(id, out int index) ? index : -1);
+            }
+
+            if (!drawn && prop.Type.HasVisual)
             {
                 for (int i = prop.FirstPrimitive; i < prop.FirstPrimitive + prop.PrimitiveCount; i++)
                 {
                     missingModels.Add(i);
                 }
             }
+        }
+
+        // The buildings' frames in their openings, gutters and trusses.
+        var frames = new Dictionary<int, int>();
+        foreach (PlacedBuilding b in level.Buildings)
+        {
+            if (b.Template.Def.Frames is { } id && materialIds.TryGetValue(id, out int index))
+            {
+                frames[b.Owner] = index;
+            }
+        }
+
+        int glass = materialIds.TryGetValue(GlassMaterial, out int g) ? g : -1;
+        FramedOpenings = OpeningFrames.Build(level, owner => frames.TryGetValue(owner, out int m) ? m : -1, glass, at => ChunkMesh(shapes, at.X, at.Z));
+        DressedBuildings = BuildingDetails.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z), Drips);
+        DressedWalls = WallDressing.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z), Drips, Piers, Strands);
+        SkirtedFaces = Skirting.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
+        SceneryCount = Scenery.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
+
+        foreach (((int cx, int cz), ShapeMesh shape) in shapes)
+        {
+            var mesh = new ArrayMesh();
+            shape.Commit(mesh, m => _materials[m]);
+            AddChild(new MeshInstance3D { Name = $"Props_{cx}_{cz}", Mesh = ShapeMesh.WithLods(mesh) });
+            ShapeTriangles += shape.TriangleCount;
+            MeshCount++;
         }
 
         for (int i = 0; i < level.Primitives.Count; i++)
@@ -66,7 +153,18 @@ public partial class LevelBuilder : Node3D
         BuildGround(level);
         if (horizon is not null)
         {
-            BuildHorizon(level, horizon);
+            Pb.Sim.Collision.Aabb b = level.Bounds;
+            AddChild(Horizon.Build(new Vector3((b.Min.X + b.Max.X) * 0.5f, 0f, (b.Min.Z + b.Max.Z) * 0.5f), StableHash(level.Id), horizon));
+        }
+
+        TreeCount = 0;
+        if (woods is not null)
+        {
+            Pb.Sim.Collision.Aabb b = level.Bounds;
+            var trees = new Woods { Name = "Woods" };
+            AddChild(trees);
+            trees.Build(new Rect2(b.Min.X, b.Min.Z, b.Max.X - b.Min.X, b.Max.Z - b.Min.Z), StableHash(level.Id), woods, level.Scenery);
+            TreeCount = trees.TreeCount;
         }
 
         BuildMeshes(render);
@@ -106,76 +204,6 @@ public partial class LevelBuilder : Node3D
         var body = new StaticBody3D { Name = "GroundBody" };
         body.AddChild(new CollisionShape3D { Shape = new WorldBoundaryShape3D() });
         AddChild(body);
-    }
-
-    /// <summary>
-    /// Rings of distant tree lines: jagged silhouettes broken by open country. They're lit like the
-    /// ground (normals up) so they don't flash where the sun faces them, and fog does the rest.
-    /// </summary>
-    private void BuildHorizon(LevelLayout level, HorizonDef horizon)
-    {
-        Pb.Sim.Collision.Aabb b = level.Bounds;
-        var center = new Vector3((b.Min.X + b.Max.X) * 0.5f, 0f, (b.Min.Z + b.Max.Z) * 0.5f);
-        var noise = new FastNoiseLite
-        {
-            NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth,
-            FractalOctaves = 3,
-            Seed = StableHash(level.Id),
-        };
-        var tool = new SurfaceTool();
-        tool.Begin(Mesh.PrimitiveType.Triangles);
-        Color baseColor = Color.FromHtml(horizon.Color);
-
-        for (int r = 0; r < horizon.Rings.Length; r++)
-        {
-            HorizonRingDef ring = horizon.Rings[r];
-            int segments = Mathf.CeilToInt(Mathf.Tau * ring.Radius_m / 3f);
-            float layer = r * 97f;
-
-            // Noise sampled around the circle so the ring closes without a seam.
-            Vector3 At(int i) => center + new Vector3(Mathf.Cos(Mathf.Tau * i / segments), 0f, Mathf.Sin(Mathf.Tau * i / segments)) * ring.Radius_m;
-            float Height(Vector3 p)
-            {
-                float woods = 0.5f + 0.5f * noise.GetNoise3D(p.X * 0.012f, p.Z * 0.012f, layer);
-                float crowns = noise.GetNoise3D(p.X * 0.25f, p.Z * 0.25f, layer + 40f);
-                float edge = Mathf.Clamp((woods - ring.Gaps) / 0.06f, 0f, 1f);
-                float tall = Mathf.Clamp(0.55f + 0.45f * crowns + 0.6f * (woods - 0.5f), 0f, 1f);
-                return edge * Mathf.Lerp(ring.MinHeight_m, ring.MaxHeight_m, tall);
-            }
-
-            for (int i = 0; i < segments; i++)
-            {
-                Vector3 p0 = At(i), p1 = At(i + 1);
-                float h0 = Height(p0), h1 = Height(p1);
-                if (h0 <= 0f && h1 <= 0f)
-                {
-                    continue;
-                }
-
-                Color shade = baseColor * (0.85f + 0.2f * (0.5f + 0.5f * noise.GetNoise3D(p0.X * 0.05f, p0.Z * 0.05f, layer + 80f)));
-                shade.A = 1f;
-                Vector3 t0 = p0 + Vector3.Up * h0, t1 = p1 + Vector3.Up * h1;
-                foreach (Vector3 v in new[] { p0, t0, t1, p0, t1, p1 })
-                {
-                    tool.SetNormal(Vector3.Up);
-                    tool.SetColor(shade);
-                    tool.AddVertex(v);
-                }
-            }
-        }
-
-        AddChild(new MeshInstance3D
-        {
-            Name = "Horizon",
-            Mesh = tool.Commit(),
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            MaterialOverride = new StandardMaterial3D
-            {
-                VertexColorUseAsAlbedo = true,
-                Roughness = 1f,
-                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-            },
-        });
     }
 
     /// <summary>FNV-1a: a hash of the level id that's the same on every run (string.GetHashCode isn't).</summary>
@@ -314,6 +342,50 @@ public partial class LevelBuilder : Node3D
         return true;
     }
 
+    /// <summary>
+    /// Builds a prop's shape into the mesh of the chunk it stands in. An unknown shape is reported and
+    /// the prop falls back to greybox.
+    /// </summary>
+    private bool TryBuildShape(LevelLayout level, PropInstance prop, Dictionary<(int Cx, int Cz), ShapeMesh> shapes, Func<string, int> material)
+    {
+        string kind = prop.Type.Def.Shape!;
+        if (!PropShapes.Has(kind))
+        {
+            GD.PushError($"kit/props.jsonc: prop '{prop.Type.Id}' has an unknown shape '{kind}' (known: {string.Join(", ", PropShapes.Kinds)}); drawn as greybox");
+            return false;
+        }
+
+        ShapeMesh mesh = ChunkMesh(shapes, prop.Position.X, prop.Position.Z);
+        float top = prop.Position.Y;
+        for (int i = prop.FirstPrimitive; i < prop.FirstPrimitive + prop.PrimitiveCount; i++)
+        {
+            top = MathF.Max(top, level.Primitives[i].Bounds.Max.Y);
+        }
+
+        mesh.Place(new Transform3D(new Basis(Vector3.Up, prop.Yaw), prop.Position.ToGodot()), top - prop.Position.Y);
+        // The seed comes from where the prop stands, so each one differs but a level looks the same every time.
+        int seed = StableHash(prop.Type.Id)
+            ^ (int)MathF.Round(prop.Position.X * 10f) * 73856093
+            ^ (int)MathF.Round(prop.Position.Y * 10f) * 19349663
+            ^ (int)MathF.Round(prop.Position.Z * 10f) * 83492791;
+        PropShapes.Build(kind, mesh, prop.Type, seed, material);
+        ShapeCount++;
+        return true;
+    }
+
+    /// <summary>The shape mesh of the chunk holding (<paramref name="x"/>, <paramref name="z"/>).</summary>
+    private static ShapeMesh ChunkMesh(Dictionary<(int Cx, int Cz), ShapeMesh> shapes, float x, float z)
+    {
+        var key = ((int)MathF.Floor(x / ChunkSize), (int)MathF.Floor(z / ChunkSize));
+        if (!shapes.TryGetValue(key, out ShapeMesh? mesh))
+        {
+            mesh = new ShapeMesh();
+            shapes[key] = mesh;
+        }
+
+        return mesh;
+    }
+
     private static int FindMaterial(LevelLayout level, string id, int fallback)
     {
         foreach (KitMaterial m in level.Materials)
@@ -331,7 +403,7 @@ public partial class LevelBuilder : Node3D
 
     private static Quaternion ToGodot(SQuaternion q) => new(q.X, q.Y, q.Z, q.W);
 
-    private static ArrayMesh GroundMesh(Vector2 size, Vector3 center)
+    internal static ArrayMesh GroundMesh(Vector2 size, Vector3 center)
     {
         var tool = new SurfaceTool();
         tool.Begin(Mesh.PrimitiveType.Triangles);

@@ -30,6 +30,18 @@ public partial class PlayerController : PawnBody, IPlayerDriver
 
     public ViewModel ViewModel { get; private set; } = null!;
 
+    /// <summary>
+    /// Your own body, drawn from your hitbox rig like anyone else's: only its shadow while you play, so you
+    /// see yourself on the ground; all of it once you're out, for the spectator camera. Null without a
+    /// character model (no art).
+    /// </summary>
+    public CharacterVisual? Body { get; private set; }
+
+    private Vector3 _joltPush;
+    private float _joltRoll;
+    private float _joltStrength;
+    private float _joltAge = 10f;
+
     /// <summary>When set, drives the player instead of devices.</summary>
     public ICommandSource? AutoPilot { get; set; }
 
@@ -59,12 +71,31 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         ApplyCamera(0f, 1f);
     }
 
+    /// <summary>Gives you a body (see <see cref="Body"/>) in <paramref name="jersey"/>, the <paramref name="look"/>th model and tint.</summary>
+    public void BuildBody(CharactersDef? characters, Color jersey, int look)
+    {
+        var body = new CharacterVisual { Name = "Body" };
+        AddChild(body);
+        body.Build(Sim, State, jersey, characters, look);
+        if (!body.HasModel)
+        {
+            body.QueueFree();
+            return;
+        }
+
+        body.ShadowOnly = true;
+        Body = body;
+    }
+
     public override void Teleport(System.Numerics.Vector3 position, float yaw)
     {
         base.Teleport(position, yaw);
         _yaw = yaw;
         _pitch = 0f;
         _currentEye = _previousEye = State.EyePosition.ToGodot();
+        // Both poses the body interpolates between, so it doesn't slide over from where you were.
+        Body?.Capture();
+        Body?.Capture();
     }
 
     public InputCommand Step(int tick, float dt)
@@ -77,6 +108,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         }
 
         ApplyCommand(cmd, dt);
+        Body?.Capture();
 
         _previousEye = _currentEye;
         _currentEye = State.EyePosition.ToGodot();
@@ -128,19 +160,47 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         }
 
         ViewModel.Side = State.Shoulder;
+        ViewModel.RefillProgress = State.Marker.Refill.Active ? State.Marker.Refill.Progress(State.Marker.Paint.Params) : -1f;
+        int capacity = State.Marker.Paint.Params.Capacity;
+        ViewModel.LoaderFill = capacity > 0 ? (float)State.Marker.Paint.Loader / capacity : 0f;
         ApplyCamera((float)Engine.GetPhysicsInterpolationFraction(), Mathf.Min(1f, speed / Mathf.Max(0.1f, Move.RunSpeed)));
     }
 
     /// <summary>World position where the drawn barrel tip appears (for the ball's visual blend).</summary>
     public Vector3 VisualMuzzlePosition() => ViewModel.ApparentMuzzle(Camera);
 
+    /// <summary>
+    /// A ball hit you, pushing along <paramref name="push"/> at <paramref name="speed"/> (m/s): the view jolts,
+    /// rolling away from the side it came from, harder the faster the ball.
+    /// </summary>
+    public void Jolt(Vector3 push, float speed)
+    {
+        var flat = new Vector3(push.X, 0f, push.Z);
+        if (flat.LengthSquared() < 1e-4f)
+        {
+            return;
+        }
+
+        _joltPush = flat.Normalized();
+        Vector3 right = new(Mathf.Cos(_yaw), 0f, -Mathf.Sin(_yaw));
+        // Hit from the left (pushed right), the view rolls right, as a head knocked that way would.
+        _joltRoll = _joltPush.Dot(right) >= 0f ? 1f : -1f;
+        _joltStrength = Mathf.Clamp(speed / 90f, 0.3f, 1f);
+        _joltAge = 0f;
+    }
+
     private void ApplyCamera(float alpha, float bobWeight)
     {
+        _joltAge += (float)GetProcessDeltaTime();
         Vector3 eye = _previousEye.Lerp(_currentEye, alpha);
         float bob = _settings.HeadBob ? Mathf.Sin(_bobPhase) * _view.Camera.HeadBobAmplitude_m * bobWeight : 0f;
         _head.GlobalPosition = eye + new Vector3(0f, bob, 0f);
         // Leaning right rolls the view clockwise (negative about the view axis), by part of the body's roll.
         float roll = Mathf.Lerp(_previousRoll, _currentRoll, alpha) * _view.Camera.LeanRoll;
+        // A hit jolts the view: it rolls and nudges, but never turns off where you aim.
+        float jolt = _joltAge < 0.03f ? _joltAge / 0.03f : Mathf.Exp(-(_joltAge - 0.03f) / 0.07f);
+        _head.GlobalPosition += _joltPush * (_view.Camera.HitJolt_m * _joltStrength * jolt);
+        roll += _joltRoll * Mathf.DegToRad(_view.Camera.HitJolt_deg) * _joltStrength * jolt;
         _head.Rotation = new Vector3(_pitch, _yaw, -roll);
 
         // Settings store horizontal FOV at 16:9; Godot's camera FOV is vertical. Wider screens gain width (Hor+).

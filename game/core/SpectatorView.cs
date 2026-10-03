@@ -38,7 +38,11 @@ public partial class SpectatorView : Node3D
     /// <summary>True while trailing a player who's still in.</summary>
     public bool Following => _watchable is not null;
 
-    public void Start(PlayerState victim, PlayerState? shooter, SpectatorDef def, float farClip, Action finished)
+    /// <summary>
+    /// Shows who got <paramref name="victim"/> from above and behind where they stood, kept out of
+    /// <paramref name="world"/>'s walls and ceilings, then runs <paramref name="finished"/>.
+    /// </summary>
+    public void Start(PlayerState victim, PlayerState? shooter, SpectatorDef def, float farClip, ICollisionWorld? world, Action finished)
     {
         _victim = victim;
         _shooter = shooter;
@@ -51,7 +55,10 @@ public partial class SpectatorView : Node3D
         towards = towards.LengthSquared() > 1e-4f ? towards.Normalized() : Vector3.Forward;
         _camera = new Camera3D { Name = "SpectatorCamera", Fov = 62f, Near = 0.05f, Far = farClip, TopLevel = true };
         AddChild(_camera);
-        _camera.GlobalPosition = eye + Vector3.Up * def.Height_m - towards * def.Back_m;
+        // Up from their head as far as the ceiling allows, then back from there short of any wall, so it
+        // stays inside (in a corridor the full height would be above the ceiling) and still sees past them.
+        Vector3 above = Clear(world, eye, eye + Vector3.Up * def.Height_m);
+        _camera.GlobalPosition = Clear(world, above, above - towards * def.Back_m);
         _camera.LookAt(Focus(), Vector3.Up);
         _camera.MakeCurrent();
 
@@ -128,6 +135,10 @@ public partial class SpectatorView : Node3D
             _watchLabel.AddThemeColorOverride("font_color", _colourOf(_watching.Team));
         }
     }
+
+    /// <summary>As far from <paramref name="from"/> towards <paramref name="to"/> as the camera fits.</summary>
+    private static Vector3 Clear(ICollisionWorld? world, Vector3 from, Vector3 to) =>
+        world is not null && world.SweepSphere(from.ToSim(), to.ToSim(), CameraRadius, out SweepHit hit) ? hit.Point.ToGodot() : to;
 
     private static int IndexOf(IReadOnlyList<PlayerState> players, PlayerState p)
     {

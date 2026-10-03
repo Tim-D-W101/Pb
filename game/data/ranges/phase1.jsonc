@@ -22,16 +22,31 @@
     }
   ],
 
-  // Staggered across X so no target hides another from the firing line.
+  // Staggered across X so no target hides another from the firing line. A target faces −Z in its own
+  // frame, as players do, so yaw 180 turns its dummy's mask to the firing line (its hitbox is round
+  // the Y axis, so that changes nothing it's hit by).
   "targets": [
-    { "id": "d10", "label": "10 m", "kind": "dummy", "position_m": [-3.0, 0, -10] },
-    { "id": "d20", "label": "20 m", "kind": "dummy", "position_m": [-1.0, 0, -20] },
-    { "id": "d30", "label": "30 m", "kind": "dummy", "position_m": [1.0, 0, -30] },
-    { "id": "d40", "label": "40 m", "kind": "dummy", "position_m": [3.0, 0, -40] },
+    { "id": "d10", "label": "10 m", "kind": "dummy", "position_m": [-3.0, 0, -10], "yaw_deg": 180 },
+    { "id": "d20", "label": "20 m", "kind": "dummy", "position_m": [-1.0, 0, -20], "yaw_deg": 180 },
+    { "id": "d30", "label": "30 m", "kind": "dummy", "position_m": [1.0, 0, -30], "yaw_deg": 180 },
+    { "id": "d40", "label": "40 m", "kind": "dummy", "position_m": [3.0, 0, -40], "yaw_deg": 180 },
     {
-      "id": "runner25", "label": "25 m runner", "kind": "dummy", "position_m": [6.5, 0, -25],
+      "id": "runner25", "label": "25 m runner", "kind": "dummy", "position_m": [6.5, 0, -25], "yaw_deg": 180,
       "motion": { "axis": [1, 0, 0], "amplitude_m": 3.0, "speed_mps": 2.5 }
     }
+  ],
+
+  // Camera viewpoints for the screenshot tour (scenes/Range.tscn -- --shots); looks only.
+  "viewpoints": [
+    { "name": "the firing line", "position_m": [0, 1.65, 1.5], "yaw_deg": 0, "pitch_deg": -2 },
+    { "name": "the near dummy", "position_m": [-5, 1.5, -6.5], "yaw_deg": -30, "pitch_deg": -4 },
+    { "name": "the bunkers", "position_m": [-3, 1.7, -5], "yaw_deg": 27, "pitch_deg": -5 },
+    { "name": "the runner", "position_m": [3, 1.4, -19], "yaw_deg": -30, "pitch_deg": -4 },
+    { "name": "the backstop", "position_m": [0, 1.7, -75], "yaw_deg": 0, "pitch_deg": 2 },
+    { "name": "over the lane", "position_m": [12, 9, 12], "yaw_deg": 15, "pitch_deg": -9.5 },
+    { "name": "from outside the nets", "position_m": [-22, 2.5, -20], "yaw_deg": -77, "pitch_deg": -4 },
+    { "name": "the boards", "position_m": [-9, 1.6, -2], "yaw_deg": 15, "pitch_deg": -2 },
+    { "name": "the shelter", "position_m": [2, 1.65, 3], "yaw_deg": 127, "pitch_deg": -2 }
   ],
 
   // Props sit on the ground at position_m (footprint centre). Same data builds the mesh,

@@ -16,6 +16,13 @@ uniform float sway = 0.05;
 uniform float wind_speed = 1.4;
 uniform float gust_size = 12.0;
 uniform vec2 wind_dir = vec2(0.82, 0.57);
+// People pushing through (WeedField.Follow): each one's feet (xyz) and how hard they push (w, 1 where
+// they are now, less where they were a moment ago, so the weeds spring back behind them), how far the
+// push reaches, and how far it leans a tip over.
+uniform vec4 pushers[32];
+uniform int pusher_count = 0;
+uniform float push_reach = 0.7;
+uniform float push_lean = 0.28;
 
 varying float v_variant;
 
@@ -28,6 +35,24 @@ void vertex() {
 	float gust = 0.55 + 0.45 * sin(TIME * 0.31 + dot(root.xz, wind_dir) / gust_size);
 	float s = (sin(TIME * wind_speed + phase) * 0.65 + sin(TIME * wind_speed * 2.27 + phase * 1.9) * 0.25 + 0.35) * gust;
 	offset.xz += wind_dir * (s * sway * bend);
+	// Leaning away from anyone close, and lying a little flatter, more the closer they are.
+	vec2 shove = vec2(0.0);
+	float flatten = 0.0;
+	for (int i = 0; i < pusher_count; i++) {
+		vec4 p = pushers[i];
+		vec2 away = root.xz - p.xz;
+		float d = length(away);
+		if (d < push_reach && abs(root.y - p.y) < 0.8) {
+			float k = 1.0 - d / push_reach;
+			k *= k * p.w;
+			shove += (d > 0.001 ? away / d : vec2(0.7071)) * k;
+			flatten = max(flatten, k);
+		}
+	}
+	float strength = length(shove);
+	shove *= strength > 1.0 ? 1.0 / strength : 1.0;
+	offset.xz += shove * push_lean * bend;
+	offset.y *= 1.0 - 0.45 * flatten * bend;
 	VERTEX = root + offset * grow;
 	v_variant = floor(INSTANCE_CUSTOM.r + 0.5);
 }

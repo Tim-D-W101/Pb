@@ -46,6 +46,9 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
         AddChild(_callout);
     }
 
+    /// <summary>Hands the opponent to another pilot (a scripted scene's).</summary>
+    public void Steer(ICommandSource pilot) => _pilot = pilot;
+
     /// <summary>Shows the "Hit!" call above the head for a couple of seconds.</summary>
     public void CallHit()
     {

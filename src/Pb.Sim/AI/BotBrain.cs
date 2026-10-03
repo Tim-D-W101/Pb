@@ -275,13 +275,17 @@ public sealed class BotBrain
         return _cmd;
     }
 
-    /// <summary>Something that can't wait for the next decision: an enemy just spotted, or shots landing close.</summary>
+    /// <summary>
+    /// Something that can't wait for the next decision: an enemy just spotted, shots landing close, or a
+    /// fight with nobody left in it (they're out and forgotten since the last decision; acting on it
+    /// would have no one to fight).
+    /// </summary>
     private bool Urgent()
     {
         Awareness? f = Senses.Focus;
         if (f is null)
         {
-            return false;
+            return Mode == BotMode.Engage;
         }
 
         bool spottedNow = f.Spotted && f.Visible && Mode != BotMode.Engage;

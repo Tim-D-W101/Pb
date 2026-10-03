@@ -4,79 +4,35 @@ using Pb.Sim.Range;
 
 namespace Pb.Game.World;
 
-/// <summary>Visible dummy built from a target's hitbox parts; flashes and counts lethal hits.</summary>
+/// <summary>
+/// A target's dummy (built round its hitbox parts by <see cref="RangeShapes.Dummy"/>), moved along its
+/// motion; it flashes when hit and its sign counts the hits.
+/// </summary>
 public partial class TargetView : Node3D
 {
-    private readonly System.Collections.Generic.List<StandardMaterial3D> _materials = new();
     private TargetSpec _spec = null!;
+    private MeshInstance3D _dummy = null!;
+    private StandardMaterial3D _flashMaterial = null!;
+    private Color _flashColor;
     private Label3D _label = null!;
     private float _flash;
     private int _hits;
 
-    public void Build(TargetSpec spec)
+    public void Build(TargetSpec spec, Mesh dummy, Color flash)
     {
         _spec = spec;
+        _flashColor = flash;
         Position = spec.BasePosition.ToGodot();
         Rotation = new Vector3(0, spec.Yaw, 0);
-
-        foreach (TargetPartSpec part in spec.Kind.Parts)
+        _dummy = new MeshInstance3D { Name = "Dummy", Mesh = dummy };
+        AddChild(_dummy);
+        // Laid over the whole dummy while it flashes: its colour added, fading out.
+        _flashMaterial = new StandardMaterial3D
         {
-            bool mask = part.Part == Pb.Sim.Collision.HitboxPart.Mask;
-            var material = new StandardMaterial3D
-            {
-                AlbedoColor = mask ? new Color(0.12f, 0.12f, 0.13f) : new Color(0.93f, 0.9f, 0.82f),
-                Roughness = mask ? 0.3f : 0.7f,
-            };
-            _materials.Add(material);
-
-            switch (part.Kind)
-            {
-                case PartShapeKind.Capsule:
-                {
-                    Vector3 from = part.From.ToGodot();
-                    Vector3 to = part.To.ToGodot();
-                    Vector3 axis = to - from;
-                    var instance = new MeshInstance3D
-                    {
-                        Mesh = new CapsuleMesh { Radius = part.Radius, Height = axis.Length() + 2f * part.Radius },
-                        MaterialOverride = material,
-                        Position = (from + to) * 0.5f,
-                    };
-                    if (axis.Normalized().Dot(Vector3.Up) < 0.999f)
-                    {
-                        instance.Basis = Conv.BasisFromUp(axis, 0f);
-                    }
-
-                    AddChild(instance);
-                    break;
-                }
-
-                case PartShapeKind.Sphere:
-                    AddChild(new MeshInstance3D
-                    {
-                        Mesh = new SphereMesh { Radius = part.Radius, Height = part.Radius * 2f },
-                        MaterialOverride = material,
-                        Position = part.Center.ToGodot(),
-                    });
-                    break;
-                case PartShapeKind.Box:
-                    AddChild(new MeshInstance3D
-                    {
-                        Mesh = new BoxMesh { Size = part.Size.ToGodot() },
-                        MaterialOverride = material,
-                        Position = part.Center.ToGodot(),
-                    });
-                    break;
-            }
-        }
-
-        // Stand (visual only).
-        AddChild(new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(0.6f, 0.04f, 0.4f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.3f, 0.32f) },
-            Position = new Vector3(0, 0.02f, 0),
-        });
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            BlendMode = BaseMaterial3D.BlendModeEnum.Add,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
 
         _label = new Label3D
         {
@@ -112,11 +68,7 @@ public partial class TargetView : Node3D
         }
 
         _flash = Mathf.Max(0f, _flash - (float)delta * 5f);
-        foreach (StandardMaterial3D material in _materials)
-        {
-            material.EmissionEnabled = _flash > 0f;
-            material.Emission = new Color(1f, 0.35f, 0.1f);
-            material.EmissionEnergyMultiplier = _flash * 2.5f;
-        }
+        _flashMaterial.AlbedoColor = new Color(_flashColor, _flash * 0.85f);
+        _dummy.MaterialOverlay = _flash > 0f ? _flashMaterial : null;
     }
 }

@@ -101,11 +101,22 @@ public sealed class MaterialDef : IValidatable
     [Optional]
     public bool BreakUpRepeat { get; set; }
 
+    /// <summary>
+    /// An sRGB colour multiplied with the texture, so one photo serves several materials (a burnt
+    /// car's duller rust from the rusted-steel photo). White leaves it as it is.
+    /// </summary>
+    [Optional]
+    public string? Tint { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(Surface), Surface);
         LevelDefChecks.HexColor(v, nameof(Color), Color);
+        if (Tint is not null)
+        {
+            LevelDefChecks.HexColor(v, nameof(Tint), Tint);
+        }
         v.InRange(nameof(Tile_m), Tile_m, 0.05, 100);
         v.InRange(nameof(Roughness), Roughness, 0, 1);
         v.InRange(nameof(Weathering), Weathering, 0, 1);
@@ -123,7 +134,8 @@ public sealed class PropsDef : IValidatable
 
 /// <summary>
 /// A placeable prop. Its <c>colliders</c> are what paint and walking actually hit, so a generated 3D
-/// model can be swapped in without changing gameplay. Without a model the colliders are drawn.
+/// model or a shape built in code can be swapped in without changing gameplay. With neither, the
+/// colliders are drawn.
 /// </summary>
 public sealed class PropTypeDef : IValidatable
 {
@@ -133,6 +145,13 @@ public sealed class PropTypeDef : IValidatable
 
     [Optional]
     public string? Model { get; set; }
+
+    /// <summary>
+    /// A detail model the game builds in code from the colliders (pallets, crate, tyres…; the game
+    /// lists them). Drawn when there's no <see cref="Model"/>, or it doesn't load.
+    /// </summary>
+    [Optional]
+    public string? Shape { get; set; }
 
     [Optional]
     public float ModelScale { get; set; } = 1f;
@@ -245,6 +264,46 @@ public sealed class BuildingDef : IValidatable
 
     public string FloorMaterial { get; set; } = "";
 
+    /// <summary>
+    /// Material of the frames the game draws in this building's windows and doors (presentation
+    /// only: the openings stay open to paint). Omit for bare openings.
+    /// </summary>
+    [Optional]
+    public string? Frames { get; set; }
+
+    /// <summary>
+    /// Material of the gutters along the roof's eaves and the downpipes from them (presentation only;
+    /// a parapet roof gets just the downpipes). Omit for none.
+    /// </summary>
+    [Optional]
+    public string? Gutters { get; set; }
+
+    /// <summary>Steel trusses under the roof (presentation only). Omit for none.</summary>
+    [Optional]
+    public TrussesDef? Trusses { get; set; }
+
+    /// <summary>
+    /// Material of the fittings on the outside walls: lamps over the doors, junction boxes, vents and
+    /// pipes (presentation only). Omit for none.
+    /// </summary>
+    [Optional]
+    public string? Fittings { get; set; }
+
+    /// <summary>
+    /// Material of the fluorescent fittings on every storey's ceiling, some hanging askew and some gone
+    /// (presentation only). Omit for none.
+    /// </summary>
+    [Optional]
+    public string? CeilingLights { get; set; }
+
+    /// <summary>Material of the skirting boards along the foot of the inside walls (presentation only). Omit for none.</summary>
+    [Optional]
+    public string? Skirting { get; set; }
+
+    /// <summary>Paint on the floors and walls: lines, hatched areas, stencilled numbers, striped columns (presentation only).</summary>
+    [Optional]
+    public MarkingsDef? Markings { get; set; }
+
     public WallDef[] Walls { get; set; } = Array.Empty<WallDef>();
 
     [Optional]
@@ -322,6 +381,8 @@ public sealed class BuildingDef : IValidatable
 
         LevelDefChecks.Items(v, nameof(Floors), Floors);
         Roof?.Validate(v.Scope(nameof(Roof)));
+        Trusses?.Validate(v.Scope(nameof(Trusses)));
+        Markings?.Validate(v.Scope(nameof(Markings)));
         LevelDefChecks.Items(v, nameof(Stairs), Stairs);
         LevelDefChecks.Items(v, nameof(Columns), Columns);
         LevelDefChecks.Items(v, nameof(Props), Props);
@@ -386,6 +447,10 @@ public sealed class WallDef : IValidatable
     [Optional]
     public float PostSpacing_m { get; set; } = 1.5f;
 
+    /// <summary>Piers, coping, barbed wire and rubble the game draws on the wall (presentation only).</summary>
+    [Optional]
+    public WallDressingDef? Dressing { get; set; }
+
     public int SegmentCount => Points_m.Length < 2 ? 0 : Closed ? Points_m.Length : Points_m.Length - 1;
 
     public void Validate(Validator v)
@@ -419,6 +484,15 @@ public sealed class WallDef : IValidatable
         }
 
         LevelDefChecks.Items(v, nameof(Openings), Openings);
+        Dressing?.Validate(v.Scope(nameof(Dressing)));
+        foreach (int gate in Dressing?.FallenGates ?? System.Array.Empty<int>())
+        {
+            if (Openings is null || gate < 0 || gate >= Openings.Length || Openings[gate].Kind != OpeningKind.Gap)
+            {
+                v.Scope(nameof(Dressing)).Error(nameof(WallDressingDef.FallenGates), $"{gate} must be the index of one of the wall's gap openings");
+            }
+        }
+
         for (int i = 0; Openings is not null && i < Openings.Length; i++)
         {
             if (Openings[i].Segment < 0 || Openings[i].Segment >= SegmentCount)
@@ -426,6 +500,49 @@ public sealed class WallDef : IValidatable
                 v.Item(nameof(Openings), i).Error(nameof(OpeningDef.Segment), $"must be a segment index in [0, {SegmentCount - 1}]");
             }
         }
+    }
+}
+
+/// <summary>
+/// What the game draws on a wall run besides the wall (presentation only; paint and walking see just
+/// the wall): piers this far apart (0 for none), this wide, standing a little proud of the wall, a
+/// coping course along its top, barbed wire on brackets leaning out (away from the middle of a closed
+/// run), hanging loose at the breaks, broken blocks on the ground either side of each break, and gates
+/// lying off their hinges outside the gaps listed in fallenGates.
+/// </summary>
+public sealed class WallDressingDef : IValidatable
+{
+    [Optional]
+    public float PierSpacing_m { get; set; }
+
+    [Optional]
+    public float PierSize_m { get; set; } = 0.45f;
+
+    /// <summary>The piers' material; the wall's when left out.</summary>
+    [Optional]
+    public string? PierMaterial { get; set; }
+
+    [Optional]
+    public string? Coping { get; set; }
+
+    [Optional]
+    public string? Wire { get; set; }
+
+    [Optional]
+    public bool Rubble { get; set; }
+
+    /// <summary>Openings (indices into the wall's openings, each a gap) whose gate lies off its hinges on the ground outside.</summary>
+    [Optional]
+    public int[]? FallenGates { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (PierSpacing_m != 0f)
+        {
+            v.InRange(nameof(PierSpacing_m), PierSpacing_m, 1, 50);
+        }
+
+        v.InRange(nameof(PierSize_m), PierSize_m, 0.1, 2);
     }
 }
 
@@ -490,6 +607,114 @@ public sealed class SlabDef : IValidatable
 }
 
 /// <summary>Flat roof on top of the last storey, with holes (collapsed sections) and an optional parapet.</summary>
+/// <summary>
+/// Trusses spanning the roof's short way, this far apart, this deep, with purlins along the long way
+/// under the roof. Over a hole in the roof they're broken off and hang down.
+/// </summary>
+public sealed class TrussesDef : IValidatable
+{
+    public string Material { get; set; } = "";
+
+    public float Spacing_m { get; set; }
+
+    public float Depth_m { get; set; }
+
+    /// <summary>Pendant lamps hanging from each truss on cables (0 for none).</summary>
+    [Optional]
+    public int LampsPerTruss { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Material), Material);
+        v.InRange(nameof(Spacing_m), Spacing_m, 1, 20);
+        v.InRange(nameof(Depth_m), Depth_m, 0.2, 3);
+        v.InRange(nameof(LampsPerTruss), LampsPerTruss, 0, 20);
+    }
+}
+
+/// <summary>
+/// Worn paint on a building (presentation only), in plan metres in its frame: lines and hatched areas
+/// on the ground floor, numbers stencilled on a floor or a wall, and stripes round the foot of the
+/// ground floor's columns, all in this colour unless a stencil gives its own.
+/// </summary>
+public sealed class MarkingsDef : IValidatable
+{
+    /// <summary>The paint's colour, as #rrggbb.</summary>
+    public string Color { get; set; } = "";
+
+    public float LineWidth_m { get; set; }
+
+    /// <summary>Lines on the ground floor: [x0, z0, x1, z1] each.</summary>
+    [Optional]
+    public float[][]? Lines_m { get; set; }
+
+    /// <summary>Areas on the ground floor hatched with diagonal stripes: [x0, z0, x1, z1] each.</summary>
+    [Optional]
+    public float[][]? Hatches_m { get; set; }
+
+    [Optional]
+    public StencilDef[]? Stencils { get; set; }
+
+    /// <summary>How high the stripes go round the foot of the ground floor's columns (0 for none).</summary>
+    [Optional]
+    public float ColumnStripes_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        LevelDefChecks.Colour(v, nameof(Color), Color);
+        v.InRange(nameof(LineWidth_m), LineWidth_m, 0.02, 1);
+        for (int i = 0; Lines_m is not null && i < Lines_m.Length; i++)
+        {
+            v.Vector(nameof(Lines_m) + "[" + i.ToString(CultureInfo.InvariantCulture) + "]", Lines_m[i], 4);
+        }
+
+        LevelDefChecks.Rects(v, nameof(Hatches_m), Hatches_m);
+        LevelDefChecks.Items(v, nameof(Stencils), Stencils);
+        v.InRange(nameof(ColumnStripes_m), ColumnStripes_m, 0, 5);
+    }
+}
+
+/// <summary>
+/// Capital letters, digits, spaces and dashes stencilled on a floor or, upright, on a wall: their middle at
+/// [x, y, z] (y is the height of the floor or of the middle on the wall), each this tall. Yaw turns them as anything in the plan: at
+/// 0 they read from the +Z side, a wall's at 0 facing +Z.
+/// </summary>
+public sealed class StencilDef : IValidatable
+{
+    public string Text { get; set; } = "";
+
+    public float[] At_m { get; set; } = Array.Empty<float>();
+
+    public float Size_m { get; set; }
+
+    [Optional]
+    public float Yaw_deg { get; set; }
+
+    /// <summary>On a wall rather than the floor.</summary>
+    [Optional]
+    public bool Wall { get; set; }
+
+    /// <summary>A colour of its own, as #rrggbb.</summary>
+    [Optional]
+    public string? Color { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (string.IsNullOrWhiteSpace(Text) || !Text.All(c => char.IsAsciiDigit(c) || c is >= 'A' and <= 'Z' or ' ' or '-'))
+        {
+            v.Error(nameof(Text), $"'{Text}' must be capital letters, digits, spaces and dashes");
+        }
+
+        v.Vector(nameof(At_m), At_m);
+        v.InRange(nameof(Size_m), Size_m, 0.05, 5);
+        v.InRange(nameof(Yaw_deg), Yaw_deg, -360, 360);
+        if (Color is not null)
+        {
+            LevelDefChecks.Colour(v, nameof(Color), Color);
+        }
+    }
+}
+
 public sealed class RoofDef : IValidatable
 {
     public float[] Rect_m { get; set; } = Array.Empty<float>();
@@ -636,6 +861,58 @@ public sealed class AreaDef : IValidatable
 }
 
 /// <summary>levels/*.jsonc: one explorable level.</summary>
+/// <summary>
+/// Things out beyond a level, drawn by the game for the view (presentation only; nothing out there
+/// can be reached or hit): power lines on lattice pylons and lines of wooden telegraph poles.
+/// </summary>
+public sealed class SceneryDef : IValidatable
+{
+    [Optional]
+    public LineDef[]? PowerLines { get; set; }
+
+    [Optional]
+    public LineDef[]? PoleLines { get; set; }
+
+    public void Validate(Validator v)
+    {
+        LevelDefChecks.Items(v, nameof(PowerLines), PowerLines);
+        LevelDefChecks.Items(v, nameof(PoleLines), PoleLines);
+    }
+}
+
+/// <summary>A line of towers or poles along plan points [x, z], this far apart, this tall, with wires between them.</summary>
+public sealed class LineDef : IValidatable
+{
+    public float[][] Points_m { get; set; } = Array.Empty<float[]>();
+
+    public float Spacing_m { get; set; }
+
+    public float Height_m { get; set; }
+
+    /// <summary>The towers' or poles' material, and the wires'.</summary>
+    public string Material { get; set; } = "";
+
+    public string Wire { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        if (Points_m.Length < 2)
+        {
+            v.Error(nameof(Points_m), "needs at least two points");
+        }
+
+        for (int i = 0; i < Points_m.Length; i++)
+        {
+            v.Vector(nameof(Points_m) + "[" + i.ToString(CultureInfo.InvariantCulture) + "]", Points_m[i], 2);
+        }
+
+        v.InRange(nameof(Spacing_m), Spacing_m, 5, 1000);
+        v.InRange(nameof(Height_m), Height_m, 2, 200);
+        v.NotEmpty(nameof(Material), Material);
+        v.NotEmpty(nameof(Wire), Wire);
+    }
+}
+
 public sealed class LevelDef : IValidatable
 {
     public string Id { get; set; } = "";
@@ -686,11 +963,21 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public ViewpointDef[]? Viewpoints { get; set; }
 
+    /// <summary>What the game draws out beyond the level (presentation only).</summary>
+    [Optional]
+    public SceneryDef? Scenery { get; set; }
+
+    /// <summary>Paint on the open ground, in world [x, z]: lines, hatched areas, stencilled numbers (presentation only).</summary>
+    [Optional]
+    public MarkingsDef? Markings { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
         LevelDefChecks.Items(v, nameof(Viewpoints), Viewpoints);
+        Scenery?.Validate(v.Scope(nameof(Scenery)));
+        Markings?.Validate(v.Scope(nameof(Markings)));
         v.Vector(nameof(BoundsMin_m), BoundsMin_m);
         v.Vector(nameof(BoundsMax_m), BoundsMax_m);
         if (BoundsMin_m is { Length: 3 } && BoundsMax_m is { Length: 3 } &&
@@ -1006,6 +1293,15 @@ internal static class LevelDefChecks
         for (int i = 0; items is not null && i < items.Length; i++)
         {
             items[i].Validate(v.Item(property, i));
+        }
+    }
+
+    /// <summary>A colour written #rrggbb.</summary>
+    public static void Colour(Validator v, string property, string? value)
+    {
+        if (value is not { Length: 7 } || value[0] != '#' || !value.Skip(1).All(char.IsAsciiHexDigit))
+        {
+            v.Error(property, $"'{value}' must be a colour written #rrggbb");
         }
     }
 
