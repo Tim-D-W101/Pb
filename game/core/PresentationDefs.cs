@@ -1291,6 +1291,9 @@ public sealed class HudDef : IValidatable
 
     public string HitMarkerColor { get; set; } = "";
 
+    /// <summary>Below this share of the loader (0-1), the gear panel's paint count turns amber and says LOW.</summary>
+    public float LowPaint { get; set; }
+
     public string[] Callsigns { get; set; } = System.Array.Empty<string>();
 
     public CalloutsDef Callouts { get; set; } = new();
@@ -1304,6 +1307,7 @@ public sealed class HudDef : IValidatable
         v.InRange(nameof(SubtitleRange_m), SubtitleRange_m, 0, 500);
         v.InRange(nameof(PickupPromptRange_m), PickupPromptRange_m, 0, 50);
         v.InRange(nameof(HitMarkerTime_s), HitMarkerTime_s, 0.05, 5);
+        v.InRange(nameof(LowPaint), LowPaint, 0, 1);
         if (!Godot.Color.HtmlIsValid(HitMarkerColor))
         {
             v.Error(nameof(HitMarkerColor), $"'{HitMarkerColor}' is not a valid colour");

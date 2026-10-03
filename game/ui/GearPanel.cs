@@ -30,13 +30,16 @@ public partial class GearPanel : Control
 
     private Marker? _marker;
     private Color _paint = Colors.Orange;
+    private float _lowPaint = 0.2f;
     private Font _font = null!;
     private double _redraw;
 
-    public void Initialize(Marker marker, Color paint)
+    /// <param name="lowPaint">Below this share of the loader the count turns amber (and red when it's empty).</param>
+    public void Initialize(Marker marker, Color paint, float lowPaint)
     {
         _marker = marker;
         _paint = paint;
+        _lowPaint = lowPaint;
         _font = ThemeDB.FallbackFont;
         MouseFilter = MouseFilterEnum.Ignore;
         CustomMinimumSize = PanelSize;
@@ -74,13 +77,19 @@ public partial class GearPanel : Control
         float full = paint.Params.Capacity > 0 ? (float)paint.Loader / paint.Params.Capacity : 0f;
         Loader(new Vector2(38f, 58f), 20f, full);
         string count = paint.Loader.ToString();
-        Text(new Vector2(72f, 74f), count, 34, Colors.White);
+        // Running low, the count turns amber, and red once it's empty.
+        Color counted = paint.Loader == 0 ? AirOut : full < _lowPaint ? AirLow : Colors.White;
+        Text(new Vector2(72f, 74f), count, 34, counted);
         float countWidth = _font.GetStringSize(count, HorizontalAlignment.Left, -1, 34).X;
         Text(new Vector2(78f + countWidth, 74f), "/ " + paint.Params.Capacity, 16, Dim);
         if (m.Refill.Active)
         {
             Bar(new Rect2(72f, 82f, 150f, 4f), m.Refill.Progress(paint.Params), AirLow, Array.Empty<float>());
             Text(new Vector2(228f, 88f), "REFILL", 12, AirLow);
+        }
+        else if (full < _lowPaint && paint.PodsRemaining > 0)
+        {
+            Text(new Vector2(228f, 88f), paint.Loader == 0 ? "EMPTY" : "LOW", 12, counted);
         }
 
         // The pods, each filled to what's left in it, and the balls left in them all.

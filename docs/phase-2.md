@@ -360,7 +360,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
   - the mask spray is M2.3's.
 - [x] The Phase 1 gear panel stays. On 2026-10-02 it's drawn rather than written (`GearPanel`), with the same information:
   - the fire mode;
-  - a loader whose bowl holds balls of your paint up to how full it is, with its count (and the refill's progress under it);
+  - a loader whose bowl holds balls of your paint up to how full it is, with its count (and the refill's progress under it); since 2026-10-03 the count turns amber and says LOW below a fifth of the loader (`hud.lowPaint`), and red with EMPTY at none, while there's paint in the pods to refill from;
   - a pod for each pod, filled to what's left in it, and the balls in them all;
   - the air as a bar marked where the regulator gives out and at the low warning, green, amber or red, with the figure in bar.
 

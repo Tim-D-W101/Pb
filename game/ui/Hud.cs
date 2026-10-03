@@ -114,7 +114,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _settings = settings;
         _splats = splats;
         ApplyView(view);
-        _gear.Initialize(player.Marker, Color.FromHtml(view.TeamColors[player.Team % view.TeamColors.Length]));
+        _gear.Initialize(player.Marker, Color.FromHtml(view.TeamColors[player.Team % view.TeamColors.Length]), view.Hud.LowPaint);
     }
 
     /// <summary>Switches to the match HUD: top bar (with <paramref name="clock"/>), kill feed, subtitles and pickup prompts.</summary>

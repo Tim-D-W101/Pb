@@ -888,6 +888,9 @@
     // The crosshair flashes this marker when your ball puts someone out.
     "hitMarkerTime_s": 0.35,
     "hitMarkerColor": "#ffffff",
+    // Below this share of the loader the gear panel's paint count turns amber and says LOW (red and
+    // EMPTY at none), while there's paint in the pods to refill from.
+    "lowPaint": 0.2,
     // Opponents' callsigns, dealt in a shuffled order each round (invented names only).
     "callsigns": ["Rook", "Magpie", "Tinker", "Moth", "Ferret", "Badger", "Sparrow", "Flint", "Gannet", "Wren", "Otter", "Lark"],
     // What bots shout; one line is picked per call.
