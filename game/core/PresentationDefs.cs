@@ -810,10 +810,12 @@ public sealed class CharactersDef : IValidatable
     /// <summary>Tints for the models' colours, dealt in turn, so copies of one model differ.</summary>
     public string[] Tints { get; set; } = System.Array.Empty<string>();
 
-    /// <summary>The team-colour armband on each upper arm.</summary>
+    /// <summary>The team-colour armband on each upper arm: its radius where a model's sleeve can't be measured, its width, and the room it leaves round the sleeve.</summary>
     public float ArmbandRadius_m { get; set; }
 
     public float ArmbandWidth_m { get; set; }
+
+    public float ArmbandGap_m { get; set; }
 
     /// <summary>Steps while moving: stride length and how high a foot lifts.</summary>
     public float Stride_m { get; set; }
@@ -864,6 +866,7 @@ public sealed class CharactersDef : IValidatable
 
         v.InRange(nameof(ArmbandRadius_m), ArmbandRadius_m, 0.01, 0.3);
         v.InRange(nameof(ArmbandWidth_m), ArmbandWidth_m, 0.01, 0.5);
+        v.InRange(nameof(ArmbandGap_m), ArmbandGap_m, 0, 0.05);
         v.InRange(nameof(Stride_m), Stride_m, 0.1, 2);
         v.InRange(nameof(StepLift_m), StepLift_m, 0, 0.5);
         v.InRange(nameof(FullStrideSpeed_mps), FullStrideSpeed_mps, 0.1, 20);

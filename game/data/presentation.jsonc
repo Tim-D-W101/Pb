@@ -812,9 +812,11 @@
     // Models, dealt to opponents in turn, and tints for their colours, so copies of one model differ.
     "models": ["res://art/models/opponent_a.glb", "res://art/models/opponent_b.glb", "res://art/models/opponent_c.glb"],
     "tints": ["#ffffff", "#c8ccd4", "#e8dcc0"],
-    // The team-colour armband on each upper arm.
+    // The team-colour armband on each upper arm, halfway down: fitted round each model's
+    // sleeve there with armbandGap_m to spare, or armbandRadius_m round where the sleeve can't be measured.
     "armbandRadius_m": 0.068,
     "armbandWidth_m": 0.09,
+    "armbandGap_m": 0.004,
     // Movement clips, shared by every model (each a GLB holding one in-place clip on the generator's
     // rig, fitted to each model's build by bone name): "walk", "run" and "crouchWalk". Each plays at
     // the pace that keeps its feet planted; walk blends into run between the two clips' own speeds,
