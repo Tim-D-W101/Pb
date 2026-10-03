@@ -414,6 +414,26 @@ public class BotTests
         Assert.True(arena.ShotsBy(0) > 0, "never found anyone to shoot at");
     }
 
+    /// <summary>Ten sets of random starts in each mode, at the sizes the menu offers by default.</summary>
+    public static IEnumerable<object[]> OtherStarts() =>
+        new[] { ("solo", 6), ("teams", 5), ("ffa", 8) }.SelectMany(m => Enumerable.Range(1, 10).Select(seed => new object[] { m.Item1, m.Item2, (ulong)seed }));
+
+    [Theory]
+    [MemberData(nameof(OtherStarts))]
+    public void Rounds_from_other_random_starts_play_out_without_errors(string modeId, int size, ulong seed)
+    {
+        // CI's bot match plays one set of starts. Others reach states it doesn't: a bot whose enemy was gone
+        // between decisions threw at the game's --seed=4. Any exception here fails the test.
+        (BotArena arena, GameMode mode) = BotRound(modeId, size, seed);
+        arena.Start(timeLimit: 240f, mode: mode.Kind);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        arena.Run(250 * Second, () => arena.Sim.Match!.Phase == Match.MatchPhase.Ended);
+        Report(arena);
+        _out.WriteLine($"({watch.Elapsed.TotalSeconds:0.0} s to run)");
+        Assert.Equal(Match.MatchPhase.Ended, arena.Sim.Match!.Phase);
+        Assert.NotEqual(Match.RoundOutcome.None, arena.Sim.Match!.Outcome);
+    }
+
     /// <summary>A round of <paramref name="modeId"/> at <paramref name="size"/> with bots in every slot, yours included, from random starts.</summary>
     private (BotArena Arena, GameMode Mode) BotRound(string modeId, int size, ulong seed)
     {
