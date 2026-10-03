@@ -274,8 +274,15 @@ public sealed class CameraDef : IValidatable
 
     public float HeadBobStride_m { get; set; }
 
+    /// <summary>A ball hitting you jolts the view: a roll this far (it never moves where you aim) and a nudge this far, for a ball at 90 m/s (slower ones less).</summary>
+    public float HitJolt_deg { get; set; }
+
+    public float HitJolt_m { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(HitJolt_deg), HitJolt_deg, 0, 15);
+        v.InRange(nameof(HitJolt_m), HitJolt_m, 0, 0.1);
         v.InRange(nameof(FovMin_deg), FovMin_deg, 30, 150);
         v.InRange(nameof(FovMax_deg), FovMax_deg, FovMin_deg, 150);
         v.InRange(nameof(Fov_deg), Fov_deg, FovMin_deg, FovMax_deg);

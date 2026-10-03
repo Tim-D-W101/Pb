@@ -46,7 +46,11 @@
     // Minimal head-bob (spec §1.5).
     "headBob": true,
     "headBobAmplitude_m": 0.01,
-    "headBobStride_m": 1.8
+    "headBobStride_m": 1.8,
+    // A ball hitting you (bouncing off) jolts the view: a quick roll away from the hit, never moving
+    // where you aim, and a small nudge, for a ball at 90 m/s (slower ones less), gone in a fifth of a second.
+    "hitJolt_deg": 2.5,
+    "hitJolt_m": 0.012
   },
 
   "viewModel": {

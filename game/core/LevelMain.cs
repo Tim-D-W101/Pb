@@ -445,6 +445,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             // A ball hitting a body makes it flinch away, whether it breaks or bounces off.
             int id = PlayerHitboxes.PlayerIdOf(e.TargetId);
+            if (id == _player.State.Id && _player.State.Alive)
+            {
+                _player.Jolt(-e.Normal.ToGodot(), e.Value);
+            }
+
             foreach (OpponentPawn pawn in _pawns)
             {
                 if (pawn.State.Id == id)
