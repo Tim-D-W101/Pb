@@ -132,6 +132,40 @@ public partial class CharacterModel : Node3D
         return best is null ? null : new SplatAnchor(best, bestDistance);
     }
 
+    /// <summary>
+    /// A paint pod held in the hand on <paramref name="bone"/> (made the first time it's asked for, hidden
+    /// until shown): a smoked tube of <paramref name="paint"/>, its lid open, lying across the palm.
+    /// </summary>
+    public Node3D Pod(string bone, Color paint)
+    {
+        BoneAttachment3D hand = Attachment(bone);
+        if (hand.GetNodeOrNull<Node3D>("Pod") is { } pod)
+        {
+            return pod;
+        }
+
+        float unit = 1f / Mathf.Max(_skeleton.GlobalTransform.Basis.Scale.X, 1e-4f);
+        pod = new Node3D { Name = "Pod", Visible = false, Basis = new Basis(Vector3.Right, Mathf.Pi * 0.5f), Position = new Vector3(0f, 0.06f, 0.03f) * unit };
+        pod.AddChild(new MeshInstance3D
+        {
+            Name = "Tube",
+            Mesh = new CylinderMesh { TopRadius = 0.024f * unit, BottomRadius = 0.024f * unit, Height = 0.19f * unit, RadialSegments = 10, Rings = 1 },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = paint.Darkened(0.1f), Roughness = 0.35f },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        });
+        pod.AddChild(new MeshInstance3D
+        {
+            Name = "Lid",
+            Mesh = new CylinderMesh { TopRadius = 0.026f * unit, BottomRadius = 0.026f * unit, Height = 0.012f * unit, RadialSegments = 10, Rings = 1 },
+            Position = new Vector3(0.03f, 0.1f, 0f) * unit,
+            Basis = new Basis(Vector3.Back, -1.2f),
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.08f, 0.08f, 0.09f), Roughness = 0.4f },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        });
+        hand.AddChild(pod);
+        return pod;
+    }
+
     private BoneAttachment3D Attachment(string bone)
     {
         if (!_attachments.TryGetValue(bone, out BoneAttachment3D? attachment))

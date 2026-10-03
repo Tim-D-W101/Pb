@@ -30,6 +30,9 @@ public partial class CharacterVisual : Node3D
     private CharacterModel? _model;
     private CharactersDef? _look;
     private float _standEye;
+    private float _refillPhase = 1f;
+    private Color _paint = Colors.White;
+    private Node3D? _pod;
     private float _crouchEye;
     private Vector3 _lastFeet;
 
@@ -40,6 +43,7 @@ public partial class CharacterVisual : Node3D
         _sim = sim;
         _state = state;
         _look = characters;
+        _paint = jersey;
         _standEye = sim.Config.Movement.StandEyeHeight;
         _crouchEye = sim.Config.Movement.CrouchEyeHeight;
         TopLevel = true;
@@ -144,7 +148,7 @@ public partial class CharacterVisual : Node3D
         Vector3 half = _half[marker];
         Vector3 Grip(float along) => frame * new Vector3(0f, -half.Y - _look.GripDrop_m, half.Z * (1f - 2f * along));
         poser.TriggerHand = Grip(_look.TriggerGrip);
-        poser.SupportHand = Grip(_look.SupportGrip);
+        poser.SupportHand = Refill(Grip(_look.SupportGrip), feet, eye, poser);
 
         // The legs, by the ground the feet covered since the last frame.
         Vector3 moved = feet - _lastFeet;
@@ -152,6 +156,45 @@ public partial class CharacterVisual : Node3D
         float crouch = (_standEye - eye) / Mathf.Max(_standEye - _crouchEye, 0.01f);
         _model.Gait.Update(moved, _state.Velocity.ToGodot(), poser.Forward, crouch, _state.Stance == Stance.Sliding,
             _state.Grounded, (float)GetProcessDeltaTime());
+    }
+
+    /// <summary>
+    /// Refilling from a pod (in step with the sim's refill; run on to the end if it stops early): the
+    /// support hand leaves <paramref name="grip"/> for the pods on the belt, pulls one out, brings it up
+    /// beside the loader to tip it in, and goes back. The marker stays where its hitbox is; only the hand moves.
+    /// </summary>
+    private Vector3 Refill(Vector3 grip, Vector3 feet, float eye, CharacterPoser poser)
+    {
+        Pb.Sim.Gear.Marker marker = _state.Marker;
+        float delta = (float)GetProcessDeltaTime();
+        _refillPhase = marker.Refill.Active && _state.Alive ? marker.Refill.Progress(marker.Paint.Params) : Mathf.MoveToward(_refillPhase, 1f, delta * 2.5f);
+        float f = _refillPhase;
+        if (f >= 1f)
+        {
+            if (_pod is not null)
+            {
+                _pod.Visible = false;
+            }
+
+            return grip;
+        }
+
+        float side = poser.RightHanded ? -1f : 1f;
+        int loaderIndex = _indexOfPart[(int)HitboxPart.Loader];
+        Transform3D loader = _parts[loaderIndex].GlobalTransform;
+        Vector3 loaderHalf = _half[loaderIndex];
+        // Beside the loader on the support side, a little below its top (with the marker shouldered, the
+        // loader's top is by the face), and the pods on the belt at the hip.
+        Vector3 pour = loader * new Vector3(0f, loaderHalf.Y * 0.4f, 0f) + poser.Right * ((loaderHalf.X + 0.07f) * side);
+        Vector3 hip = feet + Vector3.Up * (eye * 0.55f) + poser.Right * (0.2f * side) - poser.Forward * 0.04f;
+        Vector3 hand = f < 0.2f ? grip.Lerp(hip, Mathf.SmoothStep(0f, 0.2f, f))
+            : f < 0.6f ? hip + Vector3.Up * (0.02f * Mathf.Sin(f * 40f))
+            : f < 0.72f ? hip.Lerp(pour, Mathf.SmoothStep(0.6f, 0.72f, f))
+            : f < 0.85f ? pour + Vector3.Up * (0.01f * Mathf.Sin(f * 70f))
+            : pour.Lerp(grip, Mathf.SmoothStep(0.85f, 1f, f));
+        _pod ??= _model!.Pod(poser.RightHanded ? "LeftHand" : "RightHand", _paint);
+        _pod.Visible = f is > 0.3f and < 0.88f;
+        return hand;
     }
 
     private static bool IsGear(HitboxPart part) => part is HitboxPart.Marker or HitboxPart.Loader or HitboxPart.Tank;

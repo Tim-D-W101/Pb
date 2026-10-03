@@ -269,6 +269,7 @@ Known gaps: bots don't jump, slide or climb anything but stairs, and their teamw
     - the feet step as it moves (IK);
     - both hands hold the marker (IK).
   - Eliminated opponents still raise the marker and walk off.
+  - Refilling (2026-10-03), in step with the sim's refill: the support hand leaves the foregrip for the pods on the belt, pulls one out, brings it up beside the loader to tip it in, and goes back. Only the hand moves (the marker stays where its hitbox is), so an opponent caught refilling shows it: hand off the marker, down at the hip.
   - A team-colour armband sits on each upper arm. Since 2026-10-03 it's fitted to each model: halfway down the upper arm, the vertices skinned to it give the sleeve's reach all round the bone, and the band is a ring round that (offset where the bone isn't in the sleeve's middle), so it wraps B's padded sleeve and C's slim one alike instead of sinking into one and floating off the other.
   - Splats stick to the nearest bone and move with it. They reach through to the model's surface, which lies inside the hitbox in some places and bulges past it in others.
   - They hold the marker built in code (below), each part fitted into its hitbox, with their team's paint in the loader.
