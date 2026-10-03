@@ -23,7 +23,18 @@ public static class HandShape
 {
     private const float Finger = 0.0095f, Thumb = 0.0105f;
 
+    /// <summary>The top of the foregrip, where the support hand holds it (marker frame): the hand turns about it.</summary>
+    public static Vector3 ForegripTop => At(0.078f, -0.036f);
+
+    /// <summary>Both hands on the marker.</summary>
     public static void Build(ShapeMesh m)
+    {
+        BuildTrigger(m);
+        BuildSupport(m);
+    }
+
+    /// <summary>The trigger hand round the pistol grip.</summary>
+    public static void BuildTrigger(ShapeMesh m)
     {
         // The pistol grip: from the middle of its top (just under the frame) down its rake.
         Grip trigger = new(At(-0.069f, -0.058f), Direction(-0.028f, -0.097f), Vector3.Right);
@@ -34,10 +45,54 @@ public static class HandShape
         // The thumb wraps over the left of the grip's top.
         Chain(m, HandPart.Glove, Thumb, trigger.At(0.012f, -0.03f, 0.006f), trigger.At(0.0f, -0.02f, -0.022f), trigger.At(0.008f, 0.004f, -0.03f), trigger.At(0.02f, 0.018f, -0.026f));
 
+    }
+
+    /// <summary>The support hand round the foregrip.</summary>
+    public static void BuildSupport(ShapeMesh m)
+    {
         // The foregrip, held from the left, all four fingers round it.
-        Grip support = new(At(0.078f, -0.036f), Direction(-0.008f, -0.097f), Vector3.Left);
+        Grip support = new(ForegripTop, Direction(-0.008f, -0.097f), Vector3.Left);
         Hand(m, support, fingers: new[] { 0.012f, 0.033f, 0.054f, 0.075f }, wrist: new Vector3(-0.55f, -0.45f, 0.7f), reach: 0.5f);
         Chain(m, HandPart.Glove, Thumb, support.At(0.004f, -0.026f, 0.004f), support.At(-0.004f, -0.008f, -0.022f), support.At(0.006f, 0.014f, -0.026f));
+    }
+
+    /// <summary>
+    /// The support hand holding a pod by its lower half, posed as it tips the pod into the loader: the
+    /// pod's open end at <paramref name="mouth"/>, pointing along <paramref name="pour"/>, the arm coming up
+    /// from below on the left. The pod is a smoked tube full of paint (<paramref name="balls"/> of it) with
+    /// its lid flipped open. Returns where the hand grips it, for turning the whole about.
+    /// </summary>
+    public static Vector3 BuildPodHand(ShapeMesh m, Vector3 mouth, Vector3 pour, int balls)
+    {
+        pour = pour.Normalized();
+        const float length = 0.19f, radius = 0.024f;
+        Vector3 bottom = mouth - pour * length;
+        // The tube, its rim at the mouth, and the lid hinged open beside it.
+        var tube = new List<Vector2> { new(0f, 0f), new(radius * 0.9f, 0f), new(radius, 0.006f), new(radius, length - 0.004f), new(radius * 1.08f, length), new(radius * 0.9f, length) };
+        m.Lathe((int)MarkerPart.Shell, bottom, ShapeMesh.BasisAlong(pour), tube, 14);
+        Vector3 side = pour.Cross(Vector3.Back).Normalized();
+        m.Pillow((int)MarkerPart.Lid, mouth + side * radius * 1.6f - pour * 0.006f, new Vector3(0.05f, 0.012f, 0.05f), ShapeMesh.BasisAlong(side), 3f, 4, 12);
+        // Paint in it, three balls a layer, from the bottom up to a little short of the mouth.
+        const float ball = 0.0087f;
+        int layers = Math.Max(1, balls / 3);
+        Vector3 a = pour.Cross(Vector3.Up).LengthSquared() > 1e-4f ? pour.Cross(Vector3.Up).Normalized() : Vector3.Right, b = pour.Cross(a);
+        for (int layer = 0; layer < layers; layer++)
+        {
+            float along = 0.012f + layer * (length - 0.05f) / Math.Max(1, layers - 1);
+            for (int k = 0; k < 3; k++)
+            {
+                float angle = Mathf.Tau * k / 3f + layer * 1.05f;
+                Vector3 at = bottom + pour * along + (a * Mathf.Cos(angle) + b * Mathf.Sin(angle)) * (radius - ball - 0.002f);
+                m.Pillow((int)MarkerPart.Paint, at, new Vector3(ball, ball, ball) * 2f, Basis.Identity, 2f, 5, 8);
+            }
+        }
+
+        // Held from the left round its lower half, the back of the hand down towards you.
+        Vector3 top = mouth - pour * 0.085f;
+        Grip pod = new(top, pour * -1f, side);
+        Hand(m, pod, fingers: new[] { 0.012f, 0.033f, 0.054f, 0.075f }, wrist: new Vector3(-0.3f, -0.5f, 0.81f), reach: 0.5f);
+        Chain(m, HandPart.Glove, Thumb, pod.At(0.004f, -0.026f, 0.004f), pod.At(-0.004f, -0.008f, -0.022f), pod.At(0.006f, 0.014f, -0.026f));
+        return top;
     }
 
     /// <summary>

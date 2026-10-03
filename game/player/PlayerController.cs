@@ -128,6 +128,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         }
 
         ViewModel.Side = State.Shoulder;
+        ViewModel.RefillProgress = State.Marker.Refill.Active ? State.Marker.Refill.Progress(State.Marker.Paint.Params) : -1f;
         ApplyCamera((float)Engine.GetPhysicsInterpolationFraction(), Mathf.Min(1f, speed / Mathf.Max(0.1f, Move.RunSpeed)));
     }
 

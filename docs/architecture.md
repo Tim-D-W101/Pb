@@ -173,7 +173,7 @@ The spec asks for decoupled systems: ballistics, weapons, player controller, mat
 
 - **Ball readability.** At 1080p with a 90° FOV, a 17.3 mm ball is about 1.7 px wide at 10 m and under 1 px beyond about 17 m. Balls render through one MultiMesh whose shader enforces a minimum on-screen size (default 3 px) with an optional faint motion streak. This is cosmetic only: collision stays at true size, and the setting applies to everyone equally.
 - **Visible vs true path.** The visible ball starts at the drawn barrel and blends into the true path over about 0.1 s.
-- **Viewmodel and FOV.** The viewmodel (marker, loader, tank) is drawn with its own FOV so it never clips into the bunker you're hugging. The FOV setting means horizontal degrees at 16:9. Godot's camera FOV is vertical by default, so it's converted, and wider screens get more horizontal view.
+- **Viewmodel and FOV.** The viewmodel (marker, loader, tank) is drawn with its own FOV so it never clips into the bunker you're hugging. The FOV setting means horizontal degrees at 16:9. Godot's camera FOV is vertical by default, so it's converted, and wider screens get more horizontal view. The support hand is a separate part turning about the top of the foregrip, and a second left hand holding a pod (posed for pouring, its arm running back towards the camera) turns about its grip; `PlayerController` hands the viewmodel the sim's refill progress, and the viewmodel keys the cant, both hands and five falling balls off it (the phase runs on to the end when a refill stops early).
 - **Splats.**
   - Pooled `Decal`s, capped at 2,000, oldest fading first.
   - Player splats clear at round end.

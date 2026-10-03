@@ -10,7 +10,10 @@ namespace Pb.Game.Player;
 /// First-person marker with loader and tank (spec §6), the model built in code (<see cref="MarkerShape"/>),
 /// with the player's paint in its loader. It's drawn by viewmodel.gdshader
 /// with its own FOV and a squashed depth range, so it never clips into the bunker you're
-/// hugging. It sits on its own render layer so paint decals don't project onto it.
+/// hugging. It sits on its own render layer so paint decals don't project onto it. While you refill
+/// the loader from a pod, the marker cants towards you, the support hand drops off the foregrip and
+/// comes back up with a pod, tips it into the loader (paint pouring in) and goes back to the foregrip,
+/// in step with the sim's refill (<see cref="RefillProgress"/>).
 /// </summary>
 public partial class ViewModel : Node3D
 {
@@ -25,6 +28,15 @@ public partial class ViewModel : Node3D
     private float _kick;
     private float _kickBack;
     private float _kickRecover;
+    private Node3D _support = null!;
+    private Node3D _podHand = null!;
+    private Vector3 _podTop;
+    private readonly MeshInstance3D[] _pouring = new MeshInstance3D[5];
+    private float _phase = 1f;
+    private float _time;
+
+    /// <summary>Where the pod's mouth is as it pours, and which way it points (marker frame: right, up, back).</summary>
+    private static readonly Vector3 Mouth = new(-0.03f, 0.238f, 0f), Pour = new Vector3(0.75f, -0.62f, 0.15f).Normalized();
 
     public void Build(ViewModelDef def, Color loaderColor)
     {
@@ -58,16 +70,57 @@ public partial class ViewModel : Node3D
         };
         var shape = new ShapeMesh();
         MarkerShape.Build(shape, closeUp: true);
-        HandShape.Build(shape);
+        HandShape.BuildTrigger(shape);
+        AddChild(Part("Marker", shape, materials, Vector3.Zero));
+
+        // The support hand on its own, turning about the top of the foregrip, and the hand that brings
+        // a pod up to the loader (hidden until you refill), turning about where it grips the pod.
+        var support = new ShapeMesh();
+        HandShape.BuildSupport(support);
+        _support = Pivot("SupportHand", support, materials, HandShape.ForegripTop);
+        var pod = new ShapeMesh();
+        _podTop = HandShape.BuildPodHand(pod, Mouth, Pour, 24);
+        _podHand = Pivot("PodHand", pod, materials, _podTop);
+        _podHand.Visible = false;
+        var ball = new SphereMesh { Radius = 0.0087f, Height = 0.0174f, RadialSegments = 8, Rings = 4 };
+        for (int i = 0; i < _pouring.Length; i++)
+        {
+            _pouring[i] = new MeshInstance3D
+            {
+                Name = $"Pouring{i}", Mesh = ball, MaterialOverride = materials[(int)MarkerPart.Paint],
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Layers = RenderLayer, Visible = false,
+            };
+            AddChild(_pouring[i]);
+        }
+    }
+
+    /// <summary>
+    /// How far through refilling the loader from a pod you are (0-1), or −1 when you aren't: the
+    /// marker plays the refill in step (and finishes it quickly if the refill stops early).
+    /// </summary>
+    public float RefillProgress { get; set; } = -1f;
+
+    private MeshInstance3D Part(string name, ShapeMesh shape, Dictionary<int, Material> materials, Vector3 offset)
+    {
         var mesh = new ArrayMesh();
         shape.Commit(mesh, part => materials[part]);
-        AddChild(new MeshInstance3D
+        return new MeshInstance3D
         {
-            Name = "Marker",
+            Name = name,
             Mesh = mesh,
+            Position = -offset,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             Layers = RenderLayer,
-        });
+        };
+    }
+
+    /// <summary>A part built in the marker's frame, under a pivot at <paramref name="at"/> so it can be turned about that point.</summary>
+    private Node3D Pivot(string name, ShapeMesh shape, Dictionary<int, Material> materials, Vector3 at)
+    {
+        var pivot = new Node3D { Name = name, Position = at };
+        pivot.AddChild(Part("Mesh", shape, materials, at));
+        AddChild(pivot);
+        return pivot;
     }
 
     /// <summary>Which shoulder the marker is on: +1 right, −1 left, in between mid-swap (follows the sim).</summary>
@@ -83,10 +136,51 @@ public partial class ViewModel : Node3D
             _kick = Mathf.Max(0f, _kick - (float)delta / _kickRecover);
         }
 
-        Position = Rest + new Vector3(0, 0, _kickBack * _kick * _kick);
+        // The refill plays in step with the sim; stopped early, it runs on quickly to the end.
+        _time += (float)delta;
+        float progress = RefillProgress;
+        if (progress >= 0f)
+        {
+            _phase = progress;
+        }
+        else
+        {
+            _phase = Mathf.MoveToward(_phase, 1f, (float)delta * 2.5f);
+        }
+
+        float f = _phase;
+        float cant = Smooth(0f, 0.12f, f) * (1f - Smooth(0.86f, 1f, f));
+        Position = Rest + new Vector3(0, 0, _kickBack * _kick * _kick) + new Vector3(0f, -0.02f, 0.015f) * cant;
         // On the left shoulder the hands swap: the whole model is mirrored, while it passes under your chin.
-        Basis = Tilt * Basis.FromScale(new Vector3(Side < 0f ? -1f : 1f, 1f, 1f));
+        // Refilling, it rolls the loader towards you and tips its nose up a little.
+        Basis = Tilt * Basis.FromEuler(new Vector3(Mathf.DegToRad(7f) * cant, 0f, Mathf.DegToRad(-16f) * cant)) * Basis.FromScale(new Vector3(Side < 0f ? -1f : 1f, 1f, 1f));
+
+        // The support hand drops off the foregrip, down and to the left out of sight, and comes back.
+        float off = Smooth(0f, 0.12f, f) * (1f - Smooth(0.88f, 1f, f));
+        _support.Position = HandShape.ForegripTop + new Vector3(-0.1f, -0.3f, 0.1f) * off;
+        _support.Basis = new Basis(Vector3.Back, Mathf.DegToRad(25f) * off);
+
+        // The pod comes up lying on its side, tips over into the loader, pours, and goes back down.
+        float hold = Smooth(0.12f, 0.3f, f) * (1f - Smooth(0.76f, 0.9f, f));
+        _podHand.Visible = hold > 0.001f;
+        float shake = Mathf.Sin(_time * 19f) * 0.003f * Smooth(0.85f, 1f, hold);
+        _podHand.Position = _podTop + new Vector3(-0.12f, -0.32f, 0.12f) * (1f - hold) + new Vector3(shake, shake * 0.5f, 0f);
+        _podHand.Basis = new Basis(Vector3.Back, Mathf.DegToRad(60f) * (1f - hold));
+
+        // While it pours, balls tumble out of the mouth into the loader.
+        bool pouring = hold > 0.97f;
+        for (int i = 0; i < _pouring.Length; i++)
+        {
+            _pouring[i].Visible = pouring;
+            if (pouring)
+            {
+                float t = (_time * 3.2f + i / (float)_pouring.Length) % 1f;
+                _pouring[i].Position = Mouth + Pour * (0.012f + 0.03f * t) + Vector3.Down * (0.05f * t * t) + new Vector3(0.004f * Mathf.Sin(i * 2.4f), 0f, 0.004f * Mathf.Cos(i * 2.4f));
+            }
+        }
     }
+
+    private static float Smooth(float from, float to, float x) => Mathf.SmoothStep(from, to, x);
 
     /// <summary>Rest position, mirrored across the face for a left-shoulder hold (and dipped mid-swap).</summary>
     private Vector3 Rest => new(_rest.X * Side, _rest.Y - 0.06f * (1f - Mathf.Abs(Side)), _rest.Z);
