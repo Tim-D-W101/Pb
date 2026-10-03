@@ -215,6 +215,12 @@
     "windSway_m": 0.05,
     "windSpeed": 1.4,
     "gustSize_m": 12,
+    // People push the weeds aside as they go through (looks only): tufts within pushReach_m of
+    // someone's feet lean away from them, up to pushLean_m at the tip, and lie a little flatter, and
+    // spring back over about pushLinger_s once they've passed. Bots do it too.
+    "pushReach_m": 0.7,
+    "pushLean_m": 0.28,
+    "pushLinger_s": 1.0,
     // Nothing grows this close to a pickup, so grass never hides a pod.
     "pickupClearance_m": 0.9,
     // Tufts are grouped in squares this big, which are culled as a whole.

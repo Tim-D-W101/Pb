@@ -80,6 +80,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         Color teamColor = Color.FromHtml(_view.TeamColors[state.Team % _view.TeamColors.Length]);
 
         _world.Build(_data.Range, _data.Kit.Materials, _view);
+        _world.Weeds?.Follow(_sim);
         Atmosphere.ApplyLighting(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), _view.Lighting);
         ApplyGraphics(_view.Graphics.Find(_settings.GraphicsPreset));
         _player.Initialize(_sim, state, _view, _settings, teamColor);

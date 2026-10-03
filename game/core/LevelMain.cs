@@ -200,6 +200,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _weeds = new WeedField { Name = "Weeds", Wind = _view.GroundWind };
         AddChild(_weeds);
         _weeds.Build(_level, _sim.Collision, _view.Weeds, paths.Clear);
+        _weeds.Follow(_sim);
         paths.Draw(_level, _sim.Collision, _view.WornPaths);
         var cracks = new Cracks { Name = "Cracks" };
         AddChild(cracks);

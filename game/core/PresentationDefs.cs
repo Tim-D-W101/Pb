@@ -619,6 +619,13 @@ public sealed class WeedsDef : IValidatable
     /// <summary>Tufts are grouped in squares this big so whole groups can be culled.</summary>
     public float ChunkSize_m { get; set; }
 
+    /// <summary>People push the weeds aside: within this reach of someone's feet, leaning this far at the tip, and springing back over this long after they've gone.</summary>
+    public float PushReach_m { get; set; }
+
+    public float PushLean_m { get; set; }
+
+    public float PushLinger_s { get; set; }
+
     public void Validate(Validator v)
     {
         foreach ((string material, float density) in Density_perM2)
@@ -641,6 +648,9 @@ public sealed class WeedsDef : IValidatable
         v.InRange(nameof(WindSway_m), WindSway_m, 0, 0.5);
         v.InRange(nameof(WindSpeed), WindSpeed, 0, 10);
         v.InRange(nameof(GustSize_m), GustSize_m, 1, 200);
+        v.InRange(nameof(PushReach_m), PushReach_m, 0, 3);
+        v.InRange(nameof(PushLean_m), PushLean_m, 0, 1);
+        v.InRange(nameof(PushLinger_s), PushLinger_s, 0.05, 10);
         v.InRange(nameof(PickupClearance_m), PickupClearance_m, 0, 5);
         v.InRange(nameof(ChunkSize_m), ChunkSize_m, 4, 64);
         if (Colors.Length == 0)

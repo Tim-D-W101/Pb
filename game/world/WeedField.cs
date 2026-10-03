@@ -51,9 +51,20 @@ public partial class WeedField : Node3D
 
     private static readonly float[] HeightFactor = { 1.25f, 0.85f, 0.6f, 1.1f };
 
+    /// <summary>The most people the shader pushes the weeds aside for (now, and two points behind each).</summary>
+    private const int MaxPushers = 32;
+
+    private static readonly StringName Pushers = "pushers", PusherCount = "pusher_count";
+
     private readonly List<(MultiMeshInstance3D Node, int Count)> _chunks = new();
+    private readonly Vector4[] _pushers = new Vector4[MaxPushers];
+    private readonly List<(Vector3 Near, Vector3 Far)> _trails = new();
     private ShaderMaterial? _material;
     private float _chunkSize = 16f;
+    private float _drawDistance = 45f;
+    private float _pushReach;
+    private float _pushLinger = 1f;
+    private Pb.Sim.SimWorld? _sim;
 
     private enum Site
     {
@@ -96,6 +107,10 @@ public partial class WeedField : Node3D
         _material.SetShaderParameter("wind_speed", def.WindSpeed);
         _material.SetShaderParameter("gust_size", def.GustSize_m);
         _material.SetShaderParameter("wind_dir", Wind.Normalized());
+        _material.SetShaderParameter("push_reach", def.PushReach_m);
+        _material.SetShaderParameter("push_lean", def.PushLean_m);
+        _pushReach = def.PushReach_m;
+        _pushLinger = def.PushLinger_s;
 
         ArrayMesh mesh = TuftMesh();
         var groups = new SortedDictionary<(int X, int Z), List<Tuft>>();
@@ -162,6 +177,52 @@ public partial class WeedField : Node3D
 
         _material?.SetShaderParameter("fade_end", preset.WeedDistance_m);
         _material?.SetShaderParameter("fade_start", preset.WeedDistance_m * 0.7f);
+        _drawDistance = preset.WeedDistance_m;
+    }
+
+    /// <summary>People in <paramref name="sim"/> push the weeds aside as they go through them, bots too.</summary>
+    public void Follow(Pb.Sim.SimWorld sim) => _sim = sim;
+
+    /// <summary>
+    /// Where the people are and where they were a moment ago (two points trailing each, easing after
+    /// them), for the shader, so the weeds lean away from them and spring back behind them; only those
+    /// near enough the camera for their weeds to be drawn.
+    /// </summary>
+    public override void _Process(double delta)
+    {
+        if (_sim is null || _material is null || !Visible || _pushReach <= 0f)
+        {
+            return;
+        }
+
+        float ease = 1f - Mathf.Exp(-(float)delta / (_pushLinger * 0.35f));
+        Vector3 eye = GetViewport()?.GetCamera3D()?.GlobalPosition ?? Vector3.Zero;
+        float near = _drawDistance + _pushReach;
+        int count = 0;
+        for (int i = 0; i < _sim.Players.Count; i++)
+        {
+            Vector3 at = _sim.Players[i].Position.ToGodot();
+            if (i >= _trails.Count)
+            {
+                _trails.Add((at, at));
+            }
+
+            (Vector3 trailNear, Vector3 trailFar) = _trails[i];
+            trailFar = trailFar.Lerp(trailNear, ease);
+            trailNear = trailNear.Lerp(at, ease);
+            _trails[i] = (trailNear, trailFar);
+            if (at.DistanceSquaredTo(eye) > near * near || count + 3 > MaxPushers)
+            {
+                continue;
+            }
+
+            _pushers[count++] = new Vector4(at.X, at.Y, at.Z, 1f);
+            _pushers[count++] = new Vector4(trailNear.X, trailNear.Y, trailNear.Z, 0.6f);
+            _pushers[count++] = new Vector4(trailFar.X, trailFar.Y, trailFar.Z, 0.3f);
+        }
+
+        _material.SetShaderParameter(Pushers, _pushers);
+        _material.SetShaderParameter(PusherCount, count);
     }
 
     private readonly record struct Tuft(Vector3 Position, float Height, float Yaw, float TiltX, float TiltZ, int Variant, Color Tint);
