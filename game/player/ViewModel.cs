@@ -28,6 +28,7 @@ public partial class ViewModel : Node3D
     private float _kick;
     private float _kickBack;
     private float _kickRecover;
+    private MultiMesh _paint = null!;
     private Node3D _support = null!;
     private Node3D _podHand = null!;
     private Vector3 _podTop;
@@ -69,9 +70,26 @@ public partial class ViewModel : Node3D
             [HandPart.Sleeve] = Material(Color.FromHtml(def.SleeveColor), 0.92f, 0f),
         };
         var shape = new ShapeMesh();
-        MarkerShape.Build(shape, closeUp: true);
+        MarkerShape.Build(shape, closeUp: true, paint: false);
         HandShape.BuildTrigger(shape);
         AddChild(Part("Marker", shape, materials, Vector3.Zero));
+
+        // The paint in the loader, lowest balls first, drawn as far up as the loader is full.
+        var one = new ShapeMesh();
+        one.Pillow((int)MarkerPart.Paint, Vector3.Zero, new Vector3(MarkerShape.Ball, MarkerShape.Ball, MarkerShape.Ball) * 2f, Basis.Identity, 2f, 6, 9);
+        var ballMesh = new ArrayMesh();
+        one.Commit(ballMesh, part => materials[part]);
+        List<Vector3> balls = MarkerShape.LoaderBalls(1);
+        _paint = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = ballMesh, InstanceCount = balls.Count };
+        for (int i = 0; i < balls.Count; i++)
+        {
+            _paint.SetInstanceTransform(i, new Transform3D(Basis.Identity, balls[i]));
+        }
+
+        AddChild(new MultiMeshInstance3D
+        {
+            Name = "Paint", Multimesh = _paint, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Layers = RenderLayer,
+        });
 
         // The support hand on its own, turning about the top of the foregrip, and the hand that brings
         // a pod up to the loader (hidden until you refill), turning about where it grips the pod.
@@ -99,6 +117,12 @@ public partial class ViewModel : Node3D
     /// marker plays the refill in step (and finishes it quickly if the refill stops early).
     /// </summary>
     public float RefillProgress { get; set; } = -1f;
+
+    /// <summary>How full the loader is (0-1): the paint in it shows that far up.</summary>
+    public float LoaderFill
+    {
+        set => _paint.VisibleInstanceCount = Mathf.Clamp(Mathf.CeilToInt(value * _paint.InstanceCount), 0, _paint.InstanceCount);
+    }
 
     private MeshInstance3D Part(string name, ShapeMesh shape, Dictionary<int, Material> materials, Vector3 offset)
     {

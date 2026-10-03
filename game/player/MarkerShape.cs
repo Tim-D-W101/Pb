@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using Pb.Game.World;
 
@@ -65,7 +66,11 @@ public static class MarkerShape
     /// material ids are <see cref="MarkerPart"/> values. <paramref name="seed"/> settles the paint;
     /// <paramref name="closeUp"/> rounds the balls off for the first-person marker.
     /// </summary>
-    public static void Build(ShapeMesh mesh, MarkerGroup? only = null, int seed = 1, bool closeUp = false)
+    /// <summary>The paintballs' radius (17.3 mm balls).</summary>
+    public const float Ball = 0.00865f;
+
+    /// <param name="paint">False leaves the balls out of the loader, for a caller that draws them itself (<see cref="LoaderBalls"/>).</param>
+    public static void Build(ShapeMesh mesh, MarkerGroup? only = null, int seed = 1, bool closeUp = false, bool paint = true)
     {
         if (only is null or MarkerGroup.Marker)
         {
@@ -76,7 +81,7 @@ public static class MarkerShape
 
         if (only is null or MarkerGroup.Loader)
         {
-            Loader(mesh, seed, closeUp);
+            Loader(mesh, seed, closeUp, paint);
         }
 
         if (only is null or MarkerGroup.Tank)
@@ -173,30 +178,44 @@ public static class MarkerShape
         m.Bar(Trim, At(-0.014f, -0.077f), At(-0.006f, -0.088f), 0.007f, 0.005f);
     }
 
-    private static void Loader(ShapeMesh m, int seed, bool closeUp)
+    private static readonly Vector3 ShellCenter = At(-0.01f, 0.1465f), ShellSize = new(0.118f, 0.115f, 0.19f);
+
+    private static void Loader(ShapeMesh m, int seed, bool closeUp, bool paint)
     {
-        Vector3 shellCenter = At(-0.01f, 0.1465f);
-        var shellSize = new Vector3(0.118f, 0.115f, 0.19f);
-        m.Pillow(Shell, shellCenter, shellSize, Basis.Identity, 2.3f, 10, 18);
+        m.Pillow(Shell, ShellCenter, ShellSize, Basis.Identity, 2.3f, 10, 18);
         m.Pillow(Lid, At(-0.038f, 0.203f), new Vector3(0.078f, 0.012f, 0.1f), Basis.Identity, 3f, 4, 14);
         m.Box(Lid, At(0.024f, 0.2f), new Vector3(0.022f, 0.008f, 0.012f));
+        if (!paint)
+        {
+            return;
+        }
 
-        // Paint inside (17.3 mm balls), settled into the bottom two thirds of the shell.
-        const float ball = 0.00865f;
+        foreach (Vector3 at in LoaderBalls(seed))
+        {
+            m.Pillow(Paint, at, new Vector3(Ball, Ball, Ball) * 2f, Basis.Identity, 2f, closeUp ? 6 : 3, closeUp ? 9 : 5);
+        }
+    }
+
+    /// <summary>
+    /// Where the paintballs lie in the loader (marker frame), settled into the bottom two thirds of the
+    /// shell, lowest first, so drawing the first so many shows the loader that full.
+    /// </summary>
+    public static List<Vector3> LoaderBalls(int seed)
+    {
         var random = new Random(seed);
-        Vector3 half = shellSize * 0.5f - new Vector3(ball, ball, ball) * 1.3f;
-        int placed = 0;
-        for (int tries = 0; tries < 900 && placed < 80; tries++)
+        Vector3 half = ShellSize * 0.5f - new Vector3(Ball, Ball, Ball) * 1.3f;
+        var balls = new List<Vector3>(80);
+        for (int tries = 0; tries < 900 && balls.Count < 80; tries++)
         {
             var p = new Vector3((float)random.NextDouble() * 2f - 1f, (float)random.NextDouble() * 1.4f - 1f, (float)random.NextDouble() * 2f - 1f);
-            if (p.X * p.X + p.Y * p.Y + p.Z * p.Z > 1f)
+            if (p.X * p.X + p.Y * p.Y + p.Z * p.Z <= 1f)
             {
-                continue;
+                balls.Add(ShellCenter + p * half);
             }
-
-            m.Pillow(Paint, shellCenter + p * half, new Vector3(ball, ball, ball) * 2f, Basis.Identity, 2f, closeUp ? 6 : 3, closeUp ? 9 : 5);
-            placed++;
         }
+
+        balls.Sort((a, b) => a.Y.CompareTo(b.Y));
+        return balls;
     }
 
     private static void Bottle(ShapeMesh m)
