@@ -23,8 +23,9 @@ crows wheeling overhead and scattering at gunfire; dust kicked up underfoot, foo
 (in paint, or wet, if you've trodden in some), ripples in the puddles, water dripping through the
 holes in the roof, and litter, bags and torn roofing blowing in one wind; paint running down the
 walls where it lands; a proper marker in your gloved hands, with your paint in
-its see-through loader; a rigged character model for the opponents, ready to play walk and run
-clips; the compound itself behind the main menu; and the training ground dressed to match, with
+its see-through loader, and your own shadow on the ground; three rigged opponents who walk and run
+with generated movement clips, flinch when a ball hits them and refill from their pods in plain
+sight; the compound itself behind the main menu; and the training ground dressed to match, with
 netting, a timber backstop, inflatable bunkers and masked dummies covered in old paint. More
 generated props, characters and animations follow.
 
@@ -109,7 +110,9 @@ while they're in, greyed out with a cross once they're out. The kill feed (top r
 got whom, where and from how far. When an opponent shouts close by ("Contact!", "Hit!"), it shows
 as a subtitle. Walk near a pod or air tank and a prompt under the crosshair says what it is, or
 that you've no room for it. The crosshair flashes when your ball puts someone out. Your gear
-(loader, pods, air) is bottom right.
+(loader, pods, air) is bottom right; the paint count turns amber and says LOW when the loader is
+nearly empty, and red with EMPTY when it is. Once you're out, a camera above and behind where you
+stood shows you, marker up, and whoever got you.
 
 ### The opponents
 
@@ -125,10 +128,11 @@ Where everyone starts changes every round: you come in at the gate, the west bre
 collapse, and the opponents start at random places around the compound, out of your sight, each with
 a random role, so you can't learn where they are.
 
-They're drawn by a rigged character model, posed every frame to match their hitboxes: crouching,
-leaning, aiming, stepping as they move, both hands on the marker (the same one you hold, with their
-team's paint in the loader). Each wears an armband in their team colour and a slightly different
-tint. Paint splats stick where the ball hit and move with them.
+They're drawn by one of three rigged character models, posed every frame to match their hitboxes:
+crouching, leaning, aiming, walking and running with movement clips, both hands on the marker (the
+same one you hold, with their team's paint in the loader), one hand off it while they refill. Each
+wears an armband in their team colour and a slightly different tint, and flinches when a ball hits.
+Paint splats stick where the ball hit and move with them.
 
 Settings changed in game are saved to `user://settings.json`.
 
