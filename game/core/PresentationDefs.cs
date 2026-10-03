@@ -827,6 +827,9 @@ public sealed class CharactersDef : IValidatable
 
     public float ArmbandGap_m { get; set; }
 
+    /// <summary>How far a ball hitting a body at full speed turns its upper body away (degrees; slower balls less).</summary>
+    public float Flinch_deg { get; set; }
+
     /// <summary>Steps while moving: stride length and how high a foot lifts.</summary>
     public float Stride_m { get; set; }
 
@@ -877,6 +880,7 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(ArmbandRadius_m), ArmbandRadius_m, 0.01, 0.3);
         v.InRange(nameof(ArmbandWidth_m), ArmbandWidth_m, 0.01, 0.5);
         v.InRange(nameof(ArmbandGap_m), ArmbandGap_m, 0, 0.05);
+        v.InRange(nameof(Flinch_deg), Flinch_deg, 0, 30);
         v.InRange(nameof(Stride_m), Stride_m, 0.1, 2);
         v.InRange(nameof(StepLift_m), StepLift_m, 0, 0.5);
         v.InRange(nameof(FullStrideSpeed_mps), FullStrideSpeed_mps, 0.1, 20);

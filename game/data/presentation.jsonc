@@ -823,6 +823,9 @@
     "armbandRadius_m": 0.068,
     "armbandWidth_m": 0.09,
     "armbandGap_m": 0.004,
+    // A ball hitting a body, breaking or bouncing off, makes it flinch: the upper body turns away from
+    // the hit by up to this much (a ball at 90 m/s; slower ones less), snapping there and easing back.
+    "flinch_deg": 9,
     // Movement clips, shared by every model (each a GLB holding one in-place clip on the generator's
     // rig, fitted to each model's build by bone name): "walk", "run" and "crouchWalk". Each plays at
     // the pace that keeps its feet planted; walk blends into run between the two clips' own speeds,

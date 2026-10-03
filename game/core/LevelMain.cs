@@ -441,6 +441,19 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             OnRoundEnded();
         }
+        else if (e.Type is SimEventType.BallBounced or SimEventType.BallBroke && PlayerHitboxes.IsPlayer(e.TargetId))
+        {
+            // A ball hitting a body makes it flinch away, whether it breaks or bounces off.
+            int id = PlayerHitboxes.PlayerIdOf(e.TargetId);
+            foreach (OpponentPawn pawn in _pawns)
+            {
+                if (pawn.State.Id == id)
+                {
+                    pawn.Visual.Flinch(-e.Normal.ToGodot(), e.Value);
+                    break;
+                }
+            }
+        }
 
         _smoke?.OnSimEvent(e);
     }

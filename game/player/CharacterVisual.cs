@@ -31,6 +31,9 @@ public partial class CharacterVisual : Node3D
     private CharactersDef? _look;
     private float _standEye;
     private float _refillPhase = 1f;
+    private Vector3 _flinchPush;
+    private float _flinchAge = 10f;
+    private float _flinchStrength;
     private Color _paint = Colors.White;
     private Node3D? _pod;
     private float _crouchEye;
@@ -140,6 +143,10 @@ public partial class CharacterVisual : Node3D
         poser.HipDrop = Mathf.Max(0f, _standEye - eye) * _look!.HipDropPerEyeDrop;
         poser.LeanRoll = Mathf.Lerp(_poseBefore.LeanRoll, _poseNow.LeanRoll, alpha);
         poser.Pitch = _poseNow.Alive ? Mathf.Lerp(_poseBefore.Pitch, _poseNow.Pitch, alpha) : 0f;
+        // A flinch snaps the upper body away from the hit and eases it back.
+        _flinchAge += (float)GetProcessDeltaTime();
+        float flinch = _flinchAge < 0.04f ? _flinchAge / 0.04f : Mathf.Exp(-(_flinchAge - 0.04f) / 0.15f);
+        poser.Flinch = flinch > 0.01f ? Vector3.Up.Cross(_flinchPush) * (_flinchStrength * flinch) : Vector3.Zero;
         poser.RightHanded = Mathf.Lerp(_poseBefore.Shoulder, _poseNow.Shoulder, alpha) >= 0f;
 
         // Wrists on the marker: the trigger hand near its back, the other under the front.
@@ -156,6 +163,23 @@ public partial class CharacterVisual : Node3D
         float crouch = (_standEye - eye) / Mathf.Max(_standEye - _crouchEye, 0.01f);
         _model.Gait.Update(moved, _state.Velocity.ToGodot(), poser.Forward, crouch, _state.Stance == Stance.Sliding,
             _state.Grounded, (float)GetProcessDeltaTime());
+    }
+
+    /// <summary>
+    /// A ball hit the body, pushing along <paramref name="push"/> at <paramref name="speed"/> (m/s): the upper
+    /// body flinches away from it, harder the faster the ball, and recovers in a fraction of a second.
+    /// </summary>
+    public void Flinch(Vector3 push, float speed)
+    {
+        var flat = new Vector3(push.X, 0f, push.Z);
+        if (flat.LengthSquared() < 1e-4f || _look is null)
+        {
+            return;
+        }
+
+        _flinchPush = flat.Normalized();
+        _flinchStrength = Mathf.Clamp(speed / 90f, 0.3f, 1f) * Mathf.DegToRad(_look.Flinch_deg);
+        _flinchAge = 0f;
     }
 
     /// <summary>

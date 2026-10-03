@@ -46,6 +46,9 @@ public partial class CharacterPoser : SkeletonModifier3D
 
     public float Pitch { get; set; }
 
+    /// <summary>A flinch: the upper body turned about this axis (world space) by its length (rad), more towards the top.</summary>
+    public Vector3 Flinch { get; set; }
+
     /// <summary>Shares of the aim pitch taken by the chest and by the neck and head.</summary>
     public float ChestPitch { get; set; } = 0.3f;
 
@@ -154,6 +157,14 @@ public partial class CharacterPoser : SkeletonModifier3D
         Rotate(skeleton, _spineTop, pitchAxis, Pitch * ChestPitch);
         Rotate(skeleton, _neck, pitchAxis, Pitch * HeadPitch * 0.5f);
         Rotate(skeleton, _head, pitchAxis, Pitch * HeadPitch * 0.5f);
+        if (Flinch.LengthSquared() > 1e-6f)
+        {
+            Vector3 flinchAxis = (toSkeleton.Basis * Flinch).Normalized();
+            float angle = Flinch.Length();
+            Rotate(skeleton, _spineMid, flinchAxis, angle * 0.35f);
+            Rotate(skeleton, _spineTop, flinchAxis, angle * 0.4f);
+            Rotate(skeleton, _head, flinchAxis, angle * 0.6f);
+        }
 
         // Feet: where the clips put them; without clips, planted where they stand in the rest pose, or
         // swinging through a step along the travel.
