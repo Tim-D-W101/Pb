@@ -587,7 +587,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         AddChild(_spectator);
         // Once you've seen who got you: watch the players still in while the round goes on without you, or
         // the summary (scripted runs just end; the smoke test and the bot match end themselves).
-        _spectator.Start(victim, shooter, _view.Spectator, _view.Camera.FarClip_m, () =>
+        _spectator.Start(victim, shooter, _view.Spectator, _view.Camera.FarClip_m, _sim.Collision, () =>
         {
             if (_scripted)
             {
