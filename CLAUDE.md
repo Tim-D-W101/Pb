@@ -103,8 +103,11 @@ for close-ups of anything in the level. On `Level.tscn`, through the player's ow
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
-sprinting, strafing, backing off and walking crouched, seen from the side (movement clips, or the steps without them). `-- --bot-match` (CI) has a bot play your slot until
-the round ends. `--mode=solo|ffa|teams`, `--size=N` and `--objective=eliminate|retrieve|hold` pick the mode, size and
+sprinting, strafing, backing off and walking crouched, seen from the side (movement clips, or the steps without them).
+`-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
+Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
+fewer frames. `-- --bot-match` (CI) has a bot play your slot until
+the round ends (`--fast=8 --show-summary` to film it through to its summary). `--mode=solo|ffa|teams`, `--size=N` and `--objective=eliminate|retrieve|hold` pick the mode, size and
 objective (the menu's choices; they're in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`, and
 `-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
 the room, the ways out. `-- --menu-tour` on the

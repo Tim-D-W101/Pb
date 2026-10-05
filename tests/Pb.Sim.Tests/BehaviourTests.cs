@@ -222,6 +222,48 @@ public class BehaviourTests
         Assert.True(flankSeen <= directSeen, "the flank route is more exposed than walking straight in");
     }
 
+    [Fact]
+    public void A_flanker_looks_out_from_its_spot_and_opens_up_from_the_side()
+    {
+        BotArena arena = BotArena.Create("normal");
+        BotBrain caller = arena.AddBot("yard_east", "sentry");
+        Vector3 spot = arena.SpotInFront(caller, 18f);
+        BotBrain flanker = arena.AddBotAt(Spawn("flank", SpotBehind(arena, caller, 10f), awayFrom: spot), team: 1, "flanker");
+        arena.Start();
+        // You face away from the caller, so the flanker comes round unnoticed and holds its fire all the way.
+        arena.PlaceHero(spot, spot * 2f - caller.Self.Position);
+        var labels = new List<string>();
+        int flankSpot = -1;
+        bool lookedOut = false;
+        arena.Run(30 * Second, () =>
+        {
+            if (caller.Mode == BotMode.Engage)
+            {
+                caller.Passive = true; // it called it; now it keeps quiet
+            }
+
+            if (labels.Count == 0 || labels[^1] != flanker.Label)
+            {
+                labels.Add(flanker.Label);
+            }
+
+            if (flanker.Mode == BotMode.Flank)
+            {
+                flankSpot = flanker.CoverIndex;
+                lookedOut |= flanker.Phase == CoverPhase.Peeking;
+            }
+
+            return flanker.Mode is BotMode.Engage or BotMode.Search;
+        });
+        _out.WriteLine($"flanker: {string.Join(" → ", labels)}");
+        Assert.True(flankSpot >= 0, "it never flanked");
+        Assert.True(lookedOut, "it never looked out from its spot");
+        Assert.Equal(BotMode.Engage, flanker.Mode);
+        float off = Vector3.Distance(flanker.Self.Position with { Y = 0f }, arena.Squad.Cover.Points[flankSpot].Position with { Y = 0f });
+        _out.WriteLine($"it opened up {off:0.0} m from its spot");
+        Assert.True(off < CoverSet.PeekStep + 0.5f, "it left its spot before it saw you");
+    }
+
     /// <summary>A spawn at <paramref name="at"/> facing directly away from <paramref name="awayFrom"/>.</summary>
     private static OpponentSpawn Spawn(string id, Vector3 at, Vector3 awayFrom) =>
         new() { Id = id, Position = at, Yaw = MathF.Atan2(awayFrom.X - at.X, awayFrom.Z - at.Z), Roles = new[] { "sentry" } };

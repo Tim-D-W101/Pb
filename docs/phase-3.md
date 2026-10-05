@@ -308,6 +308,9 @@ Each milestone is pushed as it lands, with screenshots.
   it moves on, at least 8 m, once balls land round it, and calls it; a contact reaches a teammate 9 m away and not one
   70 m off; a call still counts after the teammate hears you, then goes stale; a Flanker on a call goes to a spot 58°
   off the line, along a way you see 70 % of against 100 % walking straight at you.
+- [x] Changed in M3.11, after the role demo showed a Flanker reach its spot and walk straight on towards you: at its
+  spot it now looks out from it for 2.5 s (`brain.jsonc` → `flankLook_s`), so a flank that worked ends in a shot from
+  the side, and only then searches. An eighth test has one come round unnoticed, look out and open up from its spot.
 
 ### M3.4 Objectives
 
@@ -427,6 +430,8 @@ until M3.10 gives them a texture.
 
 ### M3.8 Sound and voices
 
+**Done 2026-10-05, but for the voices' recordings.**
+
 - [x] Audio buses (master, effects, voices, ambience, menus) with their volumes in settings.
 - [x] Synthesised effects, several variations each: the marker report (pitch and body following tank pressure),
   breaks and bounces per surface (player, metal, wood, concrete and brick, glass, ground, tarp, inflatable),
@@ -471,6 +476,8 @@ record belong to the cast; presentation's validation checks that no two lines sh
 
 ### M3.9 Settings and rebinding
 
+**Done 2026-10-05.** [Screenshots](reports/phase-3/).
+
 - [x] A tabbed settings menu (the same one in the main menu and the pause menu): **Controls**, **Video**, **Audio**,
   **Gameplay**, **Accessibility**.
 - [x] Rebinding: every action, two mouse-and-keyboard bindings and one pad binding each, captured by pressing the
@@ -511,10 +518,24 @@ slot is refused; the menu smoke test checks the five tabs and a slot for every b
 
 ### M3.11 Verify and report
 
-- [ ] CI green: sim tests, the menu, range and level smoke tests, and a bot match on every level and mode.
-- [ ] Benchmark: the sim with ten players and 1,000 balls stays within 0.5 ms a tick on every level.
-- [ ] [`docs/reports/phase-3.md`](reports/phase-3.md) with screenshots of every level, door, objective and screen.
+**Done 2026-10-05, but for your check.** [Report](reports/phase-3.md).
+
+- [x] CI green: sim tests, the menu, range and level smoke tests, and a bot match on every level and mode (solo and
+  free-for-all on all four, teams with an objective on all four).
+- [x] Benchmark: the sim with ten players and 1,000 balls stays within 0.5 ms a tick on every level (0.40–0.44 ms).
+- [x] [`docs/reports/phase-3.md`](reports/phase-3.md) with screenshots of every level, door, objective and screen.
 - [ ] Your check: the ladder from Level 1 to Level 4, the new opponents, the sound, and 60 fps on Medium.
+
+As built: `-- --role-demo=marksman` and `=flanker` (`game/core/RoleDemo.cs`) show the two new roles at work with the
+F3 overlay, on the sim's clock so they can be captured at a low frame rate, and CI runs both as smoke tests: the
+Marksman on the Rail Yard has to spot you 40 m down its view and open up, the Flanker on the Hospital Wing has to go
+round on its teammate's call and look out from its spot. The Flanker demo finds where to stand with
+the brain's own flank-spot search (now a public query, `BotBrain.FlankSpot`): somewhere a teammate of a Flanker sees
+you, within earshot of it and out of its sight, with a way round to your side wherever within the call's 2.5 m error
+the call puts you. Scripting it showed the Flanker reach its spot and walk on towards you (M3.3 above, now fixed). A
+bot match can be filmed through to its summary (`--fast=8 --show-summary`), which is how the summary's "new level
+open" was captured; and a level that fails to load now quits a headless run instead of waiting on its error screen
+(asking for teams at size 6, for instance, which is 6 a side).
 
 ## Tests
 

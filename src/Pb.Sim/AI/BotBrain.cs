@@ -461,7 +461,11 @@ public sealed class BotBrain
                     Shout(CalloutKind.Flanking);
                 }
             }
-            else if (Mode is BotMode.Flank or BotMode.Push && (_arrived || !_hasGoal))
+            else if (Mode == BotMode.Flank && (_arrived || !_hasGoal))
+            {
+                LookOutOrSearch(f!);
+            }
+            else if (Mode == BotMode.Push && (_arrived || !_hasGoal))
             {
                 StartSearch(f!.LastKnown);
             }
@@ -497,6 +501,12 @@ public sealed class BotBrain
                     StartSearch(f.LastKnown);
                     break;
                 case BotMode.Flank:
+                    if (_arrived || !_hasGoal)
+                    {
+                        LookOutOrSearch(f);
+                    }
+
+                    break;
                 case BotMode.Push:
                     // Get there first, then look around.
                     if (_arrived || !_hasGoal)
@@ -571,6 +581,11 @@ public sealed class BotBrain
                 break;
             case BotMode.Engage:
                 ActEngage(f!, target, visible, dt);
+                break;
+            case BotMode.Flank when Phase == CoverPhase.Peeking:
+                // At its flanking spot, looking out from it.
+                HoldCover(peek: true);
+                LookToward(visible ? target!.Position : f?.LastKnown ?? _goal, slow: false);
                 break;
             case BotMode.Flank:
                 // The last stretch to a flanking spot, crouched and quiet.
@@ -1411,18 +1426,38 @@ public sealed class BotBrain
     /// </summary>
     private bool TryFlankAround(Awareness f)
     {
+        int best = FlankSpot(f.LastKnown, f.ContactFrom, jitter: true);
+        if (best < 0 || !_squad.Cover.Claim(best, Self.Id))
+        {
+            return false;
+        }
+
+        _cover = best;
+        GoTo(_squad.Cover.Points[best].Position, Archetype.MoveGait);
+        SetPhase(CoverPhase.None, 0f);
+        return true;
+    }
+
+    /// <summary>
+    /// The cover point this bot would flank to if a teammate at <paramref name="caller"/> called out an enemy at
+    /// <paramref name="enemy"/>, or -1 if there's none (see <see cref="TryFlankAround"/>). Without
+    /// <paramref name="jitter"/> it leaves out the small random tie-break, so it can be asked from outside the sim (the
+    /// role demo picks where to stand with it) without touching the brain's random numbers.
+    /// </summary>
+    public int FlankSpot(Vector3 enemy, Vector3 caller, bool jitter = false)
+    {
         CoverSet cover = _squad.Cover;
         float reach = MathF.Max(Archetype.EngageRange * 1.4f, 12f);
-        cover.Near(f.LastKnown, reach, _near);
-        Vector3 line = (f.ContactFrom - f.LastKnown) with { Y = 0f };
+        cover.Near(enemy, reach, _near);
+        Vector3 line = (caller - enemy) with { Y = 0f };
         if (line.LengthSquared() < 1e-4f)
         {
-            line = (Self.Position - f.LastKnown) with { Y = 0f };
+            line = (Self.Position - enemy) with { Y = 0f };
         }
 
         line = Vector3.Normalize(line + new Vector3(1e-4f, 0f, 0f));
-        Vector3 threatEye = f.LastKnown + new Vector3(0f, _sim.Config.Movement.StandEyeHeight, 0f);
-        Vector3 lastChest = f.LastKnown + new Vector3(0f, 1.2f, 0f);
+        Vector3 threatEye = enemy + new Vector3(0f, _sim.Config.Movement.StandEyeHeight, 0f);
+        Vector3 lastChest = enemy + new Vector3(0f, 1.2f, 0f);
         float head = _sim.Config.Movement.CrouchEyeHeight;
         int best = -1;
         float bestScore = float.MinValue;
@@ -1435,7 +1470,7 @@ public sealed class BotBrain
             }
 
             CoverPoint p = cover.Points[i];
-            Vector3 dir = (p.Position - f.LastKnown) with { Y = 0f };
+            Vector3 dir = (p.Position - enemy) with { Y = 0f };
             float distance = dir.Length();
             if (distance < _b.MinThreatDistance || !p.CanShoot)
             {
@@ -1454,8 +1489,8 @@ public sealed class BotBrain
             }
 
             float score = -MathF.Abs(angle - MathF.PI * 0.5f) * 3f - FlatDistance(Self.Position, p.Position) * 0.15f -
-                          MathF.Abs(distance - Archetype.EngageRange) * 0.2f - Exposure(Self.Position, p.Position, f.LastKnown) * 8f +
-                          _rng.NextFloat() * 0.5f;
+                          MathF.Abs(distance - Archetype.EngageRange) * 0.2f - Exposure(Self.Position, p.Position, enemy) * 8f +
+                          (jitter ? _rng.NextFloat() * 0.5f : 0f);
             if (score > bestScore)
             {
                 bestScore = score;
@@ -1463,15 +1498,23 @@ public sealed class BotBrain
             }
         }
 
-        if (best < 0 || !cover.Claim(best, Self.Id))
-        {
-            return false;
-        }
+        return best;
+    }
 
-        _cover = best;
-        GoTo(cover.Points[best].Position, Archetype.MoveGait);
-        SetPhase(CoverPhase.None, 0f);
-        return true;
+    /// <summary>
+    /// A flanker at its spot: first it looks out from it for a while (the spot was picked for its view of where they
+    /// were, so seeing them there means a shot from the side), then it searches from there.
+    /// </summary>
+    private void LookOutOrSearch(Awareness f)
+    {
+        if (Phase == CoverPhase.None && _cover >= 0 && _b.FlankLook > 0f)
+        {
+            SetPhase(CoverPhase.Peeking, _b.FlankLook);
+        }
+        else if (Phase != CoverPhase.Peeking || _phaseTime >= _phaseLength)
+        {
+            StartSearch(f.LastKnown);
+        }
     }
 
     /// <summary>Share of a walk from <paramref name="from"/> to <paramref name="to"/> in sight of someone at <paramref name="threat"/> (0..1).</summary>

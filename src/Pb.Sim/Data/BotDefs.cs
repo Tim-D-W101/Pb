@@ -106,6 +106,9 @@ public sealed class BrainDef : IValidatable
     /// <summary>An enemy facing within this of a flanker holding its fire has noticed it.</summary>
     public float NoticedAngle_deg { get; set; }
 
+    /// <summary>A flanker at its spot looks out from it this long before it starts searching.</summary>
+    public float FlankLook_s { get; set; }
+
     /// <summary>Objectives: a bot escorting the case's carrier keeps within this of them.</summary>
     public float Escort_m { get; set; }
 
@@ -133,6 +136,7 @@ public sealed class BrainDef : IValidatable
         v.InRange(nameof(RelocateDistance_m), RelocateDistance_m, 0, 100);
         v.InRange(nameof(FlankMinAngle_deg), FlankMinAngle_deg, 0, 150);
         v.InRange(nameof(NoticedAngle_deg), NoticedAngle_deg, 0, 180);
+        v.InRange(nameof(FlankLook_s), FlankLook_s, 0, 30);
         v.InRange(nameof(Escort_m), Escort_m, 1, 50);
         v.InRange(nameof(GuardSpacing_m), GuardSpacing_m, 0.5, 20);
         v.InRange(nameof(ExitGuardInset_m), ExitGuardInset_m, 0, 50);

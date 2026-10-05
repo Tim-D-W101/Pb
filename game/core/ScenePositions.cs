@@ -28,14 +28,7 @@ public static class ScenePositions
                 }
 
                 SVector3 at = other.Position + ViewAngles.FlatForward(other.Yaw + turn) * d;
-                SVector3 chest = at + new SVector3(0f, 1.2f, 0f);
-                SVector3 theirs = other.Position + new SVector3(0f, 1.2f, 0f);
-                bool room = !sim.Collision.SweepSphere(at + new SVector3(0f, 0.45f, 0f), at + new SVector3(0f, 1.6f, 0f), 0.34f, out _);
-                bool ground = sim.Collision.SweepSphere(at + new SVector3(0f, 0.3f, 0f), at - new SVector3(0f, 0.3f, 0f), 0f, out SweepHit floor) &&
-                              System.MathF.Abs(floor.Point.Y - other.Position.Y) < 0.1f;
-                bool clear = !sim.Collision.SweepSphere(chest, theirs, 0f, out _);
-                bool inside = sim.Level?.Bounds.Contains(chest) ?? true;
-                if (room && ground && clear && inside)
+                if (IsSpot(sim, other, at))
                 {
                     spot = at;
                     return true;
@@ -45,6 +38,22 @@ public static class ScenePositions
 
         spot = default;
         return false;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="at"/> is somewhere to stand in view of <paramref name="other"/>: room to stand, ground
+    /// underfoot at their level, a clear line between the two chests, and inside the level.
+    /// </summary>
+    public static bool IsSpot(SimWorld sim, PlayerState other, SVector3 at)
+    {
+        SVector3 chest = at + new SVector3(0f, 1.2f, 0f);
+        SVector3 theirs = other.Position + new SVector3(0f, 1.2f, 0f);
+        bool room = !sim.Collision.SweepSphere(at + new SVector3(0f, 0.45f, 0f), at + new SVector3(0f, 1.6f, 0f), 0.34f, out _);
+        bool ground = sim.Collision.SweepSphere(at + new SVector3(0f, 0.3f, 0f), at - new SVector3(0f, 0.3f, 0f), 0f, out SweepHit floor) &&
+                      System.MathF.Abs(floor.Point.Y - other.Position.Y) < 0.1f;
+        bool clear = !sim.Collision.SweepSphere(chest, theirs, 0f, out _);
+        bool inside = sim.Level?.Bounds.Contains(chest) ?? true;
+        return room && ground && clear && inside;
     }
 
     /// <summary>The yaw that faces from <paramref name="from"/> towards <paramref name="to"/>.</summary>

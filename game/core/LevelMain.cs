@@ -37,6 +37,7 @@ namespace Pb.Game.Core;
 ///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
 ///   --duel-distance=M     how far from the bot the duel starts (default 6 m; 2 for a close-up)
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
+///   --role-demo=ROLE      a Marksman ("marksman") or a Flanker ("flanker") at work, with the bot overlay
 ///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
 ///   --gait-demo           an opponent walks, runs, sprints, strafes, backs off and walks crouched, seen from the side
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
@@ -46,6 +47,8 @@ namespace Pb.Game.Core;
 ///                         runs use the data's seed and, in solo, the level's roster, so they play out the same every time)
 ///   --random-spawns       deals random starts in a scripted solo run too (CI's bot match; other modes always do)
 ///   --record              the bot match goes in your records as a round of yours (CI, to exercise the profile)
+///   --fast=N              the bot match at N times speed (to film a whole round with --write-movie)
+///   --show-summary        the bot match ends on its summary, up for two seconds (for a screenshot)
 ///   --unlock-all          every level of the ladder open, whatever the profile says
 /// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
 /// them. In solo, bots play their spawn's behaviour; in free-for-all and teams, one dealt from the
@@ -151,7 +154,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             GD.PushError(ex.Message);
             _hud.ShowFatal(ex.Message);
-            if (Args.Has("--smoke-test"))
+            // Headless, nobody can read the message and leave, so the run would wait for ever.
+            if (Args.Has("--smoke-test") || DisplayServer.GetName() == "headless")
             {
                 GetTree().Quit(1);
             }
@@ -169,10 +173,11 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
         bool botDemo = Args.Has("--bot-demo");
+        string? roleDemo = Args.Value("--role-demo");
         bool gaitDemo = Args.Has("--gait-demo");
         _botMatch = Args.Has("--bot-match");
         _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    gaitDemo || _botMatch || Args.Has("--objective-demo");
+                    roleDemo is not null || gaitDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
         _counts = !_scripted && !roundTour;
 
@@ -296,7 +301,7 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _player.Initialize(_sim, state, _view, _settings, teamColor);
         _player.BuildBody(_view.Characters, teamColor, look: 0);
-        SpawnBots(hostile: botDemo || _botMatch || (!_scripted && !roundTour));
+        SpawnBots(hostile: botDemo || roleDemo is not null || _botMatch || (!_scripted && !roundTour));
         _botDebug = new BotDebugOverlay { Name = "BotDebug" };
         AddChild(_botDebug);
         _botDebug.Initialize(_squad);
@@ -433,6 +438,13 @@ public partial class LevelMain : Node3D, ISimEventListener
             BotBrain brain = _squad.Add(state, _data.Bots.Archetypes["hunter"], _data.Bots.Difficulty[_tier.Bots], you);
             _player.AutoPilot = new BotPilot(brain);
             _hud.ShowPerf = false;
+            if (float.TryParse(Args.Value("--fast"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float fast) && fast > 1f)
+            {
+                // The sim steps once per physics tick, so more ticks a second (and a frame) is a faster round.
+                Engine.PhysicsTicksPerSecond = (int)MathF.Round(_sim.Config.TickRate * fast);
+                Engine.MaxPhysicsStepsPerFrame = (int)MathF.Ceiling(8f * fast);
+            }
+
             GD.Print($"BOT MATCH a hunter bot plays your slot in {_round.Line} with {_bots.Count} {_tier.Bots} bots, {setup.TimeLimit:0} s on the clock");
             // Every 10 s of the round: where your bot is, what it's doing, and how the objective stands (for CI's log).
             int every = (int)(10f * _sim.Config.TickRate);
@@ -459,6 +471,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             var demo = new BotDemo { Name = "BotDemo" };
             AddChild(demo);
             demo.Start(_sim, _player, _pawns, _botDebug, _hud, _view.Camera.FarClip_m);
+        }
+        else if (roleDemo is not null)
+        {
+            var demo = new RoleDemo { Name = "RoleDemo" };
+            AddChild(demo);
+            demo.Start(roleDemo, _sim, _squad, _player, _pawns, _botDebug, _hud, _view.Camera.FarClip_m);
         }
         else if (roundTour)
         {
@@ -754,6 +772,14 @@ public partial class LevelMain : Node3D, ISimEventListener
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +
                  $"{you.Eliminations} of {_sim.Players.Count(p => p.Team != _player.State.Team)}, {you.Shots} shots, {you.Hits} hits, " +
                  $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
+        if (Args.Has("--show-summary"))
+        {
+            Engine.PhysicsTicksPerSecond = (int)MathF.Round(_sim.Config.TickRate);
+            ShowSummary();
+            GetTree().CreateTimer(2.0).Timeout += () => GetTree().Quit(ok ? 0 : 1);
+            return;
+        }
+
         GetTree().Quit(ok ? 0 : 1);
     }
 

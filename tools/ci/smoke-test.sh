@@ -14,6 +14,8 @@
 #          on the Rail Yard a solo round, a 3 v 3 retrieve and an eight-player free-for-all, on the Cold Store a
 #          solo round, a 3 v 3 hold and an eight-player free-for-all, and on the Hospital Wing a solo round, a 4 v 4
 #          retrieve and a ten-player free-for-all
+#   roles  (--role-demo): a Marksman on the Rail Yard spots you far down its view and opens up, and a Flanker on the
+#          Hospital Wing goes round on a teammate's call and looks out from its spot
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -61,5 +63,7 @@ run level-hospital-wing res://scenes/Level.tscn -- "--smoke-test=$level_ticks" -
 run match-hospital-wing res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art --random-spawns --level=hospital_wing
 run match-hospital-wing-retrieve res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=retrieve --level=hospital_wing
 run match-hospital-wing-ffa res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=ffa --size=10 --level=hospital_wing
+run role-marksman res://scenes/Level.tscn -- --role-demo=marksman --level=rail_yard --no-art
+run role-flanker res://scenes/Level.tscn -- --role-demo=flanker --level=hospital_wing --no-art
 run art res://tools/ArtImport.tscn -- --selftest
 exit "$failed"

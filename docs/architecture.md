@@ -595,6 +595,11 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   in the enemy's sight or not), a cheap stand-in for the path; the test checks the real path is still less exposed.
   The relocation distance and the flanking and "noticed" angles are `brain.jsonc` keys; the new archetype keys are
   optional, so older behaviours read as before.
+- **Changed in M3.11.** At its spot a Flanker looks out from it (the cover's peek, for `flankLook_s`) before it
+  searches, since the spot was picked for its view of where you were: a flank that worked now ends in a shot from the
+  side rather than a walk towards you. The spot search is a public query, `BotBrain.FlankSpot(enemy, caller)`, which the
+  role demo uses to find where to stand; asked from outside it leaves out the random tie-break, so it doesn't touch the
+  brain's random numbers.
 
 ### 15.4 Objectives
 

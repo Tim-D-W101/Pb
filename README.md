@@ -4,8 +4,9 @@ An original first-person tactical paintball game: physically simulated paintball
 eliminations, played through abandoned industrial compounds you explore and clear, with up to
 ten players a round. Built with Godot 4.7 (.NET / C#).
 
-**Status: Phase 3 in progress ([plan](docs/phase-3.md)): the level ladder, three more compounds,
-doors, objectives, new opponents, sound and voices, full settings.** Phase 2 is built
+**Status: Phase 3 is built ([report](docs/reports/phase-3.md), [plan](docs/phase-3.md)): the level ladder, three more
+compounds, doors, objectives, new opponents, sound, full settings; the voices and the new levels' generated art follow
+over the next days.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -22,7 +23,9 @@ dark, its floor a lorry's height above the yard, chambers of racking behind heav
 backed onto the docks that you run through to get in. Last and hardest, **the Hospital Wing**: three storeys of wards
 and corridors in two wings round an overgrown courtyard that every window looks down on, an operating theatre, a lift
 shaft open through every floor and the end of one wing fallen in. The bots hold posts, patrol, hunt and rush, notice you by sight
-and sound, and fight from cover; in free-for-all and teams they fight each other too. The match HUD
+and sound, and fight from cover; in free-for-all and teams they fight each other too. They shout where you are, so
+their teammates know; Marksmen shoot carefully from far off and move after a few shots, and Flankers work round to
+your side when a teammate calls you out. The match HUD
 is in, and so is the art pass: photographic textures on every surface; every prop modelled (built in
 code from its colliders, with generated models replacing them as they arrive: so far the oil drum
 and the burnt-out car); framed windows with broken glass; gutters, roof trusses, lamps and fittings
