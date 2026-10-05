@@ -1,0 +1,14 @@
+// Stress mode (F3 / D-pad down): invisible cannons keep this many balls in the air.
+// Used for the Phase 1 check "1,000 live balls at 60 fps".
+{
+  "targetLiveBalls": 1000,
+  "maxSpawnPerTick": 16,
+
+  // Positive yaw turns left (toward −X) when facing downrange (−Z).
+  "cannons": [
+    { "position_m": [-12, 1.2, 1], "yaw_deg": -6, "yawSpread_deg": 7, "pitchMin_deg": 2, "pitchMax_deg": 32 },
+    { "position_m": [-5, 1.2, 2], "yaw_deg": -2, "yawSpread_deg": 7, "pitchMin_deg": 2, "pitchMax_deg": 32 },
+    { "position_m": [5, 1.2, 2], "yaw_deg": 2, "yawSpread_deg": 7, "pitchMin_deg": 2, "pitchMax_deg": 32 },
+    { "position_m": [12, 1.2, 1], "yaw_deg": 6, "yawSpread_deg": 7, "pitchMin_deg": 2, "pitchMax_deg": 32 }
+  ]
+}

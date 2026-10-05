@@ -1,0 +1,36 @@
+// Top-level simulation settings. Every gameplay number lives in these data files.
+// Keys carry their unit (_m, _mps, _bar, _L, _deg, _s, _hz); code converts to SI once on load.
+// Press F9 in game to reload all data without restarting (pool capacity and tick rate need a restart).
+{
+  // Fixed simulation tick. Godot's physics tick is set to match at startup (spec: >= 120 Hz).
+  "tickRate_hz": 120,
+
+  // Seeds every shot's randomness (dispersion, velocity variance, break rolls).
+  "matchSeed": 20260930,
+
+  // Maximum live balls. Stress mode needs at least its targetLiveBalls.
+  "ballPoolCapacity": 4096,
+
+  // Which file supplies each component (paths relative to this data folder).
+  "files": {
+    "projectile": "projectiles/paintball_68.jsonc",
+    "marker": "markers/standard.jsonc",
+    "loader": "loaders/standard.jsonc",
+    "air": "air/standard_1100ml_310bar.jsonc",
+    "breakModel": "break_model.jsonc",
+    "movement": "movement.jsonc",
+    "hitboxes": "hitboxes.jsonc",
+    "rules": "rules.jsonc",
+    "range": "ranges/phase1.jsonc",
+    "stress": "stress.jsonc",
+    // Level kit (materials, props, building templates) and the level ladder (Phase 2).
+    "kit": "kit/kit.jsonc",
+    "ladder": "levels/ladder.jsonc",
+    // Bots (Phase 2): how they find their way, what they notice, how they behave, how good they are.
+    "navigation": "bots/navigation.jsonc",
+    "brain": "bots/brain.jsonc",
+    "senses": "bots/senses.jsonc",
+    "archetypes": "bots/archetypes.jsonc",
+    "difficulty": "bots/difficulty.jsonc"
+  }
+}

@@ -1,0 +1,161 @@
+// Two-storey office block. A corridor runs east–west through both floors (z 5–7) with offices on
+// either side; the stairwell is at the east end (x 19–26, z 0–5). Upstairs, one partition has
+// collapsed and part of the south-west office floor has fallen through.
+// Exterior wall segments: 0 north (x 0→26), 1 east (z 0→12), 2 south (x 26→0, at_m = 26 − x),
+// 3 west (z 12→0, at_m = 12 − z).
+{
+  "id": "office_block",
+  "displayName": "Office block",
+  "storeys_m": [3.2, 3.2],
+  "slabThickness_m": 0.2,
+  "footprint_m": [0, 0, 26, 12],
+  "floorMaterial": "concrete_floor",
+  "walls": [
+    // ---- Ground floor ----
+    {
+      "storey": 0, "points_m": [[0, 0], [26, 0], [26, 12], [0, 12]], "closed": true,
+      "thickness_m": 0.3, "material": "brick_red",
+      "openings": [
+        { "segment": 0, "at_m": 2.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 4.6, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 8.6, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 11.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 14.8, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 17.4, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 23.0, "width_m": 1.0, "sill_m": 1.6, "height_m": 0.8, "kind": "window" },
+        { "segment": 1, "at_m": 2.5, "width_m": 1.0, "sill_m": 1.2, "height_m": 1.0, "kind": "window" },
+        { "segment": 1, "at_m": 6.0, "width_m": 1.2, "height_m": 2.2, "kind": "door" },
+        { "segment": 1, "at_m": 9.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 3.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 7.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 11.5, "width_m": 1.2, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 14.0, "width_m": 1.4, "height_m": 2.3, "kind": "door" },
+        { "segment": 2, "at_m": 16.5, "width_m": 1.2, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 20.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 23.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 3, "at_m": 2.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 3, "at_m": 6.0, "width_m": 1.2, "height_m": 2.2, "kind": "door" },
+        { "segment": 3, "at_m": 9.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" }
+      ]
+    },
+    {
+      "storey": 0, "points_m": [[0, 5], [26, 5]], "thickness_m": 0.12, "material": "plaster_peeling",
+      "openings": [
+        { "segment": 0, "at_m": 5.0, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 11.5, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 17.0, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 22.0, "width_m": 1.2, "height_m": 2.1, "kind": "door" }
+      ]
+    },
+    {
+      "storey": 0, "points_m": [[0, 7], [26, 7]], "thickness_m": 0.12, "material": "plaster_peeling",
+      "openings": [
+        { "segment": 0, "at_m": 6.5, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 12.0, "width_m": 2.0, "height_m": 2.4, "kind": "door" },
+        { "segment": 0, "at_m": 18.0, "width_m": 1.0, "height_m": 2.1, "kind": "door" }
+      ]
+    },
+    {
+      "storey": 0, "points_m": [[6.5, 0], [6.5, 5]], "thickness_m": 0.12, "material": "plaster_peeling",
+      "openings": [ { "segment": 0, "at_m": 2.5, "width_m": 0.9, "height_m": 2.1, "kind": "door" } ]
+    },
+    { "storey": 0, "points_m": [[13, 0], [13, 5]], "thickness_m": 0.12, "material": "plaster_peeling" },
+    { "storey": 0, "points_m": [[19, 0], [19, 5]], "thickness_m": 0.2, "material": "concrete_wall" },
+    { "storey": 0, "points_m": [[8, 7], [8, 12]], "thickness_m": 0.12, "material": "plaster_peeling" },
+    { "storey": 0, "points_m": [[16, 7], [16, 12]], "thickness_m": 0.12, "material": "plaster_peeling" },
+
+    // ---- Upper floor ----
+    {
+      "storey": 1, "points_m": [[0, 0], [26, 0], [26, 12], [0, 12]], "closed": true,
+      "thickness_m": 0.3, "material": "brick_red",
+      "openings": [
+        { "segment": 0, "at_m": 2.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 4.6, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 8.6, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 11.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 14.8, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 17.4, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 0, "at_m": 23.0, "width_m": 1.0, "sill_m": 1.2, "height_m": 1.0, "kind": "window" },
+        { "segment": 1, "at_m": 2.5, "width_m": 1.0, "sill_m": 1.2, "height_m": 1.0, "kind": "window" },
+        { "segment": 1, "at_m": 6.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 1, "at_m": 9.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 3.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 7.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 11.5, "width_m": 1.2, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 14.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 16.5, "width_m": 1.2, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 20.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 2, "at_m": 23.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 3, "at_m": 2.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 3, "at_m": 6.0, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" },
+        { "segment": 3, "at_m": 9.5, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.3, "kind": "window" }
+      ]
+    },
+    {
+      "storey": 1, "points_m": [[0, 5], [26, 5]], "thickness_m": 0.12, "material": "plaster_peeling",
+      "openings": [
+        { "segment": 0, "at_m": 5.0, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 11.5, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 17.0, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 22.0, "width_m": 1.2, "height_m": 2.1, "kind": "door" }
+      ]
+    },
+    {
+      "storey": 1, "points_m": [[0, 7], [26, 7]], "thickness_m": 0.12, "material": "plaster_peeling",
+      "openings": [
+        { "segment": 0, "at_m": 6.5, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 12.0, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 0, "at_m": 18.0, "width_m": 1.0, "height_m": 2.1, "kind": "door" }
+      ]
+    },
+    { "storey": 1, "points_m": [[6.5, 0], [6.5, 5]], "thickness_m": 0.12, "material": "plaster_peeling" },
+    { "storey": 1, "points_m": [[19, 0], [19, 5]], "thickness_m": 0.2, "material": "concrete_wall" },
+    { "storey": 1, "points_m": [[8, 7], [8, 12]], "thickness_m": 0.12, "material": "plaster_peeling" },
+    { "storey": 1, "points_m": [[16, 7], [16, 12]], "thickness_m": 0.12, "material": "plaster_peeling" },
+    // Railing along the stairwell opening upstairs.
+    {
+      "storey": 1, "baseElevation_m": 3.2, "height_m": 1.0, "points_m": [[20.6, 1.6], [25.85, 1.6]],
+      "style": "railing", "thickness_m": 0.05, "material": "steel_painted"
+    }
+  ],
+  "floors": [
+    { "elevation_m": 3.2, "rect_m": [0, 0, 26, 12], "holes_m": [[20.6, 0.15, 25.1, 1.55], [2.5, 8.5, 4.5, 10.5]] }
+  ],
+  "roof": {
+    "rect_m": [-0.2, -0.2, 26.2, 12.2], "material": "roof_felt", "ceilingMaterial": "concrete_floor",
+    "parapet_m": 0.8, "parapetMaterial": "brick_red"
+  },
+  "stairs": [
+    { "start_m": [25.0, 0.85], "yaw_deg": 90, "width_m": 1.2, "run_m": 4.4, "rise_m": 3.2, "steps": 14, "material": "concrete_floor" }
+  ],
+  "props": [
+    { "prop": "desk", "position_m": [2.2, 0, 2.2] },
+    { "prop": "desk", "position_m": [4.6, 0, 3.2], "yaw_deg": 90 },
+    { "prop": "filing_cabinet", "position_m": [0.5, 0, 0.6] },
+    { "prop": "desk_flipped", "position_m": [9.6, 0, 3.0], "yaw_deg": -10 },
+    { "prop": "crate_large", "position_m": [11.9, 0, 1.0] },
+    { "prop": "filing_cabinet", "position_m": [13.6, 0, 0.6] },
+    { "prop": "filing_cabinet", "position_m": [14.2, 0, 0.6] },
+    { "prop": "desk", "position_m": [16.0, 0, 3.0] },
+    { "prop": "desk", "position_m": [12.0, 0, 9.2] },
+    { "prop": "pallet_stack", "position_m": [9.4, 0, 11.0] },
+    { "prop": "crate_small", "position_m": [1.0, 0, 11.2] },
+    { "prop": "desk", "position_m": [4.0, 0, 9.5], "yaw_deg": 90 },
+    { "prop": "desk_flipped", "position_m": [20.0, 0, 9.5], "yaw_deg": 80 },
+    { "prop": "filing_cabinet", "position_m": [25.4, 0, 7.6], "yaw_deg": 90 },
+
+    { "prop": "desk", "position_m": [3.0, 3.2, 2.5] },
+    { "prop": "desk", "position_m": [9.0, 3.2, 2.0] },
+    { "prop": "desk_flipped", "position_m": [12.2, 3.2, 3.0], "yaw_deg": 15 },
+    { "prop": "desk", "position_m": [16.2, 3.2, 2.4], "yaw_deg": 90 },
+    { "prop": "crate_small", "position_m": [6.6, 3.2, 11.2] },
+    { "prop": "filing_cabinet", "position_m": [8.6, 3.2, 11.5], "yaw_deg": 90 },
+    { "prop": "desk_flipped", "position_m": [22.0, 3.2, 9.0], "yaw_deg": 100 }
+  ],
+  "areas": [
+    { "name": "office, ground floor", "rect_m": [0, 0, 26, 12], "maxY_m": 3.0, "indoor": true, "light": 0.6 },
+    { "name": "office, upstairs", "rect_m": [0, 0, 26, 12], "minY_m": 3.0, "maxY_m": 6.4, "indoor": true, "light": 0.65 },
+    { "name": "office lobby", "rect_m": [8, 7, 16, 12], "maxY_m": 3.0, "indoor": true, "light": 0.6 },
+    { "name": "office stairwell", "rect_m": [19, 0, 26, 5], "maxY_m": 6.4, "indoor": true, "light": 0.45 }
+  ]
+}

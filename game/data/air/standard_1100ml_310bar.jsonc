@@ -1,0 +1,19 @@
+// Compressed-air tank (spec §1.4): 1.1 L filled to 310 bar.
+// Each shot draws gasPerShot_barL, so pressure falls by gasPerShot / volume ≈ 0.255 bar per shot.
+// Full-velocity shots per fill = (fill − regulator) × volume / gasPerShot = (310 − 55) × 1.1 / 0.2805 ≈ 1000.
+{
+  "id": "air.standard_1100ml_310bar",
+  "tankVolume_L": 1.1,
+  "fillPressure_bar": 310,
+
+  // Below the regulator's output pressure the marker sees tank pressure and velocity drops:
+  // speed factor = ((p − cutoff) / (regulator − cutoff)) ^ velocityExponent.
+  "regulatorOutput_bar": 55,
+  // Below this the marker can't cycle at all.
+  "cutoffPressure_bar": 20,
+  "gasPerShot_barL": 0.2805,
+  "velocityExponent": 0.5,
+
+  // HUD turns the air gauge amber below this.
+  "lowWarning_bar": 70
+}

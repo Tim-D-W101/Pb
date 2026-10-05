@@ -1,0 +1,333 @@
+// Provenance of every imported art asset (spec: original IP only), written by tools/art/import.sh:
+// the Higgsfield job that made it, the generator and prompt, where it was downloaded from, and the
+// files the import produced. A sim test checks that every texture and model the kit uses is listed.
+{
+  "assets": [
+    {
+      "id": "oil_drum",
+      "kind": "model",
+      "job": "479c8afe-401f-4fb6-bb76-548f1615f810",
+      "generator": "image_to_3d",
+      "prompt": "A single old steel oil drum, faded blue paint with rust streaks and dents, no labels, no text, three-quarter view, the whole drum in frame, isolated on a plain white background, soft even studio lighting, photorealistic product photo.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261001_035211_479c8afe-401f-4fb6-bb76-548f1615f810.glb",
+      "imported": "2026-10-01",
+      "files": [
+        "res://art/models/oil_drum.glb"
+      ],
+      "notes": "0.55 × 0.88 × 0.55 m (x × y × z), base at y = 0.00, centre (0.00, 0.00); 9.9 MB → 0.9 MB; emissive removed, 1 unused picture(s) dropped, 3 picture(s) at 1024 px JPEG (were up to 2048 px), scaled ×0.463 to 0.88 m tall and stood on the origin"
+    },
+    {
+      "id": "opponent_a",
+      "kind": "model",
+      "job": "2ce3f0a2-3b24-49e9-8943-d47700e0754f",
+      "generator": "image_to_3d",
+      "prompt": "Full-body photograph of a single paintball player standing in a neutral A-pose, arms held slightly away from the body, front view, centred, on a plain light grey studio background. Empty hands. Generic unbranded gear: dark full-face paintball mask with a clear goggle lens, loose padded jersey in olive green and charcoal, dark cargo pants with knee pads, black gloves, a harness belt with three short pod tubes. No logos, no text, no weapon. Even soft studio lighting, sharp focus, realistic.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261001_035212_2ce3f0a2-3b24-49e9-8943-d47700e0754f.glb",
+      "imported": "2026-10-01",
+      "files": [
+        "res://art/models/opponent_a.glb"
+      ],
+      "notes": "1.05 × 1.78 × 0.38 m (x × y × z), base at y = -0.00, centre (0.00, -0.00); 9.2 MB → 2.8 MB; emissive removed, roughness 0.85, 1 picture(s) at 2048 px JPEG (were up to 2048 px)"
+    },
+    {
+      "id": "asphalt_cracked",
+      "kind": "texture",
+      "job": "0b097162-82d2-44e2-981b-5448edf121fb",
+      "generator": "gpt_image_2_5",
+      "prompt": "Seamless tileable texture, top-down orthographic photo of old weathered dark grey asphalt road surface with fine aggregate, a few thin hairline cracks and faded patches, flat even overcast light, no shadows, no perspective, no road markings, no text, fills the whole frame edge to edge, high detail",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261001_111205_0b097162-82d2-44e2-981b-5448edf121fb.png",
+      "imported": "2026-10-01",
+      "files": [
+        "res://art/textures/asphalt_cracked_albedo.jpg",
+        "res://art/textures/asphalt_cracked_normal.jpg",
+        "res://art/textures/asphalt_cracked_roughness.jpg"
+      ],
+      "notes": "1024 px, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.92 ± 0.15"
+    },
+    {
+      "id": "concrete_floor",
+      "kind": "texture",
+      "job": "5e6153e9-1825-46b2-9506-3356c8facc50",
+      "generator": "gpt_image_2_5",
+      "prompt": "Seamless tileable texture, top-down orthographic photo of an old dusty grey concrete warehouse floor slab with oil stains, scuffs and fine cracks, flat even light, no shadows, no perspective, no objects, no text, fills the whole frame edge to edge, high detail",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261001_111205_5e6153e9-1825-46b2-9506-3356c8facc50.png",
+      "imported": "2026-10-01",
+      "files": [
+        "res://art/textures/concrete_floor_albedo.jpg",
+        "res://art/textures/concrete_floor_normal.jpg",
+        "res://art/textures/concrete_floor_roughness.jpg"
+      ],
+      "notes": "1024 px, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.85 ± 0.15"
+    },
+    {
+      "id": "concrete_wall",
+      "kind": "texture",
+      "job": "3cc53c8f-0c54-4cde-81f4-02ff19f2d93e",
+      "generator": "gpt_image_2_5",
+      "prompt": "Seamless tileable texture, flat front-on view filling the whole frame: weathered grey concrete wall with water stains, fine cracks, small pits and patches of faded peeling pale green paint. Even diffuse lighting, no shadows, no perspective, no objects. Photorealistic material scan for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20260930_112506_3cc53c8f-0c54-4cde-81f4-02ff19f2d93e.png",
+      "imported": "2026-10-01",
+      "files": [
+        "res://art/textures/concrete_wall_albedo.jpg",
+        "res://art/textures/concrete_wall_normal.jpg",
+        "res://art/textures/concrete_wall_roughness.jpg"
+      ],
+      "notes": "1024 px, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.9 ± 0.15"
+    },
+    {
+      "id": "brick_red",
+      "kind": "texture",
+      "job": "b55be891-96e2-42b9-b2e6-c9a6da861616",
+      "generator": "gpt_image_2_5",
+      "prompt": "Seamless tileable texture, straight-on orthographic photo of an old weathered red brick wall with worn grey mortar, flat even overcast lighting, no shadows, no perspective, fills the whole frame, high detail",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261001_073037_b55be891-96e2-42b9-b2e6-c9a6da861616.png",
+      "imported": "2026-10-01",
+      "files": [
+        "res://art/textures/brick_red_albedo.jpg",
+        "res://art/textures/brick_red_normal.jpg",
+        "res://art/textures/brick_red_roughness.jpg"
+      ],
+      "notes": "1024 px, flatten 0.6, seam band 0.12, normal strength 3, roughness 0.9 ± 0.15"
+    },
+    {
+      "id": "dirt",
+      "kind": "texture",
+      "job": "ec5db4ff-06a0-4015-994e-21215cf40696",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat top-down orthographic photo of one ground surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: dry packed brown dirt with small pebbles and fine dust, about 3 m across. Top right: loose grey crushed gravel and small stones, about 2 m across. Bottom left: dry patchy yellowed grass and bare earth, neglected scrubland, about 3 m across. Bottom right: old black tar roofing felt covered in fine grey mineral granules, worn and patched, about 2 m across. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_ec5db4ff-06a0-4015-994e-21215cf40696.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/dirt_albedo.jpg",
+        "res://art/textures/dirt_normal.jpg",
+        "res://art/textures/dirt_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.002778,0.002778,0.488889,0.488889, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.98 ± 0.15"
+    },
+    {
+      "id": "gravel",
+      "kind": "texture",
+      "job": "ec5db4ff-06a0-4015-994e-21215cf40696",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat top-down orthographic photo of one ground surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: dry packed brown dirt with small pebbles and fine dust, about 3 m across. Top right: loose grey crushed gravel and small stones, about 2 m across. Bottom left: dry patchy yellowed grass and bare earth, neglected scrubland, about 3 m across. Bottom right: old black tar roofing felt covered in fine grey mineral granules, worn and patched, about 2 m across. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_ec5db4ff-06a0-4015-994e-21215cf40696.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/gravel_albedo.jpg",
+        "res://art/textures/gravel_normal.jpg",
+        "res://art/textures/gravel_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.507639,0.002778,0.488889,0.488889, flatten 0.8, seam band 0.12, normal strength 3, roughness 0.95 ± 0.15"
+    },
+    {
+      "id": "grass_dry",
+      "kind": "texture",
+      "job": "ec5db4ff-06a0-4015-994e-21215cf40696",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat top-down orthographic photo of one ground surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: dry packed brown dirt with small pebbles and fine dust, about 3 m across. Top right: loose grey crushed gravel and small stones, about 2 m across. Bottom left: dry patchy yellowed grass and bare earth, neglected scrubland, about 3 m across. Bottom right: old black tar roofing felt covered in fine grey mineral granules, worn and patched, about 2 m across. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_ec5db4ff-06a0-4015-994e-21215cf40696.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/grass_dry_albedo.jpg",
+        "res://art/textures/grass_dry_normal.jpg",
+        "res://art/textures/grass_dry_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.002778,0.506944,0.488889,0.488889, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.98 ± 0.15"
+    },
+    {
+      "id": "roof_felt",
+      "kind": "texture",
+      "job": "ec5db4ff-06a0-4015-994e-21215cf40696",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat top-down orthographic photo of one ground surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: dry packed brown dirt with small pebbles and fine dust, about 3 m across. Top right: loose grey crushed gravel and small stones, about 2 m across. Bottom left: dry patchy yellowed grass and bare earth, neglected scrubland, about 3 m across. Bottom right: old black tar roofing felt covered in fine grey mineral granules, worn and patched, about 2 m across. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_ec5db4ff-06a0-4015-994e-21215cf40696.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/roof_felt_albedo.jpg",
+        "res://art/textures/roof_felt_normal.jpg",
+        "res://art/textures/roof_felt_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.507639,0.506944,0.488889,0.488889, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.95 ± 0.15"
+    },
+    {
+      "id": "plaster_peeling",
+      "kind": "texture",
+      "job": "fccca974-0db0-4d37-be64-cc62d3d27ac1",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one wall surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: weathered grey concrete block wall, plain rectangular blocks in running bond with recessed mortar joints, exactly four blocks across and eight courses high, grime and small chips. Top right: old brick wall painted off-white, the paint flaking away to show red brick in places, grimy mortar, exactly four bricks across and twelve courses high. Bottom left: weathered beige plaster wall with patches fallen away revealing brick underneath, damp stains running down and hairline cracks. Bottom right: weathered grey-brown wooden planks laid horizontally, exactly six planks high, cracked old timber with nail holes and worn edges. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_fccca974-0db0-4d37-be64-cc62d3d27ac1.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/plaster_peeling_albedo.jpg",
+        "res://art/textures/plaster_peeling_normal.jpg",
+        "res://art/textures/plaster_peeling_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.002778,0.506944,0.488889,0.488889, flatten 0.4, seam band 0.12, normal strength 2, roughness 0.9 ± 0.15"
+    },
+    {
+      "id": "steel_rust",
+      "kind": "texture",
+      "job": "578e508a-96cb-4b2a-a5a0-20e2f9d2f8ac",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one metal surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: weathered corrugated metal wall sheet with about twenty narrow vertical corrugations across, faded grey-brown paint with heavy rust streaks running down from the top. Top right: galvanised grey corrugated steel sheet with about twenty narrow vertical corrugations across, dull zinc finish with white oxide bloom, dirt and a few small rust spots. Bottom left: heavily rusted steel plate, orange and dark brown corrosion with flaking scale and pitting. Bottom right: steel plate painted dark olive green, the paint worn, scratched and chipped, with rust showing at the chips. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_578e508a-96cb-4b2a-a5a0-20e2f9d2f8ac.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/steel_rust_albedo.jpg",
+        "res://art/textures/steel_rust_normal.jpg",
+        "res://art/textures/steel_rust_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.002778,0.506944,0.488889,0.488889, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.8 ± 0.15"
+    },
+    {
+      "id": "steel_painted",
+      "kind": "texture",
+      "job": "578e508a-96cb-4b2a-a5a0-20e2f9d2f8ac",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one metal surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: weathered corrugated metal wall sheet with about twenty narrow vertical corrugations across, faded grey-brown paint with heavy rust streaks running down from the top. Top right: galvanised grey corrugated steel sheet with about twenty narrow vertical corrugations across, dull zinc finish with white oxide bloom, dirt and a few small rust spots. Bottom left: heavily rusted steel plate, orange and dark brown corrosion with flaking scale and pitting. Bottom right: steel plate painted dark olive green, the paint worn, scratched and chipped, with rust showing at the chips. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_578e508a-96cb-4b2a-a5a0-20e2f9d2f8ac.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/steel_painted_albedo.jpg",
+        "res://art/textures/steel_painted_normal.jpg",
+        "res://art/textures/steel_painted_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.507639,0.506944,0.488889,0.488889, flatten 0.8, seam band 0.12, normal strength 1.5, roughness 0.55 ± 0.15"
+    },
+    {
+      "id": "steel_yellow",
+      "kind": "texture",
+      "job": "ad1b81b9-5301-4498-bfc1-52afb4e39fd3",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one painted steel surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: side wall of an old shipping container with exactly two wide vertical trapezoidal corrugations across, faded oxide-red paint with rust patches, scratches and small dents. Top right: the same container wall in faded steel-blue paint with rust patches and scratches. Bottom left: the same container wall in faded dark green paint with rust patches and scratches. Bottom right: flat steel plate painted safety yellow, heavily worn and scratched, grime and rust at the chips. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_ad1b81b9-5301-4498-bfc1-52afb4e39fd3.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/steel_yellow_albedo.jpg",
+        "res://art/textures/steel_yellow_normal.jpg",
+        "res://art/textures/steel_yellow_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.507639,0.506944,0.488889,0.488889, flatten 0.8, seam band 0.12, normal strength 1.5, roughness 0.55 ± 0.15"
+    },
+    {
+      "id": "concrete_block",
+      "kind": "texture",
+      "job": "fccca974-0db0-4d37-be64-cc62d3d27ac1",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one wall surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: weathered grey concrete block wall, plain rectangular blocks in running bond with recessed mortar joints, exactly four blocks across and eight courses high, grime and small chips. Top right: old brick wall painted off-white, the paint flaking away to show red brick in places, grimy mortar, exactly four bricks across and twelve courses high. Bottom left: weathered beige plaster wall with patches fallen away revealing brick underneath, damp stains running down and hairline cracks. Bottom right: weathered grey-brown wooden planks laid horizontally, exactly six planks high, cracked old timber with nail holes and worn edges. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_fccca974-0db0-4d37-be64-cc62d3d27ac1.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/concrete_block_albedo.jpg",
+        "res://art/textures/concrete_block_normal.jpg",
+        "res://art/textures/concrete_block_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0007813,0.0028646,0.4959201,0.4052951 stretched square, pattern repeats 3,3, flatten 0.6, seam band 0.12, normal strength 3, roughness 0.9 ± 0.15"
+    },
+    {
+      "id": "brick_painted",
+      "kind": "texture",
+      "job": "fccca974-0db0-4d37-be64-cc62d3d27ac1",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one wall surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: weathered grey concrete block wall, plain rectangular blocks in running bond with recessed mortar joints, exactly four blocks across and eight courses high, grime and small chips. Top right: old brick wall painted off-white, the paint flaking away to show red brick in places, grimy mortar, exactly four bricks across and twelve courses high. Bottom left: weathered beige plaster wall with patches fallen away revealing brick underneath, damp stains running down and hairline cracks. Bottom right: weathered grey-brown wooden planks laid horizontally, exactly six planks high, cracked old timber with nail holes and worn edges. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_fccca974-0db0-4d37-be64-cc62d3d27ac1.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/brick_painted_albedo.jpg",
+        "res://art/textures/brick_painted_normal.jpg",
+        "res://art/textures/brick_painted_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5032118,0.0028646,0.4966146,0.4615451 stretched square, pattern repeats 3,5, flatten 0.6, seam band 0.12, normal strength 3, roughness 0.85 ± 0.15"
+    },
+    {
+      "id": "wood_planks",
+      "kind": "texture",
+      "job": "fccca974-0db0-4d37-be64-cc62d3d27ac1",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one wall surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: weathered grey concrete block wall, plain rectangular blocks in running bond with recessed mortar joints, exactly four blocks across and eight courses high, grime and small chips. Top right: old brick wall painted off-white, the paint flaking away to show red brick in places, grimy mortar, exactly four bricks across and twelve courses high. Bottom left: weathered beige plaster wall with patches fallen away revealing brick underneath, damp stains running down and hairline cracks. Bottom right: weathered grey-brown wooden planks laid horizontally, exactly six planks high, cracked old timber with nail holes and worn edges. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_fccca974-0db0-4d37-be64-cc62d3d27ac1.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/wood_planks_albedo.jpg",
+        "res://art/textures/wood_planks_normal.jpg",
+        "res://art/textures/wood_planks_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5486979,0.5035590,0.4042535,0.4042535, pattern repeats 0,4, flatten 0.6, seam band 0.12, normal strength 2, roughness 0.85 ± 0.15"
+    },
+    {
+      "id": "corrugated_rust",
+      "kind": "texture",
+      "job": "578e508a-96cb-4b2a-a5a0-20e2f9d2f8ac",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one metal surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: weathered corrugated metal wall sheet with about twenty narrow vertical corrugations across, faded grey-brown paint with heavy rust streaks running down from the top. Top right: galvanised grey corrugated steel sheet with about twenty narrow vertical corrugations across, dull zinc finish with white oxide bloom, dirt and a few small rust spots. Bottom left: heavily rusted steel plate, orange and dark brown corrosion with flaking scale and pitting. Bottom right: steel plate painted dark olive green, the paint worn, scratched and chipped, with rust showing at the chips. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_578e508a-96cb-4b2a-a5a0-20e2f9d2f8ac.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/corrugated_rust_albedo.jpg",
+        "res://art/textures/corrugated_rust_normal.jpg",
+        "res://art/textures/corrugated_rust_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0507812,0.0799479,0.3959201,0.3959201, pattern repeats 13,0, flatten 0.8, seam band 0.12, normal strength 3, roughness 0.75 ± 0.15"
+    },
+    {
+      "id": "corrugated_grey",
+      "kind": "texture",
+      "job": "578e508a-96cb-4b2a-a5a0-20e2f9d2f8ac",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one metal surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels. Top left: weathered corrugated metal wall sheet with about twenty narrow vertical corrugations across, faded grey-brown paint with heavy rust streaks running down from the top. Top right: galvanised grey corrugated steel sheet with about twenty narrow vertical corrugations across, dull zinc finish with white oxide bloom, dirt and a few small rust spots. Bottom left: heavily rusted steel plate, orange and dark brown corrosion with flaking scale and pitting. Bottom right: steel plate painted dark olive green, the paint worn, scratched and chipped, with rust showing at the chips. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_578e508a-96cb-4b2a-a5a0-20e2f9d2f8ac.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/corrugated_grey_albedo.jpg",
+        "res://art/textures/corrugated_grey_normal.jpg",
+        "res://art/textures/corrugated_grey_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5070313,0.0028646,0.4820313,0.4820313, pattern repeats 16,0, flatten 0.6, seam band 0.12, normal strength 3, roughness 0.6 ± 0.15"
+    },
+    {
+      "id": "container_red",
+      "kind": "texture",
+      "job": "ad1b81b9-5301-4498-bfc1-52afb4e39fd3",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one painted steel surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: side wall of an old shipping container with exactly two wide vertical trapezoidal corrugations across, faded oxide-red paint with rust patches, scratches and small dents. Top right: the same container wall in faded steel-blue paint with rust patches and scratches. Bottom left: the same container wall in faded dark green paint with rust patches and scratches. Bottom right: flat steel plate painted safety yellow, heavily worn and scratched, grime and rust at the chips. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_ad1b81b9-5301-4498-bfc1-52afb4e39fd3.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/container_red_albedo.jpg",
+        "res://art/textures/container_red_normal.jpg",
+        "res://art/textures/container_red_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0004340,0.0004340,0.4966146,0.4966146, pattern repeats 2,0, flatten 0.2, seam band 0.12, normal strength 3, roughness 0.65 ± 0.15"
+    },
+    {
+      "id": "container_blue",
+      "kind": "texture",
+      "job": "ad1b81b9-5301-4498-bfc1-52afb4e39fd3",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one painted steel surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: side wall of an old shipping container with exactly two wide vertical trapezoidal corrugations across, faded oxide-red paint with rust patches, scratches and small dents. Top right: the same container wall in faded steel-blue paint with rust patches and scratches. Bottom left: the same container wall in faded dark green paint with rust patches and scratches. Bottom right: flat steel plate painted safety yellow, heavily worn and scratched, grime and rust at the chips. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_ad1b81b9-5301-4498-bfc1-52afb4e39fd3.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/container_blue_albedo.jpg",
+        "res://art/textures/container_blue_normal.jpg",
+        "res://art/textures/container_blue_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5032118,0.0004340,0.4966146,0.4966146, pattern repeats 2,0, flatten 0.2, seam band 0.12, normal strength 3, roughness 0.65 ± 0.15"
+    },
+    {
+      "id": "container_green",
+      "kind": "texture",
+      "job": "ad1b81b9-5301-4498-bfc1-52afb4e39fd3",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one painted steel surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: side wall of an old shipping container with exactly two wide vertical trapezoidal corrugations across, faded oxide-red paint with rust patches, scratches and small dents. Top right: the same container wall in faded steel-blue paint with rust patches and scratches. Bottom left: the same container wall in faded dark green paint with rust patches and scratches. Bottom right: flat steel plate painted safety yellow, heavily worn and scratched, grime and rust at the chips. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261002_001238_ad1b81b9-5301-4498-bfc1-52afb4e39fd3.png",
+      "imported": "2026-10-02",
+      "files": [
+        "res://art/textures/container_green_albedo.jpg",
+        "res://art/textures/container_green_normal.jpg",
+        "res://art/textures/container_green_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0004340,0.5025174,0.4966146,0.4966146, pattern repeats 2,0, flatten 0.2, seam band 0.12, normal strength 3, roughness 0.65 ± 0.15"
+    }
+  ]
+}

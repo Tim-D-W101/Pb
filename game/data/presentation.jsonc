@@ -1,0 +1,312 @@
+// How things look and feel (not gameplay). Player-changeable values here are only defaults;
+// changes made in game are saved to user://settings.json.
+{
+  // Team colours, by team: paint, armbands, top-bar icons and names. You're always the first. Solo and
+  // teams use the first two (orange vs blue, a colourblind-safe pair); in free-for-all every player is a
+  // team of their own with their own paint colour, so a ten-player round needs ten.
+  "teamColors": ["#ff6a1a", "#2f8cff", "#3fd14a", "#e83fd0", "#ffd21a", "#19d3c5", "#e6332a", "#9d6bff", "#ff8fc8", "#f2f2ea"],
+
+  "ball": {
+    // A 17.3 mm ball is under 1 px beyond ~17 m at 1080p / 90° FOV. Balls are drawn at least this
+    // many pixels wide so incoming paint stays readable. Cosmetic only: hits use the true size.
+    "minPixels": 3.0,
+    // Faint motion streak: the trailing half is stretched by speed × this time.
+    "streak_s": 0.004,
+    // Your own balls start at the drawn barrel and blend into their true path over this time.
+    "visualBlend_s": 0.12
+  },
+
+  "splat": {
+    // Decal pool cap (spec: 2,000). When full, the oldest `fadeWindow` splats fade out first.
+    "cap": 2000,
+    "fadeWindow": 64,
+    "sizeMin_m": 0.14,
+    "sizeMax_m": 0.26,
+    "depth_m": 0.14,
+    "normalFade": 0.35,
+    "distanceFadeBegin_m": 70,
+    "distanceFadeLength_m": 25
+  },
+
+  // Impact bursts. Bursts nearer the camera than minCameraDistance_m are skipped: point-blank spray
+  // would fill the screen with flecks (paint on your mask is a separate effect).
+  "fx": { "maxBurstsPerFrame": 12, "breakParticles": 14, "bounceParticles": 5, "minCameraDistance_m": 1.0 },
+
+  "camera": {
+    // Horizontal field of view at 16:9 (spec: default 90°, adjustable 70–110°). Wider screens see more.
+    "fov_deg": 90,
+    "fovMin_deg": 70,
+    "fovMax_deg": 110,
+    "fovStep_deg": 5,
+    "nearClip_m": 0.03,
+    // Far enough to reach the edge of the scrubland around a level, where fog has swallowed it.
+    "farClip_m": 1500,
+    // How much of the body's lean the view rolls with (0 = the horizon stays level, 1 = full lean).
+    "leanRoll": 0.5,
+    // Minimal head-bob (spec §1.5).
+    "headBob": true,
+    "headBobAmplitude_m": 0.01,
+    "headBobStride_m": 1.8
+  },
+
+  "viewModel": {
+    // The marker is drawn with its own vertical FOV so it looks the same at any FOV setting
+    // and never clips into a bunker you hug.
+    "fov_deg": 62,
+    // Marker position in camera space: [right, up, forward].
+    "offset_m": [0.23, -0.23, 0.52],
+    // Tilt [pitch up, yaw left, roll] in degrees: angles the barrel slightly toward the crosshair.
+    "rotation_deg": [1.5, 3.0, 0.0],
+    // Barrel tip relative to the marker: [right, up, forward].
+    "muzzleTip_m": [0.0, 0.02, 0.43],
+    "kickBack_m": 0.012,
+    "kickRecover_s": 0.08
+  },
+
+  "look": {
+    "mouseSensitivity_degPerCount": 0.06,
+    "sensitivityStep": 0.005,
+    "stickSpeed_degps": 220,
+    "stickExponent": 1.6,
+    "invertY": false
+  },
+
+  "crosshair": { "enabled": true, "size_px": 6, "gap_px": 4, "thickness_px": 2, "color": "#f2f2f2" },
+
+  // Debug arc (F2): predicted path and drop at these distances.
+  "arcPreview": { "enabledOnStart": false, "maxTime_s": 4.0, "probes_m": [10, 20, 30, 40] },
+
+  // Graphics presets, cheapest first; F12 cycles them. Measured over the compound's viewpoints, relative
+  // to Low: Medium costs about 1.2× (glow, more weeds and shadow reach), High 2.3× (ambient occlusion,
+  // the biggest single cost, plus sunbeams, dust, window lights, sharper shadows and SMAA), and Ultra
+  // adds bounced light (SDFGI), volumetric fog and reflections. Medium targets 60 fps at 1080p on
+  // modest hardware; the render scale (below) buys more. The player's choice is saved in
+  // user://settings.json.
+  // Antialiasing is screen-space (screenAa: none, fxaa or smaa): with MSAA on, shaders can't read the
+  // depth buffer the sunbeams need to stop at walls, so the beams switch off.
+  // Per preset, the compound's lighting extras: the share of weeds drawn and how far (weedDensity,
+  // weedDistance_m), sunbeam strength (lightShafts, 0 = off), dust motes in the beams, and window fill
+  // lights. Ultra's volumetric fog already shows real beams and SDFGI bounces light, so it tones the
+  // fake beams down and drops the fill lights.
+  "graphics": {
+    "defaultPreset": "medium",
+    // V-sync on by default: no tearing, and frames paced to the monitor. F8 (or the pause menu) turns
+    // it off, to see the uncapped frame rate.
+    "vsync": true,
+    // Render scale choices (settings): the 3D view is drawn at this share of the screen's resolution
+    // and upscaled with AMD FSR 1.0, sharpened by fsrSharpness (0 = sharpest). The HUD stays sharp.
+    // The first is the default.
+    "renderScales": [1.0, 0.85, 0.75, 0.67, 0.5],
+    "fsrSharpness": 0.2,
+    "presets": [
+      { "name": "low", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
+        "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0, "screenAa": "fxaa",
+        "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false },
+      { "name": "medium", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
+        "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 75, "msaa": 0, "screenAa": "fxaa",
+        "weedDensity": 0.5, "weedDistance_m": 35, "lightShafts": 0, "dust": false, "windowLights": false },
+      { "name": "high", "ssao": true, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
+        "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 90, "msaa": 0, "screenAa": "smaa",
+        "weedDensity": 0.75, "weedDistance_m": 45, "lightShafts": 1.0, "dust": true, "windowLights": true },
+      { "name": "ultra", "ssao": true, "ssil": true, "sdfgi": true, "volumetricFog": true, "ssr": true, "glow": true,
+        "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 130, "msaa": 0, "screenAa": "smaa",
+        "weedDensity": 1.0, "weedDistance_m": 70, "lightShafts": 0.6, "dust": true, "windowLights": false }
+    ]
+  },
+
+  // Compound lighting: a low, warm late-afternoon sun in the west-south-west through broken overcast.
+  // Overcast means soft shadows that aren't black: a modest sun and plenty of sky light.
+  "lighting": {
+    "sunElevation_deg": 21,
+    "sunAzimuth_deg": 245,
+    "sunColor": "#ffd6ad",
+    "sunEnergy": 1.25,
+    // Blur of the sun's shadow edges (Godot's shadow_blur; 1 = default, higher = softer).
+    "sunShadowBlur": 2.5,
+    "skyTopColor": "#5d6878",
+    "skyHorizonColor": "#bdb8ad",
+    "groundColor": "#4a443b",
+    "cloudCover": 0.75,
+    "ambientEnergy": 0.85,
+    // Distant ground fades into this colour; the sky below the horizon uses it too, so the edge of
+    // the world never shows.
+    "fogColor": "#a8a59c",
+    "fogDensity": 0.0028,
+    "exposure": 1.0
+  },
+
+  // Distant tree lines around compound levels, so the horizon reads as land rather than a ruler-
+  // straight edge. Each ring is a jagged silhouette with gaps of open country; fog fades it into
+  // the sky. Keep the rings inside camera.farClip_m.
+  "horizon": {
+    "color": "#3b4232",
+    "rings": [
+      { "radius_m": 340, "minHeight_m": 6, "maxHeight_m": 17, "gaps": 0.3 },
+      { "radius_m": 680, "minHeight_m": 12, "maxHeight_m": 34, "gaps": 0.15 }
+    ]
+  },
+
+  // Weeds and dry grass wherever rain falls (nothing overhead): thick on scrubland, patchy on dirt and
+  // gravel, in a network of cracks on asphalt and concrete, and along the foot of walls and props.
+  // Seeded by the level id, so they're the same every run. Presentation only: paint passes through.
+  "weeds": {
+    // Tufts per square metre by ground material id; materials not listed grow none. On the crack
+    // materials the density applies along the cracks only.
+    "density_perM2": { "grass_dry": 5.0, "dirt": 0.7, "gravel": 0.45, "asphalt_cracked": 3.0, "concrete_floor": 2.0 },
+    "grassMaterials": ["grass_dry"],
+    "crackMaterials": ["asphalt_cracked", "concrete_floor"],
+    "crackSpacing_m": 3.5,
+    "crackWidth_m": 0.22,
+    // Along the foot of walls, columns and props: tufts per metre of edge, growing within this reach.
+    "edgeDensity_perM": 2.2,
+    "edgeReach_m": 0.3,
+    // Weeds grow in patches about this big, with about this share of the ground left bare.
+    "clumpSize_m": 7,
+    "bare": 0.3,
+    "heightMin_m": 0.12,
+    "heightMax_m": 0.55,
+    // A tuft's width as a multiple of its height.
+    "width": 1.25,
+    // Tints, from straw to olive (multiplied with the painted tuft).
+    "colors": ["#f0e2b8", "#e2d6a6", "#cfd09a", "#bcc48c", "#e8cfa0"],
+    // How far tips sway, how fast, and the size of the gusts that roll across.
+    "windSway_m": 0.05,
+    "windSpeed": 1.4,
+    "gustSize_m": 12,
+    // Nothing grows this close to a pickup, so grass never hides a pod.
+    "pickupClearance_m": 0.9,
+    // Tufts are grouped in squares this big, which are culled as a whole.
+    "chunkSize_m": 16
+  },
+
+  // Sunbeams through windows, doors and holes in the roof, wherever the sun reaches into a roofed
+  // space. A beam is a box of light, ray-marched per pixel and cut off by whatever is in front of it.
+  "shafts": {
+    // Glow per metre of beam you look through (scaled by the preset's lightShafts), and how fast a
+    // beam fades with distance from its opening.
+    "density_perM": 0.035,
+    "falloff_perM": 0.035,
+    // A beam's soft edge at the opening, widening by this much per metre.
+    "edgeSoftness_m": 0.18,
+    "edgeSpread": 0.03,
+    // Drifting dust breaks a beam up: how much (0 = even glow), the swirl size and drift speed.
+    "patchiness": 0.55,
+    "swirlSize_m": 1.4,
+    "swirlSpeed_mps": 0.07,
+    // Roof holes let in a broad sheet of light; their beams get this share of the glow.
+    "roofHoleFactor": 0.45,
+    "maxLength_m": 40,
+    // Openings the sun strikes at less than this angle get no beam.
+    "minSunAngle_deg": 4,
+    // Glow this close to the camera fades out, so standing in a beam doesn't wash out the view.
+    "nearFade_m": 2.5,
+    // Beams ignore fog, so they fade out between these camera distances instead.
+    "fadeStart_m": 45,
+    "fadeEnd_m": 100,
+    // Samples per pixel along the view ray through a beam.
+    "samples": 6
+  },
+
+  // Dust motes drifting in the sunbeams. Only lit dust shows, so they live inside the beams.
+  "dust": {
+    "perCubicMetre": 5,
+    "maxPerBeam": 400,
+    "size_m": 0.008,
+    "lifetime_s": 9,
+    "drift_mps": 0.04,
+    "brightness": 1.0
+  },
+
+  // Daylight spilling in, for presets without global illumination: an unshadowed spotlight just inside
+  // each window or door (neighbours on one wall share one), and a warm bounce light where a sun patch
+  // lands on the floor.
+  "windowLight": {
+    // Spotlight energy per square metre of opening (capped), colour, cone and reach.
+    "energy_perM2": 0.12,
+    "maxEnergy": 1.2,
+    "color": "#c9d2dc",
+    "angle_deg": 70,
+    "range_m": 7,
+    "mergeDistance_m": 3.5,
+    // Bounce light per square metre of sunlit opening (capped), tint (times the sun's colour), reach.
+    "bounceEnergy_perM2": 0.08,
+    "maxBounceEnergy": 1.5,
+    "bounceTint": "#d8c4a8",
+    "bounceRange_m": 6
+  },
+
+  // Opponents are rigged models from the art pipeline, posed every frame to match the sim's hitbox
+  // rig (stance, lean, aim, hands on the marker). A missing model falls back to drawing the hitboxes.
+  "characters": {
+    // Models, dealt to opponents in turn, and tints for their colours, so copies of one model differ.
+    "models": ["res://art/models/opponent_a.glb"],
+    "tints": ["#ffffff", "#c8ccd4", "#e8dcc0"],
+    // The team-colour armband on each upper arm.
+    "armbandRadius_m": 0.068,
+    "armbandWidth_m": 0.09,
+    // Steps while moving (until walk clips arrive): stride, foot lift, the speed of a full stride and
+    // how long steps take to reach it from a standstill, and how far the hips bob at each footfall.
+    "stride_m": 0.75,
+    "stepLift_m": 0.12,
+    "fullStrideSpeed_mps": 3.0,
+    "strideEase_s": 0.25,
+    "hipBob_m": 0.025,
+    // How far the hips drop for each metre the eye drops when crouching.
+    "hipDropPerEyeDrop": 0.85,
+    // Shares of the aim pitch the chest and the head take.
+    "chestPitch": 0.3,
+    "headPitch": 0.6,
+    // Where the wrists sit on the marker: along it from the back (0) to the front (1), and below it.
+    "triggerGrip": 0.3,
+    "supportGrip": 0.85,
+    "gripDrop_m": 0.03
+  },
+
+  // Paint on your mask when a ball breaks near your face (spec §1.3): drops of the ball's colour that
+  // block part of the view and clear over duration_s.
+  "maskSpray": { "duration_s": 2.5, "maxOpacity": 0.85, "drops": 6, "minSize": 0.12, "maxSize": 0.45 },
+
+  // After you're eliminated, a view from above and behind where you stood, facing whoever got you,
+  // for duration_s. Then, while your team (or, in free-for-all, anyone) is still in, a camera follows
+  // one of them from followBack_m behind and followHeight_m above their eyes; click for the next.
+  "spectator": { "duration_s": 4.0, "height_m": 1.4, "back_m": 2.5, "followBack_m": 3.2, "followHeight_m": 0.9 },
+
+  // The match HUD (spec §6): top bar with the clock and an in/out icon per player, kill feed,
+  // subtitles for what players shout, pickup prompts and a hit marker.
+  "hud": {
+    // Top bar icons, this size.
+    "iconSize_px": 18,
+    // Kill feed: newest on top, this many lines, each shown this long.
+    "killFeedLines": 5,
+    "killFeedTime_s": 6,
+    // Subtitles for callouts ("Contact!", "Hit!"): shown this long, if the caller is within this
+    // distance (about how far a shout carries in the compound).
+    "subtitleTime_s": 2.5,
+    "subtitleRange_m": 35,
+    // A pickup within this distance gets a prompt under the crosshair.
+    "pickupPromptRange_m": 4,
+    // The crosshair flashes this marker when your ball puts someone out.
+    "hitMarkerTime_s": 0.35,
+    "hitMarkerColor": "#ffffff",
+    // Opponents' callsigns, dealt in a shuffled order each round (invented names only).
+    "callsigns": ["Rook", "Magpie", "Tinker", "Moth", "Ferret", "Badger", "Sparrow", "Flint", "Gannet", "Wren", "Otter", "Lark"],
+    // What bots shout; one line is picked per call.
+    "callouts": {
+      "spotted": ["Contact!", "There!", "Eyes on one!", "Over here!"],
+      "lost": ["Lost them.", "Where'd they go?", "Anyone see them?"],
+      "underFire": ["Taking fire!", "Incoming!", "I'm pinned!"],
+      "refill": ["Reloading!", "Changing pods!"],
+      "hit": ["Hit!", "I'm hit!", "Hit, hit!"]
+    }
+  },
+
+  "audio": {
+    "voices": 24,
+    "maxSoundsPerFrame": 6,
+    "volume_db": -6,
+    // The shot sound's pitch follows tank pressure (spec §8): empty tank → low, full → high.
+    "shotPitchEmpty": 0.82,
+    "shotPitchFull": 1.05,
+    "maxDistance_m": 140
+  }
+}

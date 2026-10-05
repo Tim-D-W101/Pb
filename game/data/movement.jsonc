@@ -1,0 +1,90 @@
+// Player movement (spec §1.5): stances, lean, shoulder swap, slide and a small jump.
+// Bots move by exactly these rules too.
+{
+  "walkSpeed_mps": 3.0,
+  "runSpeed_mps": 5.5,
+  "sprintSpeed_mps": 7.0,
+  "crouchSpeed_mps": 2.0,
+
+  "groundAccel_mps2": 30,
+  "groundDecel_mps2": 40,
+  "airAccel_mps2": 4,
+
+  "standEyeHeight_m": 1.62,
+  "crouchEyeHeight_m": 1.05,
+  // How fast the eye moves between stances.
+  "stanceTransitionSpeed_mps": 5.0,
+
+  "standCapsuleHeight_m": 1.8,
+  "crouchCapsuleHeight_m": 1.2,
+  "capsuleRadius_m": 0.3,
+
+  // Sprint needs at least this much forward input (0..1). Sprinting blocks firing and leaning.
+  "sprintMinForwardInput": 0.5,
+  // After a sprint the marker takes this long to come back up before it can fire.
+  "sprintRecoveryTime_s": 0.15,
+
+  "maxPitch_deg": 89,
+  "gravity_mps2": 9.81,
+
+  // Lean: the upper body tilts about a pivot below the eye, carrying the eye and the marker with
+  // it. With a 0.8 m pivot, a 20° lean moves the eye 0.27 m sideways.
+  "leanAngle_deg": 20,
+  "leanPivotBelowEye_m": 0.8,
+  // Snap-shooting: time to lean all the way out, and to come back upright.
+  "leanInTime_s": 0.16,
+  "leanReturnTime_s": 0.12,
+  // The head is a sphere this big for the lean's wall check: you can't lean your head into a wall.
+  "headRadius_m": 0.12,
+
+  // Shoulder swap moves the marker to the other side of your face, so you can shoot round a
+  // left-hand edge without stepping out. The marker can't fire while it's moving across.
+  "shoulderSwapTime_s": 0.3,
+
+  // Slide: from a run or sprint, drop into a slide (slide key, or crouch while sprinting). It
+  // slows by friction and always ends crouched. You can shoot while sliding.
+  "slideMinSpeed_mps": 4.5,
+  "slideBoost_mps": 1.0,
+  "slideMaxSpeed_mps": 8.0,
+  "slideFriction_mps2": 6.0,
+  "slideEndSpeed_mps": 2.0,
+  "slideMaxTime_s": 1.1,
+  "slideCooldown_s": 0.8,
+  // How much of the ground acceleration the stick can use to steer a slide (0 = none).
+  "slideSteering": 0.15,
+  "slideEyeHeight_m": 0.75,
+  "slideCapsuleHeight_m": 0.9,
+
+  // A small hop over low clutter (about 0.5 m), not a combat jump. Standing only.
+  "jumpSpeed_mps": 3.2,
+  "jumpCooldown_s": 0.35,
+
+  // Footstep noise: what bots can hear (and, later, what footstep audio plays). A step is heard
+  // within its radius, times the loudness of the surface underfoot.
+  "footsteps": {
+    // One footstep per this much ground covered.
+    "stride_m": 1.2,
+    "crouchRadius_m": 3,
+    "walkRadius_m": 5,
+    "runRadius_m": 14,
+    "sprintRadius_m": 22,
+    "slideRadius_m": 16,
+    "jumpRadius_m": 8,
+    "landRadius_m": 12,
+    // Landings slower than this (downward) are silent.
+    "landMinSpeed_mps": 2.5,
+    // By surface name from break_model.jsonc; surfaces not listed count as 1.
+    "surfaceLoudness": {
+      "metal": 1.5,
+      "glass": 1.6,
+      "gravel": 1.4,
+      "wood": 1.15,
+      "concrete": 1.0,
+      "asphalt": 0.95,
+      "dirt": 0.8,
+      "turf": 0.7,
+      "tarp": 0.8,
+      "rubber": 0.75
+    }
+  }
+}

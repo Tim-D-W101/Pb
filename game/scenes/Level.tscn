@@ -1,0 +1,50 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://core/LevelMain.cs" id="1_main"]
+[ext_resource type="Script" path="res://core/SimDriver.cs" id="2_driver"]
+[ext_resource type="Script" path="res://world/LevelBuilder.cs" id="3_world"]
+[ext_resource type="Script" path="res://player/PlayerController.cs" id="4_player"]
+[ext_resource type="Script" path="res://ballistics/BallRenderer.cs" id="5_balls"]
+[ext_resource type="Script" path="res://ballistics/SplatSystem.cs" id="6_splats"]
+[ext_resource type="Script" path="res://ballistics/ImpactFx.cs" id="7_fx"]
+[ext_resource type="Script" path="res://ballistics/ArcPreview.cs" id="8_arc"]
+[ext_resource type="Script" path="res://audio/AudioDirector.cs" id="9_audio"]
+[ext_resource type="Script" path="res://ui/Hud.cs" id="10_hud"]
+
+[sub_resource type="Environment" id="environment"]
+
+[node name="Level" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+shadow_enabled = true
+
+[node name="World" type="Node3D" parent="."]
+script = ExtResource("3_world")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+script = ExtResource("4_player")
+
+[node name="Balls" type="MultiMeshInstance3D" parent="."]
+script = ExtResource("5_balls")
+
+[node name="Splats" type="Node3D" parent="."]
+script = ExtResource("6_splats")
+
+[node name="ImpactFx" type="Node3D" parent="."]
+script = ExtResource("7_fx")
+
+[node name="ArcPreview" type="MeshInstance3D" parent="."]
+script = ExtResource("8_arc")
+
+[node name="Audio" type="Node" parent="."]
+script = ExtResource("9_audio")
+
+[node name="SimDriver" type="Node" parent="."]
+script = ExtResource("2_driver")
+
+[node name="Hud" type="CanvasLayer" parent="."]
+script = ExtResource("10_hud")

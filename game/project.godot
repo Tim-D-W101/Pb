@@ -1,0 +1,38 @@
+; Engine configuration file.
+; Godot 4.7.2 (.NET). Gameplay tunables live in data/*.jsonc, not here.
+
+config_version=5
+
+[application]
+
+config/name="Pb (working title)"
+config/description="First-person tactical paintball in an abandoned compound"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/vsync/vsync_mode=1
+
+[dotnet]
+
+project/assembly_name="Pb"
+project/solution_directory=".."
+
+[physics]
+
+common/physics_ticks_per_second=120
+common/max_physics_steps_per_frame=8
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+anti_aliasing/quality/msaa_3d=1
+limits/cluster_builder/max_clustered_elements=4096
+lights_and_shadows/directional_shadow/size=4096
+occlusion_culling/use_occlusion_culling=true

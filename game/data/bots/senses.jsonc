@@ -1,0 +1,49 @@
+// What bots notice (M2.5): sight builds a detection meter, sounds give away where you are, and
+// they remember where you were. Difficulty tiers (difficulty.jsonc) scale the meter and hearing.
+{
+  // Field of view, full angle. Outside it they can't see you at all.
+  "fieldOfView_deg": 150,
+
+  // Within this angle of where they're looking the meter fills at full speed; out toward the edge of
+  // the view it fills at peripheralRate of that.
+  "focusAngle_deg": 40,
+  "peripheralRate": 0.35,
+
+  // Meter fill per second for someone standing still in daylight right in front of them. The meter
+  // runs from 0 to 1; at 1 they've spotted you.
+  "fillRate": 2.2,
+
+  // Distance slows it: the rate falls off linearly to minDistanceFactor at the tier's sight range.
+  "minDistanceFactor": 0.12,
+
+  // Light: dark areas (indoors, area light 0) fill at darkFactor; daylight (light 1) at full rate.
+  "darkFactor": 0.45,
+
+  // Crouching fills at this share; moving adds this much per m/s of speed (sprinting stands out).
+  "crouchFactor": 0.55,
+  "movingFactorPerMps": 0.12,
+
+  // Only part of you showing (one of head, chest and hips visible) fills at this share.
+  "partialFactor": 0.6,
+
+  // How fast the meter empties once they lose sight of you (per second).
+  "decayRate": 0.3,
+
+  // At this meter level they get suspicious: they stop and look your way.
+  "suspiciousAt": 0.3,
+
+  // Hearing. Shots carry this far; a break this close to them means they're under fire. Footsteps
+  // carry their own distance (movement.jsonc). Each is multiplied by wallMuffle when there's no clear
+  // line between the sound and them.
+  "shotHearing_m": 45,
+  "breakHearing_m": 7,
+  "wallMuffle": 0.5,
+
+  // They give up on a last known position this long after the last sight or sound of you.
+  "memory_s": 25,
+
+  // Someone they've already spotted, back in sight within reacquireWithin_s (a peek, ducking out of
+  // cover), takes only reacquireFactor of the tier's reaction time: they know where to look.
+  "reacquireFactor": 0.35,
+  "reacquireWithin_s": 4
+}
