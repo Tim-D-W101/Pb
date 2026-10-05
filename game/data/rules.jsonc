@@ -92,5 +92,26 @@
       { "role": "rusher", "weight": 2 }
     ],
     "patrolReach_m": 25
+  },
+
+  // Doors (kit/doors.jsonc says how each kind of leaf moves and sounds). Interact works the door you're facing:
+  // within reach_m of its nearest point and cone_deg of where you look, with no wall in between. A tap swings it all
+  // the way open or shut; a press held longer than holdTime_s eases it at easeRate (share of the full swing a second)
+  // and leaves it where you let go, for a peek through the gap.
+  "doors": {
+    "reach_m": 1.7,
+    "cone_deg": 40,
+    "holdTime_s": 0.25,
+    "easeRate": 0.35,
+    // How far an ajar door stands open (share of the full swing).
+    "ajar": 0.22,
+    // Doors marked "random" in the level start shut, open or ajar by these chances, dealt from the round's seed.
+    "randomStart": [
+      { "start": "shut", "weight": 4 },
+      { "start": "open", "weight": 3 },
+      { "start": "ajar", "weight": 3 }
+    ],
+    // Bots walk through once a leaf is this far open; less, and they open it first.
+    "botPassOpen": 0.6
   }
 }

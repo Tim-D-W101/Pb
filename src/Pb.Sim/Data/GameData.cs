@@ -118,6 +118,16 @@ public sealed class GameData
                     TeammateSpacing = rules.Spawning.TeammateSpacing_m,
                     TeamSpread = rules.Spawning.TeamSpread_m,
                 },
+                Doors = new DoorRules
+                {
+                    Reach = rules.Doors.Reach_m,
+                    ConeCos = MathF.Cos(rules.Doors.Cone_deg * Units.DegreesToRadians),
+                    HoldTime = rules.Doors.HoldTime_s,
+                    EaseRate = rules.Doors.EaseRate,
+                    Ajar = rules.Doors.Ajar,
+                    RandomStart = rules.Doors.RandomStart.Select(c => (c.Start, c.Weight)).ToArray(),
+                    BotPassOpen = rules.Doors.BotPassOpen,
+                },
             },
         };
         CheckRoles(rules.Spawning.CoverRoles, "spawning.coverRoles", files.Rules, bots);

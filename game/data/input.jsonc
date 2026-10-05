@@ -1,4 +1,4 @@
-// Default bindings, applied to Godot's InputMap at startup (rebinding UI arrives in Phase 5).
+// Default bindings, applied to Godot's InputMap at startup (the settings menu's rebinding overrides them, Phase 3).
 // keys: physical key names (layout-independent) · mouse: Left/Right/Middle/WheelUp/WheelDown
 // buttons: gamepad buttons in SDL layout, so Xbox and PlayStation pads both work
 //   (A = Cross, B = Circle, X = Square, Y = Triangle) · axes: axis name + direction.
@@ -19,6 +19,9 @@
     { "name": "crouch", "keys": ["Ctrl", "C"], "buttons": ["B"] },
     { "name": "walk", "keys": ["Alt"] },
     { "name": "refill", "keys": ["R"], "buttons": ["X"] },
+    // Opens and shuts the door you're facing (tap), or eases it open (hold). On a pad it shares the refill button:
+    // facing a door it works the door, anywhere else it refills.
+    { "name": "interact", "keys": ["F"], "buttons": ["X"] },
     { "name": "fire_mode", "keys": ["B"], "buttons": ["Y"] },
     { "name": "lean_left", "keys": ["Q"], "buttons": ["LeftShoulder"] },
     { "name": "lean_right", "keys": ["E"], "buttons": ["RightShoulder"] },

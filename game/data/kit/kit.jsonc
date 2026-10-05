@@ -3,6 +3,7 @@
 {
   "materials": "kit/materials.jsonc",
   "props": "kit/props.jsonc",
+  "doors": "kit/doors.jsonc",
   "buildings": [
     "kit/buildings/guardhouse.jsonc",
     "kit/buildings/pump_house.jsonc",

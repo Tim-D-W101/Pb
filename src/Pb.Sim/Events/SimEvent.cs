@@ -38,6 +38,12 @@ public enum SimEventType : byte
     RoundEnded,
     /// <summary>A player took a pickup. TargetId = pickup index, Extra = <see cref="Data.PickupKind"/>, Position = where it was.</summary>
     PickupTaken,
+    /// <summary>
+    /// A door started opening or closing, or shut. PlayerId = who worked it (−1: nobody), TargetId = leaf, ColliderId = its
+    /// collider, Position = the leaf's middle, Surface = what it's made of, Value = how far it carries (m),
+    /// Extra = <see cref="Level.DoorMotion"/>.
+    /// </summary>
+    DoorMoved,
 }
 
 public enum FootstepKind : byte

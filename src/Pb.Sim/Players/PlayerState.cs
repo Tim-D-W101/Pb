@@ -112,6 +112,13 @@ public sealed class PlayerState
 
     internal Stance LastStance { get; set; }
 
+    /// <summary>The door being worked with the interact button (−1: none), and for how long it's been held.</summary>
+    public int InteractDoor { get; internal set; } = -1;
+
+    internal float InteractHeld { get; set; }
+
+    internal bool InteractDown { get; set; }
+
     /// <summary>The marker is up and settled: not mid-swap and not recovering from a sprint.</summary>
     public bool MarkerReady => SprintRecovery <= 0f && MathF.Abs(Shoulder) >= 1f;
 

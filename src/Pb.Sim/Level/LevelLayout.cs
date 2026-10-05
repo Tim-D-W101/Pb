@@ -101,6 +101,18 @@ public sealed class LevelLayout
     /// <summary>Windows, doors, gaps and roof holes, in world space.</summary>
     public required IReadOnlyList<Aperture> Apertures { get; init; }
 
+    /// <summary>The door leaves hung in its doorways (the sim's <see cref="DoorSet"/> moves them).</summary>
+    public IReadOnlyList<DoorSpec> Doors { get; init; } = Array.Empty<DoorSpec>();
+
+    private HashSet<int>? _hung;
+
+    /// <summary>Whether a door leaf hangs in the aperture at <paramref name="aperture"/> (light and cobwebs leave those alone).</summary>
+    public bool IsHung(int aperture)
+    {
+        _hung ??= Doors.Select(d => d.Aperture).ToHashSet();
+        return _hung.Contains(aperture);
+    }
+
     public required IReadOnlyList<PropInstance> Props { get; init; }
 
     /// <summary>The buildings, each with its template and where it stands (presentation dresses them from their templates).</summary>

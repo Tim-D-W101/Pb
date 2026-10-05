@@ -893,6 +893,8 @@ public sealed class RulesDef : IValidatable
 
     public SpawningDef Spawning { get; set; } = new();
 
+    public DoorRulesDef Doors { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MaxPlayers), MaxPlayers, 2, 32);
@@ -900,6 +902,7 @@ public sealed class RulesDef : IValidatable
         v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.1, 5);
         v.InRange(nameof(AirPickupBelow), AirPickupBelow, 0, 1);
         Spawning.Validate(v.Scope(nameof(Spawning)));
+        Doors.Validate(v.Scope(nameof(Doors)));
         if (Modes.Length == 0)
         {
             v.Error(nameof(Modes), "needs at least one mode");
@@ -919,6 +922,62 @@ public sealed class RulesDef : IValidatable
             v.Error(nameof(Modes), "two modes share an id");
         }
     }
+}
+
+/// <summary>How doors are used (rules.jsonc "doors").</summary>
+public sealed class DoorRulesDef : IValidatable
+{
+    /// <summary>A door can be worked from this far (eye to the nearest point of the leaf).</summary>
+    public float Reach_m { get; set; }
+
+    /// <summary>... and only within this angle of where you look.</summary>
+    public float Cone_deg { get; set; }
+
+    /// <summary>A press held longer than this eases the door instead of swinging it all the way.</summary>
+    public float HoldTime_s { get; set; }
+
+    /// <summary>How fast a held press eases the door: share of the full swing per second.</summary>
+    public float EaseRate { get; set; }
+
+    /// <summary>How far an ajar door stands open, as a share of the full swing.</summary>
+    public float Ajar { get; set; }
+
+    /// <summary>Doors marked "random" start shut, open or ajar by these chances.</summary>
+    public StartChanceDef[] RandomStart { get; set; } = Array.Empty<StartChanceDef>();
+
+    /// <summary>Bots go through a door once it's this far open (share of the full swing).</summary>
+    public float BotPassOpen { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Reach_m), Reach_m, 0.5, 4);
+        v.InRange(nameof(Cone_deg), Cone_deg, 5, 90);
+        v.InRange(nameof(HoldTime_s), HoldTime_s, 0.05, 2);
+        v.InRange(nameof(EaseRate), EaseRate, 0.05, 5);
+        v.InRange(nameof(Ajar), Ajar, 0.05, 0.95);
+        v.InRange(nameof(BotPassOpen), BotPassOpen, 0.2, 1);
+        if (RandomStart.Length == 0 || RandomStart.All(c => c.Weight <= 0f))
+        {
+            v.Error(nameof(RandomStart), "needs at least one start with a positive weight");
+        }
+
+        for (int i = 0; i < RandomStart.Length; i++)
+        {
+            Validator item = v.Item(nameof(RandomStart), i);
+            item.InRange(nameof(StartChanceDef.Weight), RandomStart[i].Weight, 0, 100);
+            if (RandomStart[i].Start == DoorStart.Random)
+            {
+                item.Error(nameof(StartChanceDef.Start), "must be shut, open or ajar");
+            }
+        }
+    }
+}
+
+public sealed class StartChanceDef
+{
+    public DoorStart Start { get; set; }
+
+    public float Weight { get; set; }
 }
 
 /// <summary>One mode the menu offers (rules.jsonc "modes").</summary>

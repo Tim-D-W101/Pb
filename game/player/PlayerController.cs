@@ -225,6 +225,14 @@ public partial class PlayerController : PawnBody, IPlayerDriver
                     buttons |= button;
                 }
             }
+
+            // One button bound to both (the pad's refill button): facing a door it works the door, anywhere else it refills.
+            const InputButtons Both = InputButtons.Interact | InputButtons.Refill;
+            if ((buttons & Both) == Both)
+            {
+                bool door = Sim.Doors.FindTarget(State.EyePosition, Pb.Sim.Core.ViewAngles.Forward(_yaw, _pitch)) >= 0;
+                buttons &= door ? ~InputButtons.Refill : ~InputButtons.Interact;
+            }
         }
 
         return new InputCommand
@@ -245,6 +253,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         ("crouch", InputButtons.Crouch),
         ("walk", InputButtons.Walk),
         ("refill", InputButtons.Refill),
+        ("interact", InputButtons.Interact),
         ("fire_mode", InputButtons.ToggleFireMode),
         ("lean_left", InputButtons.LeanLeft),
         ("lean_right", InputButtons.LeanRight),

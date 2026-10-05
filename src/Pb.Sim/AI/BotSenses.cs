@@ -327,6 +327,15 @@ public sealed class BotSenses
                     }
 
                     break;
+                case SimEventType.DoorMoved:
+                    // A door opening or banging shut: whoever worked it is right there (heard through the door, muffled,
+                    // from its far side).
+                    if (Hears(source!.EyePosition, ear, e.Value * scale))
+                    {
+                        Heard(source, source.Position);
+                    }
+
+                    break;
             }
         }
     }

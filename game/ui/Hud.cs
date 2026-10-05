@@ -24,8 +24,8 @@ public partial class Hud : CanvasLayer, ISimEventListener
         "CONTROLS\n" +
         "WASD move · Mouse look · LMB fire · Shift sprint · Ctrl/C crouch · Alt walk · Space jump\n" +
         "Q/E lean · X or MMB swap shoulder · V slide (or crouch while sprinting)\n" +
-        "R refill from pod · B semi/ramping · Esc pause menu (settings, restart, quit)\n" +
-        "Gamepad: sticks · RT fire · L3 sprint · B crouch · A jump · LB/RB lean · R3 swap · X refill · Y fire mode\n\n" +
+        "R refill from pod · F open/shut a door (hold to ease it open) · B semi/ramping · Esc pause menu (settings, restart, quit)\n" +
+        "Gamepad: sticks · RT fire · L3 sprint · B crouch · A jump · LB/RB lean · R3 swap · X refill (a door, facing one) · Y fire mode\n\n" +
         "DEBUG\n" +
         "F1 help · F2 arc preview · F3 stress mode (range) / bot debug (compound) · F4 perf overlay\n" +
         "F5 head-bob · F6 reset gear (range) · F7 crosshair · F8 vsync\n" +
@@ -291,11 +291,31 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _perf.Text = _text.ToString();
     }
 
-    /// <summary>The nearest pickup within reach, under the crosshair: what it is, how far, and whether you've room for it.</summary>
+    /// <summary>
+    /// The door you're facing within reach (what interact would do to it), else the nearest pickup within reach: what
+    /// it is, how far, and whether you've room for it.
+    /// </summary>
     private void UpdatePrompt()
     {
         Pb.Sim.Match.PickupSet pickups = _sim.Pickups;
-        if (_hudDef is null || !pickups.Active || !_player.Alive)
+        if (_hudDef is null || !_player.Alive || !_sim.IsLive)
+        {
+            _prompt.Visible = false;
+            return;
+        }
+
+        int door = _player.InteractDoor >= 0 ? _player.InteractDoor
+            : _sim.Doors.FindTarget(_player.EyePosition, Pb.Sim.Core.ViewAngles.Forward(_player.Yaw, _player.Pitch));
+        if (door >= 0)
+        {
+            bool shut = _sim.Doors.Target(door) < 0.5f;
+            _prompt.Visible = true;
+            _prompt.Text = $"{InputSetup.KeyName("interact")} · {(shut ? "open the door (hold to ease it open)" : "shut the door")}";
+            _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
+            return;
+        }
+
+        if (!pickups.Active)
         {
             _prompt.Visible = false;
             return;

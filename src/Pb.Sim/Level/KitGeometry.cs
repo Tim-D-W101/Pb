@@ -34,8 +34,8 @@ public readonly struct PlanFrame
 
 public readonly record struct MaterialRef(int Index, SurfaceId Surface);
 
-/// <summary>One opening in a wall segment, in metres along the segment's centreline.</summary>
-public readonly record struct OpeningSpec(int Segment, float At, float Width, float Sill, float Height, OpeningKind Kind);
+/// <summary>One opening in a wall segment, in metres along the segment's centreline, with the door hung in it if any.</summary>
+public readonly record struct OpeningSpec(int Segment, float At, float Width, float Sill, float Height, OpeningKind Kind, DoorLeafDef? Leaf = null);
 
 /// <summary>Collects generated primitives for a level.</summary>
 public sealed class PrimitiveSink
@@ -46,6 +46,12 @@ public sealed class PrimitiveSink
 
     /// <summary>Openings through walls and roofs, in world space.</summary>
     public List<Aperture> Apertures { get; } = new();
+
+    /// <summary>The kinds of door leaf door openings may name.</summary>
+    public IReadOnlyDictionary<string, DoorKind> DoorKinds { get; init; } = new Dictionary<string, DoorKind>();
+
+    /// <summary>Door leaves hung in the walls' door openings, in world space.</summary>
+    public List<DoorSpec> Doors { get; } = new();
 
     public void AddBox(PlanFrame frame, Vector3 center, Quaternion rotation, Vector3 half, MaterialRef material,
         PrimitiveFlags flags, PrimitiveRole role, int owner)
@@ -287,12 +293,55 @@ public static class KitGeometry
                 if (openingTop - sillTop > Epsilon && o.Width > Epsilon)
                 {
                     Vector3 axis = Vector3.Transform(new Vector3(u.X, 0f, u.Y), frame.Rotation);
+                    if (o.Leaf is { } leaf && sink.DoorKinds.TryGetValue(leaf.Door, out DoorKind? kind))
+                    {
+                        HangDoor(sink, kind, leaf, frame.PlanToWorld(a + u * o.At, sillTop), axis, o.Width, openingTop - sillTop, thickness,
+                            owner, sink.Apertures.Count);
+                    }
+
                     sink.Apertures.Add(new Aperture(ApertureOf(o.Kind), frame.PlanToWorld(a + u * o.At, (sillTop + openingTop) * 0.5f),
                         axis, Vector3.UnitY, o.Width * 0.5f, (openingTop - sillTop) * 0.5f, owner));
                 }
             }
 
             Piece(cursor, length + extEnd, baseY, topY);
+        }
+    }
+
+    /// <summary>
+    /// The leaf (or pair of leaves) of a door opening whose sill line's middle is <paramref name="center"/>, the wall
+    /// running along <paramref name="axis"/> (world, from the segment's start to its end). A one-way hinged leaf hangs
+    /// flush with the face of the side it opens into; a swing door and a sliding door's track sit on the wall's middle.
+    /// </summary>
+    private static void HangDoor(PrimitiveSink sink, DoorKind kind, DoorLeafDef leaf, Vector3 center, Vector3 axis, float width, float height,
+        float wallThickness, int owner, int aperture)
+    {
+        Vector3 left = Vector3.Cross(Vector3.UnitY, axis);
+        Vector3 side = leaf.Swing == DoorSwing.Right ? -left : left;
+        bool both = leaf.Swing == DoorSwing.Both;
+        float inset = !leaf.Sliding && !both ? MathF.Max(0f, wallThickness * 0.5f - kind.Thickness * 0.5f) : 0f;
+        Vector3 start = center - axis * (width * 0.5f);
+        Vector3 end = center + axis * (width * 0.5f);
+
+        DoorSpec Leaf(Vector3 hinge, Vector3 across, float w, int partner) => new()
+        {
+            Kind = kind, Hinge = hinge + side * inset, Across = across, Side = side, Width = w, Height = height, Sliding = leaf.Sliding,
+            BothWays = both, Start = leaf.Start, WallThickness = wallThickness, Partner = partner, Owner = owner, Aperture = aperture,
+        };
+
+        int first = sink.Doors.Count;
+        if (leaf.Double)
+        {
+            sink.Doors.Add(Leaf(start, axis, width * 0.5f, first + 1));
+            sink.Doors.Add(Leaf(end, -axis, width * 0.5f, first));
+        }
+        else if (leaf.Hinge == DoorHinge.Start)
+        {
+            sink.Doors.Add(Leaf(start, axis, width, -1));
+        }
+        else
+        {
+            sink.Doors.Add(Leaf(end, -axis, width, -1));
         }
     }
 
@@ -587,7 +636,7 @@ public static class KitGeometry
     public static IReadOnlyList<OpeningSpec> Openings(WallDef wall) =>
         wall.Openings is null
             ? Array.Empty<OpeningSpec>()
-            : wall.Openings.Select(o => new OpeningSpec(o.Segment, o.At_m, o.Width_m, o.Sill_m, o.Height_m, o.Kind)).ToArray();
+            : wall.Openings.Select(o => new OpeningSpec(o.Segment, o.At_m, o.Width_m, o.Sill_m, o.Height_m, o.Kind, o.Leaf)).ToArray();
 
     public static Vector2[] Points(WallDef wall) => wall.Points_m.Select(p => new Vector2(p[0], p[1])).ToArray();
 

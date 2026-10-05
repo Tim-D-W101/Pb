@@ -42,9 +42,13 @@ public partial class PaintDrips : Node3D, ISimEventListener
         _textures ??= new[] { DripTexture(1), DripTexture(2), DripTexture(3) };
     }
 
+    /// <summary>Paint colliders that move (door leaves): runs on them would hang in the air once they swing.</summary>
+    public Func<int, bool>? Moving { get; set; }
+
     public void OnSimEvent(in SimEvent e)
     {
-        if (e.Type != SimEventType.BallBroke || e.TargetId >= 0 || _def.Cap == 0 || MathF.Abs(e.Normal.Y) > _def.Steepest || _rng.Randf() > _def.Share)
+        if (e.Type != SimEventType.BallBroke || e.TargetId >= 0 || _def.Cap == 0 || MathF.Abs(e.Normal.Y) > _def.Steepest || _rng.Randf() > _def.Share ||
+            Moving?.Invoke(e.ColliderId) == true)
         {
             return;
         }
@@ -100,7 +104,7 @@ public partial class PaintDrips : Node3D, ISimEventListener
         {
             decal = new Decal
             {
-                CullMask = 0xFFFFF & ~ViewModel.RenderLayer,
+                CullMask = SplatSystem.WorldMask,
                 NormalFade = _splat.NormalFade,
                 UpperFade = 0.3f,
                 LowerFade = 0.3f,

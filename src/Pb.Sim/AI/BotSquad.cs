@@ -64,6 +64,7 @@ public sealed class BotSquad
             case SimEventType.ShotFired:
             case SimEventType.BallBroke:
             case SimEventType.Footstep:
+            case SimEventType.DoorMoved:
             case SimEventType.PlayerEliminated:
                 _incoming.Add(e);
                 break;

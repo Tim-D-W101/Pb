@@ -34,6 +34,9 @@
     { "id": "steel_painted", "surface": "metal", "color": "#4f5a52", "pattern": "metal", "tile_m": 1.0, "roughness": 0.55, "weathering": 0.50, "metallic": 0.2, "albedo": "res://art/textures/steel_painted_albedo.jpg", "normal": "res://art/textures/steel_painted_normal.jpg", "roughnessMap": "res://art/textures/steel_painted_roughness.jpg", "breakUpRepeat": true },
     { "id": "steel_rust", "surface": "metal", "color": "#6e4a33", "pattern": "rust", "tile_m": 1.0, "roughness": 0.80, "weathering": 0.80, "metallic": 0.3, "albedo": "res://art/textures/steel_rust_albedo.jpg", "normal": "res://art/textures/steel_rust_normal.jpg", "roughnessMap": "res://art/textures/steel_rust_roughness.jpg", "breakUpRepeat": true },
     { "id": "steel_yellow", "surface": "metal", "color": "#a08a2e", "pattern": "metal", "tile_m": 1.0, "roughness": 0.55, "weathering": 0.60, "metallic": 0.2, "albedo": "res://art/textures/steel_yellow_albedo.jpg", "normal": "res://art/textures/steel_yellow_normal.jpg", "roughnessMap": "res://art/textures/steel_yellow_roughness.jpg", "breakUpRepeat": true },
+    // Doors (kit/doors.jsonc): timber painted a grey-green, and steel painted a faded blue, both worn (drawn, no photos yet).
+    { "id": "door_wood", "surface": "wood", "color": "#5d6a5b", "pattern": "plain", "tile_m": 1.2, "roughness": 0.8, "weathering": 0.75 },
+    { "id": "door_steel", "surface": "metal", "color": "#4a5862", "pattern": "metal", "tile_m": 1.0, "roughness": 0.6, "weathering": 0.85, "metallic": 0.3 },
     // White enamel for the light fittings (drawn on ceilings, no photo).
     { "id": "enamel_white", "surface": "metal", "color": "#d3d0c6", "pattern": "plain", "tile_m": 1.0, "roughness": 0.45, "weathering": 0.45, "metallic": 0.1 },
     // Cast iron for the manhole covers and drain gratings in the yard: the rusted-steel photo, darkened.

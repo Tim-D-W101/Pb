@@ -98,6 +98,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private ContactShadows _contact = null!;
     private Creepers _creepers = null!;
     private LightShafts _shafts = null!;
+    private DoorViews _doors = null!;
     private string? _hitBy;
     private bool _scripted;
     private bool _botMatch;
@@ -170,6 +171,9 @@ public partial class LevelMain : Node3D, ISimEventListener
             : (ulong)System.Random.Shared.NextInt64();
         _sim = new SimWorld(_data.Config, seed);
         _sim.LoadLevel(_level);
+        // Everything built once from the level as it stands (cover, starts, weeds, old paint, light) leaves the doors
+        // out: they'll move. The flag comes off once the level is built.
+        _sim.Collision.SkipDynamic = true;
         var navWatch = Stopwatch.StartNew();
         _squad = BotSquad.ForLevel(_sim, _data.Bots, _level);
         double navMs = navWatch.Elapsed.TotalMilliseconds;
@@ -199,6 +203,9 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         GraphicsPresetDef preset = _view.Graphics.Find(Args.Value("--preset") ?? _settings.GraphicsPreset);
         _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, _view.Woods);
+        _doors = new DoorViews { Name = "Doors" };
+        AddChild(_doors);
+        _doors.Build(_sim, _world.Materials);
         var dressWatch = Stopwatch.StartNew();
         // The worn paths first: the weeds keep off them.
         var paths = new WornPaths { Name = "WornPaths" };
@@ -276,7 +283,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         AddChild(_botDebug);
         _botDebug.Initialize(_squad);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
-        _splats.Initialize(_view, SplatParent);
+        _splats.Initialize(_view, SplatParent, _doors.AnchorOf);
         var fx = GetNode<ImpactFx>("ImpactFx");
         fx.Initialize(_view);
         _dust = new FootDust { Name = "FootDust" };
@@ -289,7 +296,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _roofDrips = new RoofDrips { Name = "RoofDrips", Visible = _groundDetail.Visible };
         AddChild(_roofDrips);
         _roofDrips.Build(_level, _sim.Collision, _ripples, _view.RoofDrips, _sim.Config.Projectile.Gravity);
-        _drips = new PaintDrips { Name = "PaintDrips" };
+        _drips = new PaintDrips { Name = "PaintDrips", Moving = id => _sim.Doors.LeafOfCollider(id) >= 0 };
         AddChild(_drips);
         _drips.Initialize(_view);
         _prints = new Footprints { Name = "Footprints" };
@@ -302,7 +309,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         var audio = GetNode<AudioDirector>("Audio");
         if (!headless)
         {
-            audio.Initialize(state, _view);
+            audio.Initialize(state, _view, _sim.Config.Surfaces.Get("metal"));
         }
 
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
@@ -332,7 +339,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         AddChild(maskSpray);
         maskSpray.Initialize(_view, state.Id);
 
+        _sim.Collision.SkipDynamic = false;
         _driver.Initialize(_sim);
+        _driver.Ticked += _ => _doors.Capture();
         _driver.AddDriver(_player);
         foreach (OpponentPawn pawn in _pawns)
         {
@@ -429,7 +438,7 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
                  $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.FramedOpenings} framed openings and {_world.DressedBuildings} buildings with gutters or trusses, {_world.DressedWalls} dressed walls, {_world.SkirtedFaces} skirted wall faces, {_world.SceneryCount} pylons and poles beyond, {_world.ShapeTriangles} triangles), " +
-                 $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
+                 $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, {_doors.Count} door leaves, " +
                  $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");
         _ready = true;

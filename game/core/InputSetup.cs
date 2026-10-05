@@ -71,6 +71,28 @@ public static class InputSetup
         }
     }
 
+    /// <summary>What to press for <paramref name="action"/>, for prompts: its first keyboard key (or mouse button), else "?".</summary>
+    public static string KeyName(string action)
+    {
+        if (!InputMap.HasAction(action))
+        {
+            return "?";
+        }
+
+        foreach (InputEvent e in InputMap.ActionGetEvents(action))
+        {
+            switch (e)
+            {
+                case InputEventKey key:
+                    return OS.GetKeycodeString(key.PhysicalKeycode != Key.None ? key.PhysicalKeycode : key.Keycode);
+                case InputEventMouseButton mouse:
+                    return mouse.ButtonIndex + " mouse";
+            }
+        }
+
+        return "?";
+    }
+
     private static DataException Bad(InputActionDef action, string message) =>
         new(InputDef.File, $"actions '{action.Name}': {message}");
 }

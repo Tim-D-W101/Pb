@@ -154,6 +154,12 @@ public sealed class BotBrain
     private bool _hunting;
     private float _quietFor;
 
+    // Doors on the way.
+    private int _doorLeaf = -1;
+    private float _doorTime;
+    private int _doorTaps;
+    private Vector3 _doorFace;
+
     public BotBrain(BotSquad squad, PlayerState self, ArchetypeParams archetype, DifficultyParams tier, OpponentSpawn spawn)
     {
         _squad = squad;
@@ -269,6 +275,12 @@ public sealed class BotBrain
 
         _turnSpeed = _b.LookTurnSpeed;
         Act(dt);
+        if (_doorLeaf >= 0)
+        {
+            // Waiting at a door: look at it (whatever the mode wanted to look at), so interact finds it.
+            LookToward(_doorFace, slow: false);
+        }
+
         Look(dt);
         _cmd.Yaw = _yaw;
         _cmd.Pitch = _pitch;
@@ -1234,6 +1246,7 @@ public sealed class BotBrain
         _waypoint = 0;
         _stuckFor = 0f;
         _bestDistance = float.MaxValue;
+        _doorLeaf = -1;
     }
 
     private void Stop()
@@ -1243,6 +1256,70 @@ public sealed class BotBrain
         _path.Clear();
         _waypoint = 0;
         _cmd.Move = Vector2.Zero;
+        _doorLeaf = -1;
+    }
+
+    /// <summary>
+    /// A shut (or barely open) door between here and <paramref name="next"/>: stand clear of its swing on this side, face it,
+    /// tap interact, and wait until it's open enough to walk through. True while dealing with one (don't walk on).
+    /// </summary>
+    private bool AtShutDoor(Vector3 next, float dt)
+    {
+        Level.DoorSet doors = _sim.Doors;
+        if (doors.Count == 0)
+        {
+            return false;
+        }
+
+        float pass = _sim.Config.Rules.Doors.BotPassOpen;
+        int leaf = doors.ShutOnPath(Self.Position, next, pass);
+        if (leaf < 0)
+        {
+            _doorLeaf = -1;
+            return false;
+        }
+
+        if (leaf != _doorLeaf)
+        {
+            _doorLeaf = leaf;
+            _doorTime = 0f;
+            _doorTaps = 0;
+        }
+
+        _doorTime += dt;
+        Level.DoorSpec s = doors[leaf];
+        Vector3 c = s.ShutCenter;
+        float side = Vector3.Dot(Self.Position - c, s.Side) >= 0f ? 1f : -1f;
+        bool towardUs = !s.Sliding && !s.BothWays && side > 0f;
+        Vector3 stand = c + s.Side * (side * (towardUs ? s.Width + 0.35f : 0.55f));
+        stand.Y = Self.Position.Y;
+        _doorFace = c;
+        _stuckFor = 0f;
+        _bestDistance = float.MaxValue;
+        if (FlatDistance(Self.Position, stand) > 0.3f)
+        {
+            MoveTowards(stand, BotGait.Walk, 0f);
+            return true;
+        }
+
+        _cmd.Move = Vector2.Zero;
+        bool heading = doors.Target(leaf) >= pass;
+        if (!heading && _doorTaps < 3 && _doorTime >= _doorTaps * 1.5f &&
+            doors.FindTarget(Self.EyePosition, ViewAngles.Forward(_yaw, _pitch)) == leaf)
+        {
+            _cmd.Buttons |= InputButtons.Interact; // a one-tick press: let go next tick, so it swings all the way
+            _doorTaps++;
+        }
+
+        if (_doorTime > 6f)
+        {
+            // Won't open (someone's holding it, or in its way): give this goal up.
+            _doorLeaf = -1;
+            _hasGoal = false;
+            _arrived = true;
+        }
+
+        return true;
     }
 
     /// <summary>Walks the current path toward the goal, planning it when the squad's search budget allows.</summary>
@@ -1294,6 +1371,11 @@ public sealed class BotBrain
 
             next = _path[_waypoint];
             distance = FlatDistance(Self.Position, next);
+        }
+
+        if (AtShutDoor(next, dt))
+        {
+            return;
         }
 
         // Stuck: no progress toward the waypoint for a while means plan again (a few times at most).

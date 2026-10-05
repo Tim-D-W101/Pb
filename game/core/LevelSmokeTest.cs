@@ -21,6 +21,7 @@ namespace Pb.Game.Core;
 /// <item>the autopilot walks in through the main gate, sweeping its aim and firing;</item>
 /// <item>it climbs every flight of stairs in the level, starting at the foot of each;</item>
 /// <item>back at the spawn, it sprints, slides into a crouch, stands and jumps;</item>
+/// <item>in front of a shut door it shoots the door (the ball must break on it), opens it with interact and walks through;</item>
 /// <item>it shoots a passive bot, who must go out and walk off;</item>
 /// <item>it stands in front of a sentry, now hostile, until it's eliminated and spectating, and the round ends as eliminated.</item>
 /// </list>
@@ -44,11 +45,18 @@ public sealed class LevelSmokeTest
     private const int GetShotTicks = 1440;
     private const int RoundEndTicks = 360;
 
+    // The door: fire at it, tap interact, then walk through once it's open.
+    private const int DoorFireAt = 20;
+    private const int DoorTapAt = 90;
+    private const int DoorWalkAt = 260;
+    private const int DoorTicks = 600;
+
     private enum Phase
     {
         Walk,
         Climb,
         Moves,
+        Door,
         Shoot,
         GetShot,
     }
@@ -88,6 +96,11 @@ public sealed class LevelSmokeTest
     private bool _gotShot;
     private int _gotShotAt = -1;
     private RoundOutcome _outcome;
+    private int _door = -1;
+    private bool _doorStopped;
+    private bool _doorOpened;
+    private bool _doorWalked;
+    private string _doorNote = "no door found";
 
     public LevelSmokeTest(LevelMain host, SimWorld sim, SimDriver driver, PlayerController player, LevelBuilder world, int ticks,
         IReadOnlyList<OpponentPawn> opponents, IReadOnlyList<BotBrain> bots)
@@ -119,6 +132,7 @@ public sealed class LevelSmokeTest
                 break;
             case SimEventType.BallBroke:
                 _breaks++;
+                _doorStopped |= _door >= 0 && e.ColliderId == _sim.Doors.ColliderOf(_door);
                 break;
             case SimEventType.BallBounced:
                 _bounces++;
@@ -175,6 +189,26 @@ public sealed class LevelSmokeTest
 
                 if (t >= MovesTicks)
                 {
+                    StartDoor();
+                }
+
+                break;
+
+            case Phase.Door:
+                if (_door >= 0)
+                {
+                    DoorSpec d = _sim.Doors[_door];
+                    _doorOpened |= t >= DoorWalkAt - 20 && _sim.Doors.Open(_door) >= 0.95f;
+                    _doorWalked |= SVector3.Dot(p - d.ShutCenter, d.Side) > 0.8f;
+                }
+
+                if (_door < 0 || t >= DoorTicks)
+                {
+                    if (_door >= 0)
+                    {
+                        _doorNote = $"{_sim.Level!.Owners[_sim.Doors[_door].Owner]} door: stopped a ball={_doorStopped}, opened={_doorOpened}, walked through={_doorWalked}";
+                    }
+
                     StartShoot();
                 }
 
@@ -254,6 +288,48 @@ public sealed class LevelSmokeTest
         };
     }
 
+    /// <summary>
+    /// In front of a ground-floor door, shut, on the side it doesn't open into: a shot at it, a tap on interact, and once
+    /// it's open a walk straight through.
+    /// </summary>
+    private void StartDoor()
+    {
+        _phase = Phase.Door;
+        _phaseStart = _elapsed;
+        SVector3 up = new(0f, 1.2f, 0f);
+        for (int i = 0; i < _sim.Doors.Count && _door < 0; i++)
+        {
+            DoorSpec d = _sim.Doors[i];
+            SVector3 stand = d.ShutCenter - d.Side * 1.3f;
+            SVector3 beyond = d.ShutCenter + d.Side * 1.6f;
+            if (d.Hinge.Y > 0.2f || d.Partner >= 0 ||
+                _sim.Collision.SweepSphere(stand + up, d.ShutCenter + up - d.Side * 0.1f, 0.3f, out _, includeDynamic: false) ||
+                _sim.Collision.SweepSphere(d.ShutCenter + up + d.Side * 0.1f, beyond + up, 0.3f, out _, includeDynamic: false))
+            {
+                continue;
+            }
+
+            _door = i;
+            _sim.Doors.SetOpen(i, 0f);
+            _player.Teleport(stand, ScenePositions.Facing(stand, d.ShutCenter));
+        }
+
+        _pilot.Script = (_, me) =>
+        {
+            if (_door < 0)
+            {
+                return default;
+            }
+
+            int t = _elapsed - _phaseStart;
+            DoorSpec d = _sim.Doors[_door];
+            (float yaw, float pitch) = ViewAngles.FromDirection(d.ShutCenter + new SVector3(0f, 1.1f, 0f) - me.EyePosition);
+            InputButtons buttons = t == DoorFireAt ? InputButtons.Fire : t == DoorTapAt ? InputButtons.Interact : InputButtons.None;
+            var move = t >= DoorWalkAt ? new System.Numerics.Vector2(0f, 1f) : System.Numerics.Vector2.Zero;
+            return new InputCommand { Yaw = t >= DoorWalkAt ? me.Yaw : yaw, Pitch = t >= DoorWalkAt ? 0f : pitch, Buttons = buttons, Move = move };
+        };
+    }
+
     /// <summary>Stands a few metres in front of a passive bot and shoots them in the chest.</summary>
     private void StartShoot()
     {
@@ -322,9 +398,12 @@ public sealed class LevelSmokeTest
                  $"jump {(jumpOk ? "ok" : "FAILED")} (height {_jumpHeight:0.00} m)");
         bool shotOk = _gotShot && _outcome == RoundOutcome.Eliminated;
         GD.Print($"SMOKE duel: shoot {(shootOk ? "ok" : "FAILED")} ({_shootNote}); get shot {(shotOk ? "ok" : "FAILED")} ({_shotNote})");
+        // A level without doors has nothing to check here.
+        bool doorOk = _sim.Doors.Count == 0 || (_doorStopped && _doorOpened && _doorWalked);
+        GD.Print($"SMOKE door: {(doorOk ? "ok" : "FAILED")} ({_doorNote})");
 
         bool ok = _travelled > 15f && _lowestY > -0.5f && _shots > 0 && _breaks > 0 && _climbsFailed == 0 && slideOk && jumpOk &&
-                  shootOk && shotOk && _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
+                  doorOk && shootOk && shotOk && _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: ticks={_elapsed} travelled={_travelled:0.0}m lowestY={_lowestY:0.00} " +
                  $"shots={_shots} breaks={_breaks} bounces={_bounces} climbs={_climbs.Count - _climbsFailed}/{_climbs.Count} " +
                  $"meshes={_world.MeshCount} walkColliders={_world.ColliderCount} simErrors={_driver.ErrorCount} " +

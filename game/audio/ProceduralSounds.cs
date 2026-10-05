@@ -54,6 +54,49 @@ public static class ProceduralSounds
         });
     }
 
+    /// <summary>A hinge creaking: stick-slip squeaks, their rate wandering as the leaf swings, swelling and fading.</summary>
+    public static AudioStreamWav DoorCreak()
+    {
+        float phase = 0f, ring = 0f, ringPhase = 0f;
+        return Build(0.75f, 17, (t, rng, state) =>
+        {
+            float rate = 230f + 110f * MathF.Sin(MathF.Tau * 1.3f * t + 0.8f * MathF.Sin(MathF.Tau * 0.45f * t));
+            phase += rate / Rate;
+            if (phase >= 1f)
+            {
+                phase -= 1f;
+                ring = 0.55f + 0.45f * rng.NextFloat();
+            }
+
+            ring *= MathF.Exp(-1f / (Rate * 0.0035f));
+            ringPhase += 1450f / Rate;
+            float envelope = MathF.Sin(MathF.PI * MathF.Min(1f, t / 0.75f));
+            state = state * 0.97f + Noise(rng) * 0.03f;
+            return ((ring * MathF.Sin(MathF.Tau * ringPhase) * 0.5f + state * 0.6f) * envelope, state);
+        });
+    }
+
+    /// <summary>A wooden door banging shut: a low thump, the latch's click and a rattle.</summary>
+    public static AudioStreamWav DoorSlam() => Build(0.5f, 18, (t, rng, state) =>
+    {
+        state = state * 0.85f + Noise(rng) * 0.15f;
+        float thump = MathF.Sin(MathF.Tau * (85f - 30f * t) * t) * MathF.Exp(-t / 0.07f);
+        float click = t > 0.012f ? Noise(rng) * MathF.Exp(-(t - 0.012f) / 0.003f) * 0.5f : 0f;
+        return (thump * 0.9f + state * 1.6f * MathF.Exp(-t / 0.035f) + click, state);
+    });
+
+    /// <summary>A steel door clanging shut: a struck sheet's clashing partials over the thump.</summary>
+    public static AudioStreamWav DoorClank() => Build(0.8f, 19, (t, rng, state) =>
+    {
+        state = state * 0.8f + Noise(rng) * 0.2f;
+        float clang = MathF.Sin(MathF.Tau * 213f * t) * MathF.Exp(-t / 0.32f) * 0.35f +
+                      MathF.Sin(MathF.Tau * 557f * t) * MathF.Exp(-t / 0.21f) * 0.25f +
+                      MathF.Sin(MathF.Tau * 1013f * t) * MathF.Exp(-t / 0.12f) * 0.18f +
+                      MathF.Sin(MathF.Tau * 1688f * t) * MathF.Exp(-t / 0.07f) * 0.12f;
+        float thump = MathF.Sin(MathF.Tau * 70f * t) * MathF.Exp(-t / 0.06f) * 0.6f;
+        return (clang + thump + state * 1.2f * MathF.Exp(-t / 0.025f), state);
+    });
+
     private static AudioStreamWav Build(float seconds, ulong seed, Func<float, Pcg32, float> generator) =>
         Build(seconds, seed, (t, rng, state) => (generator(t, rng), state));
 

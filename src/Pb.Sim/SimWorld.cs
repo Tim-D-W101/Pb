@@ -74,6 +74,9 @@ public sealed class SimWorld
 
     public PickupSet Pickups { get; } = new();
 
+    /// <summary>The level's door leaves (none on the range).</summary>
+    public DoorSet Doors { get; } = new();
+
     /// <summary>Players may move and fire: always without a match, and only while it's live with one.</summary>
     public bool IsLive => Match is null || Match.Phase == MatchPhase.Live;
 
@@ -125,6 +128,7 @@ public sealed class SimWorld
         Range = null;
         Stress = null;
         level.BuildCollision(Collision);
+        Doors.Load(level.Doors, Collision, MatchSeed, Config.Rules.Doors);
         Targets.Load(Array.Empty<TargetSpec>());
         Ballistics.Bounds = level.Bounds;
     }
@@ -136,6 +140,7 @@ public sealed class SimWorld
         PlayerHits.Enabled = false;
         Pickups.Load(Array.Empty<PickupSpec>());
         range.BuildCollision(Collision);
+        Doors.Load(Array.Empty<DoorSpec>(), Collision, MatchSeed, Config.Rules.Doors);
         Targets.Load(range.Targets);
         Targets.Update(Time);
         Ballistics.Bounds = range.Bounds;
@@ -211,9 +216,12 @@ public sealed class SimWorld
                 {
                     FireShot(player, _shots[k]);
                 }
+
+                Doors.Interact(this, player, live && player.Alive && cmd.Has(InputButtons.Interact), dt);
             }
         }
 
+        Doors.Step(this, dt);
         if (IsLive)
         {
             Pickups.Update(this, Config.Rules);

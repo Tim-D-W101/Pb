@@ -20,12 +20,13 @@ public interface ICollisionWorld
 
 public sealed class Collider
 {
-    internal Collider(int id, Shape shape, SurfaceId surface, string name)
+    internal Collider(int id, Shape shape, SurfaceId surface, string name, bool dynamic)
     {
         Id = id;
         Shape = shape;
         Surface = surface;
         Name = name;
+        Dynamic = dynamic;
     }
 
     public int Id { get; }
@@ -35,6 +36,9 @@ public sealed class Collider
     public SurfaceId Surface { get; }
 
     public string Name { get; }
+
+    /// <summary>Moves during the round (a door leaf): filed under the bounds of everywhere it can be.</summary>
+    public bool Dynamic { get; }
 }
 
 /// <summary>
@@ -66,9 +70,15 @@ public sealed class CollisionWorld : ICollisionWorld
 
     public IReadOnlyList<Collider> Colliders => _colliders;
 
-    public Collider Add(Shape shape, SurfaceId surface, string name)
+    /// <summary>
+    /// Queries ignore dynamic colliders (doors) while set: for things built once from the level as it stands, which
+    /// mustn't stick to a door that will move (old paint, weeds, cover, light through doorways).
+    /// </summary>
+    public bool SkipDynamic { get; set; }
+
+    public Collider Add(Shape shape, SurfaceId surface, string name, bool dynamic = false)
     {
-        var collider = new Collider(_colliders.Count, shape, surface, name);
+        var collider = new Collider(_colliders.Count, shape, surface, name, dynamic);
         _colliders.Add(collider);
         (shape is PlaneShape ? _planes : _gridded).Add(collider.Id);
         _dirty = true;
@@ -144,7 +154,11 @@ public sealed class CollisionWorld : ICollisionWorld
         }
     }
 
-    public bool SweepSphere(Vector3 from, Vector3 to, float radius, out SweepHit hit)
+    public bool SweepSphere(Vector3 from, Vector3 to, float radius, out SweepHit hit) =>
+        SweepSphere(from, to, radius, out hit, !SkipDynamic);
+
+    /// <summary>The first hit along the sweep; <paramref name="includeDynamic"/> false leaves out doors.</summary>
+    public bool SweepSphere(Vector3 from, Vector3 to, float radius, out SweepHit hit, bool includeDynamic)
     {
         if (_dirty)
         {
@@ -180,7 +194,7 @@ public sealed class CollisionWorld : ICollisionWorld
             {
                 float ta = c / (float)chunks;
                 float tb = (c + 1) / (float)chunks;
-                TestChunk(from, d, radius, ta, tb, query, ref best, ref hit);
+                TestChunk(from, d, radius, ta, tb, query, includeDynamic, ref best, ref hit);
                 if (best <= tb)
                 {
                     break;
@@ -206,6 +220,11 @@ public sealed class CollisionWorld : ICollisionWorld
         Vector3 d = to - from;
         foreach (Collider c in _colliders)
         {
+            if (c.Dynamic && SkipDynamic)
+            {
+                continue;
+            }
+
             if (c.Shape.Sweep(from, d, radius, out float t, out Vector3 n) && t < best)
             {
                 best = t;
@@ -225,7 +244,7 @@ public sealed class CollisionWorld : ICollisionWorld
         return true;
     }
 
-    private void TestChunk(Vector3 from, Vector3 d, float radius, float ta, float tb, int query, ref float best, ref SweepHit hit)
+    private void TestChunk(Vector3 from, Vector3 d, float radius, float ta, float tb, int query, bool includeDynamic, ref float best, ref SweepHit hit)
     {
         // Twice the radius: boxes and tilted cylinders inflated per-axis can reach up to √3·r past
         // their tight bounds at the corners.
@@ -255,6 +274,11 @@ public sealed class CollisionWorld : ICollisionWorld
 
                     _stamp[id] = query;
                     Collider c = _colliders[id];
+                    if (!includeDynamic && c.Dynamic)
+                    {
+                        continue;
+                    }
+
                     if (c.Shape.Sweep(from, d, radius, out float t, out Vector3 n) && t < best)
                     {
                         best = t;

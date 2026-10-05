@@ -71,7 +71,17 @@ public partial class LightShafts : Node3D
         float minEntry = MathF.Sin(Mathf.DegToRad(shafts.MinSunAngle_deg));
         var exterior = new List<(Aperture Opening, Vector3 Inward)>();
         var bounces = new List<(Vector3 At, float Energy)>();
-        foreach (Aperture a in MergeStacked(level.Apertures))
+        // Doorways with a door hung in them are left dark: the door may well be shut.
+        var openings = new List<Aperture>();
+        for (int i = 0; i < level.Apertures.Count; i++)
+        {
+            if (!level.IsHung(i))
+            {
+                openings.Add(level.Apertures[i]);
+            }
+        }
+
+        foreach (Aperture a in MergeStacked(openings))
         {
             Vector3 n = a.Normal.ToGodot();
             Vector3 c = a.Center.ToGodot();

@@ -251,19 +251,33 @@ Each milestone is pushed as it lands, with screenshots.
 
 ### M3.2 Doors
 
-- [ ] Door openings can have a leaf (`"leaf"` on an opening of kind door): hinged (from one side, swinging one way
-  or both) or sliding, single or double, its material, and how it starts: shut, open, ajar or random each round.
-- [ ] Doors are part of the sim (`DoorSet`), moved by commands like everything else: paint hits them (and the splats
+**Done 2026-10-05.** [Screenshots](reports/phase-3/).
+
+- [x] Door openings can have a leaf (`"leaf"` on an opening of kind door): hinged (from one edge, swinging one way
+  or both) or sliding, single or double, and how it starts: shut, open, ajar or random each round (four in ten
+  shut, three open, three ajar: `rules.jsonc` → `doors.randomStart`). The kinds of leaf are in `kit/doors.jsonc`:
+  panel, flush, steel, swing and cold-room, each with its material, thickness, how fast it moves, how far it swings
+  and how far it's heard.
+- [x] Doors are part of the sim (`DoorSet`), moved by commands like everything else: paint hits them (and the splats
   move with them), they block sight, and a door stops rather than pushing through someone in its way.
-- [ ] Interact (F; on a pad, the refill button while you're facing a door) opens or shuts the door you're facing
-  within reach; holding it eases the door open a little at a time, for a peek.
-- [ ] Opening and closing make a noise event, so bots hear doors (louder for heavy doors), and the audio plays it.
-- [ ] Bots open closed doors on their path, and a bot searching or investigating notices a door that's moved.
-- [ ] Walking collision follows each leaf, and door meshes are built in code (panel, steel, cold-room, double swing
-  with vision panels), with frames, handles and kick plates.
-- [ ] Oxbarrow Works gets doors on its guardhouse, offices, pump house and warehouse.
-- [ ] Tests: a shut door stops a ball and sight, an open one doesn't; interact toggles only the door in reach; a bot
-  walks through a shut door to its goal; doors move deterministically; stepping stays allocation-free.
+- [x] Interact (F; on a pad, the refill button while you're facing a door) opens or shuts the door you're facing
+  within reach (1.7 m, not through a wall); holding it eases the door open a little at a time, for a peek. The HUD
+  says what interact will do.
+- [x] Opening and closing make a noise event, so bots hear doors (louder for heavy doors), and the audio plays it
+  (a creak, then a bang or a steel clang when it shuts; the full sound set comes with M3.8).
+- [x] Bots open shut doors on their path: they stand clear of the swing on their side, face the door, tap interact
+  and wait for it to open. A bot hears a door opened nearby, so a door that moves gives you away.
+- [x] Walking collision follows each leaf, and door meshes are built in code (panel, flush, steel with a wired-glass
+  vision panel, swing doors with round windows and push plates, cold-room), with handles, hinges and kick plates.
+  Their paint pattern and stains move with them.
+- [x] Oxbarrow Works has 22 leaves in 21 doorways: the guardhouse, the office block (a pair of swing doors at the
+  front, panel doors along the corridors, a few doorways left bare), the pump house and the warehouse.
+- [x] Twelve sim tests: the doors hang where the files say; a shut door stops a ball and sight, an open one doesn't; a
+  tap swings only the door you face within reach; holding eases it and letting go leaves it; a door stops for someone
+  in its way and carries on when they move; opening and shutting make their noises; a sentry hears a door opened behind
+  it; a bot opens a shut door on its way out; starts follow the seed; stepping with doors on the move allocates
+  nothing; a leaf naming an unknown door, or on a window, fails to load. The level smoke test shoots a shut door (the
+  ball breaks on it), opens it with interact and walks through, in the real scene; CI's bot matches play with doors.
 
 ### M3.3 Marksman and Flanker
 

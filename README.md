@@ -72,6 +72,7 @@ The export presets already include the data files. The editor's F5 run uses a De
 | Swap shoulder (the muzzle moves to the other side) | X or middle mouse | R3 |
 | Slide (from a run; ends crouched) | V, or crouch while sprinting | B while sprinting |
 | Refill loader from a pod (2.5 s) | R | X / Square |
+| Open or shut the door you're facing (hold to ease it open) | F | X / Square, facing a door |
 | Semi ↔ ramping | B | Y / Triangle |
 | Pause menu (settings, restart, quit) | Esc | Start / Options |
 

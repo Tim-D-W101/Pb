@@ -52,6 +52,9 @@ public sealed class MatchRules
 
     public required SpawnRules Spawning { get; init; }
 
+    /// <summary>How doors are worked.</summary>
+    public required Level.DoorRules Doors { get; init; }
+
     /// <summary>The mode with this id, or null.</summary>
     public GameMode? FindMode(string id)
     {

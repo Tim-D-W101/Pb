@@ -18,7 +18,7 @@ public static class LevelFactory
     public static LevelLayout Build(LevelDef def, string file, KitCatalog kit)
     {
         var errors = new Validator(file);
-        var sink = new PrimitiveSink();
+        var sink = new PrimitiveSink { DoorKinds = kit.Doors };
         var owners = new List<string>();
         var props = new List<PropInstance>();
         var buildings = new List<PlacedBuilding>();
@@ -97,6 +97,7 @@ public static class LevelFactory
             Validator item = errors.Item(nameof(LevelDef.Walls), i);
             MaterialRef m = Material(item, nameof(WallDef.Material), wall.Material);
             KitGeometry.CheckWall(wall, wall.Height_m, item);
+            KitCatalog.CheckLeaves(wall, kit.Doors, item);
             if (wall.Dressing is { } dressing)
             {
                 Validator dressed = item.Scope(nameof(WallDef.Dressing));
@@ -215,6 +216,7 @@ public static class LevelFactory
             Materials = kit.Materials,
             Primitives = sink.Items,
             Apertures = sink.Apertures,
+            Doors = sink.Doors,
             Props = props,
             Buildings = buildings,
             Walls = walls,

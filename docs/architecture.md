@@ -563,6 +563,16 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **Navigation.** The grid is built with doorways open; a bot whose next path segment crosses a shut leaf's doorway
   stops, faces it and presses `Interact`, then goes on once it's open enough.
 - **Game.** Each leaf is an `AnimatableBody3D` (walking) and a mesh built in code (`DoorShapes`), posed from the sim.
+- **As built (M3.2).** `DoorSet` keeps each leaf's openness (0 shut to 1), target and rate; `Interact` starts a leaf
+  moving at the ease rate on the press and, if the press is let go within the hold time, carries it on at full speed
+  (a tap), else stops it where it's let go. A leaf steps only if it doesn't cut deeper into anyone's capsule. Swing
+  doors open away from whoever pushes them; a pair opens together. The paint `CollisionWorld` gained dynamic colliders
+  and `SkipDynamic`, which `LevelMain` sets while it builds what's made once from the level (cover, starts, weeds, old
+  paint, light), so nothing sticks to a door that will move; light shafts and cobwebs leave hung doorways alone.
+  `NavGridMover` (headless) stops at leaves as Godot's collision does in the game. Door meshes sit on render layer 5:
+  world splats leave them out, door splats paint only them (`SplatAnchor.CullMask`), and `weathered.gdshader` draws
+  their pattern in their own frame (`local_pattern`, `local_origin` instance uniforms), so it doesn't slide as they
+  swing.
 
 ### 15.3 Marksman, Flanker and shared contacts
 
