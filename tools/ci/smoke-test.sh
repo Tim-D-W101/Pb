@@ -5,12 +5,13 @@
 #          (with every level open: --unlock-all)
 #   range  (game/core/SmokeTest.cs): autopilot, 1,000-ball stress mode and a hot reload
 #   level  (game/core/LevelSmokeTest.cs): walk in through the compound gate, sweeping and firing, up every
-#          flight of stairs, through a door and a duel; then the same on the Rail Yard
+#          flight of stairs and ramp, through a door and a duel; then the same on the Rail Yard and the Cold Store
 #   match  (--bot-match): a bot plays your slot against Normal bots until the round ends, with random
 #          starts (--random-spawns) and the art ignored (--no-art), so the procedural and greybox
 #          fallbacks keep working, and the round saved to the profile as yours (--record); then a 3 v 3
 #          team round, an eight-player free-for-all, a 3 v 3 retrieve and a solo hold against four; then
-#          on the Rail Yard a solo round, a 3 v 3 retrieve and an eight-player free-for-all
+#          on the Rail Yard a solo round, a 3 v 3 retrieve and an eight-player free-for-all, and on the Cold Store
+#          a solo round, a 3 v 3 hold and an eight-player free-for-all
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -50,5 +51,9 @@ run level-rail-yard res://scenes/Level.tscn -- "--smoke-test=$level_ticks" --lev
 run match-rail-yard res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art --random-spawns --level=rail_yard
 run match-rail-yard-retrieve res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=3 --objective=retrieve --level=rail_yard
 run match-rail-yard-ffa res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=ffa --size=8 --level=rail_yard
+run level-cold-store res://scenes/Level.tscn -- "--smoke-test=$level_ticks" --level=cold_store
+run match-cold-store res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art --random-spawns --level=cold_store
+run match-cold-store-hold res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=3 --objective=hold --level=cold_store
+run match-cold-store-ffa res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=ffa --size=8 --level=cold_store
 run art res://tools/ArtImport.tscn -- --selftest
 exit "$failed"

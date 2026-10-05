@@ -382,10 +382,25 @@ objective and size, and bot rounds), and `RailYardTests` the tracks, the wagons,
 
 ### M3.6 The Cold Store
 
-- [ ] Kit: the cold store (chambers, aisle, raised dock hall with steps and a ramp, dock doors), plant room, offices;
+- [x] Kit: the cold store (chambers, aisle, raised dock hall with steps and a ramp, dock doors), plant room, offices;
   trailers you can walk through, tall racking, roll cages, compressors, ammonia tanks; insulated-panel materials.
-- [ ] Dark interiors (area light levels), heavy doors with their own sound.
-- [ ] The level file and tiers as above, checked in CI the same way, with screenshots.
+- [x] Dark interiors (area light levels), heavy doors (their sound comes with M3.8).
+- [x] The level file and tiers as above, checked in CI the same way, with screenshots.
+
+As built: the cold store's whole floor is a solid slab 1.2 m up (a lorry's bed), so the only ways in from the yard are
+up the ramp to dock 1, up the steps to the side doors, up the forklift ramp at the aisle's east end, or through a
+trailer: the two backed onto docks 2 and 3 have their nose panels cut away and a loading ramp up into them (a sloped
+box collider: the kit's props can carry ramps now), so each is a 13.6 m tunnel from the yard into the dock hall. Dock 4
+has no trailer: its roller door is jammed half open and the drop to the yard is one way. Inside, four chambers, two
+more with doors at both ends, a cross aisle and two blast freezers, all off the 56 m aisle behind eleven heavy doors
+(three of them sliding), with small doors joining the chambers in pairs; the chambers' light level is 0.12 and the
+freezers' 0.08, so bots see you late there and you them. Pallet racking comes in two kinds: with its middle shelf
+empty, a standing player (eyes at 1.62 m) sees and shoots through it while a crouched one (eyes at 1.05 m) hides
+behind the bottom load (to 1.3 m); full, it's a wall. The depot office upstairs is the Marksman's; Flankers start in the
+store, the plant room and the yard. Tiers: Easy 13 min, 2 pods; Normal 12 min, 1 pod; Hard 10 min, 1 pod (bots carry
+1, 2 and 3). The level smoke test now climbs every ramp too, the trailers' included. `ColdStoreTests` checks the
+trailers as tunnels, the dock face nobody climbs, the dark chambers and their doors, paint under the trailers and the
+racking's two heights.
 
 ### M3.7 The Hospital Wing
 

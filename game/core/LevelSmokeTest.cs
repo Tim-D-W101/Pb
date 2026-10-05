@@ -19,7 +19,7 @@ namespace Pb.Game.Core;
 /// the real scene, walking collision and presentation code:
 /// <list type="number">
 /// <item>the autopilot walks in through the main gate, sweeping its aim and firing;</item>
-/// <item>it climbs every flight of stairs in the level, starting at the foot of each;</item>
+/// <item>it climbs every flight of stairs and every ramp in the level, starting at the foot of each;</item>
 /// <item>back at the spawn, it sprints, slides into a crouch, stands and jumps;</item>
 /// <item>in front of a shut door it shoots the door (the ball must break on it), opens it with interact and walks through;</item>
 /// <item>it shoots a passive bot, who must go out and walk off;</item>
@@ -413,17 +413,20 @@ public sealed class LevelSmokeTest
     }
 
     /// <summary>
-    /// Every sloped stair ramp (the walking surface the kit lays over the steps) becomes a climb:
-    /// start half a metre before the bottom step, facing up the flight.
+    /// Every sloped stair ramp (the walking surface the kit lays over the steps) and every sloped walking surface of a
+    /// prop (a trailer's loading ramp) becomes a climb: start half a metre before the bottom, facing up the slope.
     /// </summary>
     private static List<Climb> FindClimbs(LevelLayout level)
     {
         var climbs = new List<Climb>();
         foreach (LevelPrimitive p in level.Primitives)
         {
-            if (p.Role != PrimitiveRole.Ramp || p.HalfExtents.Z < 0.5f)
+            bool stairs = p.Role == PrimitiveRole.Ramp && p.HalfExtents.Z >= 0.5f; // not the flat landing pieces
+            float tilt = System.MathF.Acos(System.Math.Clamp(SVector3.Transform(SVector3.UnitY, p.Rotation).Y, -1f, 1f));
+            bool propRamp = p.Role == PrimitiveRole.Prop && p.Kind == PrimitiveKind.Box && p.Has(PrimitiveFlags.Walk) && tilt is > 0.15f and < 0.8f;
+            if (!stairs && !propRamp)
             {
-                continue; // the flat landing pieces
+                continue;
             }
 
             SVector3 uphill = SVector3.Transform(-SVector3.UnitZ, p.Rotation);
@@ -431,6 +434,11 @@ public sealed class LevelSmokeTest
             SVector3 surface = p.Center + normal * p.HalfExtents.Y;
             SVector3 bottom = surface - uphill * p.HalfExtents.Z;
             SVector3 top = surface + uphill * p.HalfExtents.Z;
+            if (propRamp && top.Y - bottom.Y < 0.5f)
+            {
+                continue; // a tilted piece of a heap, not a way up
+            }
+
             SVector3 flat = SVector3.Normalize(new SVector3(uphill.X, 0f, uphill.Z));
             SVector3 start = new SVector3(bottom.X, bottom.Y + 0.05f, bottom.Z) - flat * 0.5f;
             float yaw = System.MathF.Atan2(-flat.X, -flat.Z);

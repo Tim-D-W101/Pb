@@ -14,6 +14,11 @@
     "kit/buildings/signal_box.jsonc",
     "kit/buildings/yard_office.jsonc",
     "kit/buildings/footbridge.jsonc",
-    "kit/buildings/lamp_hut.jsonc"
+    "kit/buildings/lamp_hut.jsonc",
+    "kit/buildings/cold_store.jsonc",
+    "kit/buildings/plant_room.jsonc",
+    "kit/buildings/depot_office.jsonc",
+    "kit/buildings/gatehouse.jsonc",
+    "kit/buildings/weighbridge_hut.jsonc"
   ]
 }

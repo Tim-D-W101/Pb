@@ -42,7 +42,18 @@
         "lamp_hut", "coal_stage", "west_end"
       ]
     },
-    { "id": "cold_store", "displayName": "The Cold Store", "note": "Coming in Phase 3" },
+    {
+      "id": "cold_store", "displayName": "The Cold Store", "file": "levels/cold_store.jsonc",
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 780, "startPods": 2, "botPods": 1, "pickups": true },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 720, "startPods": 1, "botPods": 2, "pickups": true },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 600, "startPods": 1, "botPods": 3, "pickups": true }
+      ],
+      "roster": [
+        "dock_hall", "second_chamber", "office_up", "trailer", "aisle", "plant_room", "east_freezer", "gatehouse",
+        "fourth_chamber", "lorry_park"
+      ]
+    },
     { "id": "hospital_wing", "displayName": "The Hospital Wing", "note": "Coming in Phase 3" }
   ]
 }

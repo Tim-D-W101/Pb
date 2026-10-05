@@ -48,6 +48,23 @@ public static partial class PropShapes
         ["buffer_stop"] = BufferStop,
         ["sleeper_stack"] = SleeperStack,
         ["rail_stack"] = RailStack,
+        ["lorry_trailer"] = LorryTrailer,
+        ["pallet_racking"] = PalletRacking,
+        ["roll_cage"] = RollCage,
+        ["compressor"] = Compressor,
+        ["ammonia_tank"] = AmmoniaTank,
+        ["lorry_cab"] = LorryCab,
+        ["hospital_bed"] = HospitalBed,
+        ["curtain_screen"] = CurtainScreen,
+        ["locker_bank"] = LockerBank,
+        ["medical_trolley"] = MedicalTrolley,
+        ["wheelchair"] = Wheelchair,
+        ["bench"] = Bench,
+        ["operating_table"] = OperatingTable,
+        ["ambulance_wreck"] = AmbulanceWreck,
+        ["fountain"] = Fountain,
+        ["boiler"] = Boiler,
+        ["chimney"] = Chimney,
     };
 
     public static IEnumerable<string> Kinds => Recipes.Keys;

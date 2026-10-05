@@ -3,9 +3,11 @@
 // shape whatever draws the prop: a generated 3D `model` if it loads, else a `shape` the game builds in
 // code from the colliders (game/world/PropShapes.cs: pallets, crate, tyres, drum, sandbags, barrier,
 // desk, table_on_edge, filing_cabinet, racking, rubble, scrap, car_wreck, water_tower, cable_reel,
-// generator, pump, skip, forklift, roller_door, container; and for the rail yard, game/world/PropShapes.Railway.cs:
-// box_van, open_wagon, flat_wagon, tank_wagon, shunter, buffer_stop, sleeper_stack, rail_stack), else the colliders
-// as greybox.
+// generator, pump, skip, forklift, roller_door, container; for the rail yard, game/world/PropShapes.Railway.cs:
+// box_van, open_wagon, flat_wagon, tank_wagon, shunter, buffer_stop, sleeper_stack, rail_stack; for the cold store,
+// game/world/PropShapes.ColdStore.cs: lorry_trailer, pallet_racking, roll_cage, compressor, ammonia_tank, lorry_cab; for
+// the hospital, game/world/PropShapes.Hospital.cs: hospital_bed, curtain_screen, locker_bank, medical_trolley,
+// wheelchair, bench, operating_table, ambulance_wreck, fountain, boiler, chimney), else the colliders as greybox.
 //   box:      center_m, size_m [x, y, z]
 //   cylinder: center_m, radius_m, height_m (axis = +Y, tilt with rotation_deg)
 //   rotation_deg [about X, about Y, about Z]; walk: false lets characters pass (paint still hits);
@@ -231,6 +233,195 @@
     {
       "id": "rail_stack", "displayName": "Stack of rails", "shape": "rail_stack",
       "colliders": [ { "shape": "box", "center_m": [0, 0.35, 0], "size_m": [1.2, 0.7, 9.0], "material": "steel_rust" } ]
+    },
+
+    // ---- The cold store (M3.6) ----
+    {
+      // A box trailer, its rear (−Z) backed onto a dock 1.2 m up, its rear doors swung back flat against its sides and
+      // its nose panel cut away, with a loading ramp up into the nose: a tunnel from the yard up onto the dock. Its
+      // origin is the middle of the box (the ramp sticks out 2.4 m past the nose). Paint flies under it, between the
+      // wheels; feet can't get under it.
+      "id": "lorry_trailer", "displayName": "Lorry trailer", "shape": "lorry_trailer",
+      "colliders": [
+        { "shape": "box", "center_m": [-1.245, 2.6, 0], "size_m": [0.06, 2.8, 13.6], "material": "trailer_white" },
+        { "shape": "box", "center_m": [1.245, 2.6, 0], "size_m": [0.06, 2.8, 13.6], "material": "trailer_white" },
+        { "shape": "box", "center_m": [0, 4.05, 0], "size_m": [2.55, 0.1, 13.6], "material": "trailer_white" },
+        { "shape": "box", "center_m": [0, 1.1, 0], "size_m": [2.55, 0.2, 13.6], "material": "wood_planks" },
+        { "shape": "box", "center_m": [0, 0.5, 0], "size_m": [2.4, 1.0, 13.6], "material": "steel_rust", "paint": false },
+        { "shape": "box", "center_m": [-1.3, 2.6, -6.15], "size_m": [0.05, 2.6, 1.25], "material": "trailer_white" },
+        { "shape": "box", "center_m": [1.3, 2.6, -6.15], "size_m": [0.05, 2.6, 1.25], "material": "trailer_white" },
+        { "shape": "box", "center_m": [0, 0.56, 8.0], "size_m": [1.4, 0.08, 2.683], "rotation_deg": [26.57, 0, 0], "material": "steel_painted" },
+        { "shape": "cylinder", "center_m": [-0.95, 0.5, -3.6], "radius_m": 0.5, "height_m": 0.55, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "cylinder", "center_m": [0.95, 0.5, -3.6], "radius_m": 0.5, "height_m": 0.55, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "cylinder", "center_m": [-0.95, 0.5, -4.9], "radius_m": 0.5, "height_m": 0.55, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "cylinder", "center_m": [0.95, 0.5, -4.9], "radius_m": 0.5, "height_m": 0.55, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "box", "center_m": [-0.85, 0.5, 4.2], "size_m": [0.14, 1.0, 0.14], "material": "steel_painted", "walk": false },
+        { "shape": "box", "center_m": [0.85, 0.5, 4.2], "size_m": [0.14, 1.0, 0.14], "material": "steel_painted", "walk": false }
+      ]
+    },
+    {
+      // One bay of tall pallet racking, 2.7 m wide: four uprights, beams at 1.4 and 2.9 m, shrink-wrapped loads on the
+      // floor (to 1.3 m) and on top, and nothing on the middle shelf, so someone standing (eyes at 1.62 m) sees and shoots
+      // through it and someone crouched behind the bottom load (eyes at 1.05 m) doesn't.
+      "id": "pallet_racking", "displayName": "Pallet racking", "shape": "pallet_racking",
+      "colliders": [
+        { "shape": "box", "center_m": [-1.31, 2.3, -0.51], "size_m": [0.08, 4.6, 0.08], "material": "steel_painted" },
+        { "shape": "box", "center_m": [-1.31, 2.3, 0.51], "size_m": [0.08, 4.6, 0.08], "material": "steel_painted" },
+        { "shape": "box", "center_m": [1.31, 2.3, -0.51], "size_m": [0.08, 4.6, 0.08], "material": "steel_painted" },
+        { "shape": "box", "center_m": [1.31, 2.3, 0.51], "size_m": [0.08, 4.6, 0.08], "material": "steel_painted" },
+        { "shape": "box", "center_m": [0, 1.39, -0.51], "size_m": [2.54, 0.12, 0.06], "material": "steel_yellow" },
+        { "shape": "box", "center_m": [0, 1.39, 0.51], "size_m": [2.54, 0.12, 0.06], "material": "steel_yellow" },
+        { "shape": "box", "center_m": [0, 2.91, -0.51], "size_m": [2.54, 0.12, 0.06], "material": "steel_yellow" },
+        { "shape": "box", "center_m": [0, 2.91, 0.51], "size_m": [2.54, 0.12, 0.06], "material": "steel_yellow" },
+        { "shape": "box", "center_m": [0, 0.65, 0], "size_m": [2.5, 1.3, 1.0], "material": "hardboard" },
+        { "shape": "box", "center_m": [0, 3.63, 0], "size_m": [2.5, 1.3, 1.0], "material": "hardboard" }
+      ]
+    },
+    {
+      // The same bay with its middle shelf loaded too: a wall of boxes to the top.
+      "id": "pallet_racking_full", "displayName": "Pallet racking, full", "shape": "pallet_racking",
+      "colliders": [
+        { "shape": "box", "center_m": [-1.31, 2.3, -0.51], "size_m": [0.08, 4.6, 0.08], "material": "steel_painted" },
+        { "shape": "box", "center_m": [-1.31, 2.3, 0.51], "size_m": [0.08, 4.6, 0.08], "material": "steel_painted" },
+        { "shape": "box", "center_m": [1.31, 2.3, -0.51], "size_m": [0.08, 4.6, 0.08], "material": "steel_painted" },
+        { "shape": "box", "center_m": [1.31, 2.3, 0.51], "size_m": [0.08, 4.6, 0.08], "material": "steel_painted" },
+        { "shape": "box", "center_m": [0, 1.39, -0.51], "size_m": [2.54, 0.12, 0.06], "material": "steel_yellow" },
+        { "shape": "box", "center_m": [0, 1.39, 0.51], "size_m": [2.54, 0.12, 0.06], "material": "steel_yellow" },
+        { "shape": "box", "center_m": [0, 2.91, -0.51], "size_m": [2.54, 0.12, 0.06], "material": "steel_yellow" },
+        { "shape": "box", "center_m": [0, 2.91, 0.51], "size_m": [2.54, 0.12, 0.06], "material": "steel_yellow" },
+        { "shape": "box", "center_m": [0, 0.65, 0], "size_m": [2.5, 1.3, 1.0], "material": "hardboard" },
+        { "shape": "box", "center_m": [0, 3.63, 0], "size_m": [2.5, 1.3, 1.0], "material": "hardboard" },
+        { "shape": "box", "center_m": [0, 2.15, 0], "size_m": [2.5, 1.38, 1.0], "material": "hardboard" }
+      ]
+    },
+    {
+      "id": "roll_cage", "displayName": "Roll cage", "shape": "roll_cage",
+      "colliders": [ { "shape": "box", "center_m": [0, 0.95, 0], "size_m": [0.8, 1.7, 0.7], "material": "steel_galvanised" } ]
+    },
+    {
+      // A refrigeration compressor set on its skid: the compressor, its motor and the oil separator across the top.
+      "id": "compressor", "displayName": "Compressor", "shape": "compressor",
+      "colliders": [
+        { "shape": "box", "center_m": [0, 0.15, 0], "size_m": [3.2, 0.3, 1.5], "material": "steel_painted" },
+        { "shape": "box", "center_m": [-0.5, 1.0, 0], "size_m": [1.6, 1.4, 1.2], "material": "machinery" },
+        { "shape": "cylinder", "center_m": [1.0, 0.9, 0], "radius_m": 0.42, "height_m": 1.2, "rotation_deg": [0, 0, 90], "material": "machinery" },
+        { "shape": "cylinder", "center_m": [0.2, 1.75, 0.35], "radius_m": 0.3, "height_m": 2.4, "rotation_deg": [0, 0, 90], "material": "steel_painted" }
+      ]
+    },
+    {
+      // An ammonia receiver: a white pressure vessel 5 m long on two concrete saddles. Paint flies under it between the
+      // saddles; feet can't get under it.
+      "id": "ammonia_tank", "displayName": "Ammonia tank", "shape": "ammonia_tank",
+      "colliders": [
+        { "shape": "cylinder", "center_m": [0, 1.5, 0], "radius_m": 0.9, "height_m": 5.0, "rotation_deg": [90, 0, 0], "material": "tank_white" },
+        { "shape": "box", "center_m": [0, 0.35, -1.6], "size_m": [1.6, 0.7, 0.3], "material": "concrete_wall" },
+        { "shape": "box", "center_m": [0, 0.35, 1.6], "size_m": [1.6, 0.7, 0.3], "material": "concrete_wall" },
+        { "shape": "box", "center_m": [0, 0.35, 0], "size_m": [1.4, 0.7, 2.9], "material": "steel_rust", "paint": false },
+        { "shape": "cylinder", "center_m": [0, 2.55, -1.0], "radius_m": 0.15, "height_m": 0.3, "material": "steel_painted" }
+      ]
+    },
+    {
+      // A tractor unit left without its trailer, the cab at −Z.
+      "id": "lorry_cab", "displayName": "Lorry cab", "shape": "lorry_cab",
+      "colliders": [
+        { "shape": "box", "center_m": [0, 2.05, -2.0], "size_m": [2.5, 2.3, 2.2], "material": "car_body" },
+        { "shape": "box", "center_m": [0, 0.85, 0.8], "size_m": [1.0, 0.3, 4.6], "material": "steel_rust" },
+        { "shape": "box", "center_m": [0, 1.1, 1.6], "size_m": [1.6, 0.2, 1.4], "material": "steel_painted" },
+        { "shape": "box", "center_m": [0, 0.45, 0.2], "size_m": [2.3, 0.9, 5.8], "material": "steel_rust", "paint": false },
+        { "shape": "cylinder", "center_m": [-1.05, 0.52, -2.0], "radius_m": 0.52, "height_m": 0.35, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "cylinder", "center_m": [1.05, 0.52, -2.0], "radius_m": 0.52, "height_m": 0.35, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "cylinder", "center_m": [-0.95, 0.52, 2.2], "radius_m": 0.52, "height_m": 0.55, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "cylinder", "center_m": [0.95, 0.52, 2.2], "radius_m": 0.52, "height_m": 0.55, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false }
+      ]
+    },
+
+    // ---- The hospital (M3.7) ----
+    {
+      // A ward bed, its head at −Z: the mattress, a tall headboard and a low footboard. Paint flies under it; feet can't
+      // get under it. Not cover: lying low behind a bed hides nobody.
+      "id": "hospital_bed", "displayName": "Hospital bed", "shape": "hospital_bed", "cover": false,
+      "colliders": [
+        { "shape": "box", "center_m": [0, 0.62, 0.05], "size_m": [0.92, 0.18, 1.95], "material": "mattress" },
+        { "shape": "box", "center_m": [0, 0.62, -1.02], "size_m": [0.98, 0.8, 0.05], "material": "steel_painted" },
+        { "shape": "box", "center_m": [0, 0.5, 1.05], "size_m": [0.98, 0.55, 0.04], "material": "steel_painted" },
+        { "shape": "box", "center_m": [0, 0.27, 0.05], "size_m": [0.9, 0.54, 1.95], "material": "steel_painted", "paint": false }
+      ]
+    },
+    {
+      // A curtain on its ceiling rail round a bed, hanging to 0.3 m off the floor: it hides you and stops a ball, but you
+      // walk straight through it (and legs show under it).
+      "id": "curtain_screen", "displayName": "Bed curtain", "shape": "curtain_screen", "cover": false,
+      "colliders": [ { "shape": "box", "center_m": [0, 1.25, 0], "size_m": [2.4, 1.9, 0.04], "material": "curtain_blue", "walk": false } ]
+    },
+    {
+      "id": "locker_bank", "displayName": "Lockers", "shape": "locker_bank",
+      "colliders": [ { "shape": "box", "center_m": [0, 0.925, 0], "size_m": [1.6, 1.85, 0.5], "material": "steel_painted" } ]
+    },
+    {
+      "id": "medical_trolley", "displayName": "Trolley", "shape": "medical_trolley", "cover": false,
+      "colliders": [ { "shape": "box", "center_m": [0, 0.48, 0], "size_m": [0.6, 0.96, 0.45], "material": "steel_galvanised" } ]
+    },
+    {
+      "id": "wheelchair", "displayName": "Wheelchair", "shape": "wheelchair", "cover": false,
+      "colliders": [ { "shape": "box", "center_m": [0, 0.48, 0], "size_m": [0.64, 0.96, 0.75], "material": "steel_painted" } ]
+    },
+    {
+      // A slatted bench facing −Z, its back at +Z. Paint flies under the seat.
+      "id": "bench", "displayName": "Bench", "shape": "bench", "cover": false,
+      "colliders": [
+        { "shape": "box", "center_m": [0, 0.45, 0], "size_m": [1.8, 0.06, 0.45], "material": "wood_planks" },
+        { "shape": "box", "center_m": [0, 0.68, 0.2], "size_m": [1.8, 0.4, 0.05], "material": "wood_planks" },
+        { "shape": "box", "center_m": [0, 0.21, 0], "size_m": [1.7, 0.42, 0.4], "material": "steel_painted", "paint": false }
+      ]
+    },
+    {
+      // The operating table on its pedestal, and the big lamp hanging over it.
+      "id": "operating_table", "displayName": "Operating table", "shape": "operating_table", "cover": false,
+      "colliders": [
+        { "shape": "box", "center_m": [0, 0.88, 0], "size_m": [0.6, 0.12, 2.0], "material": "steel_painted" },
+        { "shape": "box", "center_m": [0, 0.41, 0], "size_m": [0.35, 0.82, 0.6], "material": "steel_galvanised" },
+        { "shape": "cylinder", "center_m": [0, 2.3, 0], "radius_m": 0.45, "height_m": 0.2, "material": "enamel_white" }
+      ]
+    },
+    {
+      // A burnt-out ambulance, its cab at −Z, sitting on its tyres. Paint flies under it.
+      "id": "ambulance_wreck", "displayName": "Ambulance wreck", "shape": "ambulance_wreck",
+      "colliders": [
+        { "shape": "box", "center_m": [0, 1.6, 0.8], "size_m": [2.2, 2.1, 3.6], "material": "ambulance_white" },
+        { "shape": "box", "center_m": [0, 1.3, -1.9], "size_m": [2.1, 1.5, 1.8], "material": "ambulance_white" },
+        { "shape": "box", "center_m": [0, 0.27, 0], "size_m": [2.0, 0.55, 5.4], "material": "steel_rust", "paint": false },
+        { "shape": "cylinder", "center_m": [-0.95, 0.38, -2.0], "radius_m": 0.38, "height_m": 0.25, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "cylinder", "center_m": [0.95, 0.38, -2.0], "radius_m": 0.38, "height_m": 0.25, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "cylinder", "center_m": [-0.95, 0.38, 1.7], "radius_m": 0.38, "height_m": 0.25, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false },
+        { "shape": "cylinder", "center_m": [0.95, 0.38, 1.7], "radius_m": 0.38, "height_m": 0.25, "rotation_deg": [0, 0, 90], "material": "tyre_rubber", "walk": false }
+      ]
+    },
+    {
+      // A dry fountain: the round basin, a column and the bowl on top.
+      "id": "fountain", "displayName": "Fountain", "shape": "fountain", "cover": false,
+      "colliders": [
+        { "shape": "cylinder", "center_m": [0, 0.3, 0], "radius_m": 2.2, "height_m": 0.6, "material": "concrete_wall" },
+        { "shape": "cylinder", "center_m": [0, 1.1, 0], "radius_m": 0.35, "height_m": 1.0, "material": "concrete_wall" },
+        { "shape": "cylinder", "center_m": [0, 1.65, 0], "radius_m": 0.8, "height_m": 0.15, "material": "concrete_wall" }
+      ]
+    },
+    {
+      // A boiler on its brick plinth, burner at −Z, its flue at the back.
+      "id": "boiler", "displayName": "Boiler", "shape": "boiler",
+      "colliders": [
+        { "shape": "cylinder", "center_m": [0, 1.75, 0], "radius_m": 1.25, "height_m": 5.0, "rotation_deg": [90, 0, 0], "material": "steel_painted" },
+        { "shape": "box", "center_m": [0, 0.25, 0], "size_m": [2.2, 0.5, 4.6], "material": "brick_red" },
+        { "shape": "box", "center_m": [0, 1.75, -2.65], "size_m": [1.4, 1.4, 0.3], "material": "machinery" },
+        { "shape": "cylinder", "center_m": [0, 3.6, 1.8], "radius_m": 0.3, "height_m": 1.2, "material": "steel_rust" }
+      ]
+    },
+    {
+      // The boiler house's chimney: a brick stack 26 m tall on a square base, seen from all over the grounds.
+      "id": "chimney", "displayName": "Chimney", "shape": "chimney",
+      "colliders": [
+        { "shape": "cylinder", "center_m": [0, 13.0, 0], "radius_m": 1.0, "height_m": 26.0, "material": "brick_red" },
+        { "shape": "box", "center_m": [0, 1.5, 0], "size_m": [2.8, 3.0, 2.8], "material": "brick_red" }
+      ]
     }
   ]
 }

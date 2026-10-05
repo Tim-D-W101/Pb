@@ -642,6 +642,13 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   40 s). `LadderLevelTests` holds every playable level to the same checks: the grid reaches every
   spawn, patrol, pickup, case spot, way out and room from every way in; every mode and objective deals starts at every
   size; and bot rounds in each mode and objective play out.
+- **As built (M3.6).** Prop colliders can be tilted boxes that feet walk on (`rotation_deg` on a box): a trailer's
+  loading ramp. The Cold Store's raised floor is a building slab 1.2 m thick (slabs take up to 2 m), its interior walls
+  stand on it (`baseElevation_m` 1.2), and its outer wall is two runs: a concrete plinth to the floor and cladding
+  above with the doors at floor level. Indoor areas' light (0.08 to 0.4 here) drives both the bots' sight and the
+  interior ambient light (`LevelBuilder.BuildAmbientProbes`), so the chambers are dark to both. New props and their
+  detail models (`PropShapes.ColdStore.cs`): `lorry_trailer`, `pallet_racking` and `pallet_racking_full`,
+  `roll_cage`, `compressor`, `ammonia_tank`, `lorry_cab`; materials tinted from the existing photos until M3.10.
 
 ### 15.6 Audio
 
