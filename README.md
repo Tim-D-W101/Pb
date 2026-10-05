@@ -4,30 +4,29 @@ An original first-person tactical paintball game: physically simulated paintball
 eliminations, played through abandoned industrial compounds you explore and clear, with up to
 ten players a round. Built with Godot 4.7 (.NET / C#).
 
-**Status: Phase 2 in progress ([plan](docs/phase-2.md)).** Phase 1 built the ballistics
-sandbox, a range with real paintball ballistics, break/bounce, splats, a marker with loader,
-pods and air, and a 1,000-ball stress mode ([report](docs/reports/phase-1.md)). Phase 2 has
-started with the first compound, **Oxbarrow Works**: a walkable derelict works yard with a
-warehouse, offices, pump house and guardhouse, built from a data kit.
-You pick it, a mode, how many play and a difficulty from the menu, read the briefing, and play:
+**Status: Phase 2 built ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)); waiting on
+your play-test.** Phase 1 built the ballistics sandbox, a range with real paintball ballistics,
+break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
+([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
+walkable derelict works yard with a warehouse, offices, pump house and guardhouse, built from a data
+kit. You pick it, a mode, how many play and a difficulty from the menu, read the briefing, and play:
 **solo** (clear the compound of a squad against the clock), **free-for-all** (up to ten players,
 everyone against everyone) or **teams** (you and bot teammates against a bot team, up to 5 v 5),
-picking up paint and air on the way. The bots hold posts, patrol, hunt and rush, notice you by
-sight and sound, and fight from cover; in free-for-all and teams they fight each other too.
-The match HUD is in, and the art pass is well along: photographic textures on the buildings and
-ground; every prop modelled (built in code from its colliders, with generated models replacing
-them as they arrive); framed windows with broken glass; gutters, roof trusses, lamps and fittings on
-the buildings; barbed wire on the perimeter wall and pylons on the skyline; oil, puddles, leaves,
+picking up paint and air on the way. The bots hold posts, patrol, hunt and rush, notice you by sight
+and sound, and fight from cover; in free-for-all and teams they fight each other too. The match HUD
+is in, and so is the art pass: photographic textures on every surface; every prop modelled (built in
+code from its colliders, with generated models replacing them as they arrive: so far the oil drum
+and the burnt-out car); framed windows with broken glass; gutters, roof trusses, lamps and fittings
+on the buildings; barbed wire on the perimeter wall and pylons on the skyline; oil, puddles, leaves,
 litter, ivy and old paint from past games; worn paint markings in the warehouse and on the yard;
 crows wheeling overhead and scattering at gunfire; dust kicked up underfoot, footprints in the dirt
 (in paint, or wet, if you've trodden in some), ripples in the puddles, water dripping through the
 holes in the roof, and litter, bags and torn roofing blowing in one wind; paint running down the
-walls where it lands; a proper marker in your gloved hands, with your paint in
-its see-through loader, and your own shadow on the ground; three rigged opponents who walk and run
-with generated movement clips, flinch when a ball hits them and refill from their pods in plain
-sight; the compound itself behind the main menu; and the training ground dressed to match, with
-netting, a timber backstop, inflatable bunkers and masked dummies covered in old paint. More
-generated props, characters and animations follow.
+walls where it lands; the generated marker in your gloved hands, and your own shadow on the ground;
+three rigged opponents who walk and run with generated movement clips, flinch when a ball hits them
+and refill from their pods in plain sight; the compound itself behind the main menu; and the
+training ground dressed to match, with netting, a timber backstop, inflatable bunkers and masked
+dummies covered in old paint. Generated models for four more props and a crouched-walk clip follow.
 
 ## Run it
 
@@ -130,7 +129,7 @@ a random role, so you can't learn where they are.
 
 They're drawn by one of three rigged character models, posed every frame to match their hitboxes:
 crouching, leaning, aiming, walking and running with movement clips, both hands on the marker (the
-same one you hold, with their team's paint in the loader), one hand off it while they refill. Each
+same generated one you hold), one hand off it while they refill. Each
 wears an armband in their team colour and a slightly different tint, and flinches when a ball hits.
 Paint splats stick where the ball hit and move with them.
 
