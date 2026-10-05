@@ -649,6 +649,14 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   interior ambient light (`LevelBuilder.BuildAmbientProbes`), so the chambers are dark to both. New props and their
   detail models (`PropShapes.ColdStore.cs`): `lorry_trailer`, `pallet_racking` and `pallet_racking_full`,
   `roll_cage`, `compressor`, `ammonia_tank`, `lorry_cab`; materials tinted from the existing photos until M3.10.
+- **As built (M3.7).** The Hospital Wing's two three-storey wings come from a generator, `tools/levels/hospital_wings.py`,
+  which writes their building files (stair flights side by side, one per storey, the slab holes over each and the
+  railings round them, the doors and windows of every floor, the beds and curtains). A building with no walls is
+  allowed (the ambulance canopy is columns and a roof); a wing whose end has fallen in is just shorter slabs and roof
+  than walls, and open wall runs upstairs. A prop collider with `"walk": false` and paint on is a curtain: it stops
+  balls and sight but nobody's feet. New props (`PropShapes.Hospital.cs`): `hospital_bed`, `curtain_screen`,
+  `locker_bank`, `medical_trolley`, `wheelchair`, `bench`, `operating_table`, `ambulance_wreck`, `fountain`, `boiler`,
+  `chimney`.
 
 ### 15.6 Audio
 

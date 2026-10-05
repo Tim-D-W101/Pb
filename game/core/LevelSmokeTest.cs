@@ -373,15 +373,18 @@ public sealed class LevelSmokeTest
             bot.Passive = false;
         }
 
-        for (int i = 0; i < _opponents.Count; i++)
+        // In front of them, where they're looking: a sentry keeps watch the way it faces. Indoors a sentry may face a wall
+        // close by, so failing that, anyone with room in front of them will do.
+        foreach (bool sentriesOnly in new[] { true, false })
         {
-            PlayerState o = _opponents[i].State;
-            // In front of them, where they're looking: a sentry keeps watch the way it faces.
-            if (IsSentry(_bots[i]) && o.Alive && ScenePositions.FindSpot(_sim, o, 9f, out SVector3 spot, maxTurn: 0.9f))
+            for (int i = 0; i < _opponents.Count && _shotNote == "no sentry found"; i++)
             {
-                _shotNote = $"facing {o.Name} at {o.Position} from {spot}";
-                _player.Teleport(spot, ScenePositions.Facing(spot, o.Position));
-                break;
+                PlayerState o = _opponents[i].State;
+                if ((IsSentry(_bots[i]) || !sentriesOnly) && o.Alive && ScenePositions.FindSpot(_sim, o, 9f, out SVector3 spot, maxTurn: 0.9f))
+                {
+                    _shotNote = $"facing {o.Name} ({_bots[i].Archetype.Id}) at {o.Position} from {spot}";
+                    _player.Teleport(spot, ScenePositions.Facing(spot, o.Position));
+                }
             }
         }
 

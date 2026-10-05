@@ -37,6 +37,7 @@ dotnet run -c Release --project tools/Pb.Bench        # ballistics report + tick
 tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end check
 tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in art/*.pck
 tools/package/godot-project.sh                        # self-contained project zip for Godot's Import
+python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate the hospital wings (edit the script, not the files)
 ```
 
 The Windows build needs the export templates: `tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe

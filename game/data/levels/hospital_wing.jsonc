@@ -1,0 +1,228 @@
+// Level 4: The Hospital Wing (working name), the hardest: a hospital's two three-storey wings in an L round an overgrown
+// courtyard. World frame: metres, x east, z south (north is −Z), y up. A fence encloses x −55…55, z −40…40; you come in
+// at the gate in the south side, the breach in the east side or the hole in the west side.
+// The north wing (x −48…8, z −36…−22) and the west wing (x −48…−34, z −22…18) meet at the corner stairs; the courtyard
+// fills the L (x −34…8, z −22…18); the north wing's east end has fallen in. Outside: the ambulance bay under its canopy
+// (east), the boiler house and its chimney (north-east), the car park (south) and the gatehouse by the gate.
+// Fence segments: 0 north (x −55→55, at_m = x + 55), 1 east (z −40→40, at_m = z + 40),
+// 2 south (x 55→−55, at_m = 55 − x), 3 west (z 40→−40, at_m = 40 − z).
+// The north wing's local frame is world + (48, 0, 36), the west wing's world + (48, 0, 22). Floors are 3.4 m apart.
+{
+  "id": "hospital_wing",
+  "displayName": "The Hospital Wing",
+  "description": "A hospital closed for years: three storeys of wards and corridors in two wings round an overgrown courtyard that every window looks down on, an operating theatre, a lift shaft open through every floor, and the end of one wing fallen in.",
+  "boundsMin_m": [-67, -2, -52],
+  "boundsMax_m": [67, 32, 52],
+  "groundMaterial": "asphalt_cracked",
+  "groundPatches": [
+    // Scrub outside the fence, the strips round the back of the wings, the courtyard's long grass and dirt paths.
+    { "rect_m": [-67, -52, 67, -40.2], "material": "grass_dry" },
+    { "rect_m": [-67, 40.2, -19, 52], "material": "grass_dry" },
+    { "rect_m": [-9, 40.2, 67, 52], "material": "grass_dry" },
+    { "rect_m": [-67, -40.2, -55.2, 40.2], "material": "grass_dry" },
+    { "rect_m": [55.2, -40.2, 67, 40.2], "material": "grass_dry" },
+    { "rect_m": [-54.8, -39.8, 16, -36.3], "material": "gravel" },
+    { "rect_m": [-54.8, -36.3, -48.3, 18.3], "material": "gravel" },
+    { "rect_m": [-33.7, -21.7, 7.7, 17.7], "material": "grass_dry" },
+    { "rect_m": [-15, -21.7, -11, 17.7], "material": "dirt" },
+    { "rect_m": [-33.7, -4, 7.7, 0], "material": "dirt" },
+    // The rubble spilled from the fallen end, and the apron in front of the boiler house.
+    { "rect_m": [8.3, -36, 15, -22], "material": "dirt" },
+    { "rect_m": [16, -27, 34, -18], "material": "concrete_floor" }
+  ],
+  "playerSpawns": [
+    { "position_m": [-14, 0, 47], "yaw_deg": 0 },
+    { "position_m": [62, 0, 4], "yaw_deg": 90 },
+    { "position_m": [-62, 0, 28], "yaw_deg": -90 }
+  ],
+  "spawnArea": "the car park",
+  "deadZone_m": [-2, 0, 47],
+  "scenery": {
+    "powerLines": [ { "points_m": [[-480, -170], [-80, -160], [480, -185]], "spacing_m": 240, "height_m": 28, "material": "steel_galvanised", "wire": "steel_painted" } ],
+    "poleLines": [
+      { "points_m": [[-300, 50.5], [300, 50.5]], "spacing_m": 45, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" },
+      { "points_m": [[-14, 56], [-8, 200], [15, 420]], "spacing_m": 42, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" }
+    ]
+  },
+  "markings": {
+    "color": "#dedbd0",
+    "lineWidth_m": 0.12,
+    // Parking bays in the car park, and the road markings in from the gate.
+    "lines_m": [
+      [-28, 26, 40, 26], [-28, 26, -28, 36], [-22, 26, -22, 36], [-16, 26, -16, 36], [16, 26, 16, 36], [22, 26, 22, 36],
+      [28, 26, 28, 36], [34, 26, 34, 36], [40, 26, 40, 36], [-18, 37, -18, 39.6], [-10, 37, -10, 39.6]
+    ],
+    "stencils": [
+      { "text": "CASUALTY", "at_m": [-38, 0, 21.5], "size_m": 0.9 },
+      { "text": "AMBULANCE", "at_m": [24, 0, -3], "size_m": 0.7 },
+      { "text": "SLOW", "at_m": [-14, 0, 34], "size_m": 1.0 }
+    ]
+  },
+  "buildings": [
+    { "building": "north_wing", "position_m": [-48, 0, -36] },
+    { "building": "west_wing", "position_m": [-48, 0, -22] },
+    { "building": "boiler_house", "position_m": [18, 0, -37] },
+    { "building": "ambulance_canopy", "position_m": [16, 0, -14] },
+    { "building": "gatehouse", "position_m": [-26, 0, 30] }
+  ],
+  "walls": [
+    {
+      "baseElevation_m": 0, "height_m": 2.4,
+      "points_m": [[-55, -40], [55, -40], [55, 40], [-55, 40]], "closed": true,
+      "thickness_m": 0.25, "material": "brick_red",
+      "dressing": { "pierSpacing_m": 4.0, "pierSize_m": 0.45, "coping": "concrete_wall", "wire": "steel_rust", "rubble": true },
+      "openings": [
+        // The gate, the breach in the east side and the hole in the west side.
+        { "segment": 2, "at_m": 69, "width_m": 8.0, "kind": "gap" },
+        { "segment": 1, "at_m": 44, "width_m": 3.5, "kind": "gap" },
+        { "segment": 3, "at_m": 12, "width_m": 3.0, "kind": "gap" }
+      ]
+    },
+    // The courtyard's hedges, grown wild: beds round the fountain and along the paths, with gaps to get through.
+    { "baseElevation_m": 0, "height_m": 1.1, "points_m": [[-30, -16], [-19, -16]], "thickness_m": 0.7, "material": "hedge" },
+    { "baseElevation_m": 0, "height_m": 1.1, "points_m": [[-8, -16], [4, -16], [4, -8]], "thickness_m": 0.7, "material": "hedge" },
+    { "baseElevation_m": 0, "height_m": 1.1, "points_m": [[-30, 4], [-30, 13], [-19, 13]], "thickness_m": 0.7, "material": "hedge" },
+    { "baseElevation_m": 0, "height_m": 1.1, "points_m": [[-7, 13], [4, 13], [4, 6]], "thickness_m": 0.7, "material": "hedge" },
+    { "baseElevation_m": 0, "height_m": 1.1, "points_m": [[-22, -8], [-22, -4.5]], "thickness_m": 0.7, "material": "hedge" },
+    { "baseElevation_m": 0, "height_m": 1.1, "points_m": [[-4, 1], [-4, 5]], "thickness_m": 0.7, "material": "hedge" }
+  ],
+  "props": [
+    // The courtyard: the fountain, benches, and what's been dumped there.
+    { "prop": "fountain", "position_m": [-13, 0, -2] },
+    { "prop": "bench", "position_m": [-13, 0, -6.4], "yaw_deg": 180 },
+    { "prop": "bench", "position_m": [-13, 0, 2.4] },
+    { "prop": "bench", "position_m": [-17.4, 0, -2], "yaw_deg": -90 },
+    { "prop": "bench", "position_m": [-26, 0, -19.5] },
+    { "prop": "bench", "position_m": [-1, 0, 15.5], "yaw_deg": 180 },
+    { "prop": "hospital_bed", "position_m": [-25, 0, 6], "yaw_deg": 35 },
+    { "prop": "wheelchair", "position_m": [-6, 0, -12], "yaw_deg": 120 },
+    { "prop": "skip_bin", "position_m": [-30.5, 0, -6], "yaw_deg": 90 },
+    { "prop": "rubble_pile", "position_m": [2, 0, -19], "yaw_deg": 20 },
+    { "prop": "crate_large", "position_m": [-31, 0, 15] },
+
+    // The fallen end's rubble spilling out, and the ambulance bay.
+    { "prop": "rubble_pile", "position_m": [10.5, 0, -30], "yaw_deg": 40 },
+    { "prop": "rubble_pile", "position_m": [12.5, 0, -25], "yaw_deg": -10 },
+    { "prop": "scrap_pile", "position_m": [11, 0, -34], "yaw_deg": 70 },
+    { "prop": "ambulance_wreck", "position_m": [21.5, 0, -10], "yaw_deg": 180 },
+    { "prop": "medical_trolley", "position_m": [28.5, 0, -8], "yaw_deg": 30 },
+    { "prop": "wheelchair", "position_m": [29.6, 0, -11.4], "yaw_deg": -60 },
+    { "prop": "concrete_barrier", "position_m": [14, 0, -3], "yaw_deg": 90 },
+    { "prop": "concrete_barrier", "position_m": [34, 0, -3], "yaw_deg": 90 },
+
+    // The boiler house's chimney, its fuel drums and the yard behind.
+    { "prop": "chimney", "position_m": [34.5, 0, -34] },
+    { "prop": "oil_drum_rust", "position_m": [33, 0, -26] },
+    { "prop": "oil_drum", "position_m": [33.7, 0, -25.4] },
+    { "prop": "skip_bin", "position_m": [40, 0, -30], "yaw_deg": 10 },
+    { "prop": "container_green", "position_m": [46, 0, -20], "yaw_deg": 90 },
+    { "prop": "generator", "position_m": [40, 0, -14] },
+    { "prop": "pallet_stack", "position_m": [44, 0, 10] },
+    { "prop": "pallet_stack_tall", "position_m": [45.3, 0, 10.2], "yaw_deg": 7 },
+
+    // The car park's wrecks.
+    { "prop": "car_wreck", "position_m": [-25, 0, 31], "yaw_deg": 5 },
+    { "prop": "car_wreck", "position_m": [-19, 0, 31.5], "yaw_deg": -8 },
+    { "prop": "car_wreck", "position_m": [19, 0, 31], "yaw_deg": 3 },
+    { "prop": "car_wreck", "position_m": [31, 0, 30.5], "yaw_deg": 175 },
+    { "prop": "car_wreck", "position_m": [37, 0, 31.5], "yaw_deg": 10 },
+    { "prop": "car_wreck", "position_m": [2, 0, 24], "yaw_deg": 80 },
+    { "prop": "ambulance_wreck", "position_m": [-38, 0, 25], "yaw_deg": 95 },
+    { "prop": "concrete_barrier", "position_m": [-4, 0, 34], "yaw_deg": 90 },
+    { "prop": "concrete_barrier", "position_m": [-4, 0, 37.2], "yaw_deg": 90 },
+    { "prop": "skip_bin", "position_m": [10, 0, 37], "yaw_deg": 0 },
+    { "prop": "tyre_stack", "position_m": [46, 0, 36] },
+    { "prop": "tyre_stack", "position_m": [46.8, 0, 36.6] },
+
+    // Round the back of the wings.
+    { "prop": "skip_bin", "position_m": [-20, 0, -38.2], "yaw_deg": 0 },
+    { "prop": "oil_drum_tipped", "position_m": [-34, 0, -38.4], "yaw_deg": 80 },
+    { "prop": "container_blue", "position_m": [-51.5, 0, -6], "yaw_deg": 90 },
+    { "prop": "pallet_stack", "position_m": [-51.5, 0, 10] },
+
+    // Outside the fence.
+    { "prop": "car_wreck", "position_m": [-30, 0, 46], "yaw_deg": 95 },
+    { "prop": "rubble_pile", "position_m": [60, 0, 14], "yaw_deg": 20 },
+    { "prop": "tyre_stack", "position_m": [-60, 0, 22] }
+  ],
+  "areas": [
+    { "name": "outside the fence", "rect_m": [-67, -52, 67, 52] },
+    { "name": "the grounds", "rect_m": [-55, -40, 55, 40] },
+    { "name": "the car park", "rect_m": [-55, 20, 55, 40] },
+    { "name": "the courtyard", "rect_m": [-34, -22, 8, 18] },
+    { "name": "behind the hospital", "rect_m": [-55, -40, 16, -36] },
+    { "name": "the west side", "rect_m": [-55, -36, -48, 20] },
+    { "name": "the rubble", "rect_m": [8, -36, 16, -18] },
+    { "name": "the boiler yard", "rect_m": [16, -40, 55, -18] },
+    { "name": "the east side", "rect_m": [8, -18, 55, 20] }
+  ],
+  "opponentSpawns": [
+    { "id": "womens_ward", "position_m": [-28, 6.8, -23.1], "yaw_deg": 180, "roles": ["marksman", "sentry"] },
+    { "id": "sun_ward", "position_m": [-35.1, 6.8, 0], "yaw_deg": -90, "roles": ["marksman", "sentry"] },
+    { "id": "theatre", "position_m": [-18, 3.4, -32.2], "yaw_deg": 90, "roles": ["sentry"] },
+    { "id": "recovery_ward", "position_m": [-34, 3.4, -24], "yaw_deg": 90, "roles": ["flanker", "sentry"] },
+    { "id": "east_stairs", "position_m": [-9.5, 0, -33], "yaw_deg": 0, "roles": ["flanker"] },
+    { "id": "corner_stairs", "position_m": [-45, 3.4, -35.2], "yaw_deg": -90, "roles": ["flanker"] },
+    { "id": "south_stairs", "position_m": [-45, 0, 11], "yaw_deg": 0, "roles": ["flanker", "sentry"] },
+    { "id": "pharmacy", "position_m": [-9.5, 0, -25], "yaw_deg": 90, "roles": ["sentry"] },
+    { "id": "outpatients", "position_m": [-23, 0, -24.5], "yaw_deg": 90, "roles": ["patroller", "flanker"], "patrol": "north_corridor" },
+    { "id": "main_entrance", "position_m": [-39, 0, 13], "yaw_deg": 180, "roles": ["sentry"] },
+    { "id": "waiting_hall", "position_m": [-36.5, 0, 4], "yaw_deg": 0, "roles": ["patroller", "rusher"], "patrol": "west_corridor" },
+    { "id": "courtyard", "position_m": [-20, 0, 0], "yaw_deg": 90, "roles": ["patroller", "rusher"], "patrol": "courtyard" },
+    { "id": "fountain", "position_m": [-9, 0, 4], "yaw_deg": 180, "roles": ["rusher", "sentry"] },
+    { "id": "ambulance_bay", "position_m": [25.5, 0, -8], "yaw_deg": 180, "roles": ["sentry", "rusher"] },
+    { "id": "boiler_house", "position_m": [25, 0, -29], "yaw_deg": 180, "roles": ["sentry", "flanker"] },
+    { "id": "car_park", "position_m": [8, 0, 30], "yaw_deg": 0, "roles": ["rusher", "flanker"] },
+    { "id": "fallen_end", "position_m": [1, 0, -29], "yaw_deg": 90, "roles": ["sentry", "flanker"] },
+    { "id": "long_ward", "position_m": [-35.6, 3.4, 0], "yaw_deg": -90, "roles": ["sentry", "patroller"], "patrol": "upstairs" }
+  ],
+  // Routes keep 20 m and more from the ways in, so nobody walks past a gap just as you come through it.
+  "patrols": [
+    { "id": "north_corridor", "points_m": [[-46, 0, -29], [-6, 0, -29]], "loop": false, "pause_s": 3 },
+    { "id": "west_corridor", "points_m": [[-41, 0, -20], [-41, 0, 12]], "loop": false, "pause_s": 3 },
+    { "id": "upstairs", "points_m": [[-41, 3.4, -20], [-41, 3.4, 16]], "loop": false, "pause_s": 3 },
+    { "id": "courtyard", "points_m": [[-27, 0, -12], [0, 0, -12], [0, 0, 9], [-27, 0, 9]], "pause_s": 2 },
+    { "id": "car_park", "points_m": [[-20, 0, 23.5], [30, 0, 23.5]], "loop": false, "pause_s": 3 }
+  ],
+  "pickups": [
+    { "id": "pod_theatre", "kind": "pod", "position_m": [-14, 3.4, -32.8] },
+    { "id": "pod_fallen_end", "kind": "pod", "position_m": [2, 0, -33] },
+    { "id": "pod_entrance", "kind": "pod", "position_m": [-37, 0, 16] },
+    { "id": "pod_boiler_house", "kind": "pod", "position_m": [19.5, 0, -28.5] },
+    { "id": "pod_womens_ward", "kind": "pod", "position_m": [-24, 6.8, -23.4] },
+    { "id": "pod_ambulance_bay", "kind": "pod", "position_m": [18, 0, -7] },
+    { "id": "air_fountain", "kind": "air", "position_m": [-13, 0, -9] },
+    { "id": "air_upstairs", "kind": "air", "position_m": [-41, 3.4, -6] }
+  ],
+  // Camera positions for the briefing fly-over and screenshots (yaw 0 = north, positive turns left).
+  "viewpoints": [
+    { "name": "the gate", "position_m": [-14, 1.7, 45], "yaw_deg": 0, "pitch_deg": -2 },
+    { "name": "over the grounds", "position_m": [32, 26, 32], "yaw_deg": 45, "pitch_deg": -24 },
+    { "name": "the courtyard", "position_m": [-2, 1.7, 15], "yaw_deg": 35, "pitch_deg": 6 },
+    { "name": "down the north corridor", "position_m": [-6.5, 1.7, -29], "yaw_deg": 90, "pitch_deg": 0 },
+    { "name": "the operating theatre", "position_m": [-13.5, 5.1, -31.5], "yaw_deg": 95, "pitch_deg": -12 },
+    { "name": "a ward", "position_m": [-21, 5.1, -24.6], "yaw_deg": 90, "pitch_deg": -4 },
+    { "name": "the fallen end", "position_m": [6, 1.7, -29], "yaw_deg": 90, "pitch_deg": 14 },
+    { "name": "from the sun ward", "position_m": [-35.3, 8.4, 0], "yaw_deg": -90, "pitch_deg": -12 },
+    { "name": "the boiler house", "position_m": [25, 1.7, -27.8], "yaw_deg": 0, "pitch_deg": 6 },
+    { "name": "the ambulance bay", "position_m": [24, 1.7, 0], "yaw_deg": 5, "pitch_deg": 2 }
+  ],
+  // Objectives (rules.jsonc "objectives"). Retrieve: the case starts at one of these spots; it goes out through the
+  // gate, the east breach or the west hole. Hold: one of these rooms each round.
+  "objectives": {
+    "caseSpots_m": [
+      [-14, 0, -31.5],    // the x-ray room
+      [-24, 3.4, -35.2],  // the operating theatre
+      [-35.5, 6.8, 5.2],  // the sun ward (west wing, top floor)
+      [30.8, 0, -29.5],   // the boiler house
+      [-44.5, 6.8, -11],  // the isolation rooms (west wing, top floor)
+      [-6, 0, -23]        // the pharmacy
+    ],
+    "exits": [
+      { "name": "the gate", "at_m": [-14, 0, 44] },
+      { "name": "the east breach", "at_m": [59, 0, 4] },
+      { "name": "the west fence", "at_m": [-59, 0, 28] }
+    ],
+    "holdRooms": ["the operating theatre", "the main entrance", "the sun ward", "the boiler house"]
+  }
+}

@@ -19,6 +19,10 @@
     "kit/buildings/plant_room.jsonc",
     "kit/buildings/depot_office.jsonc",
     "kit/buildings/gatehouse.jsonc",
-    "kit/buildings/weighbridge_hut.jsonc"
+    "kit/buildings/weighbridge_hut.jsonc",
+    "kit/buildings/north_wing.jsonc",
+    "kit/buildings/west_wing.jsonc",
+    "kit/buildings/boiler_house.jsonc",
+    "kit/buildings/ambulance_canopy.jsonc"
   ]
 }

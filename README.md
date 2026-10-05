@@ -19,7 +19,9 @@ there and the second level opens, **the Rail Yard**: a goods yard left to rust, 
 can shoot under them, not crawl), an engine shed with a gantry, a goods shed with its platform, a signal box and a
 footbridge over the lot, with Marksmen watching from the high places. Then **the Cold Store**: a refrigerated depot gone
 dark, its floor a lorry's height above the yard, chambers of racking behind heavy doors off a long aisle, and trailers
-backed onto the docks that you run through to get in. The bots hold posts, patrol, hunt and rush, notice you by sight
+backed onto the docks that you run through to get in. Last and hardest, **the Hospital Wing**: three storeys of wards
+and corridors in two wings round an overgrown courtyard that every window looks down on, an operating theatre, a lift
+shaft open through every floor and the end of one wing fallen in. The bots hold posts, patrol, hunt and rush, notice you by sight
 and sound, and fight from cover; in free-for-all and teams they fight each other too. The match HUD
 is in, and so is the art pass: photographic textures on every surface; every prop modelled (built in
 code from its colliders, with generated models replacing them as they arrive: so far the oil drum

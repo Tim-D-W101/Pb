@@ -54,6 +54,17 @@
         "fourth_chamber", "lorry_park"
       ]
     },
-    { "id": "hospital_wing", "displayName": "The Hospital Wing", "note": "Coming in Phase 3" }
+    {
+      "id": "hospital_wing", "displayName": "The Hospital Wing", "file": "levels/hospital_wing.jsonc",
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 720, "startPods": 2, "botPods": 2, "pickups": true },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 660, "startPods": 1, "botPods": 2, "pickups": true },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 540, "startPods": 1, "botPods": 3, "pickups": true }
+      ],
+      "roster": [
+        "outpatients", "theatre", "womens_ward", "courtyard", "main_entrance", "east_stairs", "pharmacy", "sun_ward",
+        "boiler_house", "fallen_end"
+      ]
+    }
   ]
 }
