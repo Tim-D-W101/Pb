@@ -74,6 +74,23 @@
     "sleeveColor": "#39412f"
   },
 
+  // The generated marker, loader and tank as one model (the marker built in code is the fallback), in
+  // first person (its muzzle on viewModel's muzzleTip_m, your hands moved onto its grips) and in every
+  // opponent's hands. Points on it as imported, in metres, its barrel along −X: the muzzle, the tops of
+  // the pistol grip and the foregrip (just under the frame), and where an opponent's wrists go.
+  "markerModel": {
+    "model": "res://art/models/marker.glb",
+    "muzzle_m": [-0.349, 0.206, 0.0],
+    "pistolGrip_m": [0.089, 0.150, 0.0],
+    "foregrip_m": [-0.041, 0.146, 0.0],
+    "triggerWrist_m": [0.16, 0.10, 0.0],
+    "supportWrist_m": [-0.04, 0.03, 0.0],
+    // On opponents the barrel runs this far above the middle of the marker's hitbox, out to its front.
+    "muzzleAbove_m": 0.04,
+    // Size in first person, against its real 0.70 m: the grips as far apart as the coded marker's.
+    "viewScale": 1.13
+  },
+
   "look": {
     "mouseSensitivity_degPerCount": 0.06,
     "sensitivityStep": 0.005,

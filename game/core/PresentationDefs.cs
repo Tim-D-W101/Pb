@@ -24,6 +24,8 @@ public sealed class PresentationDef : IValidatable
 
     public ViewModelDef ViewModel { get; set; } = new();
 
+    public MarkerModelDef MarkerModel { get; set; } = new();
+
     public LookDef Look { get; set; } = new();
 
     public CrosshairDef Crosshair { get; set; } = new();
@@ -135,6 +137,7 @@ public sealed class PresentationDef : IValidatable
         Fx.Validate(v.Scope(nameof(Fx)));
         Camera.Validate(v.Scope(nameof(Camera)));
         ViewModel.Validate(v.Scope(nameof(ViewModel)));
+        MarkerModel.Validate(v.Scope(nameof(MarkerModel)));
         Look.Validate(v.Scope(nameof(Look)));
         Crosshair.Validate(v.Scope(nameof(Crosshair)));
         ArcPreview.Validate(v.Scope(nameof(ArcPreview)));
@@ -299,6 +302,46 @@ public sealed class CameraDef : IValidatable
         v.InRange(nameof(LeanRoll), LeanRoll, 0, 1);
         v.InRange(nameof(HeadBobAmplitude_m), HeadBobAmplitude_m, 0, 0.1);
         v.InRange(nameof(HeadBobStride_m), HeadBobStride_m, 0.2, 5);
+    }
+}
+
+/// <summary>
+/// The generated marker, loader and tank as one model, in first person and in opponents' hands, with
+/// the marker built in code (<c>MarkerShape</c>) as the fallback. Points on it are given as imported
+/// (metres, its barrel along −X).
+/// </summary>
+public sealed class MarkerModelDef : IValidatable
+{
+    public string Model { get; set; } = "";
+
+    /// <summary>The barrel's tip.</summary>
+    public float[] Muzzle_m { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>The middle of the pistol grip's top and the foregrip's top, just under the frame: first-person hands hold these.</summary>
+    public float[] PistolGrip_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] Foregrip_m { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>Where an opponent's wrists go: the trigger hand behind the pistol grip, the other under the foregrip.</summary>
+    public float[] TriggerWrist_m { get; set; } = System.Array.Empty<float>();
+
+    public float[] SupportWrist_m { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>On opponents the barrel runs this far above the middle of the marker's hitbox, out to its front.</summary>
+    public float MuzzleAbove_m { get; set; }
+
+    /// <summary>Size in first person, against its real size (1): the coded marker is a little bigger.</summary>
+    public float ViewScale { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.Vector(nameof(Muzzle_m), Muzzle_m);
+        v.Vector(nameof(PistolGrip_m), PistolGrip_m);
+        v.Vector(nameof(Foregrip_m), Foregrip_m);
+        v.Vector(nameof(TriggerWrist_m), TriggerWrist_m);
+        v.Vector(nameof(SupportWrist_m), SupportWrist_m);
+        v.InRange(nameof(MuzzleAbove_m), MuzzleAbove_m, -0.3, 0.3);
+        v.InRange(nameof(ViewScale), ViewScale, 0.2, 3);
     }
 }
 

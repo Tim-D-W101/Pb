@@ -67,10 +67,10 @@
       "colliders": [ { "shape": "box", "center_m": [0, 0.7, 0], "size_m": [1.8, 1.4, 1.0], "material": "steel_painted" } ]
     },
     {
-      "id": "car_wreck", "displayName": "Burnt-out car", "shape": "car_wreck",
+      "id": "car_wreck", "displayName": "Burnt-out car", "model": "res://art/models/car_wreck.glb", "modelYaw_deg": 90, "shape": "car_wreck",
       "colliders": [
-        { "shape": "box", "center_m": [0, 0.55, 0], "size_m": [1.8, 0.8, 4.3], "material": "car_body" },
-        { "shape": "box", "center_m": [0, 1.2, 0.2], "size_m": [1.6, 0.55, 2.1], "material": "car_body" }
+        { "shape": "box", "center_m": [0, 0.525, 0], "size_m": [1.5, 0.75, 3.2], "material": "car_body" },
+        { "shape": "box", "center_m": [0, 1.17, 0.275], "size_m": [1.4, 0.54, 1.75], "material": "car_body" }
       ]
     },
     {
@@ -108,11 +108,11 @@
     },
     {
       "id": "desk", "displayName": "Desk", "cover": false, "shape": "desk",
-      "colliders": [ { "shape": "box", "center_m": [0, 0.38, 0], "size_m": [1.4, 0.76, 0.7], "material": "wood_planks" } ]
+      "colliders": [ { "shape": "box", "center_m": [0, 0.38, 0], "size_m": [1.4, 0.76, 0.7], "material": "wood_laminate" } ]
     },
     {
       "id": "desk_flipped", "displayName": "Table tipped on its side", "shape": "table_on_edge",
-      "colliders": [ { "shape": "box", "center_m": [0, 0.7, 0], "size_m": [1.4, 1.4, 0.12], "material": "wood_planks" } ]
+      "colliders": [ { "shape": "box", "center_m": [0, 0.7, 0], "size_m": [1.4, 1.4, 0.12], "material": "wood_laminate" } ]
     },
     {
       "id": "filing_cabinet", "displayName": "Filing cabinet", "shape": "filing_cabinet",

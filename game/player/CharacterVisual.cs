@@ -10,10 +10,11 @@ namespace Pb.Game.Player;
 /// <summary>
 /// Draws a character from the sim's hitbox rig, interpolated between ticks. With a rigged model
 /// (<see cref="CharacterModel"/>) the body is the model, posed to match the hitboxes, and the gear
-/// (marker, loader, tank) gets shapes fitted inside its boxes (<see cref="GearShapes"/>), with the hands
-/// on the marker; without one, every hitbox is drawn as a box, so what you see is exactly what you
-/// can hit. Each part is an unscaled node with the box or shapes under it, so splats parented to a
-/// part keep their shape and move with it.
+/// (marker, loader, tank) is the generated marker model (<see cref="MarkerModel"/>) held along the
+/// marker's box, or without it shapes fitted inside the gear's boxes (<see cref="GearShapes"/>), with
+/// the hands on the marker; without a model, every hitbox is drawn as a box, so what you see is
+/// exactly what you can hit. Each part is an unscaled node with the box or shapes under it, so splats
+/// parented to a part keep their shape and move with it.
 /// </summary>
 public partial class CharacterVisual : Node3D
 {
@@ -39,6 +40,8 @@ public partial class CharacterVisual : Node3D
     private float _crouchEye;
     private Vector3 _lastFeet;
     private bool _shadowOnly;
+    private Node3D? _marker;
+    private MarkerModelDef? _markerDef;
     private readonly System.Collections.Generic.Dictionary<GeometryInstance3D, (GeometryInstance3D.ShadowCastingSetting Cast, bool Visible)> _drawn = new();
 
     public bool HasModel => _model is not null;
@@ -76,7 +79,9 @@ public partial class CharacterVisual : Node3D
         }
     }
 
-    public void Build(SimWorld sim, PlayerState state, Color jersey, CharactersDef? characters = null, int index = 0)
+    /// <param name="index">Which model and tint: models are dealt in turn, and each further copy of a model gets the next tint.</param>
+    /// <param name="marker">The marker model for the gear; null (or its art missing) draws the coded marker's shapes.</param>
+    public void Build(SimWorld sim, PlayerState state, Color jersey, CharactersDef? characters = null, int index = 0, MarkerModelDef? marker = null)
     {
         _sim = sim;
         _state = state;
@@ -91,11 +96,26 @@ public partial class CharacterVisual : Node3D
         _lastFeet = state.Position.ToGodot();
         if (characters is { Models.Length: > 0 })
         {
-            Color tint = characters.Tints.Length > 0 ? Color.FromHtml(characters.Tints[index % characters.Tints.Length]) : Colors.White;
+            int copy = index / characters.Models.Length;
+            Color tint = characters.Tints.Length > 0 ? Color.FromHtml(characters.Tints[copy % characters.Tints.Length]) : Colors.White;
             _model = CharacterModel.TryCreate(characters.Models[index % characters.Models.Length], tint, jersey, characters);
             if (_model is not null)
             {
                 AddChild(_model);
+            }
+        }
+
+        // Gear keeps its size, so its model or shapes are built once: the marker model (loader and bottle
+        // included) along the marker's box with its muzzle at the box's front, or a shape in each box.
+        if (_model is not null && marker is not null)
+        {
+            foreach (PosedBox gear in _current)
+            {
+                if (gear.Part == HitboxPart.Marker)
+                {
+                    _marker = MarkerModel.Create(marker, new Vector3(0f, marker.MuzzleAbove_m, -gear.HalfExtents.Z));
+                    _markerDef = _marker is null ? null : marker;
+                }
             }
         }
 
@@ -107,8 +127,15 @@ public partial class CharacterVisual : Node3D
             AddChild(_parts[i]);
             if (_model is not null && IsGear(part))
             {
-                // Gear keeps its size, so its shapes are built once.
-                GearShapes.Build(_parts[i], part, _current[i].HalfExtents.ToGodot() * 2f, jersey, index + 1);
+                if (_marker is null)
+                {
+                    GearShapes.Build(_parts[i], part, _current[i].HalfExtents.ToGodot() * 2f, jersey, index + 1);
+                }
+                else if (part == HitboxPart.Marker)
+                {
+                    _parts[i].AddChild(_marker);
+                }
+
                 continue;
             }
 
@@ -184,13 +211,21 @@ public partial class CharacterVisual : Node3D
         poser.Flinch = flinch > 0.01f ? Vector3.Up.Cross(_flinchPush) * (_flinchStrength * flinch) : Vector3.Zero;
         poser.RightHanded = Mathf.Lerp(_poseBefore.Shoulder, _poseNow.Shoulder, alpha) >= 0f;
 
-        // Wrists on the marker: the trigger hand near its back, the other under the front.
+        // Wrists on the marker: the trigger hand at the pistol grip, the other under the front.
         int marker = _indexOfPart[(int)HitboxPart.Marker];
         Transform3D frame = _parts[marker].GlobalTransform;
-        Vector3 half = _half[marker];
-        Vector3 Grip(float along) => frame * new Vector3(0f, -half.Y - _look.GripDrop_m, half.Z * (1f - 2f * along));
-        poser.TriggerHand = Grip(_look.TriggerGrip);
-        poser.SupportHand = Refill(Grip(_look.SupportGrip), feet, eye, poser);
+        if (_marker is not null && _markerDef is not null)
+        {
+            poser.TriggerHand = frame * MarkerModel.Point(_marker, _markerDef.TriggerWrist_m);
+            poser.SupportHand = Refill(frame * MarkerModel.Point(_marker, _markerDef.SupportWrist_m), feet, eye, poser);
+        }
+        else
+        {
+            Vector3 half = _half[marker];
+            Vector3 Grip(float along) => frame * new Vector3(0f, -half.Y - _look.GripDrop_m, half.Z * (1f - 2f * along));
+            poser.TriggerHand = Grip(_look.TriggerGrip);
+            poser.SupportHand = Refill(Grip(_look.SupportGrip), feet, eye, poser);
+        }
 
         // The legs, by the ground the feet covered since the last frame.
         Vector3 moved = feet - _lastFeet;

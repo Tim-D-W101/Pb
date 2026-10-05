@@ -26,6 +26,9 @@ public static class HandShape
     /// <summary>The top of the foregrip, where the support hand holds it (marker frame): the hand turns about it.</summary>
     public static Vector3 ForegripTop => At(0.078f, -0.036f);
 
+    /// <summary>The middle of the pistol grip's top, just under the frame, where the trigger hand holds it (marker frame).</summary>
+    public static Vector3 PistolGripTop => At(-0.069f, -0.058f);
+
     /// <summary>Both hands on the marker.</summary>
     public static void Build(ShapeMesh m)
     {
@@ -37,7 +40,7 @@ public static class HandShape
     public static void BuildTrigger(ShapeMesh m)
     {
         // The pistol grip: from the middle of its top (just under the frame) down its rake.
-        Grip trigger = new(At(-0.069f, -0.058f), Direction(-0.028f, -0.097f), Vector3.Right);
+        Grip trigger = new(PistolGripTop, Direction(-0.028f, -0.097f), Vector3.Right);
         Hand(m, trigger, fingers: new[] { 0.03f, 0.052f, 0.074f }, wrist: new Vector3(0.4f, -0.45f, 0.8f), reach: 0.36f);
         // The index finger runs forward from the top of the hand, through the guard, onto the trigger.
         Vector3 knuckle = trigger.At(0.006f, 0.014f, 0.027f);

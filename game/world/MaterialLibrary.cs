@@ -79,11 +79,17 @@ public sealed class MaterialLibrary
         Color color = Conv.ParseColor(def.Color, new Color(0.6f, 0.6f, 0.6f));
         if (def.Alpha < 0.999f)
         {
+            // The kit's UVs are in metres, so a texture repeats every tile_m. A roughness map holds the
+            // roughness itself, so it isn't scaled down by the base value.
+            Texture2D? roughnessMap = LoadTexture(def.RoughnessMap);
             return new StandardMaterial3D
             {
                 AlbedoColor = new Color(color, def.Alpha),
+                AlbedoTexture = LoadTexture(def.Albedo),
+                RoughnessTexture = roughnessMap,
+                Uv1Scale = Vector3.One / def.Tile_m,
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-                Roughness = def.Roughness,
+                Roughness = roughnessMap is null ? def.Roughness : 1f,
                 Metallic = def.Metallic,
                 CullMode = BaseMaterial3D.CullModeEnum.Disabled,
             };

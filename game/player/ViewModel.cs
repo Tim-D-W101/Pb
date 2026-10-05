@@ -7,8 +7,9 @@ using Pb.Sim.Data;
 namespace Pb.Game.Player;
 
 /// <summary>
-/// First-person marker with loader and tank (spec §6), the model built in code (<see cref="MarkerShape"/>),
-/// with the player's paint in its loader. It's drawn by viewmodel.gdshader
+/// First-person marker with loader and tank (spec §6): the generated model (<see cref="MarkerModel"/>), with
+/// your gloved hands moved onto its grips, or without it the model built in code (<see cref="MarkerShape"/>),
+/// with the player's paint showing in its see-through loader. It's drawn by viewmodel.gdshader
 /// with its own FOV and a squashed depth range, so it never clips into the bunker you're
 /// hugging. It sits on its own render layer so paint decals don't project onto it. While you refill
 /// the loader from a pod, the marker cants towards you, the support hand drops off the foregrip and
@@ -28,8 +29,9 @@ public partial class ViewModel : Node3D
     private float _kick;
     private float _kickBack;
     private float _kickRecover;
-    private MultiMesh _paint = null!;
+    private MultiMesh? _paint;
     private Node3D _support = null!;
+    private Vector3 _foregrip;
     private Node3D _podHand = null!;
     private Vector3 _podTop;
     private readonly MeshInstance3D[] _pouring = new MeshInstance3D[5];
@@ -39,7 +41,7 @@ public partial class ViewModel : Node3D
     /// <summary>Where the pod's mouth is as it pours, and which way it points (marker frame: right, up, back).</summary>
     private static readonly Vector3 Mouth = new(-0.03f, 0.238f, 0f), Pour = new Vector3(0.75f, -0.62f, 0.15f).Normalized();
 
-    public void Build(ViewModelDef def, Color loaderColor)
+    public void Build(ViewModelDef def, MarkerModelDef markerModel, Color loaderColor)
     {
         _shader = GD.Load<Shader>("res://shaders/viewmodel.gdshader");
         _clearShader = GD.Load<Shader>("res://shaders/viewmodel_clear.gdshader");
@@ -69,33 +71,49 @@ public partial class ViewModel : Node3D
             [HandPart.Cuff] = Material(Color.FromHtml(def.GloveColor).Darkened(0.2f), 0.85f, 0f),
             [HandPart.Sleeve] = Material(Color.FromHtml(def.SleeveColor), 0.92f, 0f),
         };
-        var shape = new ShapeMesh();
-        MarkerShape.Build(shape, closeUp: true, paint: false);
-        HandShape.BuildTrigger(shape);
-        AddChild(Part("Marker", shape, materials, Vector3.Zero));
-
-        // The paint in the loader, lowest balls first, drawn as far up as the loader is full.
-        var one = new ShapeMesh();
-        one.Pillow((int)MarkerPart.Paint, Vector3.Zero, new Vector3(MarkerShape.Ball, MarkerShape.Ball, MarkerShape.Ball) * 2f, Basis.Identity, 2f, 6, 9);
-        var ballMesh = new ArrayMesh();
-        one.Commit(ballMesh, part => materials[part]);
-        List<Vector3> balls = MarkerShape.LoaderBalls(1);
-        _paint = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = ballMesh, InstanceCount = balls.Count };
-        for (int i = 0; i < balls.Count; i++)
+        _foregrip = HandShape.ForegripTop;
+        if (MarkerModel.Create(markerModel, _muzzleTip, markerModel.ViewScale) is { } model)
         {
-            _paint.SetInstanceTransform(i, new Transform3D(Basis.Identity, balls[i]));
+            // The generated model, its muzzle on the barrel tip, with its own textures; the hands are
+            // the coded ones, moved onto its grips. Its loader isn't see-through, so no paint shows.
+            ToViewModel(model);
+            AddChild(model);
+            var trigger = new ShapeMesh();
+            HandShape.BuildTrigger(trigger);
+            AddChild(Part("TriggerHand", trigger, materials, HandShape.PistolGripTop - MarkerModel.Point(model, markerModel.PistolGrip_m)));
+            _foregrip = MarkerModel.Point(model, markerModel.Foregrip_m);
         }
-
-        AddChild(new MultiMeshInstance3D
+        else
         {
-            Name = "Paint", Multimesh = _paint, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Layers = RenderLayer,
-        });
+            var shape = new ShapeMesh();
+            MarkerShape.Build(shape, closeUp: true, paint: false);
+            HandShape.BuildTrigger(shape);
+            AddChild(Part("Marker", shape, materials, Vector3.Zero));
+
+            // The paint in the loader, lowest balls first, drawn as far up as the loader is full.
+            var one = new ShapeMesh();
+            one.Pillow((int)MarkerPart.Paint, Vector3.Zero, new Vector3(MarkerShape.Ball, MarkerShape.Ball, MarkerShape.Ball) * 2f, Basis.Identity, 2f, 6, 9);
+            var ballMesh = new ArrayMesh();
+            one.Commit(ballMesh, part => materials[part]);
+            List<Vector3> balls = MarkerShape.LoaderBalls(1);
+            _paint = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = ballMesh, InstanceCount = balls.Count };
+            for (int i = 0; i < balls.Count; i++)
+            {
+                _paint.SetInstanceTransform(i, new Transform3D(Basis.Identity, balls[i]));
+            }
+
+            AddChild(new MultiMeshInstance3D
+            {
+                Name = "Paint", Multimesh = _paint, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Layers = RenderLayer,
+            });
+        }
 
         // The support hand on its own, turning about the top of the foregrip, and the hand that brings
         // a pod up to the loader (hidden until you refill), turning about where it grips the pod.
         var support = new ShapeMesh();
         HandShape.BuildSupport(support);
         _support = Pivot("SupportHand", support, materials, HandShape.ForegripTop);
+        _support.Position = _foregrip;
         var pod = new ShapeMesh();
         _podTop = HandShape.BuildPodHand(pod, Mouth, Pour, 24);
         _podHand = Pivot("PodHand", pod, materials, _podTop);
@@ -118,10 +136,16 @@ public partial class ViewModel : Node3D
     /// </summary>
     public float RefillProgress { get; set; } = -1f;
 
-    /// <summary>How full the loader is (0-1): the paint in it shows that far up.</summary>
+    /// <summary>How full the loader is (0-1): the paint in the coded marker's see-through loader shows that far up.</summary>
     public float LoaderFill
     {
-        set => _paint.VisibleInstanceCount = Mathf.Clamp(Mathf.CeilToInt(value * _paint.InstanceCount), 0, _paint.InstanceCount);
+        set
+        {
+            if (_paint is not null)
+            {
+                _paint.VisibleInstanceCount = Mathf.Clamp(Mathf.CeilToInt(value * _paint.InstanceCount), 0, _paint.InstanceCount);
+            }
+        }
     }
 
     private MeshInstance3D Part(string name, ShapeMesh shape, Dictionary<int, Material> materials, Vector3 offset)
@@ -181,7 +205,7 @@ public partial class ViewModel : Node3D
 
         // The support hand drops off the foregrip, down and to the left out of sight, and comes back.
         float off = Smooth(0f, 0.12f, f) * (1f - Smooth(0.88f, 1f, f));
-        _support.Position = HandShape.ForegripTop + new Vector3(-0.1f, -0.3f, 0.1f) * off;
+        _support.Position = _foregrip + new Vector3(-0.1f, -0.3f, 0.1f) * off;
         _support.Basis = new Basis(Vector3.Back, Mathf.DegToRad(25f) * off);
 
         // The pod comes up lying on its side, tips over into the loader, pours, and goes back down.
@@ -232,6 +256,51 @@ public partial class ViewModel : Node3D
     }
 
     private static Vector3 FromRightUpForward(System.Numerics.Vector3 v) => new(v.X, v.Y, -v.Z);
+
+    /// <summary>Gives every surface of the generated model the view-model shader, with the model's own textures.</summary>
+    private void ToViewModel(Node root)
+    {
+        foreach (Node node in root.FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false))
+        {
+            var mesh = (MeshInstance3D)node;
+            mesh.Layers = RenderLayer;
+            mesh.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            for (int i = 0; i < mesh.GetSurfaceOverrideMaterialCount(); i++)
+            {
+                if (mesh.Mesh?.SurfaceGetMaterial(i) is not BaseMaterial3D source)
+                {
+                    continue;
+                }
+
+                ShaderMaterial material = Material(source.AlbedoColor, source.Roughness, source.Metallic);
+                void Texture(string name, Texture2D? texture)
+                {
+                    if (texture is not null)
+                    {
+                        material.SetShaderParameter(name, texture);
+                    }
+                }
+
+                Texture("albedo_tex", source.AlbedoTexture);
+                Texture("roughness_tex", source.RoughnessTexture);
+                material.SetShaderParameter("roughness_channel", Channel(source.RoughnessTextureChannel));
+                Texture("metallic_tex", source.MetallicTexture);
+                material.SetShaderParameter("metallic_channel", Channel(source.MetallicTextureChannel));
+                material.SetShaderParameter("use_normal_tex", source.NormalEnabled && source.NormalTexture is not null);
+                Texture("normal_tex", source.NormalTexture);
+                mesh.SetSurfaceOverrideMaterial(i, material);
+            }
+        }
+    }
+
+    private static Vector4 Channel(BaseMaterial3D.TextureChannel channel) => channel switch
+    {
+        BaseMaterial3D.TextureChannel.Red => new Vector4(1f, 0f, 0f, 0f),
+        BaseMaterial3D.TextureChannel.Green => new Vector4(0f, 1f, 0f, 0f),
+        BaseMaterial3D.TextureChannel.Blue => new Vector4(0f, 0f, 1f, 0f),
+        BaseMaterial3D.TextureChannel.Alpha => new Vector4(0f, 0f, 0f, 1f),
+        _ => new Vector4(1f / 3f, 1f / 3f, 1f / 3f, 0f),
+    };
 
     private ShaderMaterial Material(Color albedo, float roughness, float metallic, bool clear = false)
     {
