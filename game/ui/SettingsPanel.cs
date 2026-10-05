@@ -7,7 +7,7 @@ namespace Pb.Game.Ui;
 
 /// <summary>
 /// The basic settings, shared by the main menu and the pause menu: field of view, mouse sensitivity,
-/// invert Y, graphics preset, render scale, v-sync and volume. Every change is saved at once; the owner of the
+/// invert Y, graphics preset, render scale, v-sync and the volumes (master, effects, voices, ambience, menus). Every change is saved at once; the owner of the
 /// panel applies what it needs (the camera reads FOV and sensitivity itself).
 /// </summary>
 public partial class SettingsPanel : VBoxContainer
@@ -61,12 +61,18 @@ public partial class SettingsPanel : VBoxContainer
             DisplayServer.WindowSetVsyncMode(on ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
             Changed();
         }));
-        AddChild(UiKit.SliderRow("Volume", 0, 1, 0.05, settings.Volume, v =>
+        void Volume(string name, float value, Action<float> set) => AddChild(UiKit.SliderRow(name, 0, 1, 0.05, value, v =>
         {
-            settings.Volume = (float)v;
+            set((float)v);
             settings.ApplyVolume();
             Changed();
         }, v => $"{v * 100:0}%"));
+
+        Volume("Volume", settings.Volume, v => settings.Volume = v);
+        Volume("Effects", settings.EffectsVolume, v => settings.EffectsVolume = v);
+        Volume("Voices", settings.VoicesVolume, v => settings.VoicesVolume = v);
+        Volume("Ambience", settings.AmbienceVolume, v => settings.AmbienceVolume = v);
+        Volume("Menus", settings.MenusVolume, v => settings.MenusVolume = v);
     }
 
     private static string Capitalise(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];

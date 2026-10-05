@@ -43,15 +43,26 @@ public sealed class GameSettings
     /// <summary>Master volume, 0..1.</summary>
     public float Volume { get; set; } = 0.8f;
 
+    /// <summary>The effects bus (shots, breaks, footsteps, doors), 0..1.</summary>
+    public float EffectsVolume { get; set; } = 1f;
+
+    /// <summary>The voices bus (callouts and the referee), 0..1.</summary>
+    public float VoicesVolume { get; set; } = 1f;
+
+    /// <summary>The ambience bus (wind, traffic, the rooms' tones, crows), 0..1.</summary>
+    public float AmbienceVolume { get; set; } = 0.8f;
+
+    /// <summary>The menus' clicks, 0..1.</summary>
+    public float MenusVolume { get; set; } = 0.7f;
+
     /// <summary>Every level of the ladder shown open, whatever you've won (for testing; wins still open them for real).</summary>
     public bool OpenAllLevels { get; set; }
 
     /// <summary>Which defaults these settings have caught up with (<see cref="CurrentVersion"/>).</summary>
     public int Version { get; set; }
 
-    /// <summary>Applies the master volume to the audio bus.</summary>
-    public void ApplyVolume() =>
-        AudioServer.SetBusVolumeDb(0, Volume <= 0.001f ? -80f : Mathf.LinearToDb(Volume));
+    /// <summary>Applies the volumes to the audio buses.</summary>
+    public void ApplyVolume() => Pb.Game.Audio.AudioBuses.Apply(this);
 
     public static GameSettings Load(PresentationDef defaults)
     {
@@ -65,6 +76,11 @@ public sealed class GameSettings
             Vsync = defaults.Graphics.Vsync,
             GraphicsPreset = defaults.Graphics.DefaultPreset,
             RenderScale = defaults.Graphics.RenderScales[0],
+            Volume = defaults.Audio.Buses.Master,
+            EffectsVolume = defaults.Audio.Buses.Effects,
+            VoicesVolume = defaults.Audio.Buses.Voices,
+            AmbienceVolume = defaults.Audio.Buses.Ambience,
+            MenusVolume = defaults.Audio.Buses.Menus,
             Version = CurrentVersion,
         };
 
@@ -108,6 +124,10 @@ public sealed class GameSettings
         settings.FovDeg = Math.Clamp(settings.FovDeg, defaults.Camera.FovMin_deg, defaults.Camera.FovMax_deg);
         settings.MouseSensitivityDegPerCount = Math.Clamp(settings.MouseSensitivityDegPerCount, 0.001f, 2f);
         settings.Volume = Math.Clamp(settings.Volume, 0f, 1f);
+        settings.EffectsVolume = Math.Clamp(settings.EffectsVolume, 0f, 1f);
+        settings.VoicesVolume = Math.Clamp(settings.VoicesVolume, 0f, 1f);
+        settings.AmbienceVolume = Math.Clamp(settings.AmbienceVolume, 0f, 1f);
+        settings.MenusVolume = Math.Clamp(settings.MenusVolume, 0f, 1f);
         return settings;
     }
 

@@ -231,16 +231,16 @@
     { "prop": "oil_drum_tipped", "position_m": [53.9, 1.2, 28.9], "yaw_deg": 40 }
   ],
   "areas": [
-    { "name": "the first chamber", "rect_m": [0, 0, 14, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12 },
-    { "name": "the second chamber", "rect_m": [14, 0, 28, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12 },
-    { "name": "the third chamber", "rect_m": [28, 0, 42, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12 },
-    { "name": "the fourth chamber", "rect_m": [42, 0, 56, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12 },
-    { "name": "the aisle", "rect_m": [0, 12, 56, 16], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.22 },
-    { "name": "the fifth chamber", "rect_m": [0, 16, 12, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12 },
-    { "name": "the sixth chamber", "rect_m": [12, 16, 24, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12 },
-    { "name": "the cross aisle", "rect_m": [24, 16, 30, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.25 },
-    { "name": "the west freezer", "rect_m": [30, 16, 43, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.08 },
-    { "name": "the east freezer", "rect_m": [43, 16, 56, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.08 },
+    { "name": "the first chamber", "rect_m": [0, 0, 14, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the second chamber", "rect_m": [14, 0, 28, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the third chamber", "rect_m": [28, 0, 42, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the fourth chamber", "rect_m": [42, 0, 56, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the aisle", "rect_m": [0, 12, 56, 16], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.22, "tone": "cold" },
+    { "name": "the fifth chamber", "rect_m": [0, 16, 12, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the sixth chamber", "rect_m": [12, 16, 24, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the cross aisle", "rect_m": [24, 16, 30, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.25, "tone": "cold" },
+    { "name": "the west freezer", "rect_m": [30, 16, 43, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.08, "tone": "cold" },
+    { "name": "the east freezer", "rect_m": [43, 16, 56, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.08, "tone": "cold" },
     { "name": "the dock hall", "rect_m": [0, 26, 56, 36], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.4 }
   ]
 }

@@ -37,5 +37,5 @@
     { "prop": "desk", "position_m": [12.6, 0, 9.0], "yaw_deg": 180 },
     { "prop": "cable_reel", "position_m": [7.0, 0, 1.2], "yaw_deg": 15 }
   ],
-  "areas": [ { "name": "the boiler house", "rect_m": [0, 0, 14, 10], "maxY_m": 6.0, "indoor": true, "light": 0.3 } ]
+  "areas": [ { "name": "the boiler house", "rect_m": [0, 0, 14, 10], "maxY_m": 6.0, "indoor": true, "light": 0.3, "tone": "drip" } ]
 }

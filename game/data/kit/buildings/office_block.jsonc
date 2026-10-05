@@ -169,8 +169,8 @@
     { "prop": "desk_flipped", "position_m": [22.0, 3.2, 9.0], "yaw_deg": 100 }
   ],
   "areas": [
-    { "name": "office, ground floor", "rect_m": [0, 0, 26, 12], "maxY_m": 3.0, "indoor": true, "light": 0.6 },
-    { "name": "office, upstairs", "rect_m": [0, 0, 26, 12], "minY_m": 3.0, "maxY_m": 6.4, "indoor": true, "light": 0.65 },
+    { "name": "office, ground floor", "rect_m": [0, 0, 26, 12], "maxY_m": 3.0, "indoor": true, "light": 0.6, "tone": "draught" },
+    { "name": "office, upstairs", "rect_m": [0, 0, 26, 12], "minY_m": 3.0, "maxY_m": 6.4, "indoor": true, "light": 0.65, "tone": "draught" },
     { "name": "office lobby", "rect_m": [8, 7, 16, 12], "maxY_m": 3.0, "indoor": true, "light": 0.6 },
     { "name": "office stairwell", "rect_m": [19, 0, 26, 5], "maxY_m": 6.4, "indoor": true, "light": 0.45 }
   ]

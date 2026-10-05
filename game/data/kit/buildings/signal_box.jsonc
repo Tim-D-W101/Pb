@@ -64,6 +64,6 @@
   ],
   "areas": [
     { "name": "signal box", "rect_m": [0, 0, 8, 4], "maxY_m": 3.0, "indoor": true, "light": 0.4 },
-    { "name": "signal box, upstairs", "rect_m": [0, 0, 8, 4], "minY_m": 3.0, "maxY_m": 6.2, "indoor": true, "light": 0.85 }
+    { "name": "signal box, upstairs", "rect_m": [0, 0, 8, 4], "minY_m": 3.0, "maxY_m": 6.2, "indoor": true, "light": 0.85, "tone": "draught" }
   ]
 }

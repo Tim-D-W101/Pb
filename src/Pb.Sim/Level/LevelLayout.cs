@@ -35,6 +35,9 @@ public sealed class AreaSpec
     /// <summary>0 = dark, 1 = daylight.</summary>
     public required float Light { get; init; }
 
+    /// <summary>What it sounds like inside (presentation only; empty for the default by size).</summary>
+    public string Tone { get; init; } = "";
+
     public float Volume => (Box.Max.X - Box.Min.X) * (Box.Max.Y - Box.Min.Y) * (Box.Max.Z - Box.Min.Z);
 }
 

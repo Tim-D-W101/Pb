@@ -82,7 +82,7 @@
     { "prop": "filing_cabinet", "position_m": [38, 4.5, 0.53] }
   ],
   "areas": [
-    { "name": "engine shed", "rect_m": [0, 0, 44, 18], "maxY_m": 4.3, "indoor": true, "light": 0.45 },
-    { "name": "the gantry", "rect_m": [0, 0, 44, 2.0], "minY_m": 4.3, "maxY_m": 8.0, "indoor": true, "light": 0.55 }
+    { "name": "engine shed", "rect_m": [0, 0, 44, 18], "maxY_m": 4.3, "indoor": true, "light": 0.45, "tone": "pigeons" },
+    { "name": "the gantry", "rect_m": [0, 0, 44, 2.0], "minY_m": 4.3, "maxY_m": 8.0, "indoor": true, "light": 0.55, "tone": "pigeons" }
   ]
 }

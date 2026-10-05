@@ -453,7 +453,7 @@ public static class LevelFactory
         Aabb box = Aabb.FromPoints(corners);
         // Rotation can mix min/max heights; restore the vertical range explicitly.
         box = new Aabb(new Vector3(box.Min.X, frame.Origin.Y + a.MinY_m, box.Min.Z), new Vector3(box.Max.X, frame.Origin.Y + a.MaxY_m, box.Max.Z));
-        return new AreaSpec { Name = a.Name, Box = box, Indoor = a.Indoor, Light = a.Light };
+        return new AreaSpec { Name = a.Name, Box = box, Indoor = a.Indoor, Light = a.Light, Tone = a.Tone };
     }
 
     private static void AddBoundary(PrimitiveSink sink, Aabb bounds, MaterialRef material, int owner)

@@ -101,7 +101,7 @@
   ],
   "areas": [
     { "name": "the depot office", "rect_m": [0, 0, 13.6, 10], "maxY_m": 3.0, "indoor": true, "light": 0.55 },
-    { "name": "the depot office, upstairs", "rect_m": [0, 0, 13.6, 10], "minY_m": 3.0, "maxY_m": 6.4, "indoor": true, "light": 0.6 },
+    { "name": "the depot office, upstairs", "rect_m": [0, 0, 13.6, 10], "minY_m": 3.0, "maxY_m": 6.4, "indoor": true, "light": 0.6, "tone": "draught" },
     { "name": "the depot office stairs", "rect_m": [13.6, 0, 16, 10], "maxY_m": 6.4, "indoor": true, "light": 0.4 }
   ]
 }

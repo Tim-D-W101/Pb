@@ -37,6 +37,14 @@ and refill from their pods in plain sight; the compound itself behind the main m
 training ground dressed to match, with netting, a timber backstop, inflatable bunkers and masked
 dummies covered in old paint. Generated models for four more props and a crouched-walk clip follow.
 
+Every sound is synthesised in code: the marker's report thinning as the tank empties, paint breaking and
+bouncing off metal, glass, wood, brick, tarp and bodies, footsteps on each floor (splashing in puddles),
+doors by kind, refills, the hit marker, the breakout horn and the referee's whistle, all heard from where
+they happen, muffled through walls and echoing in the halls; wind that rises with the gusts, crows,
+distant traffic and trains outside, and each room's own sound inside (dripping water, pigeons in the
+rafters, a draught through broken windows, the dead quiet of a cold store). The bots' callouts and the
+referee's calls are subtitled, and voiced once their recordings are made.
+
 ## Run it
 
 **Just want to play (Windows)?** Download the latest test build,

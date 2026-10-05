@@ -33,5 +33,5 @@
     { "prop": "oil_drum_rust", "position_m": [7.3, 0, 5.3] },
     { "prop": "oil_drum", "position_m": [6.7, 0, 5.4] }
   ],
-  "areas": [ { "name": "pump house", "rect_m": [0, 0, 8, 6], "maxY_m": 3.5, "indoor": true, "light": 0.45 } ]
+  "areas": [ { "name": "pump house", "rect_m": [0, 0, 8, 6], "maxY_m": 3.5, "indoor": true, "light": 0.45, "tone": "drip" } ]
 }

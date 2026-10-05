@@ -427,19 +427,47 @@ until M3.10 gives them a texture.
 
 ### M3.8 Sound and voices
 
-- [ ] Audio buses (master, effects, voices, ambience, menus) with their volumes in settings.
-- [ ] Synthesised effects, several variations each: the marker report (pitch and body following tank pressure),
+- [x] Audio buses (master, effects, voices, ambience, menus) with their volumes in settings.
+- [x] Synthesised effects, several variations each: the marker report (pitch and body following tank pressure),
   breaks and bounces per surface (player, metal, wood, concrete and brick, glass, ground, tarp, inflatable),
   footsteps per surface and pace (and in water), slides, jumps and landings, doors per kind, the loader and
   refills, pickups, being hit, the hit marker, the case and the hold room, menu clicks, the round's whistle and the
   last-30-seconds warning.
-- [ ] Ambience: wind outdoors (following the gusts the weeds sway in), each indoor area's hum, crows, distant
+- [x] Ambience: wind outdoors (following the gusts the weeds sway in), each indoor area's hum, crows, distant
   traffic and trains; mixed by where you are.
-- [ ] Space: air absorption over distance, muffling when a wall's in the way, reverb by area (indoor, size).
+- [x] Space: air absorption over distance, muffling when a wall's in the way, reverb by area (indoor, size).
 - [ ] Voices: the cast and lines in `presentation.jsonc`, imported with `tools/art/import.sh voice` and recorded in
   `assets.jsonc` (provenance, like the art); each bot gets a voice of its model; callouts play from the caller with
   the subtitle; new callouts for flanking, pushing, a teammate out, the case and the room; the referee's lines.
-- [ ] Everything off with `--no-art` falls back to subtitles, and CI runs without audio as now.
+  *Everything but the recordings is built; Higgsfield refused the first take on 2026-10-05 because that day's five
+  generations had gone on art, so the seven takes come with the next days' generations.*
+- [x] Everything off with `--no-art` falls back to subtitles, and CI runs without audio as now.
+
+As built: every sound is synthesised when the game starts (`game/audio/SoundBank.cs`), 87 of them in 225 variations
+(about 200 s of sound), rendered on worker threads in about half a second while the briefing is up and shared by every
+scene; each scene makes its own Godot streams of them (`SoundSet`) and frees them when it goes. The recipes are physical
+sketches: the marker's sear click, muzzle crack, barrel ring, thump and air hiss (thinner and lower as the tank
+empties); struck modes for metal, glass and wood; low-passed noise for the wet splat and soft hits; grains for gravel,
+pellets and crinkling; a stick-slip squeak for hinges; a pea whistle and a two-reed breakout horn. `-- --sounds=DIR` on
+the art tool (`res://tools/ArtImport.tscn`) writes them all out as WAV files to listen to. The `AudioDirector` plays
+them from the sim's events: your marker in 2D; everything else from where it happened through a pool of 32 3D players
+(at most 10 new ones a frame), dulled with distance and muffled (10 dB quieter, low-passed at 900 Hz) when the sim's
+collision says something is in the way. What a surface sounds like is data (`presentation.jsonc` "audio" →
+"surfaces"); footsteps are as loud as the sim says they carry, and splash in puddles. The `Ambience` mixes by the area
+you're in: indoors the Outside bus (wind, traffic, crows, trains) closes to 700 Hz and drops 10 dB, the area's tone
+plays (levels' areas now take an optional `"tone"`: room, hall, drip, pigeons, draught, cold or hum; the cold store's
+chambers are cold, the wards draughty, the engine shed and warehouse full of pigeons), and the world's reverb grows from
+a small room's to a hall's by the area's volume. The referee (`RefereeCalls`) blows the horn and calls "Game on!" at
+the breakout, a minute and thirty seconds (with two pips) from time, the whistle and the result at the end, "You're
+hit!" when you're out and the room in a hold. Voices are art: each line is a file, `art/voices/<voice>_<its
+words>.ogg`, found by its words, so a missing one is a subtitle only. A voice is imported as one take of its whole
+script, cut into lines at its pauses (`game/tools/VoiceSplitter.cs`), choosing the pauses that give each line the length
+its words suggest, so a comma's pause isn't cut even when it's as long as a line break (tested with ffmpeg's own speech
+synthesiser and on twelve made-up takes in CI); each line is levelled, faded and encoded as OGG. Headless runs (CI)
+build and count every sound but start none (Godot's dummy driver never retires a playback), and the level smoke tests
+now check that shots, breaks, steps and doors were all heard and the referee called the round. Tests: the areas' tones
+are known, a bad one fails to load, every voice file is on record and every record's files are there, and voices on
+record belong to the cast; presentation's validation checks that no two lines share a voice file's name.
 
 ### M3.9 Settings and rebinding
 

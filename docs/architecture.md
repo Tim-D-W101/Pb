@@ -369,7 +369,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     - They follow the kit shader's mesh contract (UV in metres, UV2 for the weathering ramp) and are merged per 24 m chunk and material.
     - Shapes are presentation only: the colliders stay the gameplay shape, and the sim drops a prop's greybox flag when it has either a model or a shape.
 - **Cover points** are generated from the same data at load: wall ends, opening edges and prop sides, tagged with peek side and cover height (standing or crouched).
-- **Named areas** (boxes in the level file) carry a callout name, an indoor flag and a light level, which bots use for callouts, searching and sight.
+- **Named areas** (boxes in the level file) carry a callout name, an indoor flag and a light level, which bots use for callouts, searching and sight, and optionally a tone (what the place sounds like inside: presentation only, for the ambience).
 - **Broadphase.** The XZ grid stays as it is. Multi-storey columns simply hold more candidates. If the benchmark shows a cost, the grid gains Y bands.
 - **The Phase 1 range** stays as the training level, with its own loader unchanged.
 
@@ -668,6 +668,18 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **Voices**: generated lines imported as art (`tools/art/import.sh voice`, provenance in `assets.jsonc`), cast per
   character model in `presentation.jsonc`; a callout plays the caller's voice from its position. Missing lines fall back
   to subtitles.
+
+- **As built (M3.8).** `SoundBank` renders 87 recipes (225 variations) on worker threads when the first scene starts
+  and keeps their samples for the whole run; each scene's `SoundSet` turns them into Godot streams as they're first played
+  and frees them on exit. `AudioDirector` maps sim events to sounds (families of surfaces from `presentation.jsonc`
+  "audio" → "surfaces"), keeps a per-frame budget, culls by each kind's range, and casts one ray through the sim's
+  collision per 3D sound for occlusion. `Ambience` finds the smallest area round the listener each frame, crossfades its
+  tone, eases the Outside bus's low-pass and the World reverb, follows the weeds' gust formula for the wind, and calls
+  crows from `Birds.TryFlying` (and wings where `Birds.Flushed` says birds were put up). `RefereeCalls` queues the
+  referee's lines so they don't talk over each other. Voice files are `art/voices/<voice>_<slug>.ogg` (named for their
+  voice so `tools/package/art-packs.sh` packs them per voice); `tools/art/import.sh voice` cuts one take into its lines
+  with `VoiceSplitter` (dynamic programming over the take's pauses against the lines' expected lengths) and encodes them
+  with ffmpeg. Under Godot's dummy driver (headless) nothing is started, so CI exercises everything but the mixer.
 
 ### 15.7 Settings and bindings
 

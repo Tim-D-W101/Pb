@@ -72,6 +72,8 @@ public partial class RangeMain : Node3D, ISimEventListener
         }
 
         _settings = GameSettings.Load(_view);
+        Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
+        Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
         ApplyVsync();
 
         _sim = new SimWorld(_data.Config);
@@ -96,14 +98,9 @@ public partial class RangeMain : Node3D, ISimEventListener
         _drips.Initialize(_view);
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
-        // Headless runs (CI) use Godot's dummy audio driver, which never retires finished
-        // playbacks, so sound is only wired up when there is a real display.
+        // Headless runs (CI) play through Godot's dummy driver: nothing is heard, but every sound is made and counted.
         var audio = GetNode<AudioDirector>("Audio");
-        bool headless = DisplayServer.GetName() == "headless";
-        if (!headless)
-        {
-            audio.Initialize(state, _view);
-        }
+        audio.Initialize(_sim, state, _view);
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
         _settings.ApplyVolume();
         _pause = new PauseMenu { Name = "Pause" };
@@ -117,10 +114,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         _driver.AddListener(GetNode<ImpactFx>("ImpactFx"));
         _driver.AddListener(dust);
         _driver.AddListener(_drips);
-        if (!headless)
-        {
-            _driver.AddListener(audio);
-        }
+        _driver.AddListener(audio);
         _driver.AddListener(_hud);
         _driver.AddListener(this);
 
@@ -141,7 +135,7 @@ public partial class RangeMain : Node3D, ISimEventListener
             AddChild(tour);
             tour.Start(_data.Range.Viewpoints, _hud, _player.ViewModel, _view.Camera.FarClip_m);
         }
-        else if (!headless)
+        else if (DisplayServer.GetName() != "headless")
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
         }

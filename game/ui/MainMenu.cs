@@ -59,6 +59,9 @@ public partial class MainMenu : Control
         }
 
         _settings = GameSettings.Load(_view);
+        Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
+        Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
+        Pb.Game.Audio.SoundBank.Warm(_view.Audio.Variations);
         _settings.ApplyVolume();
         _progress = Profile.Load(_data.Ladder, _settings);
         bool skipping = Args.Has("--level") && !_skippedToLevel;

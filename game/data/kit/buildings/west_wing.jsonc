@@ -127,7 +127,7 @@
     { "prop": "hospital_bed", "position_m": [9.3, 6.8, 35.7], "yaw_deg": 90 }
   ],
   "areas": [
-    { "name": "the south stairs", "rect_m": [0, 32, 5.8, 40], "minY_m": -1, "maxY_m": 10.6, "indoor": true, "light": 0.35 },
+    { "name": "the south stairs", "rect_m": [0, 32, 5.8, 40], "minY_m": -1, "maxY_m": 10.6, "indoor": true, "light": 0.35, "tone": "draught" },
     { "name": "the west corridor", "rect_m": [5.8, 0, 8.2, 32], "minY_m": -1, "maxY_m": 3.2, "indoor": true, "light": 0.3 },
     { "name": "the casualty bay", "rect_m": [0, 0, 5.8, 12], "minY_m": -1, "maxY_m": 3.2, "indoor": true, "light": 0.45 },
     { "name": "the treatment rooms", "rect_m": [0, 12, 5.8, 24], "minY_m": -1, "maxY_m": 3.2, "indoor": true, "light": 0.45 },
@@ -137,20 +137,20 @@
     { "name": "the waiting hall", "rect_m": [8.2, 16, 14, 28], "minY_m": -1, "maxY_m": 3.2, "indoor": true, "light": 0.6 },
     { "name": "the main entrance", "rect_m": [5.8, 28, 14, 40], "minY_m": -1, "maxY_m": 3.2, "indoor": true, "light": 0.6 },
     { "name": "the west corridor, first floor", "rect_m": [5.8, 0, 8.2, 40], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.3 },
-    { "name": "the side wards", "rect_m": [0, 0, 5.8, 12], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.5 },
-    { "name": "the west ward", "rect_m": [0, 12, 5.8, 24], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.55 },
+    { "name": "the side wards", "rect_m": [0, 0, 5.8, 12], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.5, "tone": "draught" },
+    { "name": "the west ward", "rect_m": [0, 12, 5.8, 24], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.55, "tone": "draught" },
     { "name": "the store room", "rect_m": [0, 24, 5.8, 32], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.35 },
-    { "name": "the east ward", "rect_m": [8.2, 0, 14, 12], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.6 },
+    { "name": "the east ward", "rect_m": [8.2, 0, 14, 12], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.6, "tone": "draught" },
     { "name": "the staff room", "rect_m": [8.2, 12, 14, 16], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.5 },
-    { "name": "the long ward", "rect_m": [8.2, 16, 14, 28], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.65 },
-    { "name": "the south ward", "rect_m": [8.2, 28, 14, 40], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.6 },
+    { "name": "the long ward", "rect_m": [8.2, 16, 14, 28], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.65, "tone": "draught" },
+    { "name": "the south ward", "rect_m": [8.2, 28, 14, 40], "minY_m": 3.2, "maxY_m": 6.6, "indoor": true, "light": 0.6, "tone": "draught" },
     { "name": "the west corridor, top floor", "rect_m": [5.8, 0, 8.2, 40], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.3 },
     { "name": "the isolation rooms", "rect_m": [0, 0, 5.8, 12], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.5 },
-    { "name": "the top ward", "rect_m": [0, 12, 5.8, 24], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.55 },
+    { "name": "the top ward", "rect_m": [0, 12, 5.8, 24], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.55, "tone": "draught" },
     { "name": "the top store", "rect_m": [0, 24, 5.8, 32], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.35 },
     { "name": "the doctors' rooms", "rect_m": [8.2, 0, 14, 12], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.55 },
     { "name": "the top kitchen", "rect_m": [8.2, 12, 14, 16], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.5 },
-    { "name": "the sun ward", "rect_m": [8.2, 16, 14, 28], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.7 },
-    { "name": "the south ward, top floor", "rect_m": [8.2, 28, 14, 40], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.65 }
+    { "name": "the sun ward", "rect_m": [8.2, 16, 14, 28], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.7, "tone": "draught" },
+    { "name": "the south ward, top floor", "rect_m": [8.2, 28, 14, 40], "minY_m": 6.6, "maxY_m": 10.6, "indoor": true, "light": 0.65, "tone": "draught" }
   ]
 }

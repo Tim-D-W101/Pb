@@ -1006,12 +1006,23 @@ public sealed class AreaDef : IValidatable
     [Optional]
     public float Light { get; set; } = 1f;
 
+    /// <summary>
+    /// What the place sounds like inside (presentation only: one of the tones in presentation.jsonc "audio" →
+    /// "ambience" → "tones"); empty for the default by size.
+    /// </summary>
+    [Optional]
+    public string Tone { get; set; } = "";
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Name), Name);
         LevelDefChecks.Rect(v, nameof(Rect_m), Rect_m);
         v.InRange(nameof(MaxY_m), MaxY_m, MinY_m, 500);
         v.InRange(nameof(Light), Light, 0, 1);
+        if (Tone.Length > 0 && !Tone.All(c => c is >= 'a' and <= 'z'))
+        {
+            v.Error(nameof(Tone), $"'{Tone}' isn't a tone name (lower-case letters)");
+        }
     }
 }
 

@@ -158,6 +158,9 @@ public partial class Hud : CanvasLayer, ISimEventListener
     public void Subtitle(string speaker, int team, string line) =>
         _subtitles?.Show(speaker, _teams.Length > 0 ? _teams[team % _teams.Length] : Colors.White, line);
 
+    /// <summary>A subtitle for what the referee called.</summary>
+    public void RefereeSubtitle(string line) => _subtitles?.Show("Referee", Colors.White, line);
+
     public void ApplyView(PresentationDef view)
     {
         _crosshair.Configure(view.Crosshair.Size_px, view.Crosshair.Gap_px, view.Crosshair.Thickness_px, Color.FromHtml(view.Crosshair.Color));

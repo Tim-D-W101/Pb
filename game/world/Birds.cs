@@ -34,6 +34,38 @@ public partial class Birds : Node3D, ISimEventListener
 
     public int Count => _birds.Length;
 
+    /// <summary>A sitting bird took off from here (the ambience puts wingbeats and a call there).</summary>
+    public event Action<Vector3>? Flushed;
+
+    /// <summary>Where one of the birds in the air is now, picked at random; false if none is flying.</summary>
+    public bool TryFlying(Random random, out Vector3 at)
+    {
+        at = default;
+        int flying = 0;
+        foreach (Bird b in _birds)
+        {
+            flying += b.State == Perch.Flying ? 1 : 0;
+        }
+
+        if (flying == 0)
+        {
+            return false;
+        }
+
+        int pick = random.Next(flying);
+        foreach (Bird b in _birds)
+        {
+            if (b.State == Perch.Flying && pick-- == 0)
+            {
+                var outward = new Vector3(Mathf.Cos(b.Angle), 0f, Mathf.Sin(b.Angle));
+                at = b.Center + outward * b.Radius + Vector3.Up * (b.Height + Mathf.Sin(b.Rise) * Bob);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Flocks round points given from <paramref name="origin"/>, varied by <paramref name="seed"/>, and,
     /// given a level, birds perched on its walls.
@@ -194,8 +226,9 @@ public partial class Birds : Node3D, ISimEventListener
         }
     }
 
-    private static void Flush(ref Bird b)
+    private void Flush(ref Bird b)
     {
+        Flushed?.Invoke(b.Perch);
         b.State = Perch.Leaving;
         b.Angle = Mathf.Atan2(b.Perch.Z - b.Center.Z, b.Perch.X - b.Center.X);
     }

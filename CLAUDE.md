@@ -57,12 +57,16 @@ Art is generated with Higgsfield, then the finished result is imported:
 tools/art/import.sh texture <material-id> <job-id> <generator> <url> "<prompt>"   # tiling albedo + normal + roughness maps
 tools/art/import.sh model <prop-id> <job-id> <generator> <url> "<prompt>"         # GLB; prints its measured size
 tools/art/import.sh clip <clip-id> <job-id> <generator> <url> "<prompt>"          # a rigged GLB's movement clip, cut down to rig + animation
+tools/art/import.sh voice <voice-id> <job-id> <generator> <url> "<script>"        # one TTS take of a voice's lines, cut into a file per line (ffmpeg)
 ```
 
 Each import records its provenance (job, generator, prompt, URL, files) in `game/data/assets.jsonc`, and a
 sim test fails if the kit or the characters use a texture or model without a record. Then point the
 material's `albedo`, `normal` and `roughnessMap` (`kit/materials.jsonc`), the prop's `model`
-(`kit/props.jsonc`) or a character model or movement clip (`presentation.jsonc` → `characters`, `characters.clips`) at the files. Characters
+(`kit/props.jsonc`) or a character model or movement clip (`presentation.jsonc` → `characters`, `characters.clips`) at the files.
+A voice's script is the exact lines of `presentation.jsonc` `hud.callouts` (or `hud.referee` for the referee), one per line:
+`tools/art/voice-script.py callouts` (or `referee`) prints it, for the generator and for the import's last argument. Its
+files are found by their words, so nothing needs pointing at them. Characters
 must use the generator's biped rig (the bone names `CharacterPoser` binds). One generation can hold four
 materials (a 2 × 2 sheet): cut each with `--region=x,y,w,h`. Cut a regular pattern (bricks, planks,
 corrugations) to whole repeats and pass `--repeats=across,down` (and `--stretch` for a cut that isn't
@@ -70,6 +74,12 @@ square), so its seams blend in step with it; set `tile_m` to the cut's real size
 regular pattern `"breakUpRepeat": true`, so their repeat doesn't show over a yard. The game loads art through
 `ArtFiles`: anything missing falls back to the procedural look, greybox or hitbox boxes, and
 `-- --no-art` ignores all of it (CI's bot match), so the game and CI never depend on art.
+
+## Sound
+
+Every effect is synthesised in code when the game starts (`game/audio/SoundBank.cs`); there are no recorded sounds
+but the voices. To listen to them outside the game: `godot --headless --path game res://tools/ArtImport.tscn --
+--sounds=/tmp/sounds` writes every variation as a WAV file. Headless runs build and count every sound but start none.
 
 ## Verifying visuals without a GPU
 

@@ -211,6 +211,18 @@ areas = [
     A("the day room", [28, 8.2, 32, 14], 2, 0.6), A("the broken ward", [32, 8.2, 42.5, 14], 2, 0.75),
 ]
 
+def toned(areas):
+    """What each room sounds like (presentation.jsonc audio.ambience.tones): wind through the wards' broken windows and
+    up the stairwells, water dripping in the sluice and the pharmacy; the rest a quiet room."""
+    for a in areas:
+        name = a["name"]
+        tone = "draught" if "ward" in name or "day room" in name or "stairs" in name else "drip" if "sluice" in name or "pharmacy" in name else ""
+        if tone and a.get("indoor"):
+            a["tone"] = tone
+    return areas
+
+areas = toned(areas)
+
 north = {
     "id": "north_wing", "displayName": "North wing", "storeys_m": [ST, ST, ST], "slabThickness_m": 0.25, "footprint_m": [0, 0, 56, 14],
     "floorMaterial": "lino", "frames": "steel_painted", "gutters": "steel_painted", "fittings": "steel_painted", "ceilingLights": "enamel_white",
@@ -324,6 +336,7 @@ areas = [
     A2("the top store", [0, 24, 5.8, 32], 2, 0.35), A2("the doctors' rooms", [8.2, 0, 14, 12], 2, 0.55), A2("the top kitchen", [8.2, 12, 14, 16], 2, 0.5),
     A2("the sun ward", [8.2, 16, 14, 28], 2, 0.7), A2("the south ward, top floor", [8.2, 28, 14, 40], 2, 0.65),
 ]
+areas = toned(areas)
 west = {
     "id": "west_wing", "displayName": "West wing", "storeys_m": [ST, ST, ST], "slabThickness_m": 0.25, "footprint_m": [0, 0, 14, 40],
     "floorMaterial": "lino", "frames": "steel_painted", "gutters": "steel_painted", "fittings": "steel_painted", "ceilingLights": "enamel_white",

@@ -152,10 +152,10 @@
     { "prop": "crate_large", "position_m": [2.2, 4.0, 12.0] }
   ],
   "areas": [
-    { "name": "warehouse floor", "rect_m": [0, 0, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.55 },
-    { "name": "warehouse mezzanine", "rect_m": [0, 0, 40, 4.5], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5 },
-    { "name": "warehouse mezzanine", "rect_m": [0, 4.5, 4.5, 24], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5 },
-    { "name": "loading bays", "rect_m": [0, 19, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.7 },
-    { "name": "under the fallen roof", "rect_m": [14, 6, 26, 16], "maxY_m": 8.0, "indoor": true, "light": 0.95 }
+    { "name": "warehouse floor", "rect_m": [0, 0, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.55, "tone": "pigeons" },
+    { "name": "warehouse mezzanine", "rect_m": [0, 0, 40, 4.5], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5, "tone": "pigeons" },
+    { "name": "warehouse mezzanine", "rect_m": [0, 4.5, 4.5, 24], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5, "tone": "pigeons" },
+    { "name": "loading bays", "rect_m": [0, 19, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.7, "tone": "hall" },
+    { "name": "under the fallen roof", "rect_m": [14, 6, 26, 16], "maxY_m": 8.0, "indoor": true, "light": 0.95, "tone": "draught" }
   ]
 }

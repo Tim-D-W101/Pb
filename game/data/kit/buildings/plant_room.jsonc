@@ -46,5 +46,5 @@
     { "prop": "oil_drum_rust", "position_m": [1.3, 0, 9.4] },
     { "prop": "cable_reel", "position_m": [4.0, 0, 8.2], "yaw_deg": 25 }
   ],
-  "areas": [ { "name": "the plant room", "rect_m": [0, 0, 12, 10], "maxY_m": 5.0, "indoor": true, "light": 0.3 } ]
+  "areas": [ { "name": "the plant room", "rect_m": [0, 0, 12, 10], "maxY_m": 5.0, "indoor": true, "light": 0.3, "tone": "drip" } ]
 }

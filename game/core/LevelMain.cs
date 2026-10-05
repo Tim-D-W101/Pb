@@ -93,6 +93,14 @@ public partial class LevelMain : Node3D, ISimEventListener
     private Footprints _prints = null!;
     private PaintDrips _drips = null!;
     private Birds _birds = null!;
+    private AudioDirector _audio = null!;
+    private RefereeCalls _referee = null!;
+
+    /// <summary>The sound (for the smoke test's report).</summary>
+    public AudioDirector Audio => _audio;
+
+    /// <summary>The referee (for the smoke test's report).</summary>
+    public RefereeCalls Referee => _referee;
     private GroundDetail _groundDetail = null!;
     private FloorDebris _floorDebris = null!;
     private OldPaint _oldPaint = null!;
@@ -152,6 +160,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _settings = GameSettings.Load(_view);
+        Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
+        Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
         _settings.ApplyVolume();
         DisplayServer.WindowSetVsyncMode(_settings.Vsync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
 
@@ -311,12 +321,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
 
-        bool headless = DisplayServer.GetName() == "headless";
-        var audio = GetNode<AudioDirector>("Audio");
-        if (!headless)
-        {
-            audio.Initialize(state, _view, _sim.Config.Surfaces.Get("metal"));
-        }
+        // Headless runs (CI) play through Godot's dummy driver: nothing is heard, but every sound is made and counted.
+        _audio = GetNode<AudioDirector>("Audio");
+        _audio.Initialize(_sim, state, _view, _level, _ripples.InWater, _birds);
 
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
         _hud.InitializeMatch(_view, MatchClock);
@@ -373,11 +380,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.AddListener(_prints);
         _driver.AddListener(_drips);
         _driver.AddListener(_birds);
-        if (!headless)
-        {
-            _driver.AddListener(audio);
-        }
-
+        _driver.AddListener(_audio);
+        _referee = new RefereeCalls { Name = "Referee" };
+        AddChild(_referee);
+        _referee.Initialize(_sim, state, _view.Hud.Referee, _hud, _audio);
+        _driver.AddListener(_referee);
         _driver.AddListener(_hud);
         _driver.AddListener(this);
 
@@ -846,7 +853,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private string MatchClock() =>
         RoundScreens.Clock(_match.Phase == MatchPhase.Briefing ? _match.Setup.TimeLimit : _match.TimeLeft);
 
-    /// <summary>Shows what the bots shout as subtitles, when you're close enough to hear it.</summary>
+    /// <summary>Plays what the bots shout in their voices, and shows it as subtitles when you're close enough to hear it.</summary>
     public override void _Process(double delta)
     {
         if (!_ready)
@@ -865,10 +872,18 @@ public partial class LevelMain : Node3D, ISimEventListener
 
             _calloutsSeen[i] = bot.CalloutTick;
             string[] lines = hud.Callouts.For(bot.Callout);
-            float distance = System.Numerics.Vector3.Distance(bot.Self.Position, _player.State.Position);
-            if (lines.Length > 0 && distance <= hud.SubtitleRange_m)
+            if (lines.Length == 0)
             {
-                _hud.Subtitle(bot.Self.Name, bot.Self.Team, lines[(bot.Self.Id * 31 + bot.CalloutTick) % lines.Length]);
+                continue;
+            }
+
+            // Heard in the caller's voice from where they stand (when it's been recorded), and read as a subtitle when close.
+            string line = lines[(bot.Self.Id * 31 + bot.CalloutTick) % lines.Length];
+            _audio.Callout(bot.Self, i, line);
+            float distance = System.Numerics.Vector3.Distance(bot.Self.Position, _player.State.Position);
+            if (distance <= hud.SubtitleRange_m)
+            {
+                _hud.Subtitle(bot.Self.Name, bot.Self.Team, line);
             }
         }
     }
