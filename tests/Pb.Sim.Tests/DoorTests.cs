@@ -14,6 +14,7 @@ namespace Pb.Sim.Tests;
 /// Doors (M3.2), on the guardhouse by Oxbarrow Works' main gate: a panel door in its east wall (x = 4, centred on
 /// z = 34.5), hinged at its north edge and opening inwards (west).
 /// </summary>
+[Collection(BotArenaCollection.Name)]
 public class DoorTests
 {
     private const int Second = 120;

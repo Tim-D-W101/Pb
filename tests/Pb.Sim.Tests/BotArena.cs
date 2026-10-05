@@ -7,8 +7,19 @@ using Pb.Sim.Events;
 using Pb.Sim.Level;
 using Pb.Sim.Match;
 using Pb.Sim.Players;
+using Xunit;
 
 namespace Pb.Sim.Tests;
+
+/// <summary>
+/// Test classes that use <see cref="BotArena"/> run one at a time: arenas share the level's navigation grid (whose
+/// searches use scratch buffers) and cover set (with claims).
+/// </summary>
+[CollectionDefinition(Name)]
+public sealed class BotArenaCollection
+{
+    public const string Name = "Bot arena";
+}
 
 /// <summary>
 /// A whole round without the engine: the compound, you (player 0, team 0, scripted) and bots (team 1)
