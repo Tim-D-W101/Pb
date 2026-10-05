@@ -8,6 +8,12 @@
     "kit/buildings/guardhouse.jsonc",
     "kit/buildings/pump_house.jsonc",
     "kit/buildings/office_block.jsonc",
-    "kit/buildings/warehouse.jsonc"
+    "kit/buildings/warehouse.jsonc",
+    "kit/buildings/engine_shed.jsonc",
+    "kit/buildings/goods_shed.jsonc",
+    "kit/buildings/signal_box.jsonc",
+    "kit/buildings/yard_office.jsonc",
+    "kit/buildings/footbridge.jsonc",
+    "kit/buildings/lamp_hut.jsonc"
   ]
 }

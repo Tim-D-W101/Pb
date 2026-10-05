@@ -1,0 +1,34 @@
+// Footbridge: a steel deck 6 m up crossing the yard's tracks, 2.4 m wide and 32 m long, railed both sides, on pairs of
+// columns that stand between the tracks (here at z 0.3, 7.5, 16.5, 23.5 and 31.7: the level puts it where they fall
+// between), with a long flight of stairs down at each end. Its footprint is the strip under the deck, finished in
+// ballast so it disappears under the tracks.
+{
+  "id": "footbridge",
+  "displayName": "Footbridge",
+  "storeys_m": [6.0],
+  "slabThickness_m": 0.15,
+  "footprint_m": [0, 0, 2.4, 32],
+  "floorMaterial": "ballast",
+  "walls": [
+    { "storey": 0, "baseElevation_m": 6.0, "height_m": 1.2, "style": "railing", "points_m": [[0.05, 0], [0.05, 32]], "thickness_m": 0.05, "material": "steel_painted" },
+    { "storey": 0, "baseElevation_m": 6.0, "height_m": 1.2, "style": "railing", "points_m": [[2.35, 0], [2.35, 32]], "thickness_m": 0.05, "material": "steel_painted" }
+  ],
+  "floors": [ { "elevation_m": 6.0, "rect_m": [0, 0, 2.4, 32], "material": "steel_painted" } ],
+  "stairs": [
+    { "start_m": [1.2, -9.3], "yaw_deg": 180, "width_m": 1.4, "run_m": 9.3, "rise_m": 6.0, "steps": 33, "material": "steel_painted" },
+    { "start_m": [1.2, 41.3], "yaw_deg": 0, "width_m": 1.4, "run_m": 9.3, "rise_m": 6.0, "steps": 33, "material": "steel_painted" }
+  ],
+  "columns": [
+    { "at_m": [0.2, 0.3], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" },
+    { "at_m": [2.2, 0.3], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" },
+    { "at_m": [0.2, 7.5], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" },
+    { "at_m": [2.2, 7.5], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" },
+    { "at_m": [0.2, 16.5], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" },
+    { "at_m": [2.2, 16.5], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" },
+    { "at_m": [0.2, 23.5], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" },
+    { "at_m": [2.2, 23.5], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" },
+    { "at_m": [0.2, 31.7], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" },
+    { "at_m": [2.2, 31.7], "size_m": [0.3, 0.3], "height_m": 5.85, "material": "steel_rust" }
+  ],
+  "areas": [ { "name": "the footbridge", "rect_m": [0, 0, 2.4, 32], "minY_m": 5.5, "maxY_m": 9.0, "light": 1.0 } ]
+}

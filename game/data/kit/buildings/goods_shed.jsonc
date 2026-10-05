@@ -1,0 +1,74 @@
+// Goods shed: 30 × 12 m of brick, 6 m to the eaves. A track runs through it along the north side (at z 2.5; the level
+// lays it), in and out through doorways at each end; the loading platform, 1.2 m up, fills the south side, with steps
+// up at each end, and two loading openings at platform height in the south wall under a canopy on columns.
+// Wall segments: 0 north (x 0→30), 1 east (z 0→12), 2 south (x 30→0, at_m = 30 − x), 3 west (z 12→0, at_m = 12 − z).
+{
+  "id": "goods_shed",
+  "displayName": "Goods shed",
+  "storeys_m": [6.0],
+  "slabThickness_m": 0.15,
+  "footprint_m": [0, 0, 30, 12],
+  "floorMaterial": "concrete_floor",
+  "frames": "steel_painted",
+  "gutters": "steel_rust",
+  "fittings": "steel_painted",
+  "trusses": { "material": "steel_rust", "spacing_m": 5.0, "depth_m": 0.8, "lampsPerTruss": 2 },
+  "markings": {
+    "color": "#e8e4d8",
+    "lineWidth_m": 0.12,
+    // A white line along the platform edge, and the shed's name over the loading openings.
+    "lines_m": [[0.4, 6.25, 29.6, 6.25]],
+    "stencils": [ { "text": "GOODS", "at_m": [15, 4.6, 12.18], "size_m": 0.8, "wall": true } ]
+  },
+  "walls": [
+    {
+      "storey": 0, "points_m": [[0, 0], [30, 0], [30, 12], [0, 12]], "closed": true,
+      "thickness_m": 0.35, "material": "brick_red",
+      "openings": [
+        // The track in and out.
+        { "segment": 3, "at_m": 9.5, "width_m": 4.4, "height_m": 5.0, "kind": "door" },
+        { "segment": 1, "at_m": 2.5, "width_m": 4.4, "height_m": 5.0, "kind": "door" },
+        // Loading openings at platform height, and windows high in the north wall.
+        { "segment": 2, "at_m": 8, "width_m": 3.0, "sill_m": 1.2, "height_m": 2.8, "kind": "window" },
+        { "segment": 2, "at_m": 22, "width_m": 3.0, "sill_m": 1.2, "height_m": 2.8, "kind": "window" },
+        { "segment": 0, "at_m": 6, "width_m": 2.0, "sill_m": 3.0, "height_m": 1.6, "kind": "window" },
+        { "segment": 0, "at_m": 15, "width_m": 2.0, "sill_m": 3.0, "height_m": 1.6, "kind": "window" },
+        { "segment": 0, "at_m": 24, "width_m": 2.0, "sill_m": 3.0, "height_m": 1.6, "kind": "window" },
+        // A door up onto the platform at the east end.
+        { "segment": 1, "at_m": 9.0, "width_m": 1.0, "sill_m": 1.2, "height_m": 2.1, "kind": "window" }
+      ]
+    },
+    // The platform's face along the track side, closing the space under it.
+    { "storey": 0, "baseElevation_m": 0, "height_m": 1.2, "points_m": [[0.2, 6.0], [29.8, 6.0]], "thickness_m": 0.3, "material": "concrete_wall" }
+  ],
+  "floors": [
+    { "elevation_m": 1.2, "rect_m": [0.2, 6.15, 29.8, 11.8], "material": "concrete_floor" },
+    // The canopy outside over the loading road (looks: you can't get up there).
+    { "elevation_m": 4.2, "rect_m": [0, 12.2, 30, 15.0], "material": "corrugated_grey" }
+  ],
+  "roof": { "rect_m": [-0.3, -0.3, 30.3, 12.3], "holes_m": [[13, 2, 17, 5]], "material": "corrugated_grey" },
+  "stairs": [
+    { "start_m": [1.4, 4.1], "yaw_deg": 180, "width_m": 1.2, "run_m": 1.9, "rise_m": 1.2, "steps": 7, "material": "concrete_floor" },
+    { "start_m": [28.6, 4.1], "yaw_deg": 180, "width_m": 1.2, "run_m": 1.9, "rise_m": 1.2, "steps": 7, "material": "concrete_floor" }
+  ],
+  "columns": [
+    { "at_m": [0.4, 14.8], "size_m": [0.25, 0.25], "height_m": 4.2, "material": "steel_painted" },
+    { "at_m": [10, 14.8], "size_m": [0.25, 0.25], "height_m": 4.2, "material": "steel_painted" },
+    { "at_m": [20, 14.8], "size_m": [0.25, 0.25], "height_m": 4.2, "material": "steel_painted" },
+    { "at_m": [29.6, 14.8], "size_m": [0.25, 0.25], "height_m": 4.2, "material": "steel_painted" }
+  ],
+  "props": [
+    { "prop": "pallet_stack", "position_m": [5, 1.2, 9.5] },
+    { "prop": "pallet_stack_tall", "position_m": [6.4, 1.2, 9.6], "yaw_deg": 6 },
+    { "prop": "crate_large", "position_m": [12, 1.2, 10.8] },
+    { "prop": "crate_small", "position_m": [13.3, 1.2, 10.9] },
+    { "prop": "forklift", "position_m": [18, 1.2, 9.0], "yaw_deg": -70 },
+    { "prop": "pallet_stack_tall", "position_m": [24, 1.2, 10.5] },
+    { "prop": "oil_drum", "position_m": [27.5, 1.2, 11.2] },
+    { "prop": "crate_large", "position_m": [9, 1.2, 7.3] }
+  ],
+  "areas": [
+    { "name": "goods shed", "rect_m": [0, 0, 30, 6], "maxY_m": 5.8, "indoor": true, "light": 0.5 },
+    { "name": "the goods platform", "rect_m": [0, 6, 30, 12], "minY_m": 0.9, "maxY_m": 5.8, "indoor": true, "light": 0.55 }
+  ]
+}

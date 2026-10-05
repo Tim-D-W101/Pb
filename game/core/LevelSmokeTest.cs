@@ -376,9 +376,10 @@ public sealed class LevelSmokeTest
         for (int i = 0; i < _opponents.Count; i++)
         {
             PlayerState o = _opponents[i].State;
-            if (IsSentry(_bots[i]) && o.Alive && ScenePositions.FindSpot(_sim, o, 9f, out SVector3 spot))
+            // In front of them, where they're looking: a sentry keeps watch the way it faces.
+            if (IsSentry(_bots[i]) && o.Alive && ScenePositions.FindSpot(_sim, o, 9f, out SVector3 spot, maxTurn: 0.9f))
             {
-                _shotNote = $"facing {o.Name}";
+                _shotNote = $"facing {o.Name} at {o.Position} from {spot}";
                 _player.Teleport(spot, ScenePositions.Facing(spot, o.Position));
                 break;
             }

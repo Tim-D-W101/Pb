@@ -21,6 +21,8 @@ public sealed class NavigationDef : IValidatable
 
     public float HeuristicWeight { get; set; }
 
+    public int Landmarks { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(CellSize_m), CellSize_m, 0.1, 1);
@@ -32,6 +34,7 @@ public sealed class NavigationDef : IValidatable
         v.InRange(nameof(SearchesPerTick), SearchesPerTick, 1, 64);
         v.InRange(nameof(MaxSearchNodes), MaxSearchNodes, 1000, 10_000_000);
         v.InRange(nameof(HeuristicWeight), HeuristicWeight, 1, 5);
+        v.InRange(nameof(Landmarks), Landmarks, 0, 32);
     }
 }
 

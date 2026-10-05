@@ -14,7 +14,10 @@ kit. You pick it, a mode, how many play and a difficulty from the menu, read the
 **solo** (clear the compound of a squad against the clock), **free-for-all** (up to ten players,
 everyone against everyone) or **teams** (you and bot teammates against a bot team, up to 5 v 5),
 picking up paint and air on the way. In solo and teams you can also play for an objective (Phase 3): **retrieve** (find
-the case in the marked building and carry it out) or **hold** (keep the marked room for a minute in all). The bots hold posts, patrol, hunt and rush, notice you by sight
+the case in the marked building and carry it out) or **hold** (keep the marked room for a minute in all). Win a round
+there and the second level opens, **the Rail Yard**: a goods yard left to rust, rakes of dead wagons on four tracks (you
+can shoot under them, not crawl), an engine shed with a gantry, a goods shed with its platform, a signal box and a
+footbridge over the lot, with Marksmen watching from the high places. The bots hold posts, patrol, hunt and rush, notice you by sight
 and sound, and fight from cover; in free-for-all and teams they fight each other too. The match HUD
 is in, and so is the art pass: photographic textures on every surface; every prop modelled (built in
 code from its colliders, with generated models replacing them as they arrive: so far the oil drum
@@ -47,8 +50,8 @@ To run it from Godot:
 1. Install **Godot 4.7.2 – .NET** (the ".NET" download, not the standard one) and the
    **.NET 8 SDK** (or newer).
 2. Open `game/project.godot` in Godot. The first open imports the project and builds the C# code.
-3. Press **F5** (Run Project) for the main menu. **Play**, then for Oxbarrow Works pick a mode, how
-   many play and a difficulty, **Start**, and **Start** again on the briefing card. **Training
+3. Press **F5** (Run Project) for the main menu. **Play**, then pick a level (the Rail Yard opens once you've won a
+   round on Oxbarrow Works), a mode, how many play and a difficulty, **Start**, and **Start** again on the briefing card. **Training
    ground** is the Phase 1 range.
 
 Only want to play it? `tools/package/godot-project.sh` packs the game as one self-contained

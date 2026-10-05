@@ -1,0 +1,24 @@
+// Lamp hut: a brick hut 3 × 2.5 m where the lamps were trimmed, one door and one small window.
+// Wall segments: 0 north (x 0→3), 1 east (z 0→2.5), 2 south (x 3→0, at_m = 3 − x), 3 west (z 2.5→0, at_m = 2.5 − z).
+{
+  "id": "lamp_hut",
+  "displayName": "Lamp hut",
+  "storeys_m": [2.6],
+  "slabThickness_m": 0.15,
+  "footprint_m": [0, 0, 3, 2.5],
+  "floorMaterial": "concrete_floor",
+  "frames": "door_wood",
+  "walls": [
+    {
+      "storey": 0, "points_m": [[0, 0], [3, 0], [3, 2.5], [0, 2.5]], "closed": true,
+      "thickness_m": 0.25, "material": "brick_red",
+      "openings": [
+        { "segment": 2, "at_m": 1.0, "width_m": 0.9, "height_m": 2.0, "kind": "door", "leaf": { "door": "panel", "hinge": "end", "swing": "left", "start": "random" } },
+        { "segment": 1, "at_m": 1.25, "width_m": 0.7, "sill_m": 1.2, "height_m": 0.6, "kind": "window" }
+      ]
+    }
+  ],
+  "roof": { "rect_m": [-0.3, -0.3, 3.3, 2.8], "material": "roof_felt", "ceilingMaterial": "wood_planks" },
+  "props": [ { "prop": "crate_small", "position_m": [0.6, 0, 0.6] } ],
+  "areas": [ { "name": "lamp hut", "rect_m": [0, 0, 3, 2.5], "maxY_m": 2.6, "indoor": true, "light": 0.35 } ]
+}

@@ -1,0 +1,69 @@
+// Signal box: a brick locking room below, the operating floor above in timber, glazed all round, so whoever's up there
+// sees the whole yard. Outside stairs up the east end to a landing and the upper door.
+// Wall segments: 0 north (x 0→8), 1 east (z 0→4), 2 south (x 8→0, at_m = 8 − x), 3 west (z 4→0, at_m = 4 − z).
+{
+  "id": "signal_box",
+  "displayName": "Signal box",
+  "storeys_m": [3.2, 3.0],
+  "slabThickness_m": 0.2,
+  "footprint_m": [0, 0, 8, 4],
+  "floorMaterial": "concrete_floor",
+  "frames": "door_wood",
+  "gutters": "steel_rust",
+  "fittings": "steel_painted",
+  "markings": {
+    "color": "#e2ddcf",
+    "lineWidth_m": 0.1,
+    "stencils": [ { "text": "SIGNAL BOX", "at_m": [4, 3.0, 4.16], "size_m": 0.32, "wall": true } ]
+  },
+  "walls": [
+    {
+      "storey": 0, "points_m": [[0, 0], [8, 0], [8, 4], [0, 4]], "closed": true,
+      "thickness_m": 0.3, "material": "brick_red",
+      "openings": [
+        { "segment": 2, "at_m": 6.0, "width_m": 0.9, "height_m": 2.1, "kind": "door", "leaf": { "door": "panel", "hinge": "end", "swing": "left", "start": "random" } },
+        { "segment": 0, "at_m": 2.0, "width_m": 0.9, "sill_m": 1.7, "height_m": 0.6, "kind": "window" },
+        { "segment": 0, "at_m": 6.0, "width_m": 0.9, "sill_m": 1.7, "height_m": 0.6, "kind": "window" },
+        { "segment": 3, "at_m": 2.0, "width_m": 0.9, "sill_m": 1.7, "height_m": 0.6, "kind": "window" }
+      ]
+    },
+    {
+      "storey": 1, "points_m": [[0, 0], [8, 0], [8, 4], [0, 4]], "closed": true,
+      "thickness_m": 0.15, "material": "door_wood",
+      "openings": [
+        { "segment": 0, "at_m": 1.4, "width_m": 2.2, "sill_m": 0.9, "height_m": 1.6, "kind": "window" },
+        { "segment": 0, "at_m": 4.0, "width_m": 2.2, "sill_m": 0.9, "height_m": 1.6, "kind": "window" },
+        { "segment": 0, "at_m": 6.6, "width_m": 2.2, "sill_m": 0.9, "height_m": 1.6, "kind": "window" },
+        { "segment": 2, "at_m": 1.4, "width_m": 2.2, "sill_m": 0.9, "height_m": 1.6, "kind": "window" },
+        { "segment": 2, "at_m": 4.0, "width_m": 2.2, "sill_m": 0.9, "height_m": 1.6, "kind": "window" },
+        { "segment": 2, "at_m": 6.6, "width_m": 2.2, "sill_m": 0.9, "height_m": 1.6, "kind": "window" },
+        { "segment": 1, "at_m": 0.8, "width_m": 0.9, "height_m": 2.0, "kind": "door", "leaf": { "door": "panel", "hinge": "start", "swing": "right" } },
+        { "segment": 1, "at_m": 2.9, "width_m": 1.4, "sill_m": 0.9, "height_m": 1.6, "kind": "window" },
+        { "segment": 3, "at_m": 2.0, "width_m": 2.6, "sill_m": 0.9, "height_m": 1.6, "kind": "window" }
+      ]
+    },
+    // The landing's railing (its south side is where the stairs come up).
+    {
+      "storey": 1, "baseElevation_m": 3.2, "height_m": 1.0, "style": "railing",
+      "points_m": [[8.15, 0.05], [9.55, 0.05], [9.55, 1.55]], "thickness_m": 0.05, "material": "steel_painted"
+    }
+  ],
+  "floors": [
+    { "elevation_m": 3.2, "rect_m": [0, 0, 8, 4], "material": "wood_planks" },
+    { "elevation_m": 3.2, "rect_m": [8.0, 0, 9.6, 1.6], "material": "wood_planks" }
+  ],
+  "roof": { "rect_m": [-0.4, -0.4, 8.4, 4.4], "material": "roof_felt", "ceilingMaterial": "wood_planks" },
+  "stairs": [ { "start_m": [8.8, 6.6], "yaw_deg": 0, "width_m": 1.0, "run_m": 5.0, "rise_m": 3.2, "steps": 17, "material": "wood_planks" } ],
+  "props": [
+    { "prop": "crate_small", "position_m": [1.0, 0, 1.0] },
+    { "prop": "filing_cabinet", "position_m": [7.4, 0, 3.4], "yaw_deg": 180 },
+    // Upstairs: the lever frame (a long rack) along the back, the desk at the window, a cabinet.
+    { "prop": "shelving_rack", "position_m": [4.0, 3.2, 3.3], "yaw_deg": 180 },
+    { "prop": "desk", "position_m": [1.4, 3.2, 1.0] },
+    { "prop": "filing_cabinet", "position_m": [7.4, 3.2, 3.4], "yaw_deg": 180 }
+  ],
+  "areas": [
+    { "name": "signal box", "rect_m": [0, 0, 8, 4], "maxY_m": 3.0, "indoor": true, "light": 0.4 },
+    { "name": "signal box, upstairs", "rect_m": [0, 0, 8, 4], "minY_m": 3.0, "maxY_m": 6.2, "indoor": true, "light": 0.85 }
+  ]
+}

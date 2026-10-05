@@ -485,7 +485,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 - **Brain.** The state machine, target selection, aim and difficulty are plain C# in `Pb.Sim/AI` (`BotBrain`). A brain emits `InputCommand`s, exactly like a human, and its body is the same `PawnBody` the player uses.
 - **Squad.** `BotSquad` holds what the bots share: the navigation grid, the cover points (with claims, so two bots don't take one spot), the last step's events, and a budget of path searches per tick. The host feeds it each step's events after stepping.
-- **Navigation (as built).** `NavGrid` is built in `Pb.Sim` at level load from the walkable primitives (plus stair steps): columns of 0.25 m, a "span" wherever a bot can stand with headroom and clear of walls by the agent radius, joined to neighbours within a step. A* (weighted) finds paths, which are then straightened. It replaced the planned Godot `NavigationRegion3D`: an engine-free grid is deterministic and lets CI check paths on the real level and run whole fights in sim tests. `IBotNavigation` is the interface the brain uses.
+- **Navigation (as built).** `NavGrid` is built in `Pb.Sim` at level load from the walkable primitives (plus stair steps): columns of 0.25 m, a "span" wherever a bot can stand with headroom and clear of walls by the agent radius, joined to neighbours within a step. A* (weighted) finds paths, which are then straightened. Since M3.5 the search's estimate of the distance left also uses landmarks (`navigation.jsonc` → `landmarks`): walking distances from a few spans spread over the grid, worked out on load, so a search for a place upstairs heads for the stairs instead of searching the floor below; a goal in another connected piece of the grid fails without a search. It replaced the planned Godot `NavigationRegion3D`: an engine-free grid is deterministic and lets CI check paths on the real level and run whole fights in sim tests. `IBotNavigation` is the interface the brain uses.
 - **Cover.** `CoverSet` generates points behind cover-flagged primitives (wall ends, door and window frames, props), full height if they hide a standing head and half if they hide a crouched one, each with the edge to peek round.
 - **Sight.** Rays run from the eyes to the head, chest and hips of each enemy. A detection meter fills according to distance, the area's light level, the target's stance and speed, where in the view they are, and difficulty.
 - **Hearing.** Shots, breaks and footsteps are heard within data ranges, halved when a wall is in the way.
@@ -627,6 +627,21 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   the ground (presentation).
 - **Props and buildings** follow the existing rules (§14.2): colliders are the gameplay shape, detail models built in
   code from them, generated models where they arrive.
+- **As built (M3.5).** `LevelFactory` lays each track segment's two rails as `PrimitiveRole.Rail` boxes (paint only) at
+  the track's gauge; `TrackViews` draws the rails and the sleepers under them. A prop collider can be `"paint": false`
+  (it blocks walking, not paint): a wagon's underframe is a walking-only box with its wheelsets as paint-only
+  cylinders, so you can't crawl under a wagon but you can shoot under it, between the wheels, at someone's legs. The
+  wagons, shunter, buffer stops and stacks are recipes in `PropShapes.Railway.cs`. The Rail Yard
+  (`levels/rail_yard.jsonc`) is built from six new buildings (engine shed with its gantry, goods shed with its platform
+  and canopy, signal box, yard office, footbridge, lamp hut), five tracks (one outside the wall, for the scenery) and
+  rakes of wagons. Its first search tests showed a gap in the navigation: a goal up on the gantry, reached by stairs at
+  the far end of the shed, took up to 166,000 expanded spans (60 ms and more), and an unreachable one cost the whole
+  search budget every time a bot asked. Landmarks and the connected-piece check (above) bring those to under a
+  thousand, and the straightening now looks ahead in doubling strides from each corner instead of testing every span,
+  which had made long straight paths cost milliseconds (the sim tests, with fourteen more of them, went from 54 s to
+  40 s). `LadderLevelTests` holds every playable level to the same checks: the grid reaches every
+  spawn, patrol, pickup, case spot, way out and room from every way in; every mode and objective deals starts at every
+  size; and bot rounds in each mode and objective play out.
 
 ### 15.6 Audio
 

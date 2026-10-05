@@ -30,7 +30,18 @@
         "office_up_south", "warehouse_bays", "pump_house", "east_scrap"
       ]
     },
-    { "id": "rail_yard", "displayName": "The Rail Yard", "note": "Coming in Phase 3" },
+    {
+      "id": "rail_yard", "displayName": "The Rail Yard", "file": "levels/rail_yard.jsonc",
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 840, "startPods": 2, "botPods": 1, "pickups": true },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 780, "startPods": 2, "botPods": 2, "pickups": true },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 660, "startPods": 1, "botPods": 3, "pickups": true }
+      ],
+      "roster": [
+        "yard_office", "north_lane", "signal_box_up", "goods_track", "shed_floor", "south_lane", "footbridge_deck",
+        "lamp_hut", "coal_stage", "west_end"
+      ]
+    },
     { "id": "cold_store", "displayName": "The Cold Store", "note": "Coming in Phase 3" },
     { "id": "hospital_wing", "displayName": "The Hospital Wing", "note": "Coming in Phase 3" }
   ]

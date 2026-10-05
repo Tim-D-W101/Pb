@@ -23,6 +23,8 @@ public sealed class NavParams
     public required int MaxSearchNodes { get; init; }
 
     public required float HeuristicWeight { get; init; }
+
+    public required int Landmarks { get; init; }
 }
 
 /// <summary>How every bot thinks and acts (SI, angles in radians), from bots/brain.jsonc.</summary>
@@ -303,6 +305,7 @@ public sealed class BotConfig
             SearchesPerTick = nav.SearchesPerTick,
             MaxSearchNodes = nav.MaxSearchNodes,
             HeuristicWeight = nav.HeuristicWeight,
+            Landmarks = nav.Landmarks,
         },
         Senses = new SenseParams
         {

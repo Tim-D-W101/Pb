@@ -51,6 +51,17 @@ public sealed class NavGrid : IBotNavigation
     private readonly int[] _spanColumn;
     private readonly int[] _links;
 
+    // Which connected piece of the grid each span is in: a goal in another piece fails without a search.
+    private readonly int[] _component;
+
+    // Landmarks: walking distances from a few spans spread over the biggest piece to every span in it
+    // ([span * count + landmark]), so the search's estimate of what's left knows about the long way round.
+    private readonly int _landmarkCount;
+    private readonly int _landmarkComponent = None;
+    private readonly float[] _landmarkDistance;
+    private readonly float[] _goalLandmark;
+    private bool _landmarksOn;
+
     // Search scratch, reused by every query.
     private readonly float[] _g;
     private readonly int[] _parent;
@@ -89,6 +100,16 @@ public sealed class NavGrid : IBotNavigation
         _closed = new int[spanY.Length];
         _open = new SpanHeap(Math.Min(spanY.Length, 65536) + 16);
         Link();
+        _component = new int[spanY.Length];
+        int biggest = LabelComponents();
+        _landmarkCount = biggest == None ? 0 : p.Landmarks;
+        _landmarkDistance = new float[spanY.Length * _landmarkCount];
+        _goalLandmark = new float[_landmarkCount];
+        if (_landmarkCount > 0)
+        {
+            _landmarkComponent = _component[biggest];
+            PlaceLandmarks(biggest);
+        }
     }
 
     public NavParams Params => _p;
@@ -267,27 +288,47 @@ public sealed class NavGrid : IBotNavigation
         path.Clear();
         int start = NearestSpan(from);
         int goal = NearestSpan(to);
-        if (start == None || goal == None || !Search(start, goal))
+        if (start == None || goal == None || _component[start] != _component[goal] || !Search(start, goal))
         {
             return false;
         }
 
         // _spans holds the span path goal → start; walk it start → goal, keeping only the corners a
-        // straight walk can't cut.
+        // straight walk can't cut. From each corner, look ahead in doubling strides for a span still in a
+        // straight line, then narrow down between the last that was and the first that wasn't: a few
+        // straight-line checks per corner, not one per span (which made long straight runs cost milliseconds).
         int anchor = _spans.Count - 1;
-        int k = anchor - 1;
-        while (k >= 0)
+        while (anchor > 0)
         {
-            int next = k - 1;
-            if (next >= 0 && StraightBetween(_spans[anchor], _spans[next]))
+            int good = anchor - 1;
+            int bad = None;
+            for (int stride = 1; good > 0; stride *= 2)
             {
-                k = next;
-                continue;
+                int probe = Math.Max(good - stride, 0);
+                if (!StraightBetween(_spans[anchor], _spans[probe]))
+                {
+                    bad = probe;
+                    break;
+                }
+
+                good = probe;
             }
 
-            path.Add(PositionOf(_spans[k]));
-            anchor = k;
-            k = anchor - 1;
+            while (bad != None && good - bad > 1)
+            {
+                int middle = (good + bad) / 2;
+                if (StraightBetween(_spans[anchor], _spans[middle]))
+                {
+                    good = middle;
+                }
+                else
+                {
+                    bad = middle;
+                }
+            }
+
+            path.Add(PositionOf(_spans[good]));
+            anchor = good;
         }
 
         if (path.Count == 0)
@@ -322,6 +363,12 @@ public sealed class NavGrid : IBotNavigation
         _parent[start] = None;
         _seen[start] = generation;
         Vector3 goalAt = PositionOf(goal);
+        _landmarksOn = _landmarkCount > 0 && _component[goal] == _landmarkComponent;
+        if (_landmarksOn)
+        {
+            Array.Copy(_landmarkDistance, goal * _landmarkCount, _goalLandmark, 0, _landmarkCount);
+        }
+
         _open.Push(start, Heuristic(start, goalAt));
         int expanded = 0;
         bool found = false;
@@ -354,8 +401,7 @@ public sealed class NavGrid : IBotNavigation
                     continue;
                 }
 
-                float step = (d < 4 ? 1f : Diagonal) * _p.CellSize + MathF.Abs(_spanY[n] - _spanY[s]);
-                float g = gs + step;
+                float g = gs + StepCost(s, n, d);
                 if (_seen[n] != generation || g < _g[n])
                 {
                     _seen[n] = generation;
@@ -381,14 +427,151 @@ public sealed class NavGrid : IBotNavigation
     }
 
     /// <summary>
-    /// Octile distance plus the climb, weighted (navigation.jsonc): above 1 the search heads for the goal
-    /// much more eagerly, at the price of paths slightly longer than the shortest (straightening hides most of it).
+    /// How far the goal still is at least: octile distance plus the climb, or more where a landmark knows better (the
+    /// difference of the two places' walking distances from it can't be more than the walk between them). Weighted
+    /// (navigation.jsonc): above 1 the search heads for the goal much more eagerly, at the price of paths slightly
+    /// longer than the shortest (straightening hides most of it).
     /// </summary>
     private float Heuristic(int span, Vector3 goal)
     {
         float dx = MathF.Abs(_spanX[span] - goal.X);
         float dz = MathF.Abs(_spanZ[span] - goal.Z);
-        return _p.HeuristicWeight * (MathF.Max(dx, dz) + (Diagonal - 1f) * MathF.Min(dx, dz) + MathF.Abs(_spanY[span] - goal.Y));
+        float h = MathF.Max(dx, dz) + (Diagonal - 1f) * MathF.Min(dx, dz) + MathF.Abs(_spanY[span] - goal.Y);
+        if (_landmarksOn)
+        {
+            int row = span * _landmarkCount;
+            for (int k = 0; k < _landmarkCount; k++)
+            {
+                h = MathF.Max(h, MathF.Abs(_goalLandmark[k] - _landmarkDistance[row + k]));
+            }
+        }
+
+        return _p.HeuristicWeight * h;
+    }
+
+    /// <summary>The cost of the step from <paramref name="s"/> to its neighbour <paramref name="n"/> in direction <paramref name="d"/>.</summary>
+    private float StepCost(int s, int n, int d) => (d < 4 ? 1f : Diagonal) * _p.CellSize + MathF.Abs(_spanY[n] - _spanY[s]);
+
+    /// <summary>Labels the connected pieces of the grid; returns a span in the biggest (−1 for an empty grid).</summary>
+    private int LabelComponents()
+    {
+        Array.Fill(_component, None);
+        var stack = new Stack<int>();
+        int label = 0;
+        int biggest = None;
+        int biggestSize = 0;
+        for (int first = 0; first < _component.Length; first++)
+        {
+            if (_component[first] != None)
+            {
+                continue;
+            }
+
+            int size = 0;
+            _component[first] = label;
+            stack.Push(first);
+            while (stack.Count > 0)
+            {
+                int s = stack.Pop();
+                size++;
+                for (int d = 0; d < 8; d++)
+                {
+                    int n = _links[s * 8 + d];
+                    if (n != None && _component[n] == None)
+                    {
+                        _component[n] = label;
+                        stack.Push(n);
+                    }
+                }
+            }
+
+            if (size > biggestSize)
+            {
+                biggestSize = size;
+                biggest = first;
+            }
+
+            label++;
+        }
+
+        return biggest;
+    }
+
+    /// <summary>
+    /// Spreads the landmarks over the biggest piece: each one as far as possible from those before it (the first as far as
+    /// possible from <paramref name="seed"/>), and works out every span's walking distance from each.
+    /// </summary>
+    private void PlaceLandmarks(int seed)
+    {
+        var distance = new float[_spanY.Length];
+        var nearest = new float[_spanY.Length];
+        Array.Fill(nearest, float.PositiveInfinity);
+        Distances(seed, distance);
+        int next = Farthest(distance);
+        for (int k = 0; k < _landmarkCount; k++)
+        {
+            Distances(next, distance);
+            for (int s = 0; s < distance.Length; s++)
+            {
+                _landmarkDistance[s * _landmarkCount + k] = distance[s];
+                nearest[s] = MathF.Min(nearest[s], distance[s]);
+            }
+
+            next = Farthest(nearest);
+        }
+    }
+
+    /// <summary>The span with the largest finite value (the first of equals).</summary>
+    private static int Farthest(float[] distance)
+    {
+        int best = 0;
+        float bestDistance = -1f;
+        for (int s = 0; s < distance.Length; s++)
+        {
+            if (distance[s] > bestDistance && float.IsFinite(distance[s]))
+            {
+                bestDistance = distance[s];
+                best = s;
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>Walking distance from <paramref name="source"/> to every span (infinite where it can't walk), by Dijkstra.</summary>
+    private void Distances(int source, float[] distance)
+    {
+        Array.Fill(distance, float.PositiveInfinity);
+        int generation = ++_generation;
+        _open.Clear();
+        distance[source] = 0f;
+        _open.Push(source, 0f);
+        while (_open.Count > 0)
+        {
+            int s = _open.Pop();
+            if (_closed[s] == generation)
+            {
+                continue; // a stale duplicate
+            }
+
+            _closed[s] = generation;
+            float ds = distance[s];
+            for (int d = 0; d < 8; d++)
+            {
+                int n = _links[s * 8 + d];
+                if (n == None || _closed[n] == generation)
+                {
+                    continue;
+                }
+
+                float g = ds + StepCost(s, n, d);
+                if (g < distance[n])
+                {
+                    distance[n] = g;
+                    _open.Push(n, g);
+                }
+            }
+        }
     }
 
     /// <summary>

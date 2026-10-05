@@ -356,13 +356,29 @@ Each milestone is pushed as it lands, with screenshots.
 
 ### M3.5 The Rail Yard
 
-- [ ] Kit: tracks (rails and sleepers along a polyline), the engine shed, signal box, goods shed with its platform
+- [x] Kit: tracks (rails and sleepers along a polyline), the engine shed, signal box, goods shed with its platform
   and canopy, yard office, footbridge, lamp hut; wagons (box van, open, flat, tank), a shunter, buffer stops,
   sleeper and rail stacks, with detail models in code.
-- [ ] The level file: spawns (with Marksmen on the high spots), patrols, pickups, case spots, ways out, rooms,
+- [x] The level file: spawns (with Marksmen on the high spots), patrols, pickups, case spots, ways out, rooms,
   areas, viewpoints; its ladder tiers; its scenery (a main line running past beyond the wall).
-- [ ] Checked in CI: the walk-through (stairs to the signal box, footbridge and gantry), and bot matches in all three
+- [x] Checked in CI: the walk-through (stairs to the signal box, footbridge and gantry), and bot matches in all three
   modes, without errors. Screenshots from its viewpoints.
+
+As built: rails are paint-only primitives (you step over them; a low shot hits them), and a prop collider can be
+`"paint": false`, so a wagon's underframe stops feet but not paint: you can't crawl under a wagon, but you can shoot
+under it, between the wheels, at someone's legs. The engine shed's gantry got a second stair at its east end (two ways
+up, for Hold), and the patrol routes keep 20 m and more from the three ways in after the first bot matches lost a
+round in five seconds to a patrol passing the east breach. Tiers: Easy 14 min, 2 pods; Normal 13 min, 2 pods; Hard
+11 min, 1 pod (bots carry 1, 2 and 3).
+
+The level's first search tests found a navigation cost that would have hit every later level too: a place up on the
+gantry, whose only stairs were at the far end of the shed, took up to 166,000 expanded spans to reach (60 ms and more
+in one tick), and an unreachable place cost the whole search budget each time a bot asked for it. The grid now works
+out walking distances from eight landmarks when the level loads (`navigation.jsonc` → `landmarks`; under a second on
+the Rail Yard), which keeps searches like that under a thousand spans, refuses a goal in another connected piece
+without searching, and straightens paths in doubling strides; the sim tests got faster with fourteen more of them.
+`LadderLevelTests` checks every playable level the same way (reachability from every way in, starts for every mode,
+objective and size, and bot rounds), and `RailYardTests` the tracks, the wagons, the high places and the ways up.
 
 ### M3.6 The Cold Store
 
