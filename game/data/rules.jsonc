@@ -12,7 +12,8 @@
   //                 players a side (teams); defaultSize is picked first
   //   roles         behaviours the bots are dealt, with their relative chances (bots/archetypes.jsonc).
   //                 Solo has none: its bots take their spawn's roles (or "spawning.coverRoles").
-  //                 Hunters roam the level looking for a fight, which is what the open modes need.
+  //                 Hunters roam the level looking for a fight, which is what the open modes need; flankers
+  //                 work round to your side once a teammate calls you out, marksmen watch from high ground.
   //   restlessAfter_s  a bot that has had nothing to go on for this long starts hunting, so a round
   //                 doesn't stall with everyone holding a corner (0 = never)
   "modes": [
@@ -28,6 +29,8 @@
       "roles": [
         { "role": "hunter", "weight": 6 },
         { "role": "rusher", "weight": 2 },
+        { "role": "flanker", "weight": 1 },
+        { "role": "marksman", "weight": 1 },
         { "role": "sentry", "weight": 1 },
         { "role": "patroller", "weight": 1 }
       ],
@@ -39,8 +42,10 @@
       "sizes": [2, 3, 4, 5], "defaultSize": 3,
       "roles": [
         { "role": "hunter", "weight": 5 },
+        { "role": "flanker", "weight": 2 },
         { "role": "sentry", "weight": 2 },
         { "role": "rusher", "weight": 2 },
+        { "role": "marksman", "weight": 1 },
         { "role": "patroller", "weight": 1 }
       ],
       "restlessAfter_s": 40

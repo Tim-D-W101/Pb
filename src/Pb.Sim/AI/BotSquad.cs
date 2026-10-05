@@ -1,3 +1,4 @@
+using System.Numerics;
 using Pb.Sim.Data;
 using Pb.Sim.Events;
 using Pb.Sim.Level;
@@ -16,6 +17,9 @@ public sealed class BotSquad
     private readonly List<BotBrain> _bots = new();
     private readonly SimEventQueue _incoming = new();
     private readonly SimEventQueue _current = new();
+    private readonly List<Contact> _incomingContacts = new(32);
+    private readonly List<Contact> _currentContacts = new(32);
+    private VantageSet? _vantage;
     private int _syncedTick = int.MinValue;
     private int _searchesLeft;
 
@@ -40,12 +44,35 @@ public sealed class BotSquad
     /// <summary>Path searches run so far (for the benchmark).</summary>
     public int SearchesDone { get; private set; }
 
-    /// <summary>Builds the navigation grid and cover points for <paramref name="level"/>.</summary>
+    /// <summary>How good each cover point is to watch from (built when first wanted, or by <see cref="ForLevel"/>).</summary>
+    public VantageSet Vantage => _vantage ??=
+        VantageSet.Build(Cover, Sim.Collision, Sim.Level?.Bounds, Sim.Config.Movement.StandEyeHeight, Config.Brain);
+
+    /// <summary>A bot calling out where an enemy is, for its teammates: who called, from where, about whom, and where they are.</summary>
+    public readonly record struct Contact(int From, byte Team, Vector3 FromEye, int TargetId, Vector3 At);
+
+    /// <summary>Builds the navigation grid, cover points and their vantage for <paramref name="level"/>.</summary>
     public static BotSquad ForLevel(SimWorld sim, BotConfig config, LevelLayout level)
     {
         NavGrid grid = NavGrid.Build(level, config.Navigation);
         CoverSet cover = CoverSet.Build(level, grid, sim.Config.Movement.StandEyeHeight, sim.Config.Movement.CrouchEyeHeight);
-        return new BotSquad(sim, config, grid, cover);
+        var squad = new BotSquad(sim, config, grid, cover);
+        _ = squad.Vantage;
+        return squad;
+    }
+
+    /// <summary>Uses <paramref name="vantage"/> instead of building it (tests share one across arenas).</summary>
+    public void UseVantage(VantageSet vantage) => _vantage = vantage;
+
+    /// <summary><paramref name="from"/> calls out that <paramref name="target"/> is at <paramref name="at"/>; teammates hear it next tick.</summary>
+    internal void Share(PlayerState from, int target, Vector3 at) =>
+        _incomingContacts.Add(new Contact(from.Id, from.Team, from.EyePosition, target, at));
+
+    /// <summary>The contacts called in the last completed step, as of <paramref name="tick"/>.</summary>
+    internal ReadOnlySpan<Contact> ContactsFor(int tick)
+    {
+        Sync(tick);
+        return System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_currentContacts);
     }
 
     /// <summary>Gives <paramref name="player"/> a brain: the spawn's behaviour at the tier's difficulty.</summary>
@@ -118,6 +145,9 @@ public sealed class BotSquad
         }
 
         _incoming.Clear();
+        _currentContacts.Clear();
+        _currentContacts.AddRange(_incomingContacts);
+        _incomingContacts.Clear();
         _searchesLeft = Config.Navigation.SearchesPerTick;
     }
 }

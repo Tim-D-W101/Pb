@@ -1378,6 +1378,14 @@ public sealed class CalloutsDef : IValidatable
 
     public string[] Hit { get; set; } = System.Array.Empty<string>();
 
+    public string[] Flanking { get; set; } = System.Array.Empty<string>();
+
+    public string[] Pushing { get; set; } = System.Array.Empty<string>();
+
+    public string[] Moving { get; set; } = System.Array.Empty<string>();
+
+    public string[] ManDown { get; set; } = System.Array.Empty<string>();
+
     public string[] For(Pb.Sim.AI.CalloutKind kind) => kind switch
     {
         Pb.Sim.AI.CalloutKind.Spotted => Spotted,
@@ -1385,12 +1393,17 @@ public sealed class CalloutsDef : IValidatable
         Pb.Sim.AI.CalloutKind.UnderFire => UnderFire,
         Pb.Sim.AI.CalloutKind.Refill => Refill,
         Pb.Sim.AI.CalloutKind.Hit => Hit,
+        Pb.Sim.AI.CalloutKind.Flanking => Flanking,
+        Pb.Sim.AI.CalloutKind.Pushing => Pushing,
+        Pb.Sim.AI.CalloutKind.Moving => Moving,
+        Pb.Sim.AI.CalloutKind.ManDown => ManDown,
         _ => System.Array.Empty<string>(),
     };
 
     public void Validate(Validator v)
     {
-        foreach ((string name, string[] lines) in new[] { (nameof(Spotted), Spotted), (nameof(Lost), Lost), (nameof(UnderFire), UnderFire), (nameof(Refill), Refill), (nameof(Hit), Hit) })
+        foreach ((string name, string[] lines) in new[] { (nameof(Spotted), Spotted), (nameof(Lost), Lost), (nameof(UnderFire), UnderFire), (nameof(Refill), Refill), (nameof(Hit), Hit),
+                     (nameof(Flanking), Flanking), (nameof(Pushing), Pushing), (nameof(Moving), Moving), (nameof(ManDown), ManDown) })
         {
             if (lines.Length == 0)
             {

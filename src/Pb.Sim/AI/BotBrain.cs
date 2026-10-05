@@ -60,6 +60,18 @@ public enum CalloutKind : byte
 
     /// <summary>Eliminated: the paintball "Hit!" call.</summary>
     Hit,
+
+    /// <summary>Working round to the side of an enemy a teammate called out.</summary>
+    Flanking,
+
+    /// <summary>Pushing straight at where the enemy was.</summary>
+    Pushing,
+
+    /// <summary>Leaving a spot that's been shot at (or shot from) too long for another.</summary>
+    Moving,
+
+    /// <summary>A teammate went out close by.</summary>
+    ManDown,
 }
 
 /// <summary>Where a bot fighting from cover is in its cycle.</summary>
@@ -92,6 +104,9 @@ public sealed class BotBrain
 {
     private const float ArriveRadius = 0.35f;
     private const float TriggerTicks = 1;
+
+    /// <summary>Samples along a walk when judging how much of it an enemy would see.</summary>
+    private const int ExposureSamples = 6;
 
     private readonly BotSquad _squad;
     private readonly SimWorld _sim;
@@ -153,6 +168,13 @@ public sealed class BotBrain
     private bool[] _huntVisited = Array.Empty<bool>();
     private bool _hunting;
     private float _quietFor;
+
+    // Teamwork, vantage and flanking.
+    private float _sinceShare = float.MaxValue;
+    private int _vantage = -1;
+    private bool _vantageTried;
+    private int _shotsHere;
+    private bool _relocating;
 
     // Doors on the way.
     private int _doorLeaf = -1;
@@ -247,7 +269,12 @@ public sealed class BotBrain
 
         bool live = _sim.IsLive && !Passive;
         Senses.Enabled = live;
-        Senses.Update(dt, heard);
+        Senses.Update(dt, heard, _squad.ContactsFor(tick), _b.CalloutRange, _b.ContactError, _b.ContactMemory);
+        if (live)
+        {
+            NoticeTeammatesOut(heard);
+        }
+
         if (!live)
         {
             _cmd.Yaw = _yaw;
@@ -259,6 +286,7 @@ public sealed class BotBrain
         _phaseTime += dt;
         _sincePull += dt;
         _sinceCallout += dt;
+        _sinceShare += dt;
         _decideIn -= dt;
         bool quiet = Mode is BotMode.Idle or BotMode.Return && Senses.Focus is not { HasLead: true };
         _quietFor = quiet ? _quietFor + dt : 0f;
@@ -331,6 +359,11 @@ public sealed class BotBrain
 
         if (seen)
         {
+            if (Mode == BotMode.Flank && HoldingFire(f!))
+            {
+                return; // not noticed yet: get round to the side first
+            }
+
             if (Mode != BotMode.Engage)
             {
                 StartEngage(f!);
@@ -338,6 +371,23 @@ public sealed class BotBrain
             else
             {
                 CheckCover(f!);
+            }
+
+            return;
+        }
+
+        // A teammate called someone out: a flanker works round to the side, anyone else comes to help.
+        if (f is { HasLead: true, FromContact: true } && Mode is BotMode.Idle or BotMode.Return or BotMode.Suspicious)
+        {
+            if (Archetype.FlankOnContact && TryFlankAround(f))
+            {
+                SetMode(BotMode.Flank);
+                Shout(CalloutKind.Flanking);
+            }
+            else
+            {
+                SetMode(BotMode.Investigate);
+                GoTo(f.LastKnown, Archetype.MoveGait);
             }
 
             return;
@@ -353,11 +403,13 @@ public sealed class BotBrain
                 if (roll < Archetype.PushChance * aggression || !Archetype.UseCover)
                 {
                     SetMode(BotMode.Push);
+                    Shout(CalloutKind.Pushing);
                     GoTo(f.LastKnown, Archetype.MoveGait);
                 }
                 else if (roll < (Archetype.PushChance + Archetype.FlankChance) * aggression && TryFlank(f))
                 {
                     SetMode(BotMode.Flank);
+                    Shout(CalloutKind.Flanking);
                 }
             }
             else if (Mode is BotMode.Flank or BotMode.Push && (_arrived || !_hasGoal))
@@ -393,9 +445,16 @@ public sealed class BotBrain
 
                     break;
                 case BotMode.Engage:
+                    StartSearch(f.LastKnown);
+                    break;
                 case BotMode.Flank:
                 case BotMode.Push:
-                    StartSearch(f.LastKnown);
+                    // Get there first, then look around.
+                    if (_arrived || !_hasGoal)
+                    {
+                        StartSearch(f.LastKnown);
+                    }
+
                     break;
             }
 
@@ -465,6 +524,19 @@ public sealed class BotBrain
                 ActEngage(f!, target, visible, dt);
                 break;
             case BotMode.Flank:
+                // The last stretch to a flanking spot, crouched and quiet.
+                _crouchMove = Archetype.StealthWithin > 0f && _hasGoal && FlatDistance(Self.Position, _goal) < Archetype.StealthWithin;
+                FollowPath(dt);
+                if (visible)
+                {
+                    LookToward(target!.Position, slow: false);
+                }
+                else
+                {
+                    LookAlongPath();
+                }
+
+                break;
             case BotMode.Push:
             case BotMode.Resupply:
             case BotMode.Return:
@@ -478,7 +550,11 @@ public sealed class BotBrain
 
         if (visible)
         {
-            Aim(target!, f!, dt);
+            Aim(target!, f!, dt, mayFire: !(Mode == BotMode.Flank && HoldingFire(f!)));
+            if (Mode == BotMode.Engage && _sinceShare >= _b.ShareInterval)
+            {
+                ShareContact(target!);
+            }
         }
         else
         {
@@ -498,6 +574,11 @@ public sealed class BotBrain
 
     private void ActIdle(float dt)
     {
+        if (Archetype.Idle == BotIdle.Overwatch && !Restless && ActOverwatch(dt))
+        {
+            return;
+        }
+
         if (Hunts && _sim.Level is { OpponentSpawns.Count: > 0 } level)
         {
             ActHunt(level, dt);
@@ -674,10 +755,73 @@ public sealed class BotBrain
         _patrolIndex += _patrolStep;
     }
 
+    /// <summary>
+    /// Overwatch (marksmen): take the best vantage within reach of the start, then watch the open ground from it,
+    /// sweeping slowly across the side it faces. False when there's no vantage to be had (it holds its post instead).
+    /// </summary>
+    private bool ActOverwatch(float dt)
+    {
+        CoverSet cover = _squad.Cover;
+        if (!_vantageTried)
+        {
+            _vantageTried = true;
+            _vantage = _squad.Vantage.Best(cover, Home, Archetype.OverwatchReach, Self.Id, _near);
+            if (_vantage >= 0 && !cover.Claim(_vantage, Self.Id))
+            {
+                _vantage = -1;
+            }
+        }
+
+        // Back from a fight: the vantage again, or another if someone's taken it meanwhile.
+        if (_vantage >= 0 && cover.ClaimedBy(_vantage) != Self.Id && !cover.Claim(_vantage, Self.Id))
+        {
+            _vantage = _squad.Vantage.Best(cover, Home, Archetype.OverwatchReach, Self.Id, _near);
+            if (_vantage >= 0 && !cover.Claim(_vantage, Self.Id))
+            {
+                _vantage = -1;
+            }
+        }
+
+        if (_vantage < 0)
+        {
+            return false;
+        }
+
+        CoverPoint p = cover.Points[_vantage];
+        if (FlatDistance(Self.Position, p.Position) > 1.2f)
+        {
+            if (!_hasGoal || Vector3.Distance(_goal, p.Position) > 0.5f)
+            {
+                GoTo(p.Position, BotGait.Walk);
+            }
+
+            FollowPath(dt);
+            LookAlongPath();
+            return true;
+        }
+
+        // On the spot: eyes over low cover, or stepped out past the edge and leaning, watching its most open view and
+        // sweeping slowly either side of it (never further round than the side the cover faces).
+        _cover = _vantage;
+        HoldCover(peek: true);
+        _scanPhase += dt * MathF.Tau / (_b.ScanPeriod * 1.6f);
+        float middle = YawOf(-p.Normal);
+        float view = middle + BotAim.Wrap(_squad.Vantage.FacingYaw(_vantage) - middle);
+        float half = _b.VantageArc * 0.5f;
+        _wantYaw = Math.Clamp(view + _b.VantageArc * 0.25f * MathF.Sin(_scanPhase), middle - half, middle + half);
+        _wantPitch = -0.03f;
+        return true;
+    }
+
     private void StartEngage(Awareness f)
     {
         SetMode(BotMode.Engage);
         Shout(CalloutKind.Spotted);
+        if (_sim.FindPlayer(f.TargetId) is { Alive: true } seen)
+        {
+            ShareContact(seen);
+        }
+
         _peeksWithoutSight = 0;
         PlayerState? target = _sim.FindPlayer(f.TargetId);
         float distance = target is null ? 0f : Vector3.Distance(Self.Position, target.Position);
@@ -758,6 +902,15 @@ public sealed class BotBrain
             case CoverPhase.Hiding:
                 HoldCover(peek: false);
                 LookToward(f.LastKnown, slow: false);
+                if (ShouldRelocate(f))
+                {
+                    Shout(CalloutKind.Moving, force: true); // once a spot, and worth hearing even straight after "under fire"
+                    _relocating = true;
+                    ChooseCover(f);
+                    _relocating = false;
+                    break;
+                }
+
                 if (_phaseTime >= _phaseLength && Self.Marker.Paint.Loader > 0 && !Self.Marker.Refill.Active)
                 {
                     SetPhase(CoverPhase.Peeking, Archetype.PeekTime * (0.8f + 0.4f * _rng.NextFloat()));
@@ -879,10 +1032,12 @@ public sealed class BotBrain
         Vector3 threatEye = target is { Alive: true } ? target.EyePosition : f.LastKnown + new Vector3(0f, 1.6f, 0f);
         Vector3 threatChest = threatEye - new Vector3(0f, 0.45f, 0f);
         CoverSet cover = _squad.Cover;
-        cover.Near(Self.Position, _b.CoverSearchRadius, _near);
+        float radius = _b.CoverSearchRadius * (Archetype.Vantage > 0f ? 1.6f : 1f);
+        cover.Near(Self.Position, radius, _near);
         int best = -1;
         float bestScore = float.MinValue;
         MovementParams move = _sim.Config.Movement;
+        Vector3 leaving = _cover >= 0 ? cover.Points[_cover].Position : Self.Position;
         for (int k = 0; k < _near.Count; k++)
         {
             int i = _near[k];
@@ -893,6 +1048,10 @@ public sealed class BotBrain
             }
 
             CoverPoint p = cover.Points[i];
+            if (_relocating && FlatDistance(p.Position, leaving) < _b.RelocateDistance)
+            {
+                continue; // moving means somewhere else
+            }
             float toThreat = FlatDistance(p.Position, threatEye);
             if (toThreat < _b.MinThreatDistance || Vector3.Dot(threatEye - p.Position, p.Normal) > 0f)
             {
@@ -909,6 +1068,10 @@ public sealed class BotBrain
 
             float travel = FlatDistance(Self.Position, p.Position);
             float score = -travel * 1.2f - MathF.Abs(toThreat - Archetype.EngageRange) * 0.4f + (canShoot ? 12f : 0f) + (p.Height == CoverHeight.Full ? 1.5f : 0f);
+            if (Archetype.Vantage > 0f)
+            {
+                score += Archetype.Vantage * _squad.Vantage[i] * 10f;
+            }
             if (FlatDistance(p.Position, threatEye) < FlatDistance(Self.Position, threatEye) - 4f)
             {
                 score -= 6f; // running at them to get there
@@ -924,6 +1087,7 @@ public sealed class BotBrain
         if (best >= 0 && cover.Claim(best, Self.Id))
         {
             _cover = best;
+            _shotsHere = 0;
             GoTo(cover.Points[best].Position, Archetype.MoveGait);
             SetPhase(CoverPhase.Moving, 0f);
         }
@@ -990,6 +1154,11 @@ public sealed class BotBrain
             }
 
             float score = angle * 4f - FlatDistance(Self.Position, p.Position) * 0.3f + _rng.NextFloat();
+            if (Archetype.FlankOnContact)
+            {
+                score -= Exposure(Self.Position, p.Position, f.LastKnown) * 8f;
+            }
+
             if (score > bestScore && Clear(ShootingEye(p, lastChest), lastChest))
             {
                 bestScore = score;
@@ -1007,6 +1176,150 @@ public sealed class BotBrain
         SetPhase(CoverPhase.None, 0f);
         return true;
     }
+
+    /// <summary>
+    /// A flanking spot on a teammate's contact: cover that sees the enemy's position from well off the line between them
+    /// and the teammate who called it (as near a right angle as can be had), hidden from them, reached by a walk they'd see
+    /// as little of as possible.
+    /// </summary>
+    private bool TryFlankAround(Awareness f)
+    {
+        CoverSet cover = _squad.Cover;
+        float reach = MathF.Max(Archetype.EngageRange * 1.4f, 12f);
+        cover.Near(f.LastKnown, reach, _near);
+        Vector3 line = (f.ContactFrom - f.LastKnown) with { Y = 0f };
+        if (line.LengthSquared() < 1e-4f)
+        {
+            line = (Self.Position - f.LastKnown) with { Y = 0f };
+        }
+
+        line = Vector3.Normalize(line + new Vector3(1e-4f, 0f, 0f));
+        Vector3 threatEye = f.LastKnown + new Vector3(0f, _sim.Config.Movement.StandEyeHeight, 0f);
+        Vector3 lastChest = f.LastKnown + new Vector3(0f, 1.2f, 0f);
+        float head = _sim.Config.Movement.CrouchEyeHeight;
+        int best = -1;
+        float bestScore = float.MinValue;
+        for (int k = 0; k < _near.Count; k++)
+        {
+            int i = _near[k];
+            if (cover.ClaimedBy(i) is int holder && holder != -1 && holder != Self.Id)
+            {
+                continue;
+            }
+
+            CoverPoint p = cover.Points[i];
+            Vector3 dir = (p.Position - f.LastKnown) with { Y = 0f };
+            float distance = dir.Length();
+            if (distance < _b.MinThreatDistance || !p.CanShoot)
+            {
+                continue;
+            }
+
+            float angle = MathF.Acos(Math.Clamp(Vector3.Dot(dir / distance, line), -1f, 1f));
+            if (angle < _b.FlankMinAngle || angle > MathF.PI - 0.5f)
+            {
+                continue; // not off to the side
+            }
+
+            if (Clear(threatEye, p.Position + new Vector3(0f, head + 0.05f, 0f)) || !Clear(ShootingEye(p, lastChest), lastChest))
+            {
+                continue; // they'd see it coming, or there's no shot from it
+            }
+
+            float score = -MathF.Abs(angle - MathF.PI * 0.5f) * 3f - FlatDistance(Self.Position, p.Position) * 0.15f -
+                          MathF.Abs(distance - Archetype.EngageRange) * 0.2f - Exposure(Self.Position, p.Position, f.LastKnown) * 8f +
+                          _rng.NextFloat() * 0.5f;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = i;
+            }
+        }
+
+        if (best < 0 || !cover.Claim(best, Self.Id))
+        {
+            return false;
+        }
+
+        _cover = best;
+        GoTo(cover.Points[best].Position, Archetype.MoveGait);
+        SetPhase(CoverPhase.None, 0f);
+        return true;
+    }
+
+    /// <summary>Share of a walk from <paramref name="from"/> to <paramref name="to"/> in sight of someone at <paramref name="threat"/> (0..1).</summary>
+    private float Exposure(Vector3 from, Vector3 to, Vector3 threat)
+    {
+        Vector3 eye = threat + new Vector3(0f, _sim.Config.Movement.StandEyeHeight, 0f);
+        int seen = 0;
+        for (int k = 1; k <= ExposureSamples; k++)
+        {
+            Vector3 at = Vector3.Lerp(from, to, k / (float)(ExposureSamples + 1)) + new Vector3(0f, 1.2f, 0f);
+            if (Clear(eye, at))
+            {
+                seen++;
+            }
+        }
+
+        return seen / (float)ExposureSamples;
+    }
+
+    /// <summary>
+    /// Flanking with held fire: keep quiet while the enemy hasn't noticed (they're facing well away) and isn't close; once
+    /// they turn this way, come close or the flanker is under fire, it opens up.
+    /// </summary>
+    private bool HoldingFire(Awareness f)
+    {
+        if (!Archetype.HoldFireWhileFlanking || _arrived || f.SinceShotAt < 1f || _sim.FindPlayer(f.TargetId) is not { } target)
+        {
+            return false;
+        }
+
+        Vector3 toMe = (Self.Position - target.Position) with { Y = 0f };
+        float distance = toMe.Length();
+        if (distance < Archetype.CloseRange)
+        {
+            return false;
+        }
+
+        float facing = Vector3.Dot(ViewAngles.FlatForward(target.Yaw), toMe / MathF.Max(distance, 1e-3f));
+        return facing < MathF.Cos(_b.NoticedAngle);
+    }
+
+    /// <summary>A careful shooter has fired enough from here, or balls are landing round it: time to move.</summary>
+    private bool ShouldRelocate(Awareness f)
+    {
+        if (_cover < 0 || _phaseTime < 0.4f)
+        {
+            return false;
+        }
+
+        return (Archetype.RelocateAfterShots > 0 && _shotsHere >= Archetype.RelocateAfterShots) ||
+               (Archetype.RelocateWhenShotAt && f.SinceShotAt < 0.3f);
+    }
+
+    /// <summary>Tells teammates within earshot where <paramref name="target"/> is.</summary>
+    private void ShareContact(PlayerState target)
+    {
+        _squad.Share(Self, target.Id, target.Position);
+        _sinceShare = 0f;
+    }
+
+    /// <summary>A teammate going out close by gets a shout.</summary>
+    private void NoticeTeammatesOut(ReadOnlySpan<Events.SimEvent> heard)
+    {
+        for (int i = 0; i < heard.Length; i++)
+        {
+            ref readonly Events.SimEvent e = ref heard[i];
+            if (e.Type == Events.SimEventType.PlayerEliminated && e.TargetId != Self.Id && _sim.FindPlayer(e.TargetId) is { } mate &&
+                mate.Team == Self.Team && Vector3.DistanceSquared(mate.Position, Self.Position) < _b.CalloutRange * _b.CalloutRange)
+            {
+                Shout(CalloutKind.ManDown);
+            }
+        }
+    }
+
+    private static float YawOf(Vector3 direction) => MathF.Atan2(-direction.X, -direction.Z);
 
     private void StartSearch(Vector3 centre)
     {
@@ -1055,7 +1368,7 @@ public sealed class BotBrain
     }
 
     /// <summary>Aims at the target's chest (or head, if that's all that shows), leading and holding over, and fires when it's right.</summary>
-    private void Aim(PlayerState target, Awareness f, float dt)
+    private void Aim(PlayerState target, Awareness f, float dt, bool mayFire = true)
     {
         Vector3 eye = Self.EyePosition;
         Vector3 chest = target.Position + new Vector3(0f, target.EyeHeight * 0.72f, 0f) + target.LeanOffset * 0.6f;
@@ -1089,12 +1402,14 @@ public sealed class BotBrain
         bool onTarget = MathF.Abs(BotAim.Wrap(_wantYaw - _yaw)) < _b.AimTolerance && MathF.Abs(_wantPitch - _pitch) < _b.AimTolerance;
         bool ready = Self.MarkerReady && !Self.Sprinting && Self.Marker.Paint.Loader > 0 && Self.Marker.Air.CanFire;
         bool steadyEnough = Archetype.FireOnMove || Self.HorizontalSpeed < 0.8f;
-        if (!reacted || !onTarget || !ready || !steadyEnough || _sincePull < _nextPull)
+        float range = Vector3.Distance(eye, point);
+        // A careful shooter at range waits for its aim to settle on the target.
+        bool settled = !Archetype.SteadyShots || range <= Archetype.CloseRange || _steady >= _b.AimSettleTime;
+        if (!mayFire || !reacted || !onTarget || !ready || !steadyEnough || !settled || _sincePull < _nextPull)
         {
             return;
         }
 
-        float range = Vector3.Distance(eye, point);
         ShotSolution shot = _sim.SolveShot(Self);
         if (shot.MuzzleBlocked || Vector3.Distance(eye, shot.AimPoint) < range - 1.0f || TeammateInTheWay(eye, point))
         {
@@ -1104,7 +1419,8 @@ public sealed class BotBrain
         _cmd.Buttons |= InputButtons.Fire;
         _triggerHeld = (int)TriggerTicks - 1;
         _sincePull = 0f;
-        _nextPull = Tier.PullInterval * (0.85f + 0.4f * _rng.NextFloat());
+        _nextPull = Tier.PullInterval * Archetype.PullScale * (0.85f + 0.4f * _rng.NextFloat());
+        _shotsHere++;
     }
 
     private void Release() => _triggerHeld = 0;

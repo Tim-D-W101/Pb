@@ -917,7 +917,11 @@
       "lost": ["Lost them.", "Where'd they go?", "Anyone see them?"],
       "underFire": ["Taking fire!", "Incoming!", "I'm pinned!"],
       "refill": ["Reloading!", "Changing pods!"],
-      "hit": ["Hit!", "I'm hit!", "Hit, hit!"]
+      "hit": ["Hit!", "I'm hit!", "Hit, hit!"],
+      "flanking": ["Going round!", "Flanking!", "I'll take the side!"],
+      "pushing": ["Pushing up!", "Moving in!", "Going in!"],
+      "moving": ["Moving!", "Changing spots!", "Relocating!"],
+      "manDown": ["Man down!", "They got one of us!", "We lost one!"]
     }
   },
 

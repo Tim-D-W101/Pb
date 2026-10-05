@@ -82,8 +82,49 @@ public sealed class BrainDef : IValidatable
 
     public float HuntLookAround_s { get; set; }
 
+    /// <summary>A bot that spots someone shouts it: teammates within this (halved through walls) get where they are.</summary>
+    public float CalloutRange_m { get; set; }
+
+    /// <summary>... give or take this much, either way.</summary>
+    public float ContactError_m { get; set; }
+
+    /// <summary>While it keeps them in sight it calls their position again this often.</summary>
+    public float ShareInterval_s { get; set; }
+
+    /// <summary>A call is worth acting on for this long, even if they've heard something of the enemy themselves since.</summary>
+    public float ContactMemory_s { get; set; }
+
+    /// <summary>Marksmen moving on go at least this far from the spot they leave.</summary>
+    public float RelocateDistance_m { get; set; }
+
+    /// <summary>A flanking spot is at least this far off the line between the enemy and the teammate who called them.</summary>
+    public float FlankMinAngle_deg { get; set; }
+
+    /// <summary>An enemy facing within this of a flanker holding its fire has noticed it.</summary>
+    public float NoticedAngle_deg { get; set; }
+
+    /// <summary>Vantage scoring: rays this many and this long across this arc of the side the cover faces, plus this per metre up.</summary>
+    public int VantageRays { get; set; }
+
+    public float VantageRange_m { get; set; }
+
+    public float VantageArc_deg { get; set; }
+
+    public float VantageHeightBonus_perM { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(CalloutRange_m), CalloutRange_m, 0, 200);
+        v.InRange(nameof(ContactError_m), ContactError_m, 0, 20);
+        v.InRange(nameof(ShareInterval_s), ShareInterval_s, 0.2, 60);
+        v.InRange(nameof(ContactMemory_s), ContactMemory_s, 0.1, 60);
+        v.InRange(nameof(RelocateDistance_m), RelocateDistance_m, 0, 100);
+        v.InRange(nameof(FlankMinAngle_deg), FlankMinAngle_deg, 0, 150);
+        v.InRange(nameof(NoticedAngle_deg), NoticedAngle_deg, 0, 180);
+        v.InRange(nameof(VantageRays), VantageRays, 1, 64);
+        v.InRange(nameof(VantageRange_m), VantageRange_m, 5, 300);
+        v.InRange(nameof(VantageArc_deg), VantageArc_deg, 10, 360);
+        v.InRange(nameof(VantageHeightBonus_perM), VantageHeightBonus_perM, 0, 1);
         v.InRange(nameof(HuntChoices), HuntChoices, 1, 8);
         v.InRange(nameof(HuntLookAround_s), HuntLookAround_s, 0, 30);
         v.InRange(nameof(SuspiciousTime_s), SuspiciousTime_s, 0, 30);
@@ -178,6 +219,9 @@ public enum BotIdle
 
     /// <summary>Sweep the level's opponent spawns one by one, then start again (the bot in your slot in the headless match).</summary>
     Hunt,
+
+    /// <summary>Take the best vantage (a high, open view) within reach of the start and watch from it (marksmen).</summary>
+    Overwatch,
 }
 
 public enum BotGait
@@ -213,9 +257,54 @@ public sealed class ArchetypeDef : IValidatable
 
     public BotGait MoveGait { get; set; }
 
+    /// <summary>How much a high, open view counts when picking cover (0: not at all).</summary>
+    [Optional]
+    public float Vantage { get; set; }
+
+    /// <summary>Overwatch: how far from the start it goes for a vantage.</summary>
+    [Optional]
+    public float OverwatchReach_m { get; set; } = 30f;
+
+    /// <summary>Beyond close range, it only fires once its aim has settled on a still target.</summary>
+    [Optional]
+    public bool SteadyShots { get; set; }
+
+    /// <summary>Within this it fights like anyone else (snap shots, no relocating).</summary>
+    [Optional]
+    public float CloseRange_m { get; set; } = 10f;
+
+    /// <summary>Scales the tier's time between trigger pulls (careful shooters above 1).</summary>
+    [Optional]
+    public float PullScale { get; set; } = 1f;
+
+    /// <summary>After this many shots from one spot it moves to another (0: never), or when balls start landing near it.</summary>
+    [Optional]
+    public int RelocateAfterShots { get; set; }
+
+    [Optional]
+    public bool RelocateWhenShotAt { get; set; }
+
+    /// <summary>A teammate's contact sends it round to the side instead of straight at the lead.</summary>
+    [Optional]
+    public bool FlankOnContact { get; set; }
+
+    /// <summary>Flanking, it holds fire until it's in position unless the enemy turns its way or comes close.</summary>
+    [Optional]
+    public bool HoldFireWhileFlanking { get; set; }
+
+    /// <summary>It crouch-walks the last this-many metres to a flanking spot.</summary>
+    [Optional]
+    public float StealthWithin_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
+        v.InRange(nameof(Vantage), Vantage, 0, 100);
+        v.InRange(nameof(OverwatchReach_m), OverwatchReach_m, 1, 300);
+        v.InRange(nameof(CloseRange_m), CloseRange_m, 0, 100);
+        v.InRange(nameof(PullScale), PullScale, 0.2, 10);
+        v.InRange(nameof(RelocateAfterShots), RelocateAfterShots, 0, 1000);
+        v.InRange(nameof(StealthWithin_m), StealthWithin_m, 0, 100);
         v.InRange(nameof(Leash_m), Leash_m, 0, 500);
         v.InRange(nameof(PeekTime_s), PeekTime_s, 0.1, 30);
         v.InRange(nameof(HideTime_s), HideTime_s, 0.1, 30);

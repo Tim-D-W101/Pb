@@ -50,6 +50,18 @@ public sealed class Awareness
 
     /// <summary>Under fire recently: a ball of yours broke close to them.</summary>
     public float SinceShotAt { get; internal set; } = float.MaxValue;
+
+    /// <summary>Seconds since a teammate last called this enemy out within earshot.</summary>
+    public float SinceContact { get; internal set; } = float.MaxValue;
+
+    /// <summary>
+    /// A teammate called this enemy out within the contact memory (brain.jsonc "contactMemory_s"): a reason to act on
+    /// the call, even if they've heard or glimpsed something of the enemy themselves since.
+    /// </summary>
+    public bool FromContact { get; internal set; }
+
+    /// <summary>Where the teammate who last called it stood (feet).</summary>
+    public Vector3 ContactFrom { get; internal set; }
 }
 
 /// <summary>
@@ -109,8 +121,17 @@ public sealed class BotSenses
     /// One tick: look at every enemy, listen to the last step's events (<paramref name="heard"/>), age the
     /// leads and pick the focus.
     /// </summary>
-    public void Update(float dt, ReadOnlySpan<SimEvent> heard)
+    public void Update(float dt, ReadOnlySpan<SimEvent> heard) => Update(dt, heard, ReadOnlySpan<BotSquad.Contact>.Empty, 0f, 0f, 0f);
+
+    /// <summary>
+    /// One tick, also hearing teammates' callouts (<paramref name="contacts"/>) within <paramref name="calloutRange"/>
+    /// (muffled by walls), each placed within <paramref name="contactError"/> of where it was called and worth acting on
+    /// for <paramref name="contactMemory"/> seconds.
+    /// </summary>
+    public void Update(float dt, ReadOnlySpan<SimEvent> heard, ReadOnlySpan<BotSquad.Contact> contacts, float calloutRange, float contactError,
+        float contactMemory)
     {
+        HearContacts(contacts, calloutRange, contactError);
         IReadOnlyList<PlayerState> players = _sim.Players;
         for (int i = 0; i < players.Count; i++)
         {
@@ -132,11 +153,14 @@ public sealed class BotSenses
         {
             a.SinceLead += dt;
             a.SinceShotAt += dt;
+            a.SinceContact += dt;
             if (a.SinceLead > _p.Memory)
             {
                 a.HasLead = false;
                 a.Spotted = false;
             }
+
+            a.FromContact = a.HasLead && a.SinceContact <= contactMemory;
 
             highest = MathF.Max(highest, a.Meter);
             if (focus is null || Pressing(a) > Pressing(focus))
@@ -337,6 +361,34 @@ public sealed class BotSenses
 
                     break;
             }
+        }
+    }
+
+    /// <summary>A teammate shouting where an enemy is: a lead if they're within earshot (muffled through walls).</summary>
+    private void HearContacts(ReadOnlySpan<BotSquad.Contact> contacts, float range, float error)
+    {
+        Vector3 ear = _self.EyePosition;
+        for (int i = 0; i < contacts.Length; i++)
+        {
+            ref readonly BotSquad.Contact c = ref contacts[i];
+            if (c.From == _self.Id || c.Team != _self.Team || !IsEnemy(c.TargetId, out PlayerState? target) || !Hears(c.FromEye, ear, range))
+            {
+                continue;
+            }
+
+            Awareness a = Ensure(target!.Id);
+            if (a.Visible && a.Spotted)
+            {
+                continue; // already watching them
+            }
+
+            a.LastKnown = c.At + new Vector3(_rng.Symmetric(error), 0f, _rng.Symmetric(error));
+            a.LastKnownSeen = false;
+            a.SinceLead = 0f;
+            a.HasLead = true;
+            a.Meter = MathF.Max(a.Meter, _p.SuspiciousAt);
+            a.SinceContact = 0f;
+            a.ContactFrom = c.FromEye - new Vector3(0f, 1.6f, 0f);
         }
     }
 

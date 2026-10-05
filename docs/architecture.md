@@ -585,6 +585,16 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   preferred range only with its aim settled, and relocates to another vantage after `relocateAfterShots` or when shot
   at. **Flanker**: on a teammate's contact or when it loses you, scores a few flank spots round your last known
   position by the share of the path to each that you could see, takes the least exposed, and approaches quietly.
+- **As built (M3.3).** `BotSquad.Share` queues a `Contact` (who called, from where, about whom, where they are); it
+  reaches teammates the next tick through `ContactsFor`, like sounds. `BotSenses` hears it within `calloutRange_m`
+  (muffled through walls), and `Awareness.SinceContact` keeps `FromContact` true for `contactMemory_s`, so a sound or a
+  glimpse that follows doesn't cancel the call. `VantageSet` scores cover points only (spawns aren't scored: a bot
+  watches from cover), clips its rays at the level's bounds (open ground outside the play area isn't a view), and keeps
+  each point's most open direction (the middle of the best three neighbouring rays), which overwatch sweeps round,
+  never past the cover's own arc. The Flanker judges a route by the straight line to each candidate spot (six samples
+  in the enemy's sight or not), a cheap stand-in for the path; the test checks the real path is still less exposed.
+  The relocation distance and the flanking and "noticed" angles are `brain.jsonc` keys; the new archetype keys are
+  optional, so older behaviours read as before.
 
 ### 15.4 Objectives
 

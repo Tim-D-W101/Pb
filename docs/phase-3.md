@@ -281,19 +281,33 @@ Each milestone is pushed as it lands, with screenshots.
 
 ### M3.3 Marksman and Flanker
 
-- [ ] Bots share contacts: a bot that spots someone shouts, and teammates within earshot get where they were as a
-  lead (with a little error), so they can react without seeing you themselves.
-- [ ] **Marksman**: at load, every cover point and spawn is scored for its view (how far you can see from it, over
-  how wide an arc, with a bonus for height). A Marksman takes the best vantage near its start, scans the open
-  ground slowly, engages from long range only with its aim settled (single, careful shots), and moves to another
-  vantage after a few shots or when balls start landing near it.
-- [ ] **Flanker**: when it hears of you from a teammate (or loses you), it picks a spot off to your side and goes
-  there by the route you can see least of (candidate routes scored for how much of them is in your sight), walking
-  and crouching near the end, holding fire until it's in position unless it's spotted first.
-- [ ] Both in `bots/archetypes.jsonc`, with the new keys documented; the open modes' role chances include them.
-- [ ] Tests: vantage scores favour long, high views; a Marksman holds a vantage and hits at 40 m; it moves after
-  being shot at; a Flanker's route is less exposed than the direct one and it arrives off the line of fire; a
-  contact shout gives teammates a lead and no one else.
+**Done 2026-10-05.**
+
+- [x] Bots share contacts: a bot that spots someone shouts, and teammates within earshot (35 m, half that through
+  walls) get where they were as a lead, give or take 2.5 m, so they react without seeing you themselves. It calls
+  again every 3 s while it keeps you in sight. A call stays worth acting on for 4 s even if they hear or glimpse you
+  themselves meanwhile (`brain.jsonc` → `calloutRange_m`, `contactError_m`, `shareInterval_s`, `contactMemory_s`).
+  Anyone but a Flanker comes to help. New callouts: "flanking", "pushing", "moving" and "man down".
+- [x] **Marksman**: at load every cover point is scored for its view: 12 rays across the 140° its cover faces, from
+  where you'd shoot (over low cover, or stepped out past an edge), up to 60 m and never past the level's bounds,
+  plus a bonus for height; each also remembers its most open direction. A Marksman takes the best vantage within
+  35 m of its start, watches its most open view and sweeps slowly either side of it; in a fight it weighs vantage
+  when it picks cover, fires beyond 12 m only once its aim has settled on a still target, pulls the trigger more
+  slowly (×1.8), and after 6 shots from one spot, or as soon as balls land round it, moves at least 8 m and calls
+  "moving".
+- [x] **Flanker**: when a teammate calls you out, it picks a spot that can shoot where you are from at least 50° off
+  the line between you and the caller (as near a right angle as it can), out of your sight, scored for how much of
+  the walk there you could see, and goes, calling "flanking"; it crouch-walks the last 8 m and holds its fire on the
+  way unless you face within 57° of it, come within 9 m or shoot at it. When it loses you it flanks as Phase 2's
+  bots do, but much more often.
+- [x] Both in `bots/archetypes.jsonc`, with the new keys documented. Free-for-all and Teams deal them (one in twelve
+  marksmen; flankers one in twelve in free-for-all, one in six in teams). Oxbarrow Works' solo squad is unchanged:
+  the new levels bring them.
+- [x] Seven sim tests: vantage favours long, high views (the warehouse mezzanine beats its floor); a Marksman takes a
+  top-quarter vantage within reach and watches from it; a hard one puts a still target out at 42 m in a few shots;
+  it moves on, at least 8 m, once balls land round it, and calls it; a contact reaches a teammate 9 m away and not one
+  70 m off; a call still counts after the teammate hears you, then goes stale; a Flanker on a call goes to a spot 58°
+  off the line, along a way you see 70 % of against 100 % walking straight at you.
 
 ### M3.4 Objectives
 
