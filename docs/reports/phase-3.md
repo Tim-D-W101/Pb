@@ -72,7 +72,8 @@ but the recordings and the art above.
   colourblind-safe team colour sets.
 - **Verification** (M3.11): a scripted demo of each new role (screenshots below), and a fix it showed was needed: a
   Flanker that reached its spot used to walk straight on towards you; now it looks out from the spot first, so a flank
-  that worked ends in a shot from the side.
+  that worked ends in a shot from the side. Filming a won round through to its summary also showed the main menu never
+  moved on from Oxbarrow Works behind it: the new levels had no camera drift for it, and now they do.
 
 ## Acceptance checks
 
@@ -211,6 +212,24 @@ These were rendered in the cloud container with Mesa's software Vulkan, so the l
 nothing. All the shots from the phase are in [phase-3/](phase-3/), named by milestone; the bot overlay (F3) is on in
 the role demos: sight cones coloured by how alarmed each bot is, paths in blue, the cover a bot is making for in white,
 and over each bot its state and its detection meter.
+
+**The ladder:**
+
+![Level select on a new profile](phase-3/m3.1-1-level-select-locked.jpg)
+*Level select on a new profile, scrolled down: only Oxbarrow Works is open (its Start button at the top), and each
+locked level says what opens it.*
+
+![The summary after a win, opening the Rail Yard](phase-3/m3.1-2-summary-new-level-open.jpg)
+*The summary after a real win on Oxbarrow Works (a 5 v 5 team round on Easy, played by the bot in your slot and its
+teammates, filmed to its end with `--fast --show-summary`): "New level open: The Rail Yard".*
+
+![Level select after that win](phase-3/m3.1-3-level-select-after-a-win.jpg)
+*Level select afterwards, on that round's choices (Teams, 5 v 5, Easy): Oxbarrow Works shows the record (won 1 of 1,
+fastest win 2:12, most eliminations 1, won on Easy); further down, the Rail Yard is open and the Cold Store and the
+Hospital Wing still say what opens them.*
+
+![The main menu over the Rail Yard](phase-3/m3.1-4-menu-over-the-rail-yard.jpg)
+*The main menu then shows the newest level you've opened behind it: the Rail Yard, down the lane between the wagons.*
 
 **The three new levels:**
 

@@ -534,8 +534,9 @@ Marksman on the Rail Yard has to spot you 40 m down its view and open up, the Fl
 round on its teammate's call and look out from its spot. The Flanker demo finds where to stand with
 the brain's own flank-spot search (now a public query, `BotBrain.FlankSpot`): somewhere a teammate of a Flanker sees
 you, within earshot of it and out of its sight, with a way round to your side wherever within the call's 2.5 m error
-the call puts you. Scripting it showed the Flanker reach its spot and walk on towards you (M3.3 above, now fixed). A
-bot match can be filmed through to its summary (`--fast --show-summary` at `--fixed-fps 1`), which is how the summary's "new level
+the call puts you. Scripting it showed the Flanker reach its spot and walk on towards you (M3.3 above, now fixed). The
+menu's backdrop had a camera drift for Oxbarrow Works only, so it never moved on as you climbed (M3.1 promised the
+newest level you've opened); the three new levels have one now. A bot match can be filmed through to its summary (`--fast --show-summary` at `--fixed-fps 1`), which is how the summary's "new level
 open" was captured; and a level that fails to load now quits a headless run instead of waiting on its error screen
 (asking for teams at size 6, for instance, which is 6 a side).
 
