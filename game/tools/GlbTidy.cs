@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Godot;
 
 namespace Pb.Game.Tools;
@@ -11,7 +12,7 @@ namespace Pb.Game.Tools;
 /// <summary>
 /// Tidies a generated GLB for the game:
 /// <list type="bullet">
-/// <item>every embedded picture is shrunk to at most a given size and stored as JPEG;</item>
+/// <item>every embedded picture is shrunk to at most a given size and stored as JPEG, any generator's id dropped from its name;</item>
 /// <item>the emissive channel goes (the generator copies the colour map into it, so the model would glow in the dark), as does its specular boost;</item>
 /// <item>untextured roughness can be set (the generator's 0.4 makes cloth look like plastic);</item>
 /// <item>pictures nothing uses any more are dropped;</item>
@@ -23,6 +24,9 @@ public static class GlbTidy
     private const uint Magic = 0x46546C67;
     private const uint JsonChunk = 0x4E4F534A;
     private const uint BinChunk = 0x004E4942;
+
+    /// <summary>A UUID on the end of a name, as some generators give their pictures ("Color_8129b2ea-…").</summary>
+    private static readonly Regex GeneratorId = new("[_-]?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", RegexOptions.Compiled);
 
     public static byte[] Tidy(byte[] glb, int maxTexture, float? roughness, out string report)
     {
@@ -385,6 +389,11 @@ public static class GlbTidy
             image["bufferView"] = newViews.Count;
             image["mimeType"] = "image/jpeg";
             image.Remove("uri");
+            // Godot names the pictures it extracts after these: drop any generator's id from the end.
+            if (image["name"]?.GetValue<string>() is { } name)
+            {
+                image["name"] = GeneratorId.Replace(name, "");
+            }
             newViews.Add(new JsonObject { ["buffer"] = 0, ["byteOffset"] = output.Length, ["byteLength"] = jpeg.Length });
             output.Write(jpeg);
         }
