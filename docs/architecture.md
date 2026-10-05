@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **Status: approved (defaults accepted 2026-09-30); Phase 1 implemented.** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
+> **Status: approved (defaults accepted 2026-09-30); Phases 1 and 2 built.** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-the-level-ladder) with [phase-3.md](phase-3.md) on 2026-10-05. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
@@ -529,3 +529,79 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 | 4 Multiplayer | `Pb.Net`, dedicated and listen server, lobby, lag compensation, co-op vs bots and PvP for up to 10 players |
 | 5 Locker and extras | Gear locker, fictional brands, gear models, splat shaders; speedball field, CTF and Arcade as optional modes |
 | 6 Progression (optional) | As before |
+
+## 15. Phase 3: the level ladder
+
+> **Status: approved 2026-10-05 with the [Phase 3 plan](phase-3.md) (defaults taken).** This section is the technical
+> design; each part gains "as built" notes as its milestone lands.
+
+### 15.1 Profile and unlocks
+
+- **The profile** (`game/core/Profile.cs`, `user://profile.json`) is presentation-side state, like the settings: the
+  sim never reads it. It holds the levels opened, per level × mode × difficulty the rounds played and won with the best
+  clear time, accuracy and eliminations, and the last menu choices.
+- **The rule is data** (`levels/ladder.jsonc` → `unlock`) and engine-free (`Pb.Sim/Match/Ladder.cs`), so it's unit-tested:
+  a level opens when a round on the level before it is won at the rule's lowest difficulty or above. The first level is
+  always open; `-- --unlock-all` and the settings switch open them all without writing it into the profile.
+
+### 15.2 Doors
+
+- **Data.** A door opening may carry a `leaf`: hinged (hinge at the opening's start or end, swinging left, right or
+  both ways) or sliding, single or double, a material and a start state (shut, open, ajar, random by the match seed).
+- **Sim.** `DoorSet` (`Pb.Sim/Level`) holds each leaf's pose and target, steps them every tick (`SimWorld.Step`, before
+  the balls fly), and resolves `Interact` presses: the nearest leaf whose box the eye's reach ray meets, or whose
+  doorway it crosses. A tap toggles; holding eases the leaf open. A leaf stops short of a player's capsule rather than
+  pushing through. Opening and closing emit `DoorMoved` events (bots hear them like footsteps; the audio plays them).
+- **Collision.** Each leaf is a `DoorShape` in the paint `CollisionWorld`: its grid bounds cover the whole swing, so
+  the broadphase stays static and only nearby leaves are tested; its box follows the leaf's pose. Sight and aim use the
+  same world, so shut doors block both. Splats on a leaf are parented to its node.
+- **Navigation.** The grid is built with doorways open; a bot whose next path segment crosses a shut leaf's doorway
+  stops, faces it and presses `Interact`, then goes on once it's open enough.
+- **Game.** Each leaf is an `AnimatableBody3D` (walking) and a mesh built in code (`DoorShapes`), posed from the sim.
+
+### 15.3 Marksman, Flanker and shared contacts
+
+- **Shared contacts.** A bot's `Spotted` callout carries the target's position; teammates whose ears it reaches
+  (`brain.jsonc` → `calloutRange_m`, muffled by walls) get it as a lead with a little error, through the same path as a
+  heard shot.
+- **Vantage points** (`Pb.Sim/AI/VantageSet.cs`): computed once per level from the cover points and spawns: rays at
+  eye height round each candidate measure how far it sees and over what arc, plus a bonus for height.
+- **Marksman**: idles at the best vantage within reach of its start (`idle: "overwatch"`), engages beyond its
+  preferred range only with its aim settled, and relocates to another vantage after `relocateAfterShots` or when shot
+  at. **Flanker**: on a teammate's contact or when it loses you, scores a few flank spots round your last known
+  position by the share of the path to each that you could see, takes the least exposed, and approaches quietly.
+
+### 15.4 Objectives
+
+- **Data.** A level's `objectives`: case spots (each with the area it's in), ways out (boxes, by default round the
+  player spawns) and rooms to hold (named areas). `rules.jsonc` → `objectives` holds the timings.
+- **Sim.** `ObjectiveState` (`Pb.Sim/Match`) is part of the round: where the case is or who carries it, the hold
+  clock. Two `IMatchMode`s, `RetrieveMode` and `HoldMode`, decide the outcome, each also won by the last team standing.
+  New events: `CaseTaken`, `CaseDropped`, `CaseExtracted`, `HoldChanged`.
+- **Bots.** The squad knows the objective. Defenders start near it (`SpawnPlanner`), hold it while nothing's going on,
+  and get an alarm (the carrier's position every few seconds, or the room being entered) that sends them after it.
+  Attackers (your teammates) head for it, carry, escort and hold from cover.
+
+### 15.5 New kit
+
+- **Tracks**: a level's `tracks` (plan polylines) become rails (paint only; feet step over them) and sleepers drawn on
+  the ground (presentation).
+- **Props and buildings** follow the existing rules (§14.2): colliders are the gameplay shape, detail models built in
+  code from them, generated models where they arrive.
+
+### 15.6 Audio
+
+- **Buses**: Master → Effects, Voices, Ambience, Menus (volumes in settings). Effects and Voices pass through a reverb
+  whose mix follows the listener's area (indoor, size).
+- **Sound bank** (`game/audio/SoundBank.cs`): every effect synthesised at load from a recipe, several variations each,
+  by surface and kind; the `AudioDirector` maps sim events to them with 3D players (air absorption by distance, a
+  low-pass when the sim's collision says a wall is in the way).
+- **Voices**: generated lines imported as art (`tools/art/import.sh voice`, provenance in `assets.jsonc`), cast per
+  character model in `presentation.jsonc`; a callout plays the caller's voice from its position. Missing lines fall back
+  to subtitles.
+
+### 15.7 Settings and bindings
+
+- **Bindings**: `input.jsonc` stays the defaults; the player's changes are overrides (per action: its keyboard/mouse
+  and pad events) saved with the settings and applied over the defaults by `InputSetup`.
+- **Settings menu** (`game/ui/SettingsMenu.cs`): tabs built from the shared `UiKit`, the same in the main and pause menus.

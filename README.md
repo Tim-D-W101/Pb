@@ -4,9 +4,10 @@ An original first-person tactical paintball game: physically simulated paintball
 eliminations, played through abandoned industrial compounds you explore and clear, with up to
 ten players a round. Built with Godot 4.7 (.NET / C#).
 
-**Status: Phase 2 built ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)); waiting on
-your play-test.** Phase 1 built the ballistics sandbox, a range with real paintball ballistics,
-break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
+**Status: Phase 3 in progress ([plan](docs/phase-3.md)): the level ladder, three more compounds,
+doors, objectives, new opponents, sound and voices, full settings.** Phase 2 is built
+([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
+range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
 walkable derelict works yard with a warehouse, offices, pump house and guardhouse, built from a data
 kit. You pick it, a mode, how many play and a difficulty from the menu, read the briefing, and play:
