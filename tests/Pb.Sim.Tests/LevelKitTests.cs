@@ -515,8 +515,10 @@ public class LevelKitTests
     [Fact]
     public void BadTextureTintNamesTheFileAndKey()
     {
-        var source = new EditedDataSource(TestData.Source).Edit("kit/materials.jsonc",
-            s => s.Replace("\"tint\": \"#a08e86\"", "\"tint\": \"rusty\""));
+        // A material of its own, so changes to the shipped materials can't break the test.
+        var source = new EditedDataSource(TestData.Source).Edit("kit/materials.jsonc", s => s.Replace("\"materials\": [",
+            "\"materials\": [ { \"id\": \"tint_test\", \"surface\": \"concrete\", \"color\": \"#808080\", \"pattern\": \"plain\", " +
+            "\"tile_m\": 1.0, \"roughness\": 0.9, \"weathering\": 0.5, \"tint\": \"rusty\" },"));
         DataException ex = Assert.Throws<DataException>(() => GameData.Load(source));
         Assert.Contains("kit/materials.jsonc", ex.Message);
         Assert.Contains("tint", ex.Message);

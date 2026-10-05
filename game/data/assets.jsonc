@@ -380,6 +380,156 @@
         "res://art/models/opponent_c.glb"
       ],
       "notes": "0.85 × 1.68 × 0.35 m (x × y × z), base at y = 0.00, centre (-0.00, -0.00); 14.7 MB → 6.3 MB; emissive removed, 1 unused picture(s) dropped, 3 picture(s) at 2048 px JPEG (were up to 2048 px)"
+    },
+    {
+      "id": "machinery",
+      "kind": "texture",
+      "job": "c87cc2fa-02a1-48ed-8b03-a62fec339714",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one metal surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: the casing of old industrial pump machinery, flat steel plate painted faded teal-grey, with oil and grease grime, scuffs and chipped paint showing rust at the chips. Top right: the flat door panel of a burnt-out car, scorched steel with blistered grey and black paint, heat-tinted patches and orange-brown rust. Bottom left: the side of an old steel oil drum seen flat, faded deep blue paint with rust streaks running down, small dents and scratches. Bottom right: the side of a heavily rusted steel oil drum seen flat, orange and dark brown corrosion with flaking scale and pitting. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024343_c87cc2fa-02a1-48ed-8b03-a62fec339714.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/machinery_albedo.jpg",
+        "res://art/textures/machinery_normal.jpg",
+        "res://art/textures/machinery_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.002778,0.002778,0.490278,0.490278, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.6 ± 0.15"
+    },
+    {
+      "id": "car_body",
+      "kind": "texture",
+      "job": "c87cc2fa-02a1-48ed-8b03-a62fec339714",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one metal surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: the casing of old industrial pump machinery, flat steel plate painted faded teal-grey, with oil and grease grime, scuffs and chipped paint showing rust at the chips. Top right: the flat door panel of a burnt-out car, scorched steel with blistered grey and black paint, heat-tinted patches and orange-brown rust. Bottom left: the side of an old steel oil drum seen flat, faded deep blue paint with rust streaks running down, small dents and scratches. Bottom right: the side of a heavily rusted steel oil drum seen flat, orange and dark brown corrosion with flaking scale and pitting. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024343_c87cc2fa-02a1-48ed-8b03-a62fec339714.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/car_body_albedo.jpg",
+        "res://art/textures/car_body_normal.jpg",
+        "res://art/textures/car_body_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.505556,0.002778,0.490278,0.490278, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.7 ± 0.15"
+    },
+    {
+      "id": "wood_pallet",
+      "kind": "texture",
+      "job": "31ec299b-3141-4f4f-8a20-93e6e645fb78",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a grid of six equal square texture swatches, three across and two down, separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: rough sawn pale pine boards of an old shipping pallet, exactly four boards running horizontally with narrow dark gaps between them, greyed with weather, nail heads and dirt. Top middle: the tread of an old worn car tyre seen flat, black rubber with a simple blocky tread pattern, dust and small cracks. Top right: a wall of stacked old hessian sandbags seen front-on, coarse woven beige-brown burlap, exactly four rows of bags laid in a running bond, frayed and dirty. Bottom left: weathered dark olive-green canvas tarpaulin, creased and stained, with a coarse weave. Bottom middle: a pane of very dirty old window glass over a plain mid-grey background, grime streaks, dust, dried water spots and a few fine scratches. Bottom right: a worn imitation-oak laminate desktop, scratched and stained, with faint coffee rings. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024342_31ec299b-3141-4f4f-8a20-93e6e645fb78.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/wood_pallet_albedo.jpg",
+        "res://art/textures/wood_pallet_normal.jpg",
+        "res://art/textures/wood_pallet_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.037671,0.056507,0.255137,0.382705, pattern repeats 0,3, flatten 0.8, seam band 0.12, normal strength 3, roughness 0.9 ± 0.15"
+    },
+    {
+      "id": "tyre_rubber",
+      "kind": "texture",
+      "job": "31ec299b-3141-4f4f-8a20-93e6e645fb78",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a grid of six equal square texture swatches, three across and two down, separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: rough sawn pale pine boards of an old shipping pallet, exactly four boards running horizontally with narrow dark gaps between them, greyed with weather, nail heads and dirt. Top middle: the tread of an old worn car tyre seen flat, black rubber with a simple blocky tread pattern, dust and small cracks. Top right: a wall of stacked old hessian sandbags seen front-on, coarse woven beige-brown burlap, exactly four rows of bags laid in a running bond, frayed and dirty. Bottom left: weathered dark olive-green canvas tarpaulin, creased and stained, with a coarse weave. Bottom middle: a pane of very dirty old window glass over a plain mid-grey background, grime streaks, dust, dried water spots and a few fine scratches. Bottom right: a worn imitation-oak laminate desktop, scratched and stained, with faint coffee rings. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024342_31ec299b-3141-4f4f-8a20-93e6e645fb78.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/tyre_rubber_albedo.jpg",
+        "res://art/textures/tyre_rubber_normal.jpg",
+        "res://art/textures/tyre_rubber_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.347317,0.024829,0.305365,0.446918 stretched square, pattern repeats 5,6, flatten 0.8, seam band 0.12, normal strength 3, roughness 0.95 ± 0.15"
+    },
+    {
+      "id": "tarp_green",
+      "kind": "texture",
+      "job": "31ec299b-3141-4f4f-8a20-93e6e645fb78",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a grid of six equal square texture swatches, three across and two down, separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: rough sawn pale pine boards of an old shipping pallet, exactly four boards running horizontally with narrow dark gaps between them, greyed with weather, nail heads and dirt. Top middle: the tread of an old worn car tyre seen flat, black rubber with a simple blocky tread pattern, dust and small cracks. Top right: a wall of stacked old hessian sandbags seen front-on, coarse woven beige-brown burlap, exactly four rows of bags laid in a running bond, frayed and dirty. Bottom left: weathered dark olive-green canvas tarpaulin, creased and stained, with a coarse weave. Bottom middle: a pane of very dirty old window glass over a plain mid-grey background, grime streaks, dust, dried water spots and a few fine scratches. Bottom right: a worn imitation-oak laminate desktop, scratched and stained, with faint coffee rings. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024342_31ec299b-3141-4f4f-8a20-93e6e645fb78.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/tarp_green_albedo.jpg",
+        "res://art/textures/tarp_green_normal.jpg",
+        "res://art/textures/tarp_green_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.002283,0.505137,0.326199,0.489298, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.9 ± 0.15"
+    },
+    {
+      "id": "glass_dirty",
+      "kind": "texture",
+      "job": "31ec299b-3141-4f4f-8a20-93e6e645fb78",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a grid of six equal square texture swatches, three across and two down, separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: rough sawn pale pine boards of an old shipping pallet, exactly four boards running horizontally with narrow dark gaps between them, greyed with weather, nail heads and dirt. Top middle: the tread of an old worn car tyre seen flat, black rubber with a simple blocky tread pattern, dust and small cracks. Top right: a wall of stacked old hessian sandbags seen front-on, coarse woven beige-brown burlap, exactly four rows of bags laid in a running bond, frayed and dirty. Bottom left: weathered dark olive-green canvas tarpaulin, creased and stained, with a coarse weave. Bottom middle: a pane of very dirty old window glass over a plain mid-grey background, grime streaks, dust, dried water spots and a few fine scratches. Bottom right: a worn imitation-oak laminate desktop, scratched and stained, with faint coffee rings. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024342_31ec299b-3141-4f4f-8a20-93e6e645fb78.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/glass_dirty_albedo.jpg",
+        "res://art/textures/glass_dirty_normal.jpg",
+        "res://art/textures/glass_dirty_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.337043,0.505137,0.326199,0.489298, flatten 0.8, seam band 0.12, normal strength 1, roughness 0.15 ± 0.1"
+    },
+    {
+      "id": "wood_laminate",
+      "kind": "texture",
+      "job": "31ec299b-3141-4f4f-8a20-93e6e645fb78",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a grid of six equal square texture swatches, three across and two down, separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: rough sawn pale pine boards of an old shipping pallet, exactly four boards running horizontally with narrow dark gaps between them, greyed with weather, nail heads and dirt. Top middle: the tread of an old worn car tyre seen flat, black rubber with a simple blocky tread pattern, dust and small cracks. Top right: a wall of stacked old hessian sandbags seen front-on, coarse woven beige-brown burlap, exactly four rows of bags laid in a running bond, frayed and dirty. Bottom left: weathered dark olive-green canvas tarpaulin, creased and stained, with a coarse weave. Bottom middle: a pane of very dirty old window glass over a plain mid-grey background, grime streaks, dust, dried water spots and a few fine scratches. Bottom right: a worn imitation-oak laminate desktop, scratched and stained, with faint coffee rings. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024342_31ec299b-3141-4f4f-8a20-93e6e645fb78.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/wood_laminate_albedo.jpg",
+        "res://art/textures/wood_laminate_normal.jpg",
+        "res://art/textures/wood_laminate_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.671518,0.505137,0.326199,0.489298, flatten 0.8, seam band 0.12, normal strength 1.5, roughness 0.6 ± 0.15"
+    },
+    {
+      "id": "drum_blue",
+      "kind": "texture",
+      "job": "c87cc2fa-02a1-48ed-8b03-a62fec339714",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one metal surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: the casing of old industrial pump machinery, flat steel plate painted faded teal-grey, with oil and grease grime, scuffs and chipped paint showing rust at the chips. Top right: the flat door panel of a burnt-out car, scorched steel with blistered grey and black paint, heat-tinted patches and orange-brown rust. Bottom left: the side of an old steel oil drum seen flat, faded deep blue paint with rust streaks running down, small dents and scratches. Bottom right: the side of a heavily rusted steel oil drum seen flat, orange and dark brown corrosion with flaking scale and pitting. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024343_c87cc2fa-02a1-48ed-8b03-a62fec339714.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/drum_blue_albedo.jpg",
+        "res://art/textures/drum_blue_normal.jpg",
+        "res://art/textures/drum_blue_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.144097,0.642708,0.208333,0.208333, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.5 ± 0.15"
+    },
+    {
+      "id": "drum_rust",
+      "kind": "texture",
+      "job": "c87cc2fa-02a1-48ed-8b03-a62fec339714",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one metal surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: the casing of old industrial pump machinery, flat steel plate painted faded teal-grey, with oil and grease grime, scuffs and chipped paint showing rust at the chips. Top right: the flat door panel of a burnt-out car, scorched steel with blistered grey and black paint, heat-tinted patches and orange-brown rust. Bottom left: the side of an old steel oil drum seen flat, faded deep blue paint with rust streaks running down, small dents and scratches. Bottom right: the side of a heavily rusted steel oil drum seen flat, orange and dark brown corrosion with flaking scale and pitting. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024343_c87cc2fa-02a1-48ed-8b03-a62fec339714.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/drum_rust_albedo.jpg",
+        "res://art/textures/drum_rust_normal.jpg",
+        "res://art/textures/drum_rust_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.666319,0.684375,0.170139,0.170139, flatten 0.8, seam band 0.12, normal strength 2.5, roughness 0.8 ± 0.15"
+    },
+    {
+      "id": "sandbag",
+      "kind": "texture",
+      "job": "31ec299b-3141-4f4f-8a20-93e6e645fb78",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a grid of six equal square texture swatches, three across and two down, separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft overcast daylight, no shadows, no perspective, no objects, no text, no labels, no logos, no numbers. Top left: rough sawn pale pine boards of an old shipping pallet, exactly four boards running horizontally with narrow dark gaps between them, greyed with weather, nail heads and dirt. Top middle: the tread of an old worn car tyre seen flat, black rubber with a simple blocky tread pattern, dust and small cracks. Top right: a wall of stacked old hessian sandbags seen front-on, coarse woven beige-brown burlap, exactly four rows of bags laid in a running bond, frayed and dirty. Bottom left: weathered dark olive-green canvas tarpaulin, creased and stained, with a coarse weave. Bottom middle: a pane of very dirty old window glass over a plain mid-grey background, grime streaks, dust, dried water spots and a few fine scratches. Bottom right: a worn imitation-oak laminate desktop, scratched and stained, with faint coffee rings. Photorealistic, high detail, seamless tileable textures for a video game.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024342_31ec299b-3141-4f4f-8a20-93e6e645fb78.png",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/textures/sandbag_albedo.jpg",
+        "res://art/textures/sandbag_normal.jpg",
+        "res://art/textures/sandbag_roughness.jpg"
+      ],
+      "notes": "512 px, region 0.686358,0.256849,0.065639,0.098459, flatten 0.8, seam band 0.12, normal strength 2.5, roughness 0.95 ± 0.15"
     }
   ]
 }

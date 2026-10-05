@@ -149,7 +149,7 @@ public static class PropShapes
         float r = c.Radius(), h = c.Height();
         Vector3 center = c.Center();
         Basis rot = c.Rot();
-        int wood = c.Default, steel = c.Mat("steel_rust"), cable = c.Mat("tyre_rubber");
+        int wood = c.Default, steel = c.Mat("steel_rust"), cable = c.Mat("rubber_plain");
         const float ft = 0.05f;
         // Outline in (rot.Z, rot.X), extruded along the axle, so the planks run straight across the face.
         var flangeBasis = new Basis(rot.Z, rot.X, rot.Y);
@@ -671,7 +671,7 @@ public static class PropShapes
     /// </summary>
     private static void CarWreck(Ctx c)
     {
-        int body = c.Default, rust = c.Mat("steel_rust"), soot = c.Mat("tyre_rubber");
+        int body = c.Default, rust = c.Mat("steel_rust"), soot = c.Mat("rubber_plain");
         Vector3 lowerSize = c.Size(0), lower = c.Center(0);
         float hx = lowerSize.X * 0.5f, hl = lowerSize.Z * 0.5f;
         float belt = lower.Y + lowerSize.Y * 0.5f;
