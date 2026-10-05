@@ -45,6 +45,9 @@ windows_release_x86_64_console.exe` pulls just those from the 1.2 GB release arc
 start on the main menu; `-- --level=ID` (with the level's other options) skips it once. The game's own pack leaves
 `art/` out: `tools/package/art-packs.sh` exports it as one pack per asset (`art/Pb-art-<id>.pck`), which `ArtFiles`
 mounts in exported builds, and the release lists every game file's SHA-256 so `Play.bat` downloads only what changed.
+The Windows build runs headless under Wine (`apt-get install wine`), the way to catch faults only the Windows .NET
+runtime has: `WINEDLLOVERRIDES=dinput8=d wine Pb.exe --headless -- --level=ID --bot-match --no-art` (Wine's DirectInput
+crashes Godot; exported builds take no scene path, and the menu's `--smoke-test` comes first).
 
 Godot 4.7.2 .NET is expected on PATH as `godot` (CI installs it with `tools/ci/install-godot.sh`).
 Build `game/Pb.csproj` before running Godot headless.
@@ -121,3 +124,5 @@ hardware can confirm the 60 fps target.
 - Hot paths (anything per ball or per tick) must not allocate. A test enforces this for `SimWorld.Step`.
 - The sim uses System.Numerics. Convert with `Pb.Game.Core.Conv` (`ToGodot()` / `ToSim()`).
 - Coordinates match Godot: Y up, yaw 0 faces −Z, positive yaw turns left, positive pitch looks up.
+- `game/Pb.csproj` keeps tiered PGO and quick JIT for loops off. With them on, the .NET 8 JIT on Windows x64 crashes
+  the game, and Linux runs never show it (architecture §14.7, Shipping).

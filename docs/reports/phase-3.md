@@ -146,6 +146,9 @@ others. Each level's navigation grid (224,000–301,000 places) and cover points
 0.6–0.7 s. The ten-player figure is up from 0.28 ms at the end of Phase 2: the sim does more now (doors, shared
 contacts, objectives), and the shared VM varies from run to run.
 
+In the game itself the sim runs about 12% slower than these figures, since the game's runtime has two JIT features
+turned off (see [Fixed after the report](#fixed-after-the-report)).
+
 Rendering was only measured under software rendering in the cloud container, which shows what's drawn but not how
 fast.
 
@@ -310,6 +313,24 @@ teammate already in the fight).*
   or `=flanker` shows a new role at work, `-- --objective-demo`, `-- --round-tour` and `-- --menu-tour` show the
   objectives and the screens, and `-- --bot-match` lets a bot play your slot (see [CLAUDE.md](../../CLAUDE.md) for the
   full list).
+
+## Fixed after the report
+
+- **The Windows build crashed on the main menu on your laptop** (2026-10-05). The cause was a fault in the .NET 8
+  runtime's code generator on Windows x64. In a big method with loops whose local functions capture variables (here
+  `Cracks.Build`, run while the menu builds the level behind it), code the runtime optimises in the middle of a loop
+  loses track of the captured objects when the garbage collector runs. The game then hits a `NullReferenceException`,
+  as your log showed, or a fatal access violation that closes it without a word in the log. It never happens on Linux,
+  which is why CI and my runs missed it. It was reproduced with a copy of the crack builder on the Windows runtime
+  (8.0.31, under Wine, with a collection every 64 KB): it failed within 10 to 50 builds every time, and never in 800
+  with either of two JIT features off. The Windows build itself, run the same way, hit your exact exception in 1 of 5
+  level loads before the fix, and in none of 24 after it. The game now runs with both off (`game/Pb.csproj`): quick JIT for loops (a method with
+  loops starts unoptimised and is optimised in the middle of a loop) and dynamic PGO (optimising by profiles taken as
+  the game runs). The sim pays about 12% for it: 0.34 ms a tick with ten players,
+  against 0.31; the budget is 0.5 ms. The log's first lines now say whether the switches are on
+  (`.NET 8.0.31: TieredPGO=false, QuickJitForLoops=false`), and the Windows build fails in CI if an export loses them.
+  Two smaller fixes came with it: a piece of the menu's backdrop that fails is now left out instead of being built
+  again every frame, and the log is written line by line, so a crash can't swallow its last lines.
 
 ## Known issues and limitations
 

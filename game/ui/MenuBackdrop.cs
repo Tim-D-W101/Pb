@@ -141,12 +141,14 @@ public partial class MenuBackdrop : Node3D
         // Let the menu draw first, then a piece of the level a frame.
         if (_step < _steps.Length)
         {
-            if (_step >= 0)
+            // On to the next piece first: one that throws (Godot logs it) is left out, not built again
+            // every frame on top of what it had already added.
+            int step = _step++;
+            if (step >= 0)
             {
-                _steps[_step]();
+                _steps[step]();
             }
 
-            _step++;
             return;
         }
 

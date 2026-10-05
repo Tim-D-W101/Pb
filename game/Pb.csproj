@@ -5,6 +5,16 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>Pb.Game</RootNamespace>
     <AssemblyName>Pb</AssemblyName>
+    <!-- The .NET 8 JIT on Windows x64 miscompiles big methods with loops whose local functions capture
+         locals (Cracks.Build, found on the owner's laptop): with on-stack replacement and dynamic PGO both
+         on, a garbage collection in the middle of the method loses track of the captured objects, and the
+         game dies with a NullReferenceException or a fatal access violation. Either switch avoids it
+         (tested on the Windows runtime under Wine, with a collection every 64 KB allocated); both are off,
+         so methods with loops are compiled fully optimised up front and nothing is profiled (the sim runs
+         about 12% slower). Exported builds read these from Pb.runtimeconfig.json, which
+         tools/package/windows-build.sh checks. -->
+    <TieredPGO>false</TieredPGO>
+    <TieredCompilationQuickJitForLoops>false</TieredCompilationQuickJitForLoops>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\src\Pb.Sim\Pb.Sim.csproj" />

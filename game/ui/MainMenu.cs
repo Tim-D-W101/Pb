@@ -31,9 +31,18 @@ public partial class MainMenu : Control
     private int _tourFrame = -1;
     private TextureRect _backdrop = null!;
     private static bool _skippedToLevel;
+    private static bool _runtimeLogged;
 
     public override void _Ready()
     {
+        if (OS.HasFeature("template") && !_runtimeLogged)
+        {
+            // In the log a player sends: the runtime, and whether the export kept game/Pb.csproj's JIT switches.
+            _runtimeLogged = true;
+            GD.Print($".NET {System.Environment.Version}: TieredPGO={AppContext.GetData("System.Runtime.TieredPGO") ?? "default"}, "
+                + $"QuickJitForLoops={AppContext.GetData("System.Runtime.TieredCompilation.QuickJitForLoops") ?? "default"}");
+        }
+
         SetAnchorsPreset(LayoutPreset.FullRect);
         Theme = UiKit.Theme;
         _backdrop = Backdrop();
