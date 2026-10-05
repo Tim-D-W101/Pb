@@ -31,12 +31,14 @@ namespace Pb.Game.Core;
 ///                         default: the mode's default size
 ///   --tier=ID             which difficulty tier (default: "normal", or the level's first)
 ///   --smoke-test[=ticks]  headless CI check: walk in through the gate firing, exit code 0/1
-///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie)
+///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie); --views=…
+///                         gives your own instead ("x,y,z,yaw,pitch" or "x,y,z>tx,ty,tz", separated by ";")
 ///   --posture-demo        scripted lean / shoulder swap / muzzle-in-cover sequence at a wall corner
 ///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
 ///   --duel-distance=M     how far from the bot the duel starts (default 6 m; 2 for a close-up)
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
 ///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
+///   --gait-demo           an opponent walks, runs, sprints, strafes, backs off and walks crouched, seen from the side
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
 ///   --preset=NAME         uses that graphics preset instead of the saved one (for comparing their cost)
@@ -82,11 +84,24 @@ public partial class LevelMain : Node3D, ISimEventListener
     private SpectatorView? _spectator;
     private PickupVisuals _pickups = null!;
     private WeedField _weeds = null!;
+    private FootDust _dust = null!;
+    private PuddleRipples _ripples = null!;
+    private RoofDrips? _roofDrips;
+    private Footprints _prints = null!;
+    private PaintDrips _drips = null!;
+    private Birds _birds = null!;
+    private GroundDetail _groundDetail = null!;
+    private FloorDebris _floorDebris = null!;
+    private OldPaint _oldPaint = null!;
+    private ContactShadows _contact = null!;
+    private Creepers _creepers = null!;
     private LightShafts _shafts = null!;
     private string? _hitBy;
     private bool _scripted;
     private bool _botMatch;
     private SpawnPlan? _starts;
+    private SpawnPoint _start;
+    private Color _teamColor;
     private bool _summaryShown;
     private bool _summaryEarly;
     private bool _ready;
@@ -134,8 +149,10 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
         bool botDemo = Args.Has("--bot-demo");
+        bool gaitDemo = Args.Has("--gait-demo");
         _botMatch = Args.Has("--bot-match");
-        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo || _botMatch;
+        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
+                    gaitDemo || _botMatch;
         bool roundTour = Args.Has("--round-tour");
 
         // Every round deals a new seed and random starts, so you can't learn where everyone is. Scripted
@@ -154,6 +171,7 @@ public partial class LevelMain : Node3D, ISimEventListener
                 RoundShape.Of(_mode, _size), _data.Config.Movement.StandEyeHeight, seed)
             : null;
         SpawnPoint start = _starts?.You ?? _level.PlayerSpawns[0];
+        _start = start;
         if (_starts is not null)
         {
             static string Describe(OpponentSpawn o) => $"{o.Id} {o.Roles[0]}{(o.Patrol is null ? "" : " on " + o.Patrol.Id)}";
@@ -170,22 +188,82 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         Color teamColor = TeamColor(state.Team);
+        _teamColor = teamColor;
 
         GraphicsPresetDef preset = _view.Graphics.Find(Args.Value("--preset") ?? _settings.GraphicsPreset);
-        _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon);
+        _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, _view.Woods);
         var dressWatch = Stopwatch.StartNew();
-        _weeds = new WeedField { Name = "Weeds" };
+        // The worn paths first: the weeds keep off them.
+        var paths = new WornPaths { Name = "WornPaths" };
+        AddChild(paths);
+        paths.Plan(_level, _sim.Collision, _view.WornPaths, _squad.Cover.Points);
+        _weeds = new WeedField { Name = "Weeds", Wind = _view.GroundWind };
         AddChild(_weeds);
-        _weeds.Build(_level, _sim.Collision, _view.Weeds);
+        _weeds.Build(_level, _sim.Collision, _view.Weeds, paths.Clear);
+        _weeds.Follow(_sim);
+        paths.Draw(_level, _sim.Collision, _view.WornPaths);
+        var cracks = new Cracks { Name = "Cracks" };
+        AddChild(cracks);
+        cracks.Build(_level, _sim.Collision, _view.Weeds, _view.Cracks);
+        _groundDetail = new GroundDetail { Name = "GroundDetail" };
+        AddChild(_groundDetail);
+        _groundDetail.Build(_level, _sim.Collision, _view.GroundDetail);
+        var fittings = new YardFittings { Name = "YardFittings" };
+        AddChild(fittings);
+        fittings.Build(_level, _sim.Collision, _view.YardFittings, _world.Materials);
+        _floorDebris = new FloorDebris { Name = "FloorDebris" };
+        AddChild(_floorDebris);
+        _floorDebris.Build(_level, _sim.Collision, _view.FloorDebris);
+        _oldPaint = new OldPaint { Name = "OldPaint" };
+        AddChild(_oldPaint);
+        _oldPaint.Build(_level, _sim.Collision, _squad.Cover.Points, _view.OldPaint);
+        _creepers = new Creepers { Name = "Creepers" };
+        AddChild(_creepers);
+        _creepers.Build(_level, _sim.Collision, _view.Creepers);
+        var runOff = new RunOff { Name = "RunOff" };
+        AddChild(runOff);
+        runOff.Build(_level, _sim.Collision, _world.Drips, _view.RunOff);
+        var markings = new Markings { Name = "Markings" };
+        AddChild(markings);
+        markings.Build(_level, _view.Markings);
+        _contact = new ContactShadows { Name = "ContactShadows" };
+        AddChild(_contact);
+        _contact.Build(_level, _view.ContactShadows);
+        var cobwebs = new Cobwebs { Name = "Cobwebs" };
+        AddChild(cobwebs);
+        cobwebs.Build(_level, _view.Cobwebs);
+        var hangings = new WallHangings { Name = "WallHangings" };
+        AddChild(hangings);
+        hangings.Build(_level, _view.WallHangings);
+        var damp = new Damp { Name = "Damp" };
+        AddChild(damp);
+        damp.Build(_level, _sim.Collision, _view.Damp);
+        var graffiti = new Graffiti { Name = "Graffiti" };
+        AddChild(graffiti);
+        graffiti.Build(_level, _view.Graffiti, _world.Piers);
+        var bags = new SnaggedBags { Name = "SnaggedBags" };
+        AddChild(bags);
+        bags.Build(_level, _world.Strands, _view.SnaggedBags, _view.GroundWind);
+        var tatters = new RoofTatters { Name = "RoofTatters" };
+        AddChild(tatters);
+        tatters.Build(_level, _view.RoofTatters, _view.GroundWind);
+        var litter = new BlowingLitter { Name = "BlowingLitter" };
+        AddChild(litter);
+        litter.Build(_level, _sim.Collision, _view.BlowingLitter, _view.GroundWind);
+        _birds = new Birds { Name = "Birds" };
+        AddChild(_birds);
+        Pb.Sim.Collision.Aabb bounds = _level.Bounds;
+        _birds.Build(new Vector3((bounds.Min.X + bounds.Max.X) * 0.5f, 0f, (bounds.Min.Z + bounds.Max.Z) * 0.5f), LevelBuilder.StableHash(_level.Id), _view.Birds, _level, _sim.Collision);
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {paths.Count} worn paths ({paths.Length_m:0} m), {cracks.Count} cracks ({cracks.Length_m:0} m), {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {fittings.Count} manholes and drains, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {hangings.Count} things on the walls, {damp.Count} damp patches, {graffiti.Count} graffiti, {bags.Count} bags on the wire, {litter.Count} bits of litter blowing about, {tatters.Count} tatters under the roof holes, {_birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);
 
         _player.Initialize(_sim, state, _view, _settings, teamColor);
+        _player.BuildBody(_view.Characters, teamColor, look: 0);
         SpawnBots(hostile: botDemo || _botMatch || (!_scripted && !roundTour));
         _botDebug = new BotDebugOverlay { Name = "BotDebug" };
         AddChild(_botDebug);
@@ -194,6 +272,22 @@ public partial class LevelMain : Node3D, ISimEventListener
         _splats.Initialize(_view, SplatParent);
         var fx = GetNode<ImpactFx>("ImpactFx");
         fx.Initialize(_view);
+        _dust = new FootDust { Name = "FootDust" };
+        AddChild(_dust);
+        _dust.Initialize(_sim, _view.FootDust, _view.GroundWind);
+        _ripples = new PuddleRipples { Name = "PuddleRipples", Visible = _groundDetail.Visible };
+        AddChild(_ripples);
+        _ripples.Initialize(_groundDetail.Puddles, _view.Ripples);
+        fx.Water = _ripples.InWater;
+        _roofDrips = new RoofDrips { Name = "RoofDrips", Visible = _groundDetail.Visible };
+        AddChild(_roofDrips);
+        _roofDrips.Build(_level, _sim.Collision, _ripples, _view.RoofDrips, _sim.Config.Projectile.Gravity);
+        _drips = new PaintDrips { Name = "PaintDrips" };
+        AddChild(_drips);
+        _drips.Initialize(_view);
+        _prints = new Footprints { Name = "Footprints" };
+        AddChild(_prints);
+        _prints.Initialize(_sim, _view.Footprints, _view.TeamColors, _ripples.InWater);
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
 
@@ -243,6 +337,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.AddListener(_balls);
         _driver.AddListener(_splats);
         _driver.AddListener(fx);
+        _driver.AddListener(_dust);
+        _driver.AddListener(_ripples);
+        _driver.AddListener(_prints);
+        _driver.AddListener(_drips);
+        _driver.AddListener(_birds);
         if (!headless)
         {
             _driver.AddListener(audio);
@@ -280,7 +379,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             var tour = new ViewpointTour { Name = "ViewpointTour" };
             AddChild(tour);
-            tour.Start(_level, _hud, _player.ViewModel, _view.Camera.FarClip_m);
+            tour.Start(_level.Viewpoints, _hud, _player.ViewModel, _view.Camera.FarClip_m);
         }
         else if (_botMatch)
         {
@@ -290,6 +389,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             _hud.ShowPerf = false;
             GD.Print($"BOT MATCH a hunter bot plays your slot in {_round.Line} with {_bots.Count} {_tier.Bots} bots, {setup.TimeLimit:0} s on the clock");
         }
+        else if (gaitDemo)
+        {
+            var demo = new GaitDemo { Name = "GaitDemo" };
+            AddChild(demo);
+            demo.Start(_sim, _pawns, _hud, _view.Camera.FarClip_m);
+        }
         else if (botDemo)
         {
             var demo = new BotDemo { Name = "BotDemo" };
@@ -298,7 +403,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (roundTour)
         {
-            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect));
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap()));
             _hud.ShowPerf = false;
             var tour = new RoundTour { Name = "RoundTour" };
             AddChild(tour);
@@ -312,11 +417,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else
         {
-            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect));
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap()));
         }
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
-                 $"{_world.MeshCount} meshes, {_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
+                 $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.FramedOpenings} framed openings and {_world.DressedBuildings} buildings with gutters or trusses, {_world.DressedWalls} dressed walls, {_world.SkirtedFaces} skirted wall faces, {_world.SceneryCount} pylons and poles beyond, {_world.ShapeTriangles} triangles), " +
+                 $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
                  $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");
         _ready = true;
@@ -336,6 +442,29 @@ public partial class LevelMain : Node3D, ISimEventListener
         else if (e.Type == SimEventType.RoundEnded)
         {
             OnRoundEnded();
+        }
+        else if (e.Type is SimEventType.BallBounced or SimEventType.BallBroke && PlayerHitboxes.IsPlayer(e.TargetId))
+        {
+            // A ball hitting a body makes it flinch away, whether it breaks or bounces off.
+            int id = PlayerHitboxes.PlayerIdOf(e.TargetId);
+            if (id == _player.State.Id)
+            {
+                if (_player.State.Alive)
+                {
+                    _player.Jolt(-e.Normal.ToGodot(), e.Value);
+                }
+
+                _player.Body?.Flinch(-e.Normal.ToGodot(), e.Value);
+            }
+
+            foreach (OpponentPawn pawn in _pawns)
+            {
+                if (pawn.State.Id == id)
+                {
+                    pawn.Visual.Flinch(-e.Normal.ToGodot(), e.Value);
+                    break;
+                }
+            }
         }
 
         _smoke?.OnSimEvent(e);
@@ -410,8 +539,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         int id = PlayerHitboxes.PlayerIdOf(receiverId);
-        OpponentPawn? pawn = _pawns.FirstOrDefault(o => o.State.Id == id);
-        return pawn?.Visual.PartNode((Pb.Sim.Collision.HitboxPart)part, point);
+        CharacterVisual? visual = id == _player.State.Id ? _player.Body : _pawns.FirstOrDefault(o => o.State.Id == id)?.Visual;
+        return visual?.PartNode((Pb.Sim.Collision.HitboxPart)part, point);
     }
 
     private void OnEliminated(in SimEvent e)
@@ -458,13 +587,18 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _player.AutoPilot = new IdlePilot();
         _player.ViewModel.Visible = false;
+        // The spectator camera starts behind and above where you stood: you're there, hit, marker up.
+        if (_player.Body is { } body)
+        {
+            body.ShadowOnly = false;
+        }
         _hud.Visible = false;
         Input.MouseMode = Input.MouseModeEnum.Visible;
         _spectator = new SpectatorView { Name = "Spectator" };
         AddChild(_spectator);
         // Once you've seen who got you: watch the players still in while the round goes on without you, or
         // the summary (scripted runs just end; the smoke test and the bot match end themselves).
-        _spectator.Start(victim, shooter, _view.Spectator, _view.Camera.FarClip_m, () =>
+        _spectator.Start(victim, shooter, _view.Spectator, _view.Camera.FarClip_m, _sim.Collision, () =>
         {
             if (_scripted)
             {
@@ -730,7 +864,36 @@ public partial class LevelMain : Node3D, ISimEventListener
         Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), preset);
         Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
         _weeds.ApplyPreset(preset);
+        _groundDetail.Visible = preset.GroundDetail;
+        if (_ripples is not null)
+        {
+            _ripples.Visible = preset.GroundDetail;
+        }
+
+        if (_roofDrips is not null)
+        {
+            _roofDrips.Visible = preset.GroundDetail;
+        }
+
+        _floorDebris.Visible = preset.GroundDetail;
+        _oldPaint.Visible = preset.OldPaint;
+        // Ambient occlusion does their job where the preset has it.
+        _contact.Visible = !preset.Ssao;
         _shafts.ApplyPreset(preset);
+    }
+
+    /// <summary>The level's plan for the briefing, with where you and your team start.</summary>
+    private LevelMap BriefingMap()
+    {
+        var map = new LevelMap { Name = "Map" };
+        var team = new List<Vector3>();
+        foreach (OpponentSpawn mate in _starts?.Teammates ?? Array.Empty<OpponentSpawn>())
+        {
+            team.Add(mate.Position.ToGodot());
+        }
+
+        map.Configure(_level, new Vector2(380f, 320f), (_start.Position.ToGodot(), _start.Yaw), team, _teamColor);
+        return map;
     }
 
     private void SaveAndToast(string message)

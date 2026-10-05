@@ -178,9 +178,9 @@ public class DataTests
             v.NotEmpty(nameof(Generator), Generator);
             v.NotEmpty(nameof(Prompt), Prompt);
             v.NotEmpty(nameof(Source), Source);
-            if (Kind is not ("texture" or "model"))
+            if (Kind is not ("texture" or "model" or "clip"))
             {
-                v.Error(nameof(Kind), $"'{Kind}' is not texture or model");
+                v.Error(nameof(Kind), $"'{Kind}' is not texture, model or clip");
             }
 
             if (Files.Length == 0)

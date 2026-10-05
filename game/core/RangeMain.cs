@@ -19,6 +19,7 @@ namespace Pb.Game.Core;
 /// scripted modes, selected by user args after "--":
 ///   --smoke-test[=ticks]  headless CI check: autopilot + stress mode, exit code 0/1
 ///   --demo                autopilot tour used for screenshots (with Godot's --write-movie)
+///   --shots               camera tour of the range's viewpoints (screenshots with --write-movie); --views=…
 /// </summary>
 public partial class RangeMain : Node3D, ISimEventListener
 {
@@ -31,6 +32,7 @@ public partial class RangeMain : Node3D, ISimEventListener
     private PlayerController _player = null!;
     private BallRenderer _balls = null!;
     private SplatSystem _splats = null!;
+    private PaintDrips _drips = null!;
     private ArcPreview _arc = null!;
     private Hud _hud = null!;
     private SmokeTest? _smoke;
@@ -77,11 +79,21 @@ public partial class RangeMain : Node3D, ISimEventListener
         PlayerState state = _sim.AddPlayer(0, 0, _data.Range.SpawnPosition, _data.Range.SpawnYaw);
         Color teamColor = Color.FromHtml(_view.TeamColors[state.Team % _view.TeamColors.Length]);
 
-        _world.Build(_data.Range);
+        _world.Build(_data.Range, _data.Kit.Materials, _view);
+        _world.Weeds?.Follow(_sim);
+        Atmosphere.ApplyLighting(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), _view.Lighting);
+        ApplyGraphics(_view.Graphics.Find(_settings.GraphicsPreset));
         _player.Initialize(_sim, state, _view, _settings, teamColor);
+        _player.BuildBody(_view.Characters, teamColor, look: 0);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
         _splats.Initialize(_view, (i, _, _) => _world.TargetNode(i) is { } target ? new SplatAnchor(target) : null);
         GetNode<ImpactFx>("ImpactFx").Initialize(_view);
+        var dust = new FootDust { Name = "FootDust" };
+        AddChild(dust);
+        dust.Initialize(_sim, _view.FootDust, _view.GroundWind);
+        _drips = new PaintDrips { Name = "PaintDrips" };
+        AddChild(_drips);
+        _drips.Initialize(_view);
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
         // Headless runs (CI) use Godot's dummy audio driver, which never retires finished
@@ -94,16 +106,17 @@ public partial class RangeMain : Node3D, ISimEventListener
         }
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
         _settings.ApplyVolume();
-        Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
         _pause = new PauseMenu { Name = "Pause" };
         AddChild(_pause);
-        _pause.Build(_settings, _view, _ => { }, restart: null);
+        _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Find(s.GraphicsPreset)), restart: null);
 
         _driver.Initialize(_sim);
         _driver.AddDriver(_player);
         _driver.AddListener(_balls);
         _driver.AddListener(_splats);
         _driver.AddListener(GetNode<ImpactFx>("ImpactFx"));
+        _driver.AddListener(dust);
+        _driver.AddListener(_drips);
         if (!headless)
         {
             _driver.AddListener(audio);
@@ -121,6 +134,12 @@ public partial class RangeMain : Node3D, ISimEventListener
         {
             _demo = new DemoTour(_sim, _player, _arc, _hud);
             _player.AutoPilot = _demo.Pilot;
+        }
+        else if (Args.Has("--shots"))
+        {
+            var tour = new ViewpointTour { Name = "ViewpointTour" };
+            AddChild(tour);
+            tour.Start(_data.Range.Viewpoints, _hud, _player.ViewModel, _view.Camera.FarClip_m);
         }
         else if (!headless)
         {
@@ -266,8 +285,11 @@ public partial class RangeMain : Node3D, ISimEventListener
             _view = view;
             _sim.ApplyConfig(data.Config);
             _sim.LoadRange(data.Range, data.Stress);
-            _world.Build(data.Range);
+            _world.Build(data.Range, data.Kit.Materials, view);
+            Atmosphere.ApplyLighting(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), view.Lighting);
+            ApplyGraphics(view.Graphics.Find(_settings.GraphicsPreset));
             _splats.ClearAll();
+            _drips.ClearAll();
             _player.ApplyMovementParams(data.Config.Movement);
             _balls.ApplyView(view);
             _splats.ApplyView(view);
@@ -280,6 +302,19 @@ public partial class RangeMain : Node3D, ISimEventListener
             GD.PushWarning(ex.Message);
             _hud.Toast("Reload failed:\n" + ex.Message, 8);
         }
+    }
+
+    /// <summary>A graphics preset: environment, shadows, anti-aliasing and render scale, whether the old paint shows, and the weeds.</summary>
+    private void ApplyGraphics(GraphicsPresetDef preset)
+    {
+        Atmosphere.ApplyPreset(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), GetViewport(), preset);
+        Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
+        foreach (OldPaint paint in _world.OldPaint)
+        {
+            paint.Visible = preset.OldPaint;
+        }
+
+        _world.Weeds?.ApplyPreset(preset);
     }
 
     private void SaveAndToast(string message)

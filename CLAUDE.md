@@ -55,12 +55,13 @@ Art is generated with Higgsfield, then the finished result is imported:
 ```bash
 tools/art/import.sh texture <material-id> <job-id> <generator> <url> "<prompt>"   # tiling albedo + normal + roughness maps
 tools/art/import.sh model <prop-id> <job-id> <generator> <url> "<prompt>"         # GLB; prints its measured size
+tools/art/import.sh clip <clip-id> <job-id> <generator> <url> "<prompt>"          # a rigged GLB's movement clip, cut down to rig + animation
 ```
 
 Each import records its provenance (job, generator, prompt, URL, files) in `game/data/assets.jsonc`, and a
 sim test fails if the kit or the characters use a texture or model without a record. Then point the
 material's `albedo`, `normal` and `roughnessMap` (`kit/materials.jsonc`), the prop's `model`
-(`kit/props.jsonc`) or a character model (`presentation.jsonc` → `characters`) at the files. Characters
+(`kit/props.jsonc`) or a character model or movement clip (`presentation.jsonc` → `characters`, `characters.clips`) at the files. Characters
 must use the generator's biped rig (the bone names `CharacterPoser` binds). One generation can hold four
 materials (a 2 × 2 sheet): cut each with `--region=x,y,w,h`. Cut a regular pattern (bricks, planks,
 corrugations) to whole repeats and pass `--repeats=across,down` (and `--stretch` for a cut that isn't
@@ -71,24 +72,27 @@ regular pattern `"breakUpRepeat": true`, so their repeat doesn't show over a yar
 
 ## Verifying visuals without a GPU
 
-A cloud container can render with Mesa's software Vulkan (lavapipe) under Xvfb. Godot's Movie
-Maker writes frames you can inspect:
+A cloud container can render with Mesa's software Vulkan (lavapipe) under Xvfb (`apt-get install
+mesa-vulkan-drivers` if `vulkaninfo` finds no device; without it Godot falls back to OpenGL, which
+isn't what players see). Godot's Movie Maker writes frames you can inspect:
 
 ```bash
 # The compound level: hold each of the level's viewpoints for 10 frames, then quit.
 xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan \
   --write-movie /tmp/cap/f.png --fixed-fps 30 res://scenes/Level.tscn -- --shots=10
-# The Phase 1 range: a scripted tour (game/core/DemoTour.cs).
+# The Phase 1 range (the training ground): a scripted tour (game/core/DemoTour.cs), or its viewpoints with --shots.
 xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan \
   --write-movie /tmp/cap/f.png --fixed-fps 30 --quit-after 450 res://scenes/Range.tscn -- --demo
 ```
 
 The main scene is the menu (`scenes/Main.tscn`), so name the scene for anything else. Viewpoints
-live in the level file (`viewpoints`). On `Level.tscn`, through the player's own camera,
+live in the level file (`viewpoints`), and the range's in `ranges/phase1.jsonc`; `--views="x,y,z>tx,ty,tz;…"` (or `x,y,z,yaw,pitch`) replaces them
+for close-ups of anything in the level. On `Level.tscn`, through the player's own camera,
 `-- --posture-demo` runs a short scripted shoulder swap / lean / muzzle-in-cover sequence,
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
-fighting you from cover with the F3 overlay. `-- --bot-match` (CI) has a bot play your slot until
+fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
+sprinting, strafing, backing off and walking crouched, seen from the side (movement clips, or the steps without them). `-- --bot-match` (CI) has a bot play your slot until
 the round ends. `--mode=solo|ffa|teams` and `--size=N` pick the mode and size (the menu's choices; the
 modes are in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's

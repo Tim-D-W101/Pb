@@ -30,7 +30,10 @@
 
   // Impact bursts. Bursts nearer the camera than minCameraDistance_m are skipped: point-blank spray
   // would fill the screen with flecks (paint on your mask is a separate effect).
-  "fx": { "maxBurstsPerFrame": 12, "breakParticles": 14, "bounceParticles": 5, "minCameraDistance_m": 1.0 },
+  // Bursts where balls break and bounce; splashParticles drops of water (splashColor) where a ball or a
+  // foot comes down in a puddle or a drip's pool.
+  "fx": { "maxBurstsPerFrame": 12, "breakParticles": 14, "bounceParticles": 5, "minCameraDistance_m": 1.0,
+    "splashParticles": 8, "splashColor": "#c9d3d9b4" },
 
   "camera": {
     // Horizontal field of view at 16:9 (spec: default 90°, adjustable 70–110°). Wider screens see more.
@@ -46,7 +49,11 @@
     // Minimal head-bob (spec §1.5).
     "headBob": true,
     "headBobAmplitude_m": 0.01,
-    "headBobStride_m": 1.8
+    "headBobStride_m": 1.8,
+    // A ball hitting you (bouncing off) jolts the view: a quick roll away from the hit, never moving
+    // where you aim, and a small nudge, for a ball at 90 m/s (slower ones less), gone in a fifth of a second.
+    "hitJolt_deg": 2.5,
+    "hitJolt_m": 0.012
   },
 
   "viewModel": {
@@ -60,7 +67,11 @@
     // Barrel tip relative to the marker: [right, up, forward].
     "muzzleTip_m": [0.0, 0.02, 0.43],
     "kickBack_m": 0.012,
-    "kickRecover_s": 0.08
+    "kickRecover_s": 0.08,
+    // Your gloved hands on the grips (coyote brown, so they read against the black marker) and your
+    // sleeves, running back out of view.
+    "gloveColor": "#5e5444",
+    "sleeveColor": "#39412f"
   },
 
   "look": {
@@ -85,9 +96,10 @@
   // Antialiasing is screen-space (screenAa: none, fxaa or smaa): with MSAA on, shaders can't read the
   // depth buffer the sunbeams need to stop at walls, so the beams switch off.
   // Per preset, the compound's lighting extras: the share of weeds drawn and how far (weedDensity,
-  // weedDistance_m), sunbeam strength (lightShafts, 0 = off), dust motes in the beams, and window fill
-  // lights. Ultra's volumetric fog already shows real beams and SDFGI bounces light, so it tones the
-  // fake beams down and drops the fill lights.
+  // weedDistance_m), sunbeam strength (lightShafts, 0 = off), dust motes in the beams, window fill
+  // lights, the things lying on the ground (groundDetail) and old paint (oldPaint), both off on Low. Ultra's volumetric fog
+  // already shows real beams and SDFGI bounces light, so it tones the fake beams down and drops the
+  // fill lights.
   "graphics": {
     "defaultPreset": "medium",
     // V-sync on by default: no tearing, and frames paced to the monitor. F8 (or the pause menu) turns
@@ -101,16 +113,16 @@
     "presets": [
       { "name": "low", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
         "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0, "screenAa": "fxaa",
-        "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false },
+        "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": false, "oldPaint": false },
       { "name": "medium", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
         "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 75, "msaa": 0, "screenAa": "fxaa",
-        "weedDensity": 0.5, "weedDistance_m": 35, "lightShafts": 0, "dust": false, "windowLights": false },
+        "weedDensity": 0.5, "weedDistance_m": 35, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": true, "oldPaint": true },
       { "name": "high", "ssao": true, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": true,
         "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 90, "msaa": 0, "screenAa": "smaa",
-        "weedDensity": 0.75, "weedDistance_m": 45, "lightShafts": 1.0, "dust": true, "windowLights": true },
+        "weedDensity": 0.75, "weedDistance_m": 45, "lightShafts": 1.0, "dust": true, "windowLights": true, "groundDetail": true, "oldPaint": true },
       { "name": "ultra", "ssao": true, "ssil": true, "sdfgi": true, "volumetricFog": true, "ssr": true, "glow": true,
         "ambientProbes": true, "shadowSize": 4096, "shadowDistance_m": 130, "msaa": 0, "screenAa": "smaa",
-        "weedDensity": 1.0, "weedDistance_m": 70, "lightShafts": 0.6, "dust": true, "windowLights": false }
+        "weedDensity": 1.0, "weedDistance_m": 70, "lightShafts": 0.6, "dust": true, "windowLights": false, "groundDetail": true, "oldPaint": true }
     ]
   },
 
@@ -132,7 +144,27 @@
     // the world never shows.
     "fogColor": "#a8a59c",
     "fogDensity": 0.0028,
-    "exposure": 1.0
+    "exposure": 1.0,
+    // A deck of cloud drifting over (looks only): its height, the size of its noise tile on it (bigger
+    // makes bigger clouds), the wind moving it ([x, z] m/s: +x east, +z south), how opaque the
+    // thickest cloud is, its sunlit and shaded colours, and how much of the sky's own still cloud
+    // stays showing behind it as a high layer (0-1). That layer fades out between highLayerFade_deg
+    // (degrees above the horizon): overhead it pinched into a streaky haze. cloudCover above sets how
+    // much sky the deck covers.
+    "clouds": {
+      "height_m": 1400,
+      "tile_m": 7000,
+      "wind_mps": [9, -4],
+      "opacity": 0.95,
+      "litColor": "#eee6da",
+      "shadeColor": "#7e828b",
+      "highLayer": 0.45,
+      "highLayerFade_deg": [20, 45]
+    },
+    // The volumetric fog of the presets that turn it on (Ultra): how thick it is per metre, how far
+    // from the camera it reaches, its colour, and how much it veils the sky (0: not at all; at 1 it
+    // hung a brown haze over the sky overhead). The depth fog above still hazes the horizon.
+    "volumetricFog": { "density": 0.005, "length_m": 64, "albedo": "#dbd5cb", "skyAffect": 0 }
   },
 
   // Distant tree lines around compound levels, so the horizon reads as land rather than a ruler-
@@ -143,7 +175,24 @@
     "rings": [
       { "radius_m": 340, "minHeight_m": 6, "maxHeight_m": 17, "gaps": 0.3 },
       { "radius_m": 680, "minHeight_m": 12, "maxHeight_m": 34, "gaps": 0.15 }
-    ]
+    ],
+    // A town's edge far off, grey in the haze: chimneys and sawtooth sheds to the north-east, a
+    // gasholder's frame to the north-west, flats to the south-west. Bearing: 0 north, 90 east.
+    "landmarkColor": "#3c3e3e",
+    "landmarks": [
+      { "kind": "chimney", "bearing_deg": 34, "distance_m": 520, "height_m": 55, "width_m": 4.5, "smoke": true },
+      { "kind": "chimney", "bearing_deg": 40, "distance_m": 545, "height_m": 41, "width_m": 3.6 },
+      { "kind": "shed", "bearing_deg": 28, "distance_m": 470, "height_m": 15, "width_m": 70 },
+      { "kind": "shed", "bearing_deg": 46, "distance_m": 500, "height_m": 13, "width_m": 50 },
+      { "kind": "gasholder", "bearing_deg": 302, "distance_m": 430, "height_m": 32, "width_m": 44 },
+      { "kind": "flats", "bearing_deg": 208, "distance_m": 600, "height_m": 38, "width_m": 22 },
+      { "kind": "flats", "bearing_deg": 221, "distance_m": 640, "height_m": 30, "width_m": 26 }
+    ],
+    // Smoke off the chimneys marked "smoke": how fast it rises, the wind carrying it off ([x, z] m/s:
+    // +x east, +z south), how long a puff lasts, how many are in the air, a puff's size leaving the
+    // chimney and fading out, its colour as seen through the haze (it isn't fogged again), and how
+    // opaque it is at most.
+    "smoke": { "rise_mps": 1.4, "wind_mps": [3.2, 0.6], "lifetime_s": 50, "puffs": 96, "size_m": [6, 34], "color": "#8f8b84", "opacity": 0.5 }
   },
 
   // Weeds and dry grass wherever rain falls (nothing overhead): thick on scrubland, patchy on dirt and
@@ -173,10 +222,545 @@
     "windSway_m": 0.05,
     "windSpeed": 1.4,
     "gustSize_m": 12,
+    // People push the weeds aside as they go through (looks only): tufts within pushReach_m of
+    // someone's feet lean away from them, up to pushLean_m at the tip, and lie a little flatter, and
+    // spring back over about pushLinger_s once they've passed. Bots do it too.
+    "pushReach_m": 0.7,
+    "pushLean_m": 0.28,
+    "pushLinger_s": 1.0,
     // Nothing grows this close to a pickup, so grass never hides a pod.
     "pickupClearance_m": 0.9,
     // Tufts are grouped in squares this big, which are culled as a whole.
     "chunkSize_m": 16
+  },
+
+  // Cracks in the asphalt and concrete, drawn along the network the weeds grow in ("weeds":
+  // crackMaterials, crackSpacing_m), so the tufts come up out of them. Each is a dark line wandering a
+  // little either side of the network, in a band of grime, with fine spurs branching off; how open they
+  // are varies in patches across the ground. Looks only: multiplied over the ground and its paint.
+  "cracks": {
+    // The open crack's width (narrowest, widest) and how far it wanders from the network's straight line.
+    "width_m": [0.004, 0.028],
+    "wander_m": 0.05,
+    // How open the cracks are on each crack material (a multiple; concrete cracks finer than asphalt).
+    "open": { "asphalt_cracked": 1.0, "concrete_floor": 0.6 },
+    // The grimy band either side: half-width, how dark it gets (0 none, 1 its colour), its colour.
+    "halo_m": 0.09,
+    "haloDarkness": 0.3,
+    "haloColor": "#6b6157",
+    // The crack itself: how dark (0 none, 1 its colour), its colour, and how much lighter its broken edge is.
+    "darkness": 0.85,
+    "color": "#3b332a",
+    "rim": 0.1,
+    // Fine cracks branching off: how many per metre of crack, and how long (shortest, longest).
+    "spurs_perM": 0.3,
+    "spurLength_m": [0.25, 0.9],
+    // Patches about this big where the cracks gape, and others where they close to hairlines.
+    "patchSize_m": 11,
+    // The share of the network drawn (the rest is too fine to see; weeds still find it).
+    "drawn": 0.85,
+    // Patches where the asphalt has broken up into small pieces: how many, how far each reaches
+    // (least, most), and how big the pieces are.
+    "alligator": { "patches": 9, "radius_m": [1.0, 2.6], "spacing_m": 0.32 },
+    "fadeStart_m": 30,
+    "fadeEnd_m": 55
+  },
+
+  // Damp: indoors, tide marks of rising damp along the foot of the walls that stand on the ground, black
+  // mould spreading from the top corners of the rooms' walls, and brown water stains on the ceilings;
+  // outdoors, grime splashed up the foot of the walls. Painted at load, flat on the walls and ceilings;
+  // looks only (paint lands on the wall beneath).
+  "damp": {
+    // Rising damp: the chance a length of wall has it, the highest a wall's foot can be (on the
+    // ground), and how high the tide mark climbs (least, most).
+    "rising": 0.5,
+    "risingBelow_m": 0.3,
+    "risingHeight_m": [0.35, 1.0],
+    // Splash-back outdoors: the chance a length of outside wall standing on the ground has grime
+    // splashed up its foot, how high (least, most), and the colour multiplied into it on the shady
+    // faces looking north (algae).
+    "splash": 0.85,
+    "splashHeight_m": [0.22, 0.5],
+    "splashAlgae": "#a9bb8e",
+    // Mould: the chance each top corner has a patch, its size (least, most), and the walls that get it
+    // (as tall as a room: least, most).
+    "mould": 0.3,
+    "mouldSize_m": [0.45, 1.3],
+    "mouldWalls_m": [2.2, 4.0],
+    // Water stains: per square metre of ceiling, their size (least, most), and the highest ceiling
+    // above its floor that gets them (the warehouse's roof is too far up to see). Off for now: the
+    // ceilings are too dark for them to show.
+    "stains_perM2": 0,
+    "stainSize_m": [0.6, 2.0],
+    "ceilingMaxHeight_m": 4.0,
+    "opacity": [0.75, 1.0],
+    "fadeStart_m": 30,
+    "fadeEnd_m": 50
+  },
+
+  // Paths worn across the soft ground between the doorways, the gaps in the walls and the cover out on
+  // it, where people have walked for years (looks only): trodden down to bare earth, ragged at the
+  // edges, with no weeds down the middle. They show only on these ground materials; the rest of their way is
+  // hard ground. Wander and longest are metres; weedFree_m is how far either side of the middle nothing
+  // grows.
+  "wornPaths": {
+    "on": ["dirt", "grass_dry", "gravel"],
+    "width_m": 0.9,
+    "wander_m": 1.2,
+    "longest_m": 60,
+    // Cover out on the soft ground is gathered in squares this big; each square's middle is somewhere
+    // a path leads.
+    "hubSpacing_m": 12,
+    "color": "#6f5f4b",
+    "opacity": 0.6,
+    "weedFree_m": 0.4,
+    "fadeStart_m": 40,
+    "fadeEnd_m": 70
+  },
+
+  // Graffiti on the outside walls (looks only): throw-ups in fat bubble letters low down and tags (a word
+  // in one thin line) at arm's height, painted at load from these invented words, so nothing is anyone's
+  // mark, on the outside faces of walls standing on the ground. Worn (0 none, 1 gone) and bleached
+  // towards grey by the sun, and drawn under the rust streaks. Widths are least-most metres.
+  "graffiti": {
+    "words": ["ZOKE", "VRAZ", "DRYX", "SKOB", "KRAE", "WUBO", "FEZK", "QOMA", "JIVR", "OXLE"],
+    "fills": ["#d8d8d4", "#e3b53c", "#4f9cd3", "#d4593e", "#7dc26b", "#ae6bd2", "#f1efe7"],
+    "outlines": ["#141414", "#1e2b5e", "#5c1515", "#232323"],
+    "throwUps": 9,
+    "throwUpWidth_m": [2.0, 3.4],
+    "tags": 14,
+    "tagWidth_m": [0.9, 1.6],
+    "opacity": [0.7, 0.95],
+    "wear": [0.1, 0.5],
+    "bleach": 0.3,
+    "fadeStart_m": 35,
+    "fadeEnd_m": 60
+  },
+
+  // Plastic bags caught on the walls' barbed wire (looks only): at most one on each strand between two
+  // brackets, hanging size_m long (least-most; never below the top of the wall), in one of these colours
+  // (darkened a little at random). The ground wind holds them out at lean_rad (in a lull, in a gust), and
+  // ripples flap their free end flap_m back and forth flutter_hz times a second.
+  "snaggedBags": {
+    "count": 14,
+    "size_m": [0.32, 0.55],
+    "colors": ["#ebe9e1", "#e2e4d8", "#d9d4c2", "#262626", "#4a6fa8", "#b8503f", "#c9b45a"],
+    "lean_rad": [0.6, 1.05],
+    "flap_m": 0.08,
+    "flutter_hz": 2.5
+  },
+
+  // The wind near the ground ([x, z] m/s: +x east, +z south): the weeds sway, the bags on the wire stream
+  // and dust drifts with it. The clouds and the chimney smoke, higher up, have their own.
+  "groundWind_mps": [3.2, 0.6],
+
+  // Dust kicked up underfoot (looks only), in its colour on each surface that has any (break_model.jsonc
+  // names; elsewhere feet raise none; a colour's alpha thins it: the concrete floors indoors are dusty,
+  // not dirt). A step raises a puff stepSize_m across, from a walk's to a
+  // sprint's (crouched steps raise none); a landing a ring of five landSize_m puffs, a jump one of
+  // jumpSize_m, and a slide one of slideSize_m every slideEvery_m; a ball breaking on the ground raises one
+  // of breakSize_m, and one bouncing off it one of bounceSize_m. A puff lasts about lifetime_s, grows
+  // to grow times its size, rises at rise_mps and drifts with windShare of the ground wind, starting
+  // opacity thick. At most max are up at once, at most perFrame are raised in a frame (a hail of paint),
+  // and none further than reach_m from the camera.
+  "footDust": {
+    "colors": { "dirt": "#9c8667", "gravel": "#a6a094", "turf": "#a69a72", "concrete": "#b4ad9f59" },
+    "stepSize_m": [0.2, 0.5],
+    "landSize_m": 0.55,
+    "jumpSize_m": 0.4,
+    "slideSize_m": 0.5,
+    "slideEvery_m": 0.35,
+    "breakSize_m": 0.35,
+    "bounceSize_m": 0.22,
+    "lifetime_s": 1.6,
+    "grow": 2.2,
+    "rise_mps": 0.25,
+    "windShare": 0.35,
+    "opacity": 0.45,
+    "max": 256,
+    "perFrame": 24,
+    "reach_m": 60
+  },
+
+  // Fresh paint running down the walls (looks only): share of the breaks on a steep face of the world
+  // (not on players or targets) send count runs (least, most) creeping down from the splat, length_m long
+  // and width_m wide (least, most), taking run_s to get there (least, most), quick at first and slowing.
+  // Faces leaning back further than steepest (the up part of their normal) don't run. At most cap runs
+  // are kept; the oldest are reused first.
+  "paintDrips": { "share": 0.55, "count": [1, 3], "length_m": [0.08, 0.45], "width_m": [0.012, 0.03], "run_s": [1.5, 4.5], "steepest": 0.5, "cap": 400 },
+
+  // Water still dripping through the holes where a roof has fallen in (looks only): about every_m along
+  // each torn edge (share of those places drip) a drop gathers every interval_s (least, most) and falls
+  // to the floor below, into a dark pool poolSize_m across (least, most) of its own, rippling it
+  // rippleSize_m across. A falling drop is a pale streak streak_m long; at most max fall at once.
+  "roofDrips": { "every_m": 1.4, "share": 0.6, "interval_s": [1.2, 4.0], "poolSize_m": [0.5, 0.9], "rippleSize_m": 0.35, "streak_m": 0.15, "max": 32 },
+
+  // Footprints (looks only): on these surfaces (break_model.jsonc names) each step presses a boot print
+  // in, left and right in turn, size_m (width, length), darkening the ground by color (a multiply, so the
+  // soil's grain shows through) as far as opacity says, gone after fade_s; a landing leaves both feet. At
+  // most max of each kind lie about at once (the oldest go first). Bots leave them too. A foot coming
+  // down within paintReach_m of paint on the ground less than paintFresh_s old picks it up: the next
+  // paintSteps prints are in that paint, on any ground, the first paintOpacity thick, fainter each step.
+  // A foot coming down in a puddle's water wets the boots: the next wetSteps prints on the wetOn
+  // surfaces are wet, darkening them by wetColor (a multiply) as far as wetOpacity says, less each step,
+  // and dry out over wetDry_s from their edges in, the tread's bars last.
+  "footprints": { "on": ["dirt"], "size_m": [0.11, 0.29], "color": "#6a5c4e", "opacity": 0.85, "fade_s": 180, "max": 600,
+    "paintSteps": 8, "paintReach_m": 0.35, "paintFresh_s": 90, "paintOpacity": 0.85,
+    "wetOn": ["concrete", "asphalt"], "wetSteps": 10, "wetColor": "#5f5b55", "wetOpacity": 0.8, "wetDry_s": 60 },
+
+  // Tatters hanging from the edges of the holes where a roof has fallen in (looks only): torn strips of
+  // roofing felt and insulation about every_m along each edge (share of those places have one), hanging
+  // length_m and width_m wide (least, most), in one of these colours. The draught through the hole holds
+  // them out at lean_rad (in a lull, in a gust) and flutters their free ends flap_m, flutter_hz times a
+  // second.
+  "roofTatters": {
+    "every_m": 0.6,
+    "share": 0.45,
+    "length_m": [0.15, 1.6],
+    "width_m": [0.1, 0.45],
+    "colors": ["#2b2a28", "#3a3835", "#4a4640", "#c9b45a", "#b9a77a"],
+    "lean_rad": [0.05, 0.3],
+    "flap_m": 0.05,
+    "flutter_hz": 1.3
+  },
+
+  // Ripples on the puddles (looks only): where a foot comes down in a puddle's water, rings spread out
+  // stepSize_m across (landSize_m on landing), and ballSize_m where a ball breaks or bounces in it, never
+  // wider than the water there. They fade over lifetime_s; opacity is how bright they start, and at most
+  // max spread at once. Off with the things on the ground (the graphics presets' groundDetail).
+  "ripples": { "stepSize_m": 0.6, "landSize_m": 0.9, "ballSize_m": 0.4, "lifetime_s": 1.1, "opacity": 0.35, "max": 64 },
+
+  // Litter blowing about the yard (looks only): dry leaves, scraps of paper and wrappers lying on open
+  // ground outdoors. A gust stronger than lift (0-1; least, most) picks a piece up and it tumbles, hops
+  // and skitters off on share of the ground wind (least, most) until the gust drops, it fetches up
+  // against something, or it's blown in under a roof. One pinned for recycle_s goes back out onto open
+  // ground once neither place is within hidden_m in front of the camera. Each kind: its shape (leaf,
+  // paper or wrapper), how often it's picked (weight), size_m (least, most), colours, how high it hops,
+  // and how fast it tumbles over and spins round per metre blown.
+  "blowingLitter": {
+    "count": 60,
+    "lift": [0.55, 0.85],
+    "share": [0.5, 0.85],
+    "recycle_s": 20,
+    "hidden_m": 30,
+    "kinds": [
+      { "kind": "leaf", "weight": 6, "size_m": [0.07, 0.12], "colors": ["#8a5a2b", "#a2763a", "#6e4a26", "#b08b4a"],
+        "hop_m": 0.12, "tumble_radPerM": 5, "spin_radPerM": 2 },
+      { "kind": "paper", "weight": 3, "size_m": [0.16, 0.26], "colors": ["#ddd8c8", "#e8e4d6", "#cfc8b4"],
+        "hop_m": 0.04, "tumble_radPerM": 0, "spin_radPerM": 1.2 },
+      { "kind": "wrapper", "weight": 1, "size_m": [0.09, 0.14], "colors": ["#b9bcc0", "#c9a646", "#9e4436"],
+        "hop_m": 0.08, "tumble_radPerM": 3, "spin_radPerM": 2.5 }
+    ]
+  },
+
+  // Things lying on the ground: oil stains round the car and the machines, puddles under the open sky,
+  // damp patches, rust run-off by rusting things, tyre tracks, drifts of leaves against walls, litter
+  // and broken chips. Painted at load into one atlas and drawn as flat cards in one draw call; seeded
+  // by the level id, so they're the same every run. Presentation only. Each kind: how many, the length
+  // of a card (smallest, largest), width as a share of length ("aspect"), the ground materials it lies
+  // on, "sky" (open, covered or any), props it gathers round with the share placed there ("near",
+  // "nearShare"), the share along the foot of walls ("edgeShare"), and how opaque it is.
+  "groundDetail": {
+    "fadeStart_m": 40,
+    "fadeEnd_m": 65,
+    "kinds": [
+      { "kind": "damp", "count": 80, "size_m": [1.6, 4.5], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"], "opacity": 0.85 },
+      { "kind": "puddle", "count": 50, "size_m": [1.0, 3.2], "on": ["asphalt_cracked", "dirt", "concrete_floor"], "sky": "open" },
+      { "kind": "oil", "count": 140, "size_m": [0.5, 1.8], "on": ["asphalt_cracked", "concrete_floor", "gravel"],
+        "near": ["car_wreck", "generator", "forklift", "pump_unit", "oil_drum", "oil_drum_rust", "oil_drum_tipped", "skip_bin"], "nearShare": 0.6 },
+      { "kind": "rust", "count": 70, "size_m": [0.6, 1.8], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"],
+        "near": ["oil_drum_rust", "oil_drum_tipped", "scrap_pile", "skip_bin", "car_wreck", "water_tower", "container_red", "container_blue", "container_green", "shelving_rack"], "nearShare": 1.0 },
+      { "kind": "tracks", "count": 20, "size_m": [4, 6], "aspect": 0.45, "on": ["asphalt_cracked", "dirt"], "sky": "open", "opacity": 0.85 },
+      { "kind": "leaves", "count": 160, "size_m": [0.6, 1.3], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"], "edgeShare": 0.8 },
+      { "kind": "litter", "count": 140, "size_m": [0.5, 1.0], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"], "edgeShare": 0.4 },
+      { "kind": "chips", "count": 110, "size_m": [0.6, 1.4], "on": ["asphalt_cracked", "dirt", "gravel", "concrete_floor"],
+        "near": ["rubble_pile", "scrap_pile"], "nearShare": 0.5, "edgeShare": 0.35 }
+    ]
+  },
+
+  // Old paint from games played here before: faded splats where people shooting from one cover spot at
+  // another would have hit, on the cover and walls and on the ground short of them. Shots are cast at
+  // load from the bots' cover points at others facing them across their cover, straying by about
+  // spread_m; seeded by the level id. A card is placed only where it lies flat on what it hit. Drawn
+  // in one draw call; presentation only.
+  // Behind the main menu: this level, seen from a camera drifting from one point to the other and
+  // back over period_s (vertical fov_deg), with the menu's wash darkest (shade) on the left where the
+  // panels sit. Built at the saved graphics preset; nothing moves in it but the camera and the weeds.
+  "menuBackdrop": {
+    "level": "oxbarrow_works",
+    "from": { "position_m": [9, 2.6, 24], "yaw_deg": 12, "pitch_deg": -4 },
+    "to": { "position_m": [1, 2.3, 25], "yaw_deg": -2, "pitch_deg": -3 },
+    "period_s": 80,
+    "fov_deg": 55,
+    "shade": 0.82
+  },
+
+  // The training ground (the Phase 1 range, scenes/Range.tscn), dressed with the level kit
+  // (kit/materials.jsonc ids) under the levels' lighting and tree lines. Looks only: ranges/phase1.jsonc
+  // decides what paint hits. The nets, backstop and boards also stop you walking through them.
+  "trainingGround": {
+    // The lane, its photo tinted a little greener than the scrub round it, and the gravel behind the
+    // firing line where you stand; the paint of the lines across the lane and of the firing line.
+    "field": "grass_dry",
+    "fieldTint": "#d9e3b6",
+    "firingPoint": "gravel",
+    "lineColor": "#e6e2d4",
+    "firingLineColor": "#e0b22c",
+    // Netting down both sides, on posts with a cable sagging along their tops. The netting is painted at
+    // load: squares mesh_m across, the twine covering this share of each side, so far off it's a haze.
+    "nets": {
+      "height_m": 6.0,
+      "postSpacing_m": 6.0,
+      "postRadius_m": 0.045,
+      "posts": "steel_galvanised",
+      "color": "#20261f",
+      "mesh_m": 0.05,
+      "twine": 0.1,
+      "sag_m": 0.14
+    },
+    // The far end: a wall of boards on posts, reaching overhang_m past each side of the lane, an earth
+    // bank behind it with grass on top rising bankRise_m above it, and netting on poles up to netHeight_m.
+    "backstop": {
+      "boards": "wood_planks",
+      "posts": "wood_planks",
+      "bank": "dirt",
+      "bankTop": "grass_dry",
+      "height_m": 3.4,
+      "bankRise_m": 0.9,
+      "bankDepth_m": 7.0,
+      "netHeight_m": 9.0,
+      "overhang_m": 6.0
+    },
+    // Distance boards on posts down the left of the lane, at the range's labelled distances: the nearest
+    // width_m[0] across, the farthest width_m[1], so they read from the firing line.
+    "boards": { "board": "enamel_white", "posts": "wood_planks", "textColor": "#232320", "width_m": [0.75, 2.2] },
+    // A lean-to shelter behind the firing point, open to the lane: timber frame, corrugated roof falling
+    // to the back, boarded back wall with a bench, a table with pods and a tank. position_m is its
+    // middle [x, z] (the firing line is z = 0).
+    "hut": { "position_m": [-8, 10.5], "width_m": 7.5, "depth_m": 3.0, "height_m": 2.7, "frame": "wood_planks", "roof": "corrugated_grey", "boards": "wood_pallet" },
+    // The inflatable bunkers: this fabric in each prop's colour (ranges/phase1.jsonc), seams a shade
+    // darker, tethered to pegs; thin board props are this board on stakes.
+    "inflatable": "nylon",
+    "tethers": "sandbag",
+    "panel": "hardboard",
+    "stakes": "wood_planks",
+    // The target dummies: a padded body on a tyre filled with concrete (or a trolley on rails, if it
+    // moves), a head in a mask. They flash this colour when hit.
+    "dummy": {
+      "body": "nylon", "bodyColor": "#e8e2d0", "straps": "plastic_black",
+      "head": "nylon", "headColor": "#8d877c", "mask": "plastic_black", "lens": "glass_dirty",
+      "base": "tyre_rubber", "fill": "concrete_floor",
+      "flashColor": "#ff5a1a"
+    },
+    "rails": "steel_rust",
+    "sleepers": "wood_planks",
+    // Years of practice: shots from the firing line at the targets (landing round and behind them), the
+    // bunkers and the backstop. Same keys as "oldPaint"; the props list doesn't apply here.
+    "oldPaint": {
+      "count": 900,
+      "range_m": 120,
+      "spread_m": 0.5,
+      "size_m": [0.3, 0.9],
+      "colors": ["#e8508e", "#f08a2a", "#e6c43a", "#7cc44a", "#3e8ee8", "#9a5ad6", "#ece8dc"],
+      "fade": [0.05, 0.5],
+      "opacity": [0.65, 0.95],
+      "props": {},
+      "fadeStart_m": 90,
+      "fadeEnd_m": 140
+    },
+    // The same on each dummy, aimed at it: small splats, as a flat card has to lie on its round body.
+    "dummyPaint": {
+      "count": 45,
+      "range_m": 120,
+      "spread_m": 0.12,
+      "size_m": [0.1, 0.26],
+      "colors": ["#e8508e", "#f08a2a", "#e6c43a", "#7cc44a", "#3e8ee8", "#9a5ad6", "#ece8dc"],
+      "fade": [0.05, 0.45],
+      "opacity": [0.7, 0.95],
+      "props": {},
+      "fadeStart_m": 45,
+      "fadeEnd_m": 75
+    },
+    // Out beyond it: a power line across the skyline past the backstop, telegraph poles down the track
+    // to the right. Plan [x, z] with the firing line at z = 0 and the lane running to −z.
+    "scenery": {
+      "powerLines": [ { "points_m": [[-520, -330], [-90, -290], [520, -260]], "spacing_m": 230, "height_m": 28, "material": "steel_galvanised", "wire": "steel_painted" } ],
+      "poleLines": [ { "points_m": [[44, 70], [48, -140], [60, -420]], "spacing_m": 42, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" } ]
+    }
+  },
+
+  // Soft contact shadows on the floor round the foot of walls and columns, and of props, where sky
+  // light can't get in under them, on presets without ambient occlusion (looks only): how dark against
+  // the footprint (0-1) and how far out they fade; pieces shorter than minHeight_m get none.
+  "contactShadows": {
+    "wallStrength": 0.45,
+    "wallReach_m": 0.7,
+    "propStrength": 0.55,
+    "propReach_m": 0.5,
+    "minHeight_m": 0.15,
+    "fadeStart_m": 35,
+    "fadeEnd_m": 60
+  },
+
+  // Things left hanging on the inside walls of the offices and the guardhouse (looks only): the chance
+  // a length of wall gets one, the kinds with how often each comes up, where their middles hang above
+  // the floor (eye level; clocks and exit signs higher), how tall a piece of wall must be to take one,
+  // how far they keep from its ends and stand off it, and the share that hang crooked. Nothing on
+  // them can be read.
+  "wallHangings": {
+    "chance": 0.4,
+    "kinds": { "noticeboard": 3, "whiteboard": 2, "clock": 1.5, "planner": 1.5, "exitSign": 1, "picture": 1.5, "hazardSign": 1, "sitePlan": 1 },
+    "eyeCentre_m": 1.55,
+    "highCentre_m": 2.25,
+    "minWallHeight_m": 2.4,
+    "endClearance_m": 0.2,
+    "standOff_m": 0.012,
+    "crooked": 0.25
+  },
+
+  // Cast-iron fittings set into the yard (looks only, flush with the ground): manhole covers out in
+  // the open and drain gratings, most of them along the foot of the buildings' outside walls
+  // (alongWalls is that share). Radius and size are least-most metres; "on" lists the ground materials
+  // they're set in, and "material" is the kit material they're cast in.
+  "yardFittings": {
+    "manholes": 7,
+    "manholeRadius_m": [0.3, 0.36],
+    "drains": 14,
+    "drainSize_m": [0.45, 0.6],
+    "alongWalls": 0.7,
+    "on": ["asphalt_cracked", "concrete_floor"],
+    "material": "cast_iron"
+  },
+
+  // Trees out beyond the levels and the training ground (looks only): copses in the scrubland, the
+  // nearest clearance_m from the place and the farthest reach_m beyond that, kept lineClearance_m from
+  // power and pole lines. treesPerCopse and spread_m are least-most; height_m is least-most tree height.
+  // A copse takes one of leafColors (a few of its trees another): late-summer greens with some turning.
+  "woods": {
+    "copses": 10,
+    "treesPerCopse": [3, 8],
+    "spread_m": [7, 20],
+    "clearance_m": 14,
+    "reach_m": 140,
+    "lineClearance_m": 14,
+    "height_m": [8, 16],
+    "leafColors": ["#4c5a2c", "#56622f", "#465327", "#6a6a32", "#7c6830"],
+    "barkColor": "#3f3a33",
+    "sway_m": 0.12
+  },
+
+  // Debris on the floors indoors, on every storey (looks only): papers lying about or screwed up,
+  // plaster fallen off the walls, dust drifting into corners, leaves blown in, and glass under the
+  // broken windows on both sides. perSquareMetre is per square metre of each room's floor, edgeShare
+  // the share of those along the foot of the walls; perWindow is how many under each window on each
+  // side. Sizes are least-most metres; colours sRGB; gloss 0 matte to 1 like glass.
+  "floorDebris": {
+    "fadeStart_m": 30,
+    "fadeEnd_m": 50,
+    "kinds": [
+      { "kind": "papers", "perSquareMetre": 0.12, "edgeShare": 0.35, "size_m": [0.3, 0.46], "color": "#dcd6c4" },
+      { "kind": "plaster", "perSquareMetre": 0.08, "edgeShare": 0.85, "size_m": [0.4, 1.0], "color": "#cbc3ae" },
+      { "kind": "dust", "perSquareMetre": 0.06, "edgeShare": 0.8, "size_m": [0.7, 1.6], "color": "#4f483d", "opacity": 0.85 },
+      { "kind": "leaves", "perSquareMetre": 0.04, "edgeShare": 0.7, "size_m": [0.35, 0.7], "color": "#7a5530" },
+      { "kind": "glass", "perWindow": 2.5, "size_m": [0.3, 0.7], "color": "#c8d4d0", "gloss": 1.0 }
+    ]
+  },
+
+  // Run-off streaks down the outside walls (looks only): grime running from under the windows' sills,
+  // rust from the fittings, downpipe collars and the wire's brackets, and stains scattered along the
+  // gutters and copings. Colours are sRGB; rustFrom says how much rust each kit material sheds (0-1;
+  // others shed grime). Lengths are least-most metres a streak runs (cut short above an opening below
+  // it and at the ground); lineWidth_m and lineSpacing_m are for streaks along gutters and copings.
+  "runOff": {
+    "grime": "#2b2720",
+    "rust": "#8a4317",
+    "rustFrom": { "steel_rust": 1.0, "steel_painted": 0.55, "steel_galvanised": 0.35 },
+    "chance": 0.85,
+    "sillLength_m": [0.6, 1.8],
+    "fittingLength_m": [0.7, 1.8],
+    "lineLength_m": [1.0, 2.6],
+    "lineWidth_m": [0.35, 1.1],
+    "lineSpacing_m": [0.8, 2.6],
+    "opacity": [0.55, 0.9],
+    "fadeStart_m": 40,
+    "fadeEnd_m": 65
+  },
+
+  // Cobwebs in the corners of the buildings' doorways (the top ones) and windows (looks only): the
+  // chance a corner has one, how big, how see-through, their colour, and where they fade out.
+  "cobwebs": {
+    "chance": 0.4,
+    "size_m": [0.18, 0.45],
+    "opacity": [0.45, 0.8],
+    "color": "#d9d7d0",
+    "fadeStart_m": 18,
+    "fadeEnd_m": 32
+  },
+
+  // Crows wheeling over each level and the training ground (looks only): each flock circles round a
+  // point [x, z] from the place's middle, each bird on its own circle and height, gliding for a few
+  // seconds (flapEvery_s) between bursts of wingbeats (flapFor_s). On a level a few more sit on the
+  // wall tops and take off when you come close.
+  "birds": {
+    "flocks": [
+      { "center_m": [-12, -18], "count": 6, "radius_m": [16, 34], "height_m": [26, 44] },
+      { "center_m": [36, 24], "count": 3, "radius_m": [9, 18], "height_m": [16, 26] }
+    ],
+    "speed_mps": 8.5,
+    "wingspan_m": 0.9,
+    "color": "#1b1b1d",
+    "flapEvery_s": [3, 9],
+    "flapFor_s": [0.8, 2.2],
+    // On a level, this many more sit on the tops of its walls, until you come this close. A shot this
+    // close puts them up too, so does a ball breaking this close, and anyone's footsteps within this
+    // share of the distance they're heard (a sprint's carry furthest; a crouched step's hardly at all).
+    "perched": 9,
+    "flushDistance_m": 9,
+    "shotStartle_m": 18,
+    "breakStartle_m": 6,
+    "stepStartle": 0.5,
+    // And this many feed together on its open ground (these materials), pecking and hopping about,
+    // until you come as close.
+    "feeding": 6,
+    "feedOn": ["dirt", "grass_dry", "gravel"]
+  },
+
+  // Worn paint on the buildings (each template's "markings": floor lines, hatched bays, stencilled
+  // numbers, striped columns): how opaque the paint is that's left, and where it fades out.
+  "markings": {
+    "opacity": [0.55, 0.9],
+    "fadeStart_m": 55,
+    "fadeEnd_m": 85
+  },
+
+  // Ivy and dead vines climbing the outside walls: patches standing on the ground against walls of
+  // these materials, under the open sky, each with wall behind it all the way up and across (none
+  // climbs over a window or round a corner). Painted at load; seeded by the level id.
+  "creepers": {
+    "count": 110,
+    "width_m": [0.9, 2.2],
+    "height_m": [1.0, 3.6],
+    "on": ["concrete_block", "concrete_wall", "brick_red", "brick_painted", "plaster_peeling"],
+    "fadeStart_m": 45,
+    "fadeEnd_m": 75
+  },
+
+  "oldPaint": {
+    "count": 2400,
+    "range_m": 40,
+    "spread_m": 0.8,
+    // A card's width; the splat's middle is about a third of it, its spray reaches the edges.
+    "size_m": [0.4, 1.1],
+    // Typical paint fills, before fading: pink, orange, yellow, green, blue, purple, white.
+    "colors": ["#e8508e", "#f08a2a", "#e6c43a", "#7cc44a", "#3e8ee8", "#9a5ad6", "#ece8dc"],
+    "fade": [0.1, 0.5],
+    "opacity": [0.6, 0.95],
+    // Props paint shows on, with how far each shape's faces sit inside its colliders (m). Walls,
+    // columns and the ground always take paint; round or ragged props (drums, tyres, sandbags, the
+    // car, heaps) don't, since a flat card would stand off them.
+    "props": { "container_red": 0.022, "container_blue": 0.022, "container_green": 0.022, "crate_large": 0.025, "crate_small": 0.025 },
+    "fadeStart_m": 40,
+    "fadeEnd_m": 65
   },
 
   // Sunbeams through windows, doors and holes in the roof, wherever the sun reaches into a roofed
@@ -239,13 +823,29 @@
   // rig (stance, lean, aim, hands on the marker). A missing model falls back to drawing the hitboxes.
   "characters": {
     // Models, dealt to opponents in turn, and tints for their colours, so copies of one model differ.
-    "models": ["res://art/models/opponent_a.glb"],
+    "models": ["res://art/models/opponent_a.glb", "res://art/models/opponent_b.glb", "res://art/models/opponent_c.glb"],
     "tints": ["#ffffff", "#c8ccd4", "#e8dcc0"],
-    // The team-colour armband on each upper arm.
+    // The team-colour armband on each upper arm, halfway down: fitted round each model's
+    // sleeve there with armbandGap_m to spare, or armbandRadius_m round where the sleeve can't be measured.
     "armbandRadius_m": 0.068,
     "armbandWidth_m": 0.09,
-    // Steps while moving (until walk clips arrive): stride, foot lift, the speed of a full stride and
-    // how long steps take to reach it from a standstill, and how far the hips bob at each footfall.
+    "armbandGap_m": 0.004,
+    // A ball hitting a body, breaking or bouncing off, makes it flinch: the upper body turns away from
+    // the hit by up to this much (a ball at 90 m/s; slower ones less), snapping there and easing back.
+    "flinch_deg": 9,
+    // Movement clips, shared by every model (each a GLB holding one in-place clip on the generator's
+    // rig, fitted to each model's build by bone name): "walk", "run" and "crouchWalk". Each plays at
+    // the pace that keeps its feet planted; walk blends into run between the two clips' own speeds,
+    // and into the crouched walk as you crouch, all in step. Any can be left out; without a walk, the
+    // steps below stand in.
+    "clips": { "walk": "res://art/models/clip_walk.glb", "run": "res://art/models/clip_run.glb" },
+    // How long clips take to blend in and out, and between each other.
+    "clipBlend_s": 0.2,
+    // The legs turn from where you face towards where you're going, by up to this much (the chest
+    // stays on the aim); backing off plays the cycle backwards.
+    "maxLegYaw_deg": 65,
+    // Steps while moving without a walk clip: stride, foot lift, the speed of a full stride and how
+    // long steps take to reach it from a standstill, and how far the hips bob at each footfall.
     "stride_m": 0.75,
     "stepLift_m": 0.12,
     "fullStrideSpeed_mps": 3.0,
@@ -288,6 +888,9 @@
     // The crosshair flashes this marker when your ball puts someone out.
     "hitMarkerTime_s": 0.35,
     "hitMarkerColor": "#ffffff",
+    // Below this share of the loader the gear panel's paint count turns amber and says LOW (red and
+    // EMPTY at none), while there's paint in the pods to refill from.
+    "lowPaint": 0.2,
     // Opponents' callsigns, dealt in a shuffled order each round (invented names only).
     "callsigns": ["Rook", "Magpie", "Tinker", "Moth", "Ferret", "Badger", "Sparrow", "Flint", "Gannet", "Wren", "Otter", "Lark"],
     // What bots shout; one line is picked per call.

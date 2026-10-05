@@ -203,6 +203,27 @@ public class BotTests
     }
 
     [Fact]
+    public void A_bot_whose_enemy_is_gone_between_decisions_stands_down_at_once()
+    {
+        // Decisions come every so often but the bot acts every tick: when whoever it was fighting is out
+        // of the round and forgotten in between, it must stand down then and there, not act on a fight
+        // with nobody in it (which threw, and the game retried the tick until the next decision).
+        BotArena arena = BotArena.Create("hard");
+        BotBrain bot = arena.AddBot("yard_east");
+        arena.Start();
+        arena.PlaceHero(arena.SpotInFront(bot, 14f), bot.Self.Position + new Vector3(0f, 0f, 30f));
+        arena.Run(12 * Second, () => bot.Mode == BotMode.Engage);
+        Assert.Equal(BotMode.Engage, bot.Mode);
+
+        arena.Hero.Present = false;
+        bot.Senses.Reset();
+        arena.Tick();
+        Assert.Null(bot.Senses.Focus);
+        Assert.NotEqual(BotMode.Engage, bot.Mode);
+        arena.Run(Second);
+    }
+
+    [Fact]
     public void A_shot_out_of_sight_makes_an_idle_bot_come_and_look()
     {
         BotArena arena = BotArena.Create("normal");
@@ -391,6 +412,26 @@ public class BotTests
         Assert.Equal(Match.MatchPhase.Ended, match.Phase);
         Assert.NotEqual(Match.RoundOutcome.None, match.Outcome);
         Assert.True(arena.ShotsBy(0) > 0, "never found anyone to shoot at");
+    }
+
+    /// <summary>Ten sets of random starts in each mode, at the sizes the menu offers by default.</summary>
+    public static IEnumerable<object[]> OtherStarts() =>
+        new[] { ("solo", 6), ("teams", 5), ("ffa", 8) }.SelectMany(m => Enumerable.Range(1, 10).Select(seed => new object[] { m.Item1, m.Item2, (ulong)seed }));
+
+    [Theory]
+    [MemberData(nameof(OtherStarts))]
+    public void Rounds_from_other_random_starts_play_out_without_errors(string modeId, int size, ulong seed)
+    {
+        // CI's bot match plays one set of starts. Others reach states it doesn't: a bot whose enemy was gone
+        // between decisions threw at the game's --seed=4. Any exception here fails the test.
+        (BotArena arena, GameMode mode) = BotRound(modeId, size, seed);
+        arena.Start(timeLimit: 240f, mode: mode.Kind);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        arena.Run(250 * Second, () => arena.Sim.Match!.Phase == Match.MatchPhase.Ended);
+        Report(arena);
+        _out.WriteLine($"({watch.Elapsed.TotalSeconds:0.0} s to run)");
+        Assert.Equal(Match.MatchPhase.Ended, arena.Sim.Match!.Phase);
+        Assert.NotEqual(Match.RoundOutcome.None, arena.Sim.Match!.Outcome);
     }
 
     /// <summary>A round of <paramref name="modeId"/> at <paramref name="size"/> with bots in every slot, yours included, from random starts.</summary>

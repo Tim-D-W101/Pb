@@ -463,7 +463,7 @@ public static class KitGeometry
             new Vector3(size.X * 0.5f, height * 0.5f, size.Y * 0.5f), material, flags, PrimitiveRole.Column, owner);
     }
 
-    /// <summary>Places every collider of a prop. A prop with a model isn't drawn from its colliders.</summary>
+    /// <summary>Places every collider of a prop. A prop with a model or a shape isn't drawn from its colliders.</summary>
     public static void Prop(PrimitiveSink sink, PlanFrame frame, PropType type, int owner)
     {
         foreach (PropColliderTemplate c in type.Colliders)
@@ -474,7 +474,7 @@ public static class KitGeometry
                 flags |= PrimitiveFlags.Walk;
             }
 
-            if (!type.HasModel)
+            if (!type.HasVisual)
             {
                 flags |= PrimitiveFlags.Render;
             }

@@ -328,6 +328,58 @@
         "res://art/textures/container_green_roughness.jpg"
       ],
       "notes": "1024 px, region 0.0004340,0.5025174,0.4966146,0.4966146, pattern repeats 2,0, flatten 0.2, seam band 0.12, normal strength 3, roughness 0.65 ± 0.15"
+    },
+    {
+      "id": "clip_walk",
+      "kind": "clip",
+      "job": "5ea6374f-1777-4fb0-a7a1-794549f01368",
+      "generator": "3d_rigging",
+      "prompt": "opponent_a's model rigged with the generator's biped rig and its in-place clip 690, Walk_Forward_While_Shooting_inplace (a walk with a gun held up)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261003_000812_5ea6374f-1777-4fb0-a7a1-794549f01368.glb",
+      "imported": "2026-10-03",
+      "files": [
+        "res://art/models/clip_walk.glb"
+      ],
+      "notes": "9.7 MB → 116 KB, rig and 1 animation(s) kept"
+    },
+    {
+      "id": "clip_run",
+      "kind": "clip",
+      "job": "75fb11c2-4b41-4c77-bb5e-1df10e9a9470",
+      "generator": "3d_rigging",
+      "prompt": "opponent_a's model rigged with the generator's biped rig and its in-place clip 654, Rifle_Charge_inplace (a run with a gun held up)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261003_000813_75fb11c2-4b41-4c77-bb5e-1df10e9a9470.glb",
+      "imported": "2026-10-03",
+      "files": [
+        "res://art/models/clip_run.glb"
+      ],
+      "notes": "9.6 MB → 44 KB, rig and 1 animation(s) kept"
+    },
+    {
+      "id": "opponent_b",
+      "kind": "model",
+      "job": "0744699c-8ac6-41fd-9d31-9627812b9461",
+      "generator": "image_to_3d",
+      "prompt": "The left figure of picture job 931e5577-7dd9-4e3e-a7da-816c0f31b91b (gpt_image_2_5), rigged and textured with PBR in an A-pose, idle clip 0. Picture prompt: Full-body photograph of two paintball players standing side by side with a wide gap between them, each in a neutral A-pose with arms held slightly away from the body, front view, both fully in frame from head to feet, on a plain light grey studio background. Empty hands. Left: a stocky man in a woodland camouflage padded jersey and matching camouflage pants with knee pads, an olive green full-face paintball mask with a smoked goggle lens, black gloves, a harness belt with three short pod tubes. Right: a slim woman with a dark ponytail, in a slate grey and dusty blue padded jersey and dark grey pants with knee pads, a black full-face paintball mask with a clear goggle lens, black gloves, a harness belt with three short pod tubes. Generic unbranded gear: no logos, no text, no weapon. Even soft studio lighting, sharp focus, realistic.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261003_000921_0744699c-8ac6-41fd-9d31-9627812b9461.glb",
+      "imported": "2026-10-03",
+      "files": [
+        "res://art/models/opponent_b.glb"
+      ],
+      "notes": "0.97 × 1.80 × 0.38 m (x × y × z), base at y = 0.00, centre (-0.00, 0.00); 13.9 MB → 5.7 MB; emissive removed, 1 unused picture(s) dropped, 3 picture(s) at 2048 px JPEG (were up to 2048 px)"
+    },
+    {
+      "id": "opponent_c",
+      "kind": "model",
+      "job": "f3c3fc67-e1b2-41fb-928e-f98b1a352fe1",
+      "generator": "image_to_3d",
+      "prompt": "The right figure of picture job 931e5577-7dd9-4e3e-a7da-816c0f31b91b (gpt_image_2_5), rigged and textured with PBR in an A-pose, idle clip 0. Picture prompt: Full-body photograph of two paintball players standing side by side with a wide gap between them, each in a neutral A-pose with arms held slightly away from the body, front view, both fully in frame from head to feet, on a plain light grey studio background. Empty hands. Left: a stocky man in a woodland camouflage padded jersey and matching camouflage pants with knee pads, an olive green full-face paintball mask with a smoked goggle lens, black gloves, a harness belt with three short pod tubes. Right: a slim woman with a dark ponytail, in a slate grey and dusty blue padded jersey and dark grey pants with knee pads, a black full-face paintball mask with a clear goggle lens, black gloves, a harness belt with three short pod tubes. Generic unbranded gear: no logos, no text, no weapon. Even soft studio lighting, sharp focus, realistic.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261003_000923_f3c3fc67-e1b2-41fb-928e-f98b1a352fe1.glb",
+      "imported": "2026-10-03",
+      "files": [
+        "res://art/models/opponent_c.glb"
+      ],
+      "notes": "0.85 × 1.68 × 0.35 m (x × y × z), base at y = 0.00, centre (-0.00, -0.00); 14.7 MB → 6.3 MB; emissive removed, 1 unused picture(s) dropped, 3 picture(s) at 2048 px JPEG (were up to 2048 px)"
     }
   ]
 }

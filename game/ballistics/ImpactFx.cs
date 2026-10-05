@@ -5,11 +5,17 @@ using Pb.Sim.Events;
 
 namespace Pb.Game.Ballistics;
 
-/// <summary>Pooled one-shot particle bursts: coloured paint spray on breaks, a puff on bounces.</summary>
+/// <summary>
+/// Pooled one-shot particle bursts: coloured paint spray on breaks, a puff on bounces, and water
+/// splashing up where a ball or a foot comes down in a puddle (<see cref="Water"/>).
+/// </summary>
 public partial class ImpactFx : Node3D, ISimEventListener
 {
     private CpuBurst[] _breaks = Array.Empty<CpuBurst>();
     private CpuBurst[] _bounces = Array.Empty<CpuBurst>();
+    private CpuBurst[] _splashes = Array.Empty<CpuBurst>();
+    private Color _splash = Colors.White;
+    private int _nextSplash;
     private Color[] _teamColors = Array.Empty<Color>();
     private int _nextBreak;
     private int _nextBounce;
@@ -29,7 +35,12 @@ public partial class ImpactFx : Node3D, ISimEventListener
         _minCameraDistance = view.Fx.MinCameraDistance_m;
         _breaks = CreatePool(24, view.Fx.BreakParticles, 0.45f, 2.5f, 5f, 0.014f, 70f);
         _bounces = CreatePool(24, view.Fx.BounceParticles, 0.3f, 0.6f, 1.6f, 0.012f, 50f);
+        _splashes = CreatePool(16, view.Fx.SplashParticles, 0.4f, 0.8f, 2.2f, 0.007f, 28f);
+        _splash = Color.FromHtml(view.Fx.SplashColor);
     }
+
+    /// <summary>Whether a point on the ground is in a puddle's water (null: no water to splash).</summary>
+    public Func<Vector3, bool>? Water { get; set; }
 
     public void OnSimEvent(in SimEvent e)
     {
@@ -41,10 +52,25 @@ public partial class ImpactFx : Node3D, ISimEventListener
         if (e.Type == SimEventType.BallBroke)
         {
             Emit(_breaks, ref _nextBreak, e.Position.ToGodot(), e.Normal.ToGodot(), _teamColors[e.Team % _teamColors.Length]);
+            Splash(e.Position.ToGodot(), e.Normal.Y);
         }
         else if (e.Type == SimEventType.BallBounced && e.Value > 6f)
         {
             Emit(_bounces, ref _nextBounce, e.Position.ToGodot(), e.Normal.ToGodot(), new Color(0.85f, 0.85f, 0.8f, 0.8f));
+            Splash(e.Position.ToGodot(), e.Normal.Y);
+        }
+        else if (e.Type == SimEventType.Footstep && (FootstepKind)e.Extra is FootstepKind.Step or FootstepKind.Land)
+        {
+            Splash(e.Position.ToGodot(), 1f);
+        }
+    }
+
+    /// <summary>Water thrown up where something comes down in a puddle (on a face looking up).</summary>
+    private void Splash(Vector3 at, float up)
+    {
+        if (up > 0.5f && _budget > 0 && _splashes.Length > 0 && Water?.Invoke(at) == true)
+        {
+            Emit(_splashes, ref _nextSplash, at, Vector3.Up, _splash);
         }
     }
 

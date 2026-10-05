@@ -480,6 +480,9 @@ public sealed class GameData
                 .Select(i => i * d.DistanceMarkers.Spacing_m).ToArray(),
             Props = props,
             Targets = targets,
+            Viewpoints = (d.Viewpoints ?? Array.Empty<ViewpointDef>())
+                .Select(vp => new Viewpoint(vp.Name, Validator.ToVector3(vp.Position_m), vp.Yaw_deg * Units.DegreesToRadians, vp.Pitch_deg * Units.DegreesToRadians))
+                .ToArray(),
         };
     }
 }

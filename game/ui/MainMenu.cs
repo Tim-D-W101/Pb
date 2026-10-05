@@ -28,13 +28,15 @@ public partial class MainMenu : Control
     private Control _levels = null!;
     private Control _settingsScreen = null!;
     private int _tourFrame = -1;
+    private TextureRect _backdrop = null!;
     private static bool _skippedToLevel;
 
     public override void _Ready()
     {
         SetAnchorsPreset(LayoutPreset.FullRect);
         Theme = UiKit.Theme;
-        AddChild(Backdrop());
+        _backdrop = Backdrop();
+        AddChild(_backdrop);
 
         try
         {
@@ -58,6 +60,24 @@ public partial class MainMenu : Control
         _settings = GameSettings.Load(_view);
         _settings.ApplyVolume();
         Input.MouseMode = Input.MouseModeEnum.Visible;
+
+        // The compound behind the menu, where there's a screen to show it on (not in CI's headless runs):
+        // built a piece a frame behind the plain backdrop, which then fades to a shade over it.
+        if (DisplayServer.GetName() != "headless" && !Args.Has("--smoke-test") && !(Args.Has("--level") && !_skippedToLevel))
+        {
+            var shade = new TextureRect
+            {
+                Name = "Shade", Texture = Shade(_view.MenuBackdrop.Shade), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.Scale, MouseFilter = MouseFilterEnum.Ignore,
+            };
+            shade.SetAnchorsPreset(LayoutPreset.FullRect);
+            AddChild(shade);
+            MoveChild(shade, _backdrop.GetIndex() + 1);
+            var scene = new MenuBackdrop { Name = "Backdrop3D" };
+            AddChild(scene);
+            scene.Shown += () => CreateTween().TweenProperty(_backdrop, "modulate:a", 0f, 1.2);
+            scene.Build(_data, _view, _settings);
+        }
 
         _title = TitleScreen();
         _levels = LevelSelect();
@@ -133,14 +153,16 @@ public partial class MainMenu : Control
     private Control TitleScreen()
     {
         VBoxContainer column = UiKit.Column(14);
-        column.AddChild(UiKit.Title("PB", 96, UiKit.Accent));
+        var title = new TitleMark { Name = "Title" };
+        title.Configure("PB", UiKit.Accent);
+        column.AddChild(title);
         column.AddChild(UiKit.Body("First-person paintball in an abandoned compound", 22, UiKit.Dim));
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 26) });
         VBoxContainer buttons = UiKit.Column(14);
         buttons.CustomMinimumSize = new Vector2(380, 0);
         buttons.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
         buttons.AddChild(UiKit.Button("Play", () => Open(_levels)));
-        buttons.AddChild(UiKit.Button("Training ground", () => GetTree().ChangeSceneToFile(GameSession.RangeScene)));
+        buttons.AddChild(UiKit.Button("Training ground", () => Load(GameSession.RangeScene, "Training ground", "Setting out the targets…")));
         buttons.AddChild(UiKit.Button("Settings", () => Open(_settingsScreen)));
         buttons.AddChild(UiKit.Button("Quit", () => GetTree().Quit()));
         column.AddChild(buttons);
@@ -264,7 +286,32 @@ public partial class MainMenu : Control
         GameSession.ModeId = mode.Id;
         GameSession.Size = size;
         GameSession.TierId = tier.Id;
-        GetTree().ChangeSceneToFile(GameSession.LevelScene);
+        Load(GameSession.LevelScene, entry.DisplayName, $"{mode.DisplayName} · {ModeText.Size(mode, size)} · {tier.DisplayName}");
+    }
+
+    /// <summary>
+    /// A card saying what's loading over the menu, drawn for a frame or two before the scene changes, so
+    /// the screen isn't left frozen on the menu while the place builds.
+    /// </summary>
+    private async void Load(string scene, string name, string line)
+    {
+        // The card stands alone over the backdrop, and nothing under it takes a second click.
+        foreach (Control s in new[] { _title, _levels, _settingsScreen })
+        {
+            s.Visible = false;
+        }
+
+        VBoxContainer column = UiKit.Column(10);
+        column.AddChild(UiKit.Body("LOADING", 18, UiKit.Accent));
+        column.AddChild(UiKit.Title(name, 40));
+        column.AddChild(UiKit.Body(line, 20, UiKit.Dim));
+        AddChild(UiKit.Overlay(UiKit.Panel(column, 520f), dim: 0.6f));
+        for (int i = 0; i < 2; i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+
+        GetTree().ChangeSceneToFile(scene);
     }
 
     /// <summary>A screen laid out at the left third (title, lists) or centred (dialogs).</summary>
@@ -286,7 +333,19 @@ public partial class MainMenu : Control
         return margin;
     }
 
-    private static Control Backdrop()
+    /// <summary>A wash over the level behind the menu: darkest on the left, where the panels sit.</summary>
+    private static GradientTexture2D Shade(float shade)
+    {
+        var gradient = new Gradient();
+        gradient.SetColor(0, new Color(0.05f, 0.05f, 0.06f, shade));
+        gradient.SetColor(1, new Color(0.05f, 0.05f, 0.06f, shade * 0.25f));
+        return new GradientTexture2D
+        {
+            Gradient = gradient, FillFrom = new Vector2(0.15f, 0f), FillTo = new Vector2(0.85f, 0f), Width = 256, Height = 16,
+        };
+    }
+
+    private static TextureRect Backdrop()
     {
         // A warm-to-cold overcast wash with a darker floor, behind everything.
         var gradient = new Gradient();

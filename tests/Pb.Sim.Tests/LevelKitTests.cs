@@ -384,4 +384,141 @@ public class LevelKitTests
         Assert.Contains("kit/materials.jsonc", ex.Message);
         Assert.Contains("unknown surface 'rubbr'", ex.Message);
     }
+
+    [Fact]
+    public void PropsDrawnByAShapeKeepTheirCollidersButAreNotDrawnAsGreybox()
+    {
+        static IEnumerable<LevelPrimitive> PrimitivesOf(LevelLayout level, string prop) =>
+            level.Props.Where(p => p.Type.Id == prop).SelectMany(p => level.Primitives.Skip(p.FirstPrimitive).Take(p.PrimitiveCount));
+
+        // Pallets and crates are drawn by shapes built in code: paint and walking still hit their colliders.
+        foreach (string prop in new[] { "pallet_stack", "crate_large", "car_wreck" })
+        {
+            LevelPrimitive[] parts = PrimitivesOf(Level, prop).ToArray();
+            Assert.NotEmpty(parts);
+            Assert.All(parts, p => Assert.True(p.Has(PrimitiveFlags.Paint) && p.Has(PrimitiveFlags.Walk) && !p.Has(PrimitiveFlags.Render), prop));
+        }
+
+        // Without a shape (and no model), the colliders are drawn again.
+        var noShape = new EditedDataSource(TestData.Source).Edit("kit/props.jsonc",
+            s => s.Replace("\"id\": \"crate_large\", \"displayName\": \"Large crate\", \"shape\": \"crate\"", "\"id\": \"crate_large\", \"displayName\": \"Large crate\""));
+        LevelLayout edited = GameData.Load(noShape).Levels["oxbarrow_works"];
+        Assert.All(PrimitivesOf(edited, "crate_large"), p => Assert.True(p.Has(PrimitiveFlags.Render)));
+        Assert.All(PrimitivesOf(edited, "pallet_stack"), p => Assert.False(p.Has(PrimitiveFlags.Render)));
+    }
+
+    [Fact]
+    public void TheLevelRecordsWhereEachBuildingStands()
+    {
+        // Presentation dresses buildings from their templates (gutters, trusses), so it needs each one's frame.
+        Assert.Equal(new[] { "warehouse", "pump_house", "office_block", "guardhouse" }, Level.Buildings.Select(b => b.Template.Id));
+        PlacedBuilding warehouse = Level.Buildings[0];
+        Assert.Equal("warehouse#0", Level.Owners[warehouse.Owner]);
+        Assert.Equal(new Vector3(-34f, 0f, -36f), warehouse.Frame.Origin);
+        Assert.Contains(Level.Primitives, p => p.Owner == warehouse.Owner && p.Role == PrimitiveRole.Roof);
+        Assert.NotNull(warehouse.Template.Def.Trusses);
+    }
+
+    [Fact]
+    public void TheLevelRecordsItsWallRunsWithTheirDressing()
+    {
+        PlacedWall perimeter = Assert.Single(Level.Walls);
+        Assert.Equal("wall#0", Level.Owners[perimeter.Owner]);
+        Assert.True(perimeter.Def.Closed);
+        Assert.NotNull(perimeter.Def.Dressing);
+        Assert.Contains(Level.Primitives, p => p.Owner == perimeter.Owner && p.Role == PrimitiveRole.Wall);
+
+        var badWire = new EditedDataSource(TestData.Source).Edit("levels/oxbarrow_works.jsonc",
+            s => s.Replace("\"wire\": \"steel_rust\"", "\"wire\": \"razor_ribbon\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(badWire));
+        Assert.Contains("oxbarrow_works.jsonc", ex.Message);
+        Assert.Contains("wire", ex.Message);
+
+        // A fallen gate lies by one of the wall's gap openings: an index past them is named by file and key.
+        Assert.Equal(new[] { 0 }, perimeter.Def.Dressing!.FallenGates);
+        var badGate = new EditedDataSource(TestData.Source).Edit("levels/oxbarrow_works.jsonc",
+            s => s.Replace("\"fallenGates\": [0]", "\"fallenGates\": [40]"));
+        DataException gate = Assert.Throws<DataException>(() => GameData.Load(badGate));
+        Assert.Contains("oxbarrow_works.jsonc", gate.Message);
+        Assert.Contains("dressing.fallenGates", gate.Message);
+    }
+
+    [Fact]
+    public void SceneryPassesThroughAndItsMaterialsAreChecked()
+    {
+        Assert.NotNull(Level.Scenery);
+        Assert.NotEmpty(Level.Scenery!.PowerLines!);
+        Assert.NotEmpty(Level.Scenery.PoleLines!);
+
+        var badPylon = new EditedDataSource(TestData.Source).Edit("levels/oxbarrow_works.jsonc",
+            s => s.Replace("\"material\": \"steel_galvanised\"", "\"material\": \"unobtainium\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(badPylon));
+        Assert.Contains("oxbarrow_works.jsonc", ex.Message);
+        Assert.Contains("scenery", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BadGutterTrussLightOrSkirtingMaterialNamesTheFileAndKey()
+    {
+        var gutters = new EditedDataSource(TestData.Source).Edit("kit/buildings/pump_house.jsonc",
+            s => s.Replace("\"gutters\": \"steel_rust\"", "\"gutters\": \"tin_foil\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(gutters));
+        Assert.Contains("pump_house.jsonc", ex.Message);
+        Assert.Contains("gutters", ex.Message);
+
+        var trusses = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
+            s => s.Replace("\"spacing_m\": 5.0", "\"spacing_m\": 0.2"));
+        ex = Assert.Throws<DataException>(() => GameData.Load(trusses));
+        Assert.Contains("warehouse.jsonc", ex.Message);
+        Assert.Contains("spacing_m", ex.Message);
+
+        var lights = new EditedDataSource(TestData.Source).Edit("kit/buildings/office_block.jsonc",
+            s => s.Replace("\"ceilingLights\": \"enamel_white\"", "\"ceilingLights\": \"neon\""));
+        ex = Assert.Throws<DataException>(() => GameData.Load(lights));
+        Assert.Contains("office_block.jsonc", ex.Message);
+        Assert.Contains("ceilingLights", ex.Message);
+
+        var skirting = new EditedDataSource(TestData.Source).Edit("kit/buildings/office_block.jsonc",
+            s => s.Replace("\"skirting\": \"enamel_white\"", "\"skirting\": \"marble\""));
+        ex = Assert.Throws<DataException>(() => GameData.Load(skirting));
+        Assert.Contains("office_block.jsonc", ex.Message);
+        Assert.Contains("skirting", ex.Message);
+    }
+
+    [Fact]
+    public void MarkingsPassThroughAndBadOnesNameTheFileAndKey()
+    {
+        GameData data = GameData.Load(TestData.Source);
+        MarkingsDef markings = data.Kit.Buildings["warehouse"].Def.Markings!;
+        Assert.NotEmpty(markings.Lines_m!);
+        Assert.NotEmpty(markings.Hatches_m!);
+        Assert.Contains(markings.Stencils!, s => s.Wall && s.Text == "BAY 1");
+        Assert.NotEmpty(data.Levels["oxbarrow_works"].Markings!.Stencils!);
+
+        var colour = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
+            s => s.Replace("\"color\": \"#d4aa2c\"", "\"color\": \"yellow\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(colour));
+        Assert.Contains("warehouse.jsonc", ex.Message);
+        Assert.Contains("markings.color", ex.Message);
+
+        var text = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
+            s => s.Replace("\"text\": \"BAY 2\"", "\"text\": \"bay 2\""));
+        ex = Assert.Throws<DataException>(() => GameData.Load(text));
+        Assert.Contains("stencils[1].text", ex.Message);
+
+        var hatch = new EditedDataSource(TestData.Source).Edit("kit/buildings/warehouse.jsonc",
+            s => s.Replace("[6, 21.6, 10, 23.8]", "[10, 21.6, 6, 23.8]"));
+        ex = Assert.Throws<DataException>(() => GameData.Load(hatch));
+        Assert.Contains("hatches_m", ex.Message);
+    }
+
+    [Fact]
+    public void BadTextureTintNamesTheFileAndKey()
+    {
+        var source = new EditedDataSource(TestData.Source).Edit("kit/materials.jsonc",
+            s => s.Replace("\"tint\": \"#a08e86\"", "\"tint\": \"rusty\""));
+        DataException ex = Assert.Throws<DataException>(() => GameData.Load(source));
+        Assert.Contains("kit/materials.jsonc", ex.Message);
+        Assert.Contains("tint", ex.Message);
+    }
 }
