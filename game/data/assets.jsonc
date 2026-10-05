@@ -530,6 +530,19 @@
         "res://art/textures/sandbag_roughness.jpg"
       ],
       "notes": "512 px, region 0.686358,0.256849,0.065639,0.098459, flatten 0.8, seam band 0.12, normal strength 2.5, roughness 0.95 ± 0.15"
+    },
+    {
+      "id": "car_wreck",
+      "kind": "model",
+      "job": "1b0f75f4-6326-4815-9ad8-97d2cb682aa4",
+      "generator": "tripo_h3_1_image_to_3d",
+      "prompt": "Product reference sheet (cell: top left): the burnt-out shell of a generic boxy compact hatchback car of no particular make, sitting on bare rusted wheel rims with the tyres burnt away, scorched grey and black paint, rust, empty window frames, no number plates; three-quarter view from slightly above, isolated on plain white, soft even studio lighting, photorealistic product photo, no text, no labels, no logos, no badges. Reference picture: job 1ad003c8-ceed-4e5d-b3d8-5212ff8e9985 (GPT Image 2.5), cut out and uploaded as media 0cc18c10-5a1b-4ae7-a61b-7408f4ac7c8b.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024821_1b0f75f4-6326-4815-9ad8-97d2cb682aa4.glb",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/models/car_wreck.glb"
+      ],
+      "notes": "3.22 × 1.45 × 1.54 m (x × y × z), base at y = 0.00, centre (-0.00, 0.00); 12.5 MB → 1.4 MB; 3 picture(s) at 1024 px JPEG (were up to 4096 px), scaled ×3.285 to 1.45 m tall and stood on the origin"
     }
   ]
 }
