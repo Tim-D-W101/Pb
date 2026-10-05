@@ -507,7 +507,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             brain.RestlessAfter = _mode.RestlessAfter;
             var pawn = new OpponentPawn { Name = $"{(team == 0 ? "Teammate" : "Opponent")}_{spawn.Id}" };
             parent.AddChild(pawn);
-            pawn.Initialize(_sim, state, TeamColor(team), new BotPilot(brain), _view.Characters, i);
+            pawn.Initialize(_sim, state, TeamColor(team), new BotPilot(brain), _view.Characters, i, _view.MarkerModel);
             _pawns.Add(pawn);
             _bots.Add(brain);
         }

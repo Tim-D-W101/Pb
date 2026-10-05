@@ -543,6 +543,19 @@
         "res://art/models/car_wreck.glb"
       ],
       "notes": "3.22 × 1.45 × 1.54 m (x × y × z), base at y = 0.00, centre (-0.00, 0.00); 12.5 MB → 1.4 MB; 3 picture(s) at 1024 px JPEG (were up to 4096 px), scaled ×3.285 to 1.45 m tall and stood on the origin"
+    },
+    {
+      "id": "marker",
+      "kind": "model",
+      "job": "5e6212b4-2f41-411c-b6d4-d276d6d958d1",
+      "generator": "image_to_3d",
+      "prompt": "A single generic paintball marker of original design with no brand, no logos and no text: a compact matte black and dark gunmetal body with a vertical pistol grip and trigger guard, a straight smooth 30 cm barrel, a tall rounded smoke-grey loader (hopper) on top of the body, and a small silver compressed-air bottle fitted under the rear of the body pointing backwards like a short stock. Three-quarter view from the right side and slightly above, the whole marker in frame, isolated on a plain white background, soft even studio lighting, sharp focus, photorealistic product photo. (Reference picture: job 504fef01-d6f7-4ac5-959b-2aea7e92ba90, GPT Image 2.5.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261005_024343_5e6212b4-2f41-411c-b6d4-d276d6d958d1.glb",
+      "imported": "2026-10-05",
+      "files": [
+        "res://art/models/marker.glb"
+      ],
+      "notes": "0.70 × 0.39 × 0.14 m (x × y × z), base at y = 0.00, centre (0.00, 0.00); 9.9 MB → 1.2 MB; emissive removed, 1 unused picture(s) dropped, 3 picture(s) at 1024 px JPEG (were up to 2048 px), scaled ×0.368 to 0.387 m tall and stood on the origin"
     }
   ]
 }

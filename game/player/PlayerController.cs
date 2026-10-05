@@ -64,7 +64,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         _head.AddChild(Camera);
         ViewModel = new ViewModel { Name = "ViewModel" };
         Camera.AddChild(ViewModel);
-        ViewModel.Build(view.ViewModel, teamColor);
+        ViewModel.Build(view.ViewModel, view.MarkerModel, teamColor);
 
         _currentEye = _previousEye = state.EyePosition.ToGodot();
         _currentRoll = _previousRoll = state.LeanRoll;
@@ -76,7 +76,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver
     {
         var body = new CharacterVisual { Name = "Body" };
         AddChild(body);
-        body.Build(Sim, State, jersey, characters, look);
+        body.Build(Sim, State, jersey, characters, look, _view.MarkerModel);
         if (!body.HasModel)
         {
             body.QueueFree();
