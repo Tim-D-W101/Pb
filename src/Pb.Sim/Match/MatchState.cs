@@ -26,6 +26,12 @@ public enum RoundOutcome : byte
     TimeUp,
 }
 
+public static class RoundOutcomes
+{
+    /// <summary>The round was won from your side (your side is the last one standing).</summary>
+    public static bool IsWin(this RoundOutcome outcome) => outcome == RoundOutcome.Cleared;
+}
+
 /// <summary>Round rules (SI), from rules.jsonc.</summary>
 public sealed class MatchRules
 {

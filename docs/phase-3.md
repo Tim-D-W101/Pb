@@ -230,16 +230,24 @@ Each milestone is pushed as it lands, with screenshots.
 
 ### M3.1 Save and unlocks
 
-- [ ] A profile in `user://profile.json`: unlocked levels, and per level, mode and difficulty your rounds, wins, best
-  time to clear, best accuracy and most eliminations; plus your last level, mode, size, difficulty and objective.
-- [ ] The unlock rule in `levels/ladder.jsonc`: a level opens when you win a round on the one before it (any mode,
-  any difficulty by default; the rule names the lowest difficulty that counts, so it can be made stricter).
-- [ ] Level select: locked levels say what opens them; open ones show your best result on each difficulty (a mark
-  for each difficulty you've won on, and your best time). The newest level you've opened is selected.
-- [ ] Settings → "Open every level", and `-- --unlock-all` (CI's menu check uses it, so it sees every level).
-- [ ] The summary says when a round opened a new level.
-- [ ] The main menu's backdrop shows the newest level you've opened.
-- [ ] Sim-side tests for the rules (what opens what, records kept) and a round trip through the file.
+**Done 2026-10-05.**
+
+- [x] A profile in `user://profile.json`: unlocked levels, and per level, mode and difficulty your rounds, wins, best
+  time to clear, best accuracy and most eliminations; plus your last level, mode, size and difficulty (the objective
+  joins them with M3.4). An unreadable file is kept aside as `profile.bad.json` and you start afresh.
+- [x] The unlock rule in `levels/ladder.jsonc` (`unlock.minTier`): a level opens when you win a round on the one before
+  it (any mode, any difficulty by default; the rule names the lowest difficulty that counts, so it can be made stricter).
+  Accuracy only counts from rounds of at least 10 shots (`records.accuracyMinShots`).
+- [x] Level select: locked levels say what opens them; open ones show your record for the mode and difficulty picked
+  (won of played, fastest win, best accuracy, most eliminations) and the difficulties you've won on. It opens on the
+  level you last played, else the newest one you've opened, with your last choices.
+- [x] Settings → "Open every level", and `-- --unlock-all` (CI's menu check uses it, so it sees every level).
+- [x] The summary says when a round opened a new level.
+- [x] The main menu's backdrop shows the newest level you've opened (a camera drift per level in
+  `presentation.jsonc` → `menuBackdrop.shots`).
+- [x] Twelve sim tests for the rules (what opens what, losses, a stricter rule, records, "open every level", the newest
+  level, the file's round trip and a broken file) and the ladder data check. CI's bot match now saves its round to the
+  profile (`--record`), so writing the file is exercised too.
 
 ### M3.2 Doors
 

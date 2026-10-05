@@ -24,6 +24,7 @@ public partial class MainMenu : Control
     private GameData _data = null!;
     private PresentationDef _view = null!;
     private GameSettings _settings = null!;
+    private LadderProgress _progress = null!;
     private Control _title = null!;
     private Control _levels = null!;
     private Control _settingsScreen = null!;
@@ -59,6 +60,16 @@ public partial class MainMenu : Control
 
         _settings = GameSettings.Load(_view);
         _settings.ApplyVolume();
+        _progress = Profile.Load(_data.Ladder, _settings);
+        if (GameSession.LevelId is null && _progress.Data.Last is { } last && _data.Levels.ContainsKey(last.Level))
+        {
+            // The choices you made last time the game ran.
+            GameSession.LevelId = last.Level;
+            GameSession.ModeId = last.Mode;
+            GameSession.Size = last.Size;
+            GameSession.TierId = last.Tier;
+        }
+
         Input.MouseMode = Input.MouseModeEnum.Visible;
 
         // The compound behind the menu, where there's a screen to show it on (not in CI's headless runs):
@@ -76,7 +87,7 @@ public partial class MainMenu : Control
             var scene = new MenuBackdrop { Name = "Backdrop3D" };
             AddChild(scene);
             scene.Shown += () => CreateTween().TweenProperty(_backdrop, "modulate:a", 0f, 1.2);
-            scene.Build(_data, _view, _settings);
+            scene.Build(_data, _view, _settings, _progress.Newest(_data.Levels.ContainsKey));
         }
 
         _title = TitleScreen();
@@ -87,7 +98,15 @@ public partial class MainMenu : Control
             AddChild(screen);
         }
 
-        Open(GameSession.ReturnTo == "levels" ? _levels : _title);
+        if (GameSession.ReturnTo == "levels")
+        {
+            ShowLevels();
+        }
+        else
+        {
+            Open(_title);
+        }
+
         GameSession.ReturnTo = null;
 
         if (Args.Has("--smoke-test"))
@@ -117,7 +136,7 @@ public partial class MainMenu : Control
         switch (_tourFrame++)
         {
             case 45:
-                Open(_levels);
+                ShowLevels();
                 break;
             case 65:
             case 85:
@@ -138,16 +157,33 @@ public partial class MainMenu : Control
         }
     }
 
-    private void Open(Control screen)
+    private void Open(Control screen, Button? focus = null)
     {
         foreach (Control s in new[] { _title, _levels, _settingsScreen })
         {
             s.Visible = s == screen;
         }
 
-        // Keyboard and pad navigation start on the first button.
-        Button? first = screen.FindChildren("*", nameof(Button), owned: false).OfType<Button>().FirstOrDefault(b => !b.Disabled);
-        first?.CallDeferred(Control.MethodName.GrabFocus);
+        // Keyboard and pad navigation start on the first button (or the one asked for).
+        focus ??= screen.FindChildren("*", nameof(Button), owned: false).OfType<Button>().FirstOrDefault(b => !b.Disabled);
+        focus?.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    /// <summary>
+    /// Level select, built afresh (what's open may have changed), on the level you last played or else the newest
+    /// one you've opened.
+    /// </summary>
+    private void ShowLevels()
+    {
+        int index = _levels.GetIndex();
+        RemoveChild(_levels);
+        _levels.QueueFree();
+        _levels = LevelSelect();
+        AddChild(_levels);
+        MoveChild(_levels, index);
+        string? chosen = GameSession.LevelId is { } id && _data.Levels.ContainsKey(id) && _progress.IsOpen(id) ? id
+            : _progress.Newest(_data.Levels.ContainsKey);
+        Open(_levels, _levels.FindChild($"Start_{chosen}", recursive: true, owned: false) as Button);
     }
 
     private Control TitleScreen()
@@ -161,13 +197,13 @@ public partial class MainMenu : Control
         VBoxContainer buttons = UiKit.Column(14);
         buttons.CustomMinimumSize = new Vector2(380, 0);
         buttons.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-        buttons.AddChild(UiKit.Button("Play", () => Open(_levels)));
+        buttons.AddChild(UiKit.Button("Play", ShowLevels));
         buttons.AddChild(UiKit.Button("Training ground", () => Load(GameSession.RangeScene, "Training ground", "Setting out the targets…")));
         buttons.AddChild(UiKit.Button("Settings", () => Open(_settingsScreen)));
         buttons.AddChild(UiKit.Button("Quit", () => GetTree().Quit()));
         column.AddChild(buttons);
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 20) });
-        column.AddChild(UiKit.Body("Working title · Phase 2 build", 16, UiKit.Dim));
+        column.AddChild(UiKit.Body("Working title · Phase 3 build", 16, UiKit.Dim));
         return Screen(column, left: true);
     }
 
@@ -188,19 +224,71 @@ public partial class MainMenu : Control
 
     private Control LevelCard(LadderLevelDef entry)
     {
-        bool playable = _data.Levels.TryGetValue(entry.Id, out LevelLayout? level);
+        bool built = _data.Levels.TryGetValue(entry.Id, out LevelLayout? level);
+        bool open = built && _progress.IsOpen(entry.Id);
         VBoxContainer card = UiKit.Column(10);
-        card.AddChild(UiKit.Title(entry.DisplayName, 28, playable ? UiKit.Text : UiKit.Dim));
-        string blurb = playable ? level!.Description : entry.Note ?? "Locked";
+        card.AddChild(UiKit.Title(entry.DisplayName, 28, open ? UiKit.Text : UiKit.Dim));
+        string blurb = built ? level!.Description : entry.Note ?? "Coming soon";
         Label description = UiKit.Body(blurb, 18, UiKit.Dim, wrap: true);
         description.CustomMinimumSize = new Vector2(760, 0);
         card.AddChild(description);
-        if (playable && entry.Tiers is { Length: > 0 } tiers)
+        if (built && !open)
+        {
+            Label locked = UiKit.Body(LockedLine(entry), 18, UiKit.Accent, wrap: true);
+            locked.Name = $"Locked_{entry.Id}";
+            locked.CustomMinimumSize = new Vector2(760, 0);
+            card.AddChild(locked);
+        }
+        else if (open && entry.Tiers is { Length: > 0 } tiers)
         {
             AddRoundChoices(card, entry, tiers);
         }
 
         return UiKit.Panel(card, 820f);
+    }
+
+    /// <summary>"Locked: win a round at Oxbarrow Works to open it (on Normal or harder)."</summary>
+    private string LockedLine(LadderLevelDef entry)
+    {
+        LadderLevelDef? before = _progress.OpenedBy(entry.Id);
+        if (before is null)
+        {
+            return "Locked.";
+        }
+
+        string tier = "";
+        if (_progress.MinTier is { } min && before.Tiers is { Length: > 0 } tiers && Array.FindIndex(tiers, t => t.Id == min) > 0)
+        {
+            tier = $" on {tiers.First(t => t.Id == min).DisplayName} or harder";
+        }
+
+        return $"Locked: win a round at {before.DisplayName}{tier} to open it.";
+    }
+
+    /// <summary>Your record on this level in this mode and difficulty, and the difficulties you've won on.</summary>
+    private string RecordLine(LadderLevelDef entry, GameMode mode, LadderTierDef tier)
+    {
+        string[] won = (entry.Tiers ?? Array.Empty<LadderTierDef>()).Where(t => _progress.WonOn(entry.Id, t.Id)).Select(t => t.DisplayName).ToArray();
+        string wins = won.Length > 0 ? $" Won on {string.Join(", ", won)}." : "";
+        LevelRecord? r = _progress.Record(entry.Id, mode.Id, tier.Id);
+        if (r is null)
+        {
+            return $"Your record ({mode.DisplayName}, {tier.DisplayName}): no rounds yet.{wins}";
+        }
+
+        var parts = new List<string> { $"won {r.Wins} of {r.Rounds}" };
+        if (r.BestClear_s > 0f)
+        {
+            parts.Add($"fastest win {RoundScreens.Clock(r.BestClear_s)}");
+        }
+
+        if (r.BestAccuracy > 0f)
+        {
+            parts.Add($"best accuracy {r.BestAccuracy * 100:0}%");
+        }
+
+        parts.Add($"most eliminations {r.MostEliminations}");
+        return $"Your record ({mode.DisplayName}, {tier.DisplayName}): {string.Join(" · ", parts)}.{wins}";
     }
 
     /// <summary>
@@ -228,6 +316,9 @@ public partial class MainMenu : Control
         var sizes = new VBoxContainer();
         Label details = UiKit.Body(TierDetails(tier), 17, UiKit.Dim, wrap: true);
         details.CustomMinimumSize = new Vector2(760, 0);
+        Label record = UiKit.Body(RecordLine(entry, mode, tier), 17, UiKit.Text, wrap: true);
+        record.Name = $"Record_{entry.Id}";
+        record.CustomMinimumSize = new Vector2(760, 0);
 
         void ShowSizes()
         {
@@ -248,6 +339,7 @@ public partial class MainMenu : Control
             mode = modes[k];
             size = mode.DefaultSize;
             modeBlurb.Text = mode.Description;
+            record.Text = RecordLine(entry, mode, tier);
             ShowSizes();
         }, $"Mode_{entry.Id}_", buttonWidth: 190));
         card.AddChild(modeBlurb);
@@ -257,8 +349,10 @@ public partial class MainMenu : Control
         {
             tier = tiers[k];
             details.Text = TierDetails(tier);
+            record.Text = RecordLine(entry, mode, tier);
         }, $"Tier_{entry.Id}_", buttonWidth: 140));
         card.AddChild(details);
+        card.AddChild(record);
         Button start = UiKit.Button("Start", () => Play(entry, mode, size, tier), 260);
         start.Name = $"Start_{entry.Id}";
         start.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
@@ -275,6 +369,13 @@ public partial class MainMenu : Control
         VBoxContainer column = UiKit.Column(16);
         var panel = new SettingsPanel();
         panel.Build(_settings, _view);
+        panel.AddChild(UiKit.CheckRow("Open every level", _settings.OpenAllLevels, on =>
+        {
+            // For testing: shows the whole ladder open without counting as wins.
+            _settings.OpenAllLevels = on;
+            _settings.Save();
+            _progress.OpenAll = on || Args.Has("--unlock-all");
+        }));
         column.AddChild(panel);
         column.AddChild(UiKit.Button("Back", () => Open(_title), 200));
         return Screen(UiKit.Panel(column, 720f), left: false);
@@ -286,6 +387,8 @@ public partial class MainMenu : Control
         GameSession.ModeId = mode.Id;
         GameSession.Size = size;
         GameSession.TierId = tier.Id;
+        _progress.Remember(entry.Id, mode.Id, size, tier.Id, "");
+        Profile.Save(_progress);
         Load(GameSession.LevelScene, entry.DisplayName, $"{mode.DisplayName} · {ModeText.Size(mode, size)} · {tier.DisplayName}");
     }
 
@@ -367,7 +470,7 @@ public partial class MainMenu : Control
         int Count(string prefix) => buttons.Count(b => b.Name.ToString().StartsWith(prefix, StringComparison.Ordinal));
         IReadOnlyList<GameMode> modes = _data.Config.Rules.Modes;
         LadderLevelDef[] playable = _data.Ladder.Levels.Where(l => _data.Levels.ContainsKey(l.Id)).ToArray();
-        foreach (LadderLevelDef entry in playable)
+        foreach (LadderLevelDef entry in playable.Where(l => _progress.IsOpen(l.Id)))
         {
             if (Count($"Mode_{entry.Id}_") != modes.Count)
             {
@@ -396,8 +499,23 @@ public partial class MainMenu : Control
             }
         }
 
+        // Levels still locked say what opens them (CI runs with --unlock-all, which opens them all).
+        foreach (LadderLevelDef entry in playable.Where(l => !_progress.IsOpen(l.Id)))
+        {
+            if (_levels.FindChild($"Locked_{entry.Id}", recursive: true, owned: false) is null)
+            {
+                problems.Add($"{entry.Id}: locked but doesn't say so");
+            }
+        }
+
+        if (!_progress.IsOpen(_data.Ladder.Levels[0].Id))
+        {
+            problems.Add("the first level isn't open");
+        }
+
         bool ok = playable.Length >= 1 && problems.Count == 0;
-        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {_data.Ladder.Levels.Length} ladder levels ({playable.Length} playable), " +
+        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {_data.Ladder.Levels.Length} ladder levels ({playable.Length} playable, " +
+                 $"{playable.Count(l => _progress.IsOpen(l.Id))} open{(_progress.OpenAll ? " with every level open" : "")}), " +
                  $"{modes.Count} modes with their sizes and the difficulty tiers{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
         GetTree().Quit(ok ? 0 : 1);
     }

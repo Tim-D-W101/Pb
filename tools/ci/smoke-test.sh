@@ -2,11 +2,13 @@
 # Runs each scene headless with its scripted smoke test and fails on a non-zero exit, a missing
 # "SMOKE PASS" line, or any engine/script error in the log:
 #   menu   (game/ui/MainMenu.cs): builds every screen and checks the ladder's levels and tiers are offered
+#          (with every level open: --unlock-all)
 #   range  (game/core/SmokeTest.cs): autopilot, 1,000-ball stress mode and a hot reload
 #   level  (game/core/LevelSmokeTest.cs): walk in through the compound gate, sweeping and firing
 #   match  (--bot-match): a bot plays your slot against Normal bots until the round ends, with random
 #          starts (--random-spawns) and the art ignored (--no-art), so the procedural and greybox
-#          fallbacks keep working; then a 3 v 3 team round and an eight-player free-for-all
+#          fallbacks keep working, and the round saved to the profile as yours (--record); then a 3 v 3
+#          team round and an eight-player free-for-all
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -34,10 +36,10 @@ run() {
   fi
 }
 
-run menu res://scenes/Main.tscn -- --smoke-test
+run menu res://scenes/Main.tscn -- --smoke-test --unlock-all
 run range res://scenes/Range.tscn -- "--smoke-test=$range_ticks"
 run level res://scenes/Level.tscn -- "--smoke-test=$level_ticks"
-run match res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art --random-spawns
+run match res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art --random-spawns --record
 run match-teams res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=3
 run match-ffa res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=ffa --size=8
 run art res://tools/ArtImport.tscn -- --selftest

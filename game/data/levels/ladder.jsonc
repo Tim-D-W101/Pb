@@ -9,6 +9,14 @@
 // roster: the opponent spawns scripted solo runs (smoke tests, demos) fill, in this order, so they play
 // out the same every time. Real rounds deal random starts (rules.jsonc "spawning").
 {
+  // How the ladder opens: the first level is always open; each later one opens when you win a round on the
+  // level before it, in any mode, on this tier or a harder one (later in that level's list; "" = any tier).
+  // Settings → "Open every level" (or --unlock-all) opens them all without counting as wins.
+  "unlock": { "minTier": "easy" },
+
+  // Level select's records: accuracy only counts from rounds with at least this many shots.
+  "records": { "accuracyMinShots": 10 },
+
   "levels": [
     {
       "id": "oxbarrow_works", "displayName": "Oxbarrow Works", "file": "levels/oxbarrow_works.jsonc",

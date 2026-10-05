@@ -45,6 +45,8 @@ namespace Pb.Game.Core;
 ///   --seed=N              deals round N's starts and randomness (rounds normally get a new random seed; scripted
 ///                         runs use the data's seed and, in solo, the level's roster, so they play out the same every time)
 ///   --random-spawns       deals random starts in a scripted solo run too (CI's bot match; other modes always do)
+///   --record              the bot match goes in your records as a round of yours (CI, to exercise the profile)
+///   --unlock-all          every level of the ladder open, whatever the profile says
 /// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
 /// them. In solo, bots play their spawn's behaviour; in free-for-all and teams, one dealt from the
 /// mode's chances. All play at the tier's difficulty; F3 shows what they're thinking.
@@ -105,6 +107,10 @@ public partial class LevelMain : Node3D, ISimEventListener
     private bool _summaryShown;
     private bool _summaryEarly;
     private bool _ready;
+    /// <summary>A real round (not a scripted run or a tour): it goes in your records when it ends.</summary>
+    private bool _counts;
+    /// <summary>The level this round opened, if it opened one (for the summary).</summary>
+    private string? _opened;
 
     /// <summary>True once you've been eliminated and the spectator view is showing.</summary>
     public bool Spectating => _spectator is not null;
@@ -154,6 +160,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
                     gaitDemo || _botMatch;
         bool roundTour = Args.Has("--round-tour");
+        _counts = !_scripted && !roundTour;
 
         // Every round deals a new seed and random starts, so you can't learn where everyone is. Scripted
         // runs keep the data's seed and, in solo, the level's roster, so they play out the same every time.
@@ -643,6 +650,11 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
+        if (_counts)
+        {
+            RecordRound();
+        }
+
         // Skipped ahead to the summary: it shows the final result now.
         if (_summaryEarly)
         {
@@ -658,9 +670,30 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
     }
 
+    /// <summary>Adds the round to your records and saves them; a win may open the next level up the ladder.</summary>
+    private void RecordRound()
+    {
+        LadderProgress progress = Profile.Load(_data.Ladder, _settings);
+        PlayerStats you = _match.StatsFor(_player.State.Id)!;
+        string? opened = progress.Add(new RoundResult(_entry.Id, _mode.Id, _tier.Id, _match.Outcome, _match.Elapsed, you.Shots, you.Hits,
+            you.Eliminations));
+        Profile.Save(progress);
+        if (opened is not null)
+        {
+            _opened = _data.Ladder.Levels.First(l => l.Id == opened).DisplayName;
+            GD.Print($"Ladder: {_opened} is open");
+        }
+    }
+
     /// <summary>The bot match is over: report how it went, pass if nothing went wrong on the way.</summary>
     private void FinishBotMatch()
     {
+        if (Args.Has("--record"))
+        {
+            // CI: the round goes in the profile as if you'd played it, so saving it is exercised too.
+            RecordRound();
+        }
+
         PlayerStats you = _match.StatsFor(_player.State.Id)!;
         int errors = _driver.ErrorCount;
         bool ok = errors == 0 && _match.Outcome != RoundOutcome.None;
@@ -701,6 +734,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             Placing = _match.Placing(you.Id),
             Players = players.Count,
             Winner = winner?.Name,
+            Opened = _opened,
         };
         ShowOverlay(RoundScreens.Summary(_round, _match, _match.StatsFor(you.Id)!, facts,
             retry: () => GetTree().ReloadCurrentScene(),

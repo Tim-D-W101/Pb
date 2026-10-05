@@ -504,9 +504,10 @@
   // back over period_s (vertical fov_deg), with the menu's wash darkest (shade) on the left where the
   // panels sit. Built at the saved graphics preset; nothing moves in it but the camera and the weeds.
   "menuBackdrop": {
-    "level": "oxbarrow_works",
-    "from": { "position_m": [9, 2.6, 24], "yaw_deg": 12, "pitch_deg": -4 },
-    "to": { "position_m": [1, 2.3, 25], "yaw_deg": -2, "pitch_deg": -3 },
+    // A drift for each level: the menu shows the newest level you've opened that has one here (else the first).
+    "shots": [
+      { "level": "oxbarrow_works", "from": { "position_m": [9, 2.6, 24], "yaw_deg": 12, "pitch_deg": -4 }, "to": { "position_m": [1, 2.3, 25], "yaw_deg": -2, "pitch_deg": -3 } }
+    ],
     "period_s": 80,
     "fov_deg": 55,
     "shade": 0.82

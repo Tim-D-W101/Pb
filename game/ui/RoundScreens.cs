@@ -40,6 +40,9 @@ public sealed record SummaryFacts
     public int Players { get; init; }
 
     public string? Winner { get; init; }
+
+    /// <summary>The level this round opened up the ladder, if it opened one.</summary>
+    public string? Opened { get; init; }
 }
 
 /// <summary>Builds the round's overlays: the briefing card before it starts and the summary after it ends.</summary>
@@ -126,6 +129,13 @@ public static class RoundScreens
         Label said = UiKit.Body(line, 20, UiKit.Text, wrap: true);
         said.CustomMinimumSize = new Vector2(580, 0);
         column.AddChild(said);
+        if (facts.Opened is { } opened)
+        {
+            Label unlocked = UiKit.Body($"New level open: {opened}", 24, UiKit.Accent);
+            unlocked.Name = "Unlocked";
+            column.AddChild(unlocked);
+        }
+
         column.AddChild(new HSeparator());
 
         var grid = new GridContainer { Columns = 2 };

@@ -543,6 +543,11 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **The rule is data** (`levels/ladder.jsonc` → `unlock`) and engine-free (`Pb.Sim/Match/Ladder.cs`), so it's unit-tested:
   a level opens when a round on the level before it is won at the rule's lowest difficulty or above. The first level is
   always open; `-- --unlock-all` and the settings switch open them all without writing it into the profile.
+- **As built (M3.1).** `LadderProgress` holds the rules and the records; `ProfileData` is the file (System.Text.Json,
+  camelCase). A level is open if it's first, listed in `opened` (a win wrote it there), or the records show a win that
+  counts on the level before it, so a profile from before a rule change keeps what it had. `LevelMain` adds each real
+  round when it ends (not scripted runs or tours) and the summary names a level it opened. Level select is rebuilt each
+  time it's shown, since what's open can change.
 
 ### 15.2 Doors
 

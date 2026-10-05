@@ -1175,6 +1175,14 @@ public sealed class LadderDef : IValidatable
 {
     public LadderLevelDef[] Levels { get; set; } = Array.Empty<LadderLevelDef>();
 
+    /// <summary>How later levels open (the first is always open).</summary>
+    [Optional]
+    public UnlockDef Unlock { get; set; } = new();
+
+    /// <summary>What level select's records count.</summary>
+    [Optional]
+    public RecordsDef Records { get; set; } = new();
+
     public void Validate(Validator v)
     {
         if (Levels.Length == 0)
@@ -1183,7 +1191,41 @@ public sealed class LadderDef : IValidatable
         }
 
         LevelDefChecks.UniqueIds(v, nameof(Levels), Levels, l => l.Id);
+        Unlock.Validate(v.Scope(nameof(Unlock)));
+        Records.Validate(v.Scope(nameof(Records)));
+        for (int i = 0; i < Levels.Length && Unlock.MinTier.Length > 0; i++)
+        {
+            LadderLevelDef level = Levels[i];
+            if (level.Tiers is { Length: > 0 } tiers && Array.FindIndex(tiers, t => t.Id == Unlock.MinTier) < 0)
+            {
+                v.Scope(nameof(Unlock)).Error(nameof(UnlockDef.MinTier),
+                    $"'{Unlock.MinTier}' is not one of {level.Id}'s difficulty tiers ({string.Join(", ", tiers.Select(t => t.Id))})");
+            }
+        }
     }
+}
+
+/// <summary>
+/// How the ladder opens: each level after the first opens when a round on the level before it is won (in any
+/// mode) on <see cref="MinTier"/> or a harder tier (later in that level's list). Empty: any tier counts.
+/// </summary>
+public sealed class UnlockDef : IValidatable
+{
+    [Optional]
+    public string MinTier { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+    }
+}
+
+/// <summary>What level select's records count: accuracy only from rounds with at least <see cref="AccuracyMinShots"/> shots.</summary>
+public sealed class RecordsDef : IValidatable
+{
+    [Optional]
+    public int AccuracyMinShots { get; set; } = 10;
+
+    public void Validate(Validator v) => v.InRange(nameof(AccuracyMinShots), AccuracyMinShots, 1, 1000);
 }
 
 public sealed class LadderLevelDef : IValidatable

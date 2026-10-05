@@ -2717,11 +2717,8 @@ public sealed class CreepersDef : IValidatable
 /// </summary>
 public sealed class MenuBackdropDef : IValidatable
 {
-    public string Level { get; set; } = "";
-
-    public CameraPointDef From { get; set; } = new();
-
-    public CameraPointDef To { get; set; } = new();
+    /// <summary>A camera drift per level; the menu shows the newest level you've opened that has one (else the first).</summary>
+    public BackdropShotDef[] Shots { get; set; } = System.Array.Empty<BackdropShotDef>();
 
     public float Period_s { get; set; }
 
@@ -2729,14 +2726,41 @@ public sealed class MenuBackdropDef : IValidatable
 
     public float Shade { get; set; }
 
+    /// <summary>The shot for <paramref name="level"/>, else the first.</summary>
+    public BackdropShotDef ShotFor(string? level) => System.Array.Find(Shots, s => s.Level == level) ?? Shots[0];
+
+    public void Validate(Validator v)
+    {
+        if (Shots.Length == 0)
+        {
+            v.Error(nameof(Shots), "needs at least one shot");
+        }
+
+        for (int i = 0; i < Shots.Length; i++)
+        {
+            Shots[i].Validate(v.Item(nameof(Shots), i));
+        }
+
+        v.InRange(nameof(Period_s), Period_s, 5, 600);
+        v.InRange(nameof(Fov_deg), Fov_deg, 20, 120);
+        v.InRange(nameof(Shade), Shade, 0, 1);
+    }
+}
+
+/// <summary>Behind the menu: a level, and the camera drifting from one point to another and back.</summary>
+public sealed class BackdropShotDef : IValidatable
+{
+    public string Level { get; set; } = "";
+
+    public CameraPointDef From { get; set; } = new();
+
+    public CameraPointDef To { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Level), Level);
         From.Validate(v.Scope(nameof(From)));
         To.Validate(v.Scope(nameof(To)));
-        v.InRange(nameof(Period_s), Period_s, 5, 600);
-        v.InRange(nameof(Fov_deg), Fov_deg, 20, 120);
-        v.InRange(nameof(Shade), Shade, 0, 1);
     }
 }
 
