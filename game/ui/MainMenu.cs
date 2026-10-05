@@ -145,6 +145,15 @@ public partial class MainMenu : Control
             case 45:
                 ShowLevels();
                 break;
+            case 52:
+            case 62:
+                // Down the list to the levels still to open (what opens each), and back up.
+                if (_levels.FindChildren("*", nameof(ScrollContainer), true, false).FirstOrDefault() is ScrollContainer list)
+                {
+                    list.ScrollVertical = _tourFrame < 60 ? (int)list.GetVScrollBar().MaxValue : 0;
+                }
+
+                break;
             case 65:
             case 85:
                 // The first level's other modes, with their sizes.
