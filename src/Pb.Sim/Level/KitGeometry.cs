@@ -517,7 +517,7 @@ public static class KitGeometry
     {
         foreach (PropColliderTemplate c in type.Colliders)
         {
-            var flags = PrimitiveFlags.Paint;
+            var flags = c.Paint ? PrimitiveFlags.Paint : PrimitiveFlags.None;
             if (c.Walk)
             {
                 flags |= PrimitiveFlags.Walk;

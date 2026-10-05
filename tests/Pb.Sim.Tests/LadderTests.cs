@@ -103,6 +103,29 @@ public class LadderTests
     }
 
     [Fact]
+    public void Each_objective_keeps_its_own_records_and_any_win_opens_the_next_level()
+    {
+        var progress = new LadderProgress(Ladder());
+        progress.Add(Round("one", RoundOutcome.Eliminated, elapsed: 400f));
+        string? opened = progress.Add(new RoundResult("one", "solo", "normal", RoundOutcome.Extracted, 210f, 12, 3, 1, "retrieve"));
+        Assert.Equal("two", opened);
+
+        LevelRecord retrieve = progress.Record("one", "solo", "normal", "retrieve")!;
+        Assert.Equal((1, 1, 210f), (retrieve.Rounds, retrieve.Wins, retrieve.BestClear_s));
+        LevelRecord eliminate = progress.Record("one", "solo", "normal")!;
+        Assert.Equal((1, 0), (eliminate.Rounds, eliminate.Wins));
+        Assert.Null(progress.Record("one", "solo", "normal", "hold"));
+
+        // A profile saved before objectives existed reads its records as eliminate.
+        string old = progress.Data.ToJson().Replace("\"objective\": \"eliminate\",", "");
+        Assert.DoesNotContain("\"objective\": \"eliminate\"", old);
+        var reloaded = new LadderProgress(Ladder(), ProfileData.FromJson(old));
+        Assert.Equal(1, reloaded.Record("one", "solo", "normal")!.Rounds);
+        Assert.Equal(1, reloaded.Record("one", "solo", "normal", "retrieve")!.Wins);
+        Assert.Equal("hold", LadderProgress.IdOf(ObjectiveKind.Hold));
+    }
+
+    [Fact]
     public void Open_all_shows_every_level_without_counting_as_a_win()
     {
         var progress = new LadderProgress(Ladder()) { OpenAll = true };

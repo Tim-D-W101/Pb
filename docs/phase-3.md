@@ -311,23 +311,48 @@ Each milestone is pushed as it lands, with screenshots.
 
 ### M3.4 Objectives
 
-- [ ] The menu offers an objective for solo and teams: **Eliminate** (as now), **Retrieve** or **Hold**. Each level
-  lists its case spots, its ways out and its rooms to hold (`"objectives"` in the level file).
-- [ ] **Retrieve** (`rules.jsonc` → `objectives.retrieve`): the case starts at a random spot each round, in a marked
-  building; walk over it to pick it up; carry it to any way out to win; a carrier can't sprint; if the carrier is
-  hit it drops where they fell, and a teammate can pick it up. Defenders start near it (some guarding it), and once
-  it's taken they know where it is every few seconds and go after it or cut off the ways out.
-- [ ] **Hold** (`objectives.hold`): a room is picked each round; your side holds it while at least one of you is in
-  it and none of them are; 60 s held in all wins; progress doesn't run while it's contested. Defenders start in and
-  round it; once you're in, they counter-attack.
-- [ ] Your bot teammates play the objective too: they go for the case and escort its carrier, or take the room and
-  hold it from its cover.
-- [ ] HUD: a marker on the objective (the case's building, the case itself once seen, the ways out while you carry
-  it, the room) with its distance; the hold progress bar; toasts and callouts when the case is taken or dropped and
-  when the room is contested. The briefing card says what to do and its map shows the ways out and the room; the
-  summary says how the objective went.
-- [ ] Tests: each way to win and lose each objective; the case drops and can be picked up again; contested time
-  doesn't count; defenders start near the objective; bots deliver the case and hold the room in headless rounds.
+**Done 2026-10-05.** [Screenshots](reports/phase-3/).
+
+- [x] The menu offers an objective for solo and teams: **Eliminate** (as before), **Retrieve** or **Hold**, the ones
+  the level has places for (none in free-for-all, which stays last one standing); your record is kept per objective
+  too, and your last choice is remembered. Each level lists its case spots, its ways out and its rooms to hold
+  (`"objectives"` in the level file). Oxbarrow Works: five case spots (warehouse floor and mezzanine, the office block
+  down and up, the pump house), three ways out (the main gate, the west breach, the north-east collapse) and three rooms
+  (the office's upper floor, the pump house, the warehouse mezzanine).
+- [x] **Retrieve** (`rules.jsonc` → `objectives.retrieve`): the case starts at one of the spots, dealt from the round's
+  seed, and the HUD marks its building; walk within a metre of it to pick it up; carry it within 4 m of a way out to
+  win; a carrier can't sprint; if the carrier is hit it drops where they fell, and a teammate can pick it up. Two
+  guards start right by it (and half the rest within 30 m); once it's picked up its holders learn where it is every
+  5 s: the two nearest go after it (or guard it where it fell) and the rest make for the way out nearest it and wait.
+- [x] **Hold** (`objectives.hold`): a room is dealt each round; your side holds it while at least one of you is in it
+  and none of them are; 60 s held in all wins; the clock stops while it's contested and never runs back. Two guards
+  start in it (half the rest within 25 m); while you're in it, every defender learns where you are every 4 s and
+  comes for it. Either way, putting the other side out still wins and being put out still loses; the clock running
+  out loses. You come in at an entry at least 38 m from the objective, so its guards can start by it fairly.
+- [x] Your bot teammates play the objective whenever there's nothing more pressing: they fetch the case, carry it to
+  the nearest way out (ignoring sounds on the way) or keep within 5 m of whoever carries it, or take a free cover spot
+  in the room and hold it. CI's bot in your slot does the same.
+- [x] HUD: a marker with the distance (the case's building until you've seen the case from within 30 m, then the
+  case itself; the nearest way out while you carry it; the carrier while a teammate does; the room), held to the
+  screen's edge when it's off to the side or behind; a status line under the top bar and the hold clock as a bar
+  (red while contested); toasts when the case is taken, dropped or out and when the room changes hands; bots shout
+  "got the case", "case is down", "they've got the case" and "they're in the room" (subtitles; voices with M3.8). In
+  the world: the case (a hard case built in code, with a blinking light while it lies about, hanging at its carrier's
+  side), a beam of light over each way out, and the room's outline on its floor. The briefing card says what to do
+  and where (and its map shows the case's building and the ways out, or the room); the summary says how it went.
+- [x] Tests (sixteen rule tests, four bot rounds, one records test): the case starts where the seed says; your side
+  picks it up and carrying it out wins; theirs can't pick it up; a carrier put out drops it where they fell and a
+  teammate picks it up; a carrier can't sprint; time running out loses; putting them out wins and being put out loses;
+  holding alone for the hold time wins; contested time doesn't count and leaving doesn't lose what's held; free-for-all
+  is always eliminate; an objective needs a level with places for it; Oxbarrow's places load, and an outdoor case spot
+  or an unknown room fails to load; stepping an objective round allocates nothing; defenders start round the objective;
+  a bot in your slot fetches the case and carries it out, and takes the room and holds it; the case's holders go after
+  it and cut off the way out; defenders come for the room once you're in it; records are kept per objective. CI adds a
+  3 v 3 retrieve and a solo hold to its bot matches, which log how the objective stands every 10 s.
+- [x] Fixed on the way (doors, M3.2): bots now stand beside a doorway, clear of the swing, to open a door that swings
+  their way (they used to stand just out of reach), plan their paths round leaves standing open across a way, and step
+  clear of a leaf standing ajar towards them before opening it (two more door tests); and `-- --level=ID` now goes to
+  that level even when the profile remembers another (M3.1).
 
 ### M3.5 The Rail Yard
 

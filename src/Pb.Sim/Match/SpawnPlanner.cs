@@ -19,13 +19,19 @@ public sealed class SpawnPlan
     public required IReadOnlyList<OpponentSpawn> Opponents { get; init; }
 }
 
-/// <summary>Who a round's starts are for: the mode, how many on each side, and the roles bots are dealt.</summary>
-public sealed record RoundShape(MatchModeKind Kind, int Teammates, int Opponents, IReadOnlyList<(string Role, float Weight)> Roles)
+/// <summary>
+/// Who a round's starts are for: the mode, how many on each side, the roles bots are dealt, and the objective the
+/// opponents defend, if there is one.
+/// </summary>
+public sealed record RoundShape(MatchModeKind Kind, int Teammates, int Opponents, IReadOnlyList<(string Role, float Weight)> Roles,
+    ObjectiveFocus? Objective = null)
 {
     /// <summary>You against <paramref name="opponents"/>, each playing a role from its spawn.</summary>
-    public static RoundShape Solo(int opponents) => new(MatchModeKind.Solo, 0, opponents, Array.Empty<(string, float)>());
+    public static RoundShape Solo(int opponents, ObjectiveFocus? objective = null) =>
+        new(MatchModeKind.Solo, 0, opponents, Array.Empty<(string, float)>(), objective);
 
-    public static RoundShape Of(GameMode mode, int size) => new(mode.Kind, mode.TeammatesFor(size), mode.OpponentsFor(size), mode.Roles);
+    public static RoundShape Of(GameMode mode, int size, ObjectiveFocus? objective = null) =>
+        new(mode.Kind, mode.TeammatesFor(size), mode.OpponentsFor(size), mode.Roles, mode.Kind == MatchModeKind.FreeForAll ? null : objective);
 }
 
 /// <summary>
@@ -42,7 +48,9 @@ public sealed record RoundShape(MatchModeKind Kind, int Teammates, int Opponents
 /// <item>teams: your teammates near you, and the other team grouped round a spot on the far side, out of
 /// sight of your whole team.</item>
 /// </list>
-/// In free-for-all and teams every bot plays a role dealt from the mode's chances.
+/// In free-for-all and teams every bot plays a role dealt from the mode's chances. With an objective, its defenders'
+/// guards start as near it as fair starts allow (in the room, for hold) and play the guard role, a share of the rest
+/// start near it, and in teams the other team gathers round it rather than a far spot.
 /// </summary>
 public static class SpawnPlanner
 {
@@ -69,9 +77,28 @@ public static class SpawnPlanner
         RoundShape shape, float eyeHeight, ulong seed)
     {
         var rng = new Pcg32(SeedHash.Combine(seed, 0x5DA75));
-        SpawnPoint you = level.PlayerSpawns[(int)(rng.NextUInt() % (uint)level.PlayerSpawns.Count)];
+        SpawnPoint you = YourStart(level, rules, shape.Objective, ref rng);
         var planner = new Planner(level, cover, world, rules, bots, shape, eyeHeight, you, rng);
         return planner.Run();
+    }
+
+    /// <summary>One of the level's player spawns at random; with an objective, one well clear of it (the farthest if none is).</summary>
+    private static SpawnPoint YourStart(LevelLayout level, SpawnRules rules, ObjectiveFocus? objective, ref Pcg32 rng)
+    {
+        IReadOnlyList<SpawnPoint> spawns = level.PlayerSpawns;
+        if (objective is null)
+        {
+            return spawns[(int)(rng.NextUInt() % (uint)spawns.Count)];
+        }
+
+        float clear = rules.MinDistanceFromYou + rules.ObjectiveClearance;
+        List<SpawnPoint> far = spawns.Where(s => Vector3.Distance(s.Position, objective.At) >= clear).ToList();
+        if (far.Count == 0)
+        {
+            far.Add(spawns.MaxBy(s => Vector3.Distance(s.Position, objective.At)));
+        }
+
+        return far[(int)(rng.NextUInt() % (uint)far.Count)];
     }
 
     private sealed class Planner
@@ -89,6 +116,7 @@ public static class SpawnPlanner
         private readonly List<OpponentSpawn> _opponents = new();
         private Pcg32 _rng;
         private int _fromCover;
+        private int _guardsLeft;
 
         public Planner(LevelLayout level, CoverSet cover, CollisionWorld world, SpawnRules rules, BotConfig bots, RoundShape shape,
             float eyeHeight, SpawnPoint you, Pcg32 rng)
@@ -121,6 +149,11 @@ public static class SpawnPlanner
                 {
                     fair.Add(c);
                 }
+            }
+
+            if (_shape.Objective is { } objective)
+            {
+                PlaceDefenders(fair, objective);
             }
 
             switch (_shape.Kind)
@@ -179,7 +212,25 @@ public static class SpawnPlanner
             }
         }
 
-        /// <summary>Teams: the other team round a spot picked from the fair starts farthest from you.</summary>
+        /// <summary>
+        /// The objective's defenders: its guards as near it as fair starts allow (inside the room, for hold, if any fair
+        /// start is), a little apart; then the near share of the rest within reach of it, spread out.
+        /// </summary>
+        private void PlaceDefenders(List<Candidate> fair, ObjectiveFocus objective)
+        {
+            int guards = Math.Min(objective.Guards, _shape.Opponents);
+            List<Candidate> inside = objective.Room is { } room ? fair.Where(c => room.Contains(c.Position + new Vector3(0f, 0.1f, 0f))).ToList() : fair;
+            List<Candidate> nearest = (inside.Count > 0 ? inside : fair).OrderBy(c => Vector3.Distance(c.Position, objective.At)).ToList();
+            _guardsLeft = guards;
+            Fill(_opponents, guards, nearest, _rules.TeammateSpacing, apartFromSight: false, spacingFloor: 1f);
+            _guardsLeft = 0;
+
+            int near = Math.Min(_shape.Opponents, _opponents.Count + (int)MathF.Round((_shape.Opponents - guards) * objective.NearShare));
+            List<Candidate> round = Shuffled(fair.Where(c => Vector3.Distance(c.Position, objective.At) <= objective.Near));
+            Fill(_opponents, near, round, _rules.MinSpacing, apartFromSight: false, spacingFloor: _rules.TeammateSpacing);
+        }
+
+        /// <summary>Teams: the other team round a spot picked from the fair starts farthest from you (or round the objective).</summary>
         private void PlaceOtherTeam(List<Candidate> fair)
         {
             if (fair.Count == 0)
@@ -189,7 +240,7 @@ public static class SpawnPlanner
 
             List<Candidate> byDistance = fair.OrderByDescending(c => Vector3.Distance(c.Position, _you.Position)).ToList();
             int far = Math.Max(1, (int)MathF.Ceiling(byDistance.Count * FarShare));
-            Vector3 spot = byDistance[(int)(_rng.NextUInt() % (uint)far)].Position;
+            Vector3 spot = _shape.Objective?.At ?? byDistance[(int)(_rng.NextUInt() % (uint)far)].Position;
             List<Candidate> pool = Shuffled(fair);
             for (float spread = _rules.TeamSpread; _opponents.Count < _shape.Opponents && spread < 1000f; spread *= 1.5f)
             {
@@ -244,7 +295,8 @@ public static class SpawnPlanner
         /// <summary>A bot's start at <paramref name="c"/>, with the role it plays (and a route, for a patroller).</summary>
         private OpponentSpawn Start(Candidate c, bool teammate)
         {
-            string role = _shape.Roles.Count > 0 ? PickRole(_shape.Roles)
+            string role = !teammate && _guardsLeft-- > 0 ? _shape.Objective!.GuardRole
+                : _shape.Roles.Count > 0 ? PickRole(_shape.Roles)
                 : c.Spawn is { } spawn ? spawn.Roles[(int)(_rng.NextUInt() % (uint)spawn.Roles.Count)]
                 : PickRole(_rules.CoverRoles);
             bool patrols = Patrols(role);

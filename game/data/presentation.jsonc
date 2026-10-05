@@ -921,8 +921,31 @@
       "flanking": ["Going round!", "Flanking!", "I'll take the side!"],
       "pushing": ["Pushing up!", "Moving in!", "Going in!"],
       "moving": ["Moving!", "Changing spots!", "Relocating!"],
-      "manDown": ["Man down!", "They got one of us!", "We lost one!"]
+      "manDown": ["Man down!", "They got one of us!", "We lost one!"],
+      "caseTaken": ["Got the case!", "I've got it, cover me!", "Case is mine, heading out!"],
+      "caseDown": ["Case is down!", "We lost the case, grab it!", "Someone get the case!"],
+      "caseAlarm": ["They've got the case!", "The case is moving, stop them!", "Cut them off!"],
+      "roomAlarm": ["They're in the room!", "Take the room back!", "They're holding it, go!"]
     }
+  },
+
+  // Objectives (rules.jsonc "objectives"), looks only: the colour of the HUD's objective marker, the ways out and the
+  // room's outline; the case (a hard case, this size and colour, with a small blinking light while it lies about); the
+  // ways out (a beam of light this tall and wide, seen while the round is a retrieve); the room to hold, outlined on its
+  // floor; and how near you have to have seen the case for the HUD to mark the case itself rather than its building.
+  "objectives": {
+    "color": "#f2c14e",
+    "caseSize_m": [0.56, 0.42, 0.17],
+    "caseColor": "#33372f",
+    "caseLightColor": "#ffb347",
+    "caseLightRange_m": 2.5,
+    "caseLightBlink_s": 1.2,
+    "beamHeight_m": 14,
+    "beamRadius_m": 0.45,
+    "beamAlpha": 0.22,
+    "roomOutlineWidth_m": 0.1,
+    "seenWithin_m": 30,
+    "markerSize_px": 16
   },
 
   "audio": {

@@ -103,6 +103,15 @@ public sealed class BrainDef : IValidatable
     /// <summary>An enemy facing within this of a flanker holding its fire has noticed it.</summary>
     public float NoticedAngle_deg { get; set; }
 
+    /// <summary>Objectives: a bot escorting the case's carrier keeps within this of them.</summary>
+    public float Escort_m { get; set; }
+
+    /// <summary>Defenders guarding one spot stand this far apart.</summary>
+    public float GuardSpacing_m { get; set; }
+
+    /// <summary>A way out is guarded from this far inside it, towards the case.</summary>
+    public float ExitGuardInset_m { get; set; }
+
     /// <summary>Vantage scoring: rays this many and this long across this arc of the side the cover faces, plus this per metre up.</summary>
     public int VantageRays { get; set; }
 
@@ -121,6 +130,9 @@ public sealed class BrainDef : IValidatable
         v.InRange(nameof(RelocateDistance_m), RelocateDistance_m, 0, 100);
         v.InRange(nameof(FlankMinAngle_deg), FlankMinAngle_deg, 0, 150);
         v.InRange(nameof(NoticedAngle_deg), NoticedAngle_deg, 0, 180);
+        v.InRange(nameof(Escort_m), Escort_m, 1, 50);
+        v.InRange(nameof(GuardSpacing_m), GuardSpacing_m, 0.5, 20);
+        v.InRange(nameof(ExitGuardInset_m), ExitGuardInset_m, 0, 50);
         v.InRange(nameof(VantageRays), VantageRays, 1, 64);
         v.InRange(nameof(VantageRange_m), VantageRange_m, 5, 300);
         v.InRange(nameof(VantageArc_deg), VantageArc_deg, 10, 360);

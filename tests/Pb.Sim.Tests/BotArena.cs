@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using Pb.Sim.AI;
 using Pb.Sim.Collision;
@@ -22,26 +23,20 @@ public sealed class BotArenaCollection
 }
 
 /// <summary>
-/// A whole round without the engine: the compound, you (player 0, team 0, scripted) and bots (team 1)
-/// with real brains, moved over the navigation grid by <see cref="NavGridMover"/>. Every tick runs the
+/// A whole round without the engine: a level (Oxbarrow Works unless named), you (player 0, team 0, scripted) and
+/// bots (team 1) with real brains, moved over the navigation grid by <see cref="NavGridMover"/>. Every tick runs the
 /// same order as the game: commands, movement, sim step, then the step's events to the bots.
 /// </summary>
 internal sealed class BotArena
 {
-    private static readonly Lazy<(LevelLayout Level, NavGrid Grid, CoverSet Cover)> Shared = new(() =>
-    {
-        LevelLayout level = TestData.Data.Levels["oxbarrow_works"];
-        NavGrid grid = NavGrid.Build(level, TestData.Data.Bots.Navigation);
-        CoverSet cover = CoverSet.Build(level, grid, TestData.Config.Movement.StandEyeHeight, TestData.Config.Movement.CrouchEyeHeight);
-        return (level, grid, cover);
-    });
+    private static readonly ConcurrentDictionary<string, Lazy<(LevelLayout Level, NavGrid Grid, CoverSet Cover)>> Shared = new();
 
     private readonly List<BotBrain?> _brains = new();
     private InputCommand[] _commands = Array.Empty<InputCommand>();
 
-    private BotArena(string tier, ulong seed)
+    private BotArena(string tier, ulong seed, string levelId)
     {
-        (LevelLayout level, NavGrid grid, CoverSet cover) = Shared.Value;
+        (LevelLayout level, NavGrid grid, CoverSet cover) = SharedFor(levelId);
         cover.ReleaseAll();
         Level = level;
         SimConfig config = TestData.Config;
@@ -85,7 +80,17 @@ internal sealed class BotArena
 
     public IEnumerable<BotBrain> Bots => _brains.Where(b => b is not null)!;
 
-    public static BotArena Create(string tier = "normal", ulong seed = 0) => new(tier, seed);
+    public static BotArena Create(string tier = "normal", ulong seed = 0, string level = "oxbarrow_works") => new(tier, seed, level);
+
+    /// <summary>A level with its navigation grid and cover set, built once and shared by every arena on it.</summary>
+    public static (LevelLayout Level, NavGrid Grid, CoverSet Cover) SharedFor(string levelId) =>
+        Shared.GetOrAdd(levelId, id => new Lazy<(LevelLayout, NavGrid, CoverSet)>(() =>
+        {
+            LevelLayout level = TestData.Data.Levels[id];
+            NavGrid grid = NavGrid.Build(level, TestData.Data.Bots.Navigation);
+            CoverSet cover = CoverSet.Build(level, grid, TestData.Config.Movement.StandEyeHeight, TestData.Config.Movement.CrouchEyeHeight);
+            return (level, grid, cover);
+        })).Value;
 
     /// <summary>Adds a bot at the named spawn with that spawn's behaviour.</summary>
     public BotBrain AddBot(string spawnId, string? archetype = null) =>
@@ -112,9 +117,13 @@ internal sealed class BotArena
     }
 
     /// <summary>Starts the round (gear, stats) and goes live.</summary>
-    public BotArena Start(int heroPods = 2, int botPods = 2, float timeLimit = 900f, MatchModeKind mode = MatchModeKind.Solo)
+    public BotArena Start(int heroPods = 2, int botPods = 2, float timeLimit = 900f, MatchModeKind mode = MatchModeKind.Solo,
+        ObjectiveKind objective = ObjectiveKind.Eliminate)
     {
-        Sim.StartMatch(new MatchSetup { HeroId = 0, Mode = mode, TimeLimit = timeLimit, StartPods = heroPods, BotPods = botPods, Pickups = true });
+        Sim.StartMatch(new MatchSetup
+        {
+            HeroId = 0, Mode = mode, TimeLimit = timeLimit, StartPods = heroPods, BotPods = botPods, Pickups = true, Objective = objective,
+        });
         Sim.GoLive();
         _commands = new InputCommand[Sim.Players.Count];
         return this;

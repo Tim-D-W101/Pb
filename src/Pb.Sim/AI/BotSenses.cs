@@ -392,6 +392,32 @@ public sealed class BotSenses
         }
     }
 
+    /// <summary>
+    /// The objective's alarm (the case on the move, the room taken): where an enemy is, as a lead worth acting on, like a
+    /// teammate's call from where this bot stands.
+    /// </summary>
+    internal void Alarm(int targetId, Vector3 at)
+    {
+        if (!IsEnemy(targetId, out PlayerState? target))
+        {
+            return;
+        }
+
+        Awareness a = Ensure(target!.Id);
+        if (a.Visible && a.Spotted)
+        {
+            return; // already watching them
+        }
+
+        a.LastKnown = at;
+        a.LastKnownSeen = false;
+        a.SinceLead = 0f;
+        a.HasLead = true;
+        a.Meter = MathF.Max(a.Meter, _p.SuspiciousAt);
+        a.SinceContact = 0f;
+        a.ContactFrom = _self.Position;
+    }
+
     private bool IsEnemy(int playerId, out PlayerState? player)
     {
         player = _sim.FindPlayer(playerId);

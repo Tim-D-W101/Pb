@@ -251,6 +251,80 @@ public class DoorTests
     }
 
     [Fact]
+    public void A_bot_opens_a_door_that_swings_towards_it()
+    {
+        // The pump house's steel door swings out into the yard: a bot coming in has to stand clear of it to open it.
+        BotArena arena = BotArena.Create("normal");
+        var doorway = new Vector3(32f, 0f, -27.9f);
+        int leaf = LeafAt(arena.Sim, doorway);
+        Assert.True(Vector3.Dot(arena.Sim.Doors[leaf].Side, Vector3.UnitZ) > 0.9f, "the door doesn't swing out into the yard");
+        var outside = new OpponentSpawn { Id = "yard", Position = new Vector3(32f, 0f, -21f), Yaw = 0f, Roles = new[] { "sentry" } };
+        BotBrain bot = arena.AddBotAt(outside, team: 1, "sentry");
+        arena.Start();
+        arena.Sim.Doors.SetOpen(leaf, 0f);
+        // A shot inside, behind the shut door: the sentry goes in to look.
+        arena.PlaceHero(new Vector3(36.5f, 0f, -32.5f), new Vector3(37f, 0f, -33f));
+        arena.HeroScript = (tick, me) => new InputCommand { Tick = tick, Yaw = me.Yaw, Pitch = -0.6f, Buttons = tick == 30 ? InputButtons.Fire : InputButtons.None };
+        bool inside = false;
+        float opened = 0f;
+        arena.Run(25 * Second, () =>
+        {
+            opened = MathF.Max(opened, arena.Sim.Doors.Open(leaf));
+            inside |= bot.Self.Position.Z < doorway.Z - 0.3f;
+            return inside;
+        });
+        _out.WriteLine($"door opened to {opened:0.00}; bot at {bot.Self.Position}, {bot.Mode}");
+        Assert.True(opened >= TestData.Config.Rules.Doors.BotPassOpen, "the bot never opened the door");
+        Assert.True(inside, "the bot never went into the pump house");
+    }
+
+    [Fact]
+    public void Paths_go_round_a_door_standing_open_across_the_way()
+    {
+        // The warehouse's north door opens out into the rear alley: standing open, its leaf sticks out across it.
+        BotArena arena = BotArena.Create("normal");
+        int leaf = LeafAt(arena.Sim, new Vector3(-4f, 0f, -36.1f));
+        arena.Sim.Doors.SetOpen(leaf, 1f);
+        float radius = TestData.Data.Bots.Navigation.AgentRadius;
+        var path = new List<Vector3>();
+        Assert.True(arena.Squad.Grid.FindPath(new Vector3(-20f, 0f, -36.6f), new Vector3(10f, 0f, -36.6f), path));
+        var points = new List<Vector3> { new(-20f, 0f, -36.6f) };
+        points.AddRange(path);
+        for (int i = 1; i < points.Count; i++)
+        {
+            for (float t = 0f; t <= 1f; t += 0.05f)
+            {
+                Vector3 at = Vector3.Lerp(points[i - 1], points[i], t);
+                Assert.False(arena.Sim.Doors.OpenLeafAt(at, radius * 0.9f, 0.9f), $"the path walks into the open leaf at {at}");
+            }
+        }
+
+        // Shut, the way along the alley is straight again.
+        arena.Sim.Doors.SetOpen(leaf, 0f);
+        Assert.True(arena.Squad.Grid.FindPath(new Vector3(-20f, 0f, -36.6f), new Vector3(10f, 0f, -36.6f), path));
+        Assert.True(path.Count <= 2, $"a {path.Count}-corner path along an empty alley");
+    }
+
+    [Fact]
+    public void A_bot_opens_a_door_standing_ajar_towards_it()
+    {
+        // The pump house's west door swings out towards anyone coming from the west; ajar, its leaf is in their way.
+        BotArena arena = BotArena.Create("normal");
+        var doorway = new Vector3(29.9f, 0f, -31f);
+        int leaf = LeafAt(arena.Sim, doorway);
+        var outside = new OpponentSpawn { Id = "west", Position = new Vector3(24f, 0f, -31.8f), Yaw = -MathF.PI / 2f, Roles = new[] { "sentry" } };
+        BotBrain bot = arena.AddBotAt(outside, team: 1, "sentry");
+        arena.Start();
+        arena.Sim.Doors.SetOpen(leaf, TestData.Config.Rules.Doors.Ajar);
+        arena.PlaceHero(new Vector3(36.5f, 0f, -32.5f), new Vector3(37f, 0f, -33f));
+        arena.HeroScript = (tick, me) => new InputCommand { Tick = tick, Yaw = me.Yaw, Pitch = -0.6f, Buttons = tick == 30 ? InputButtons.Fire : InputButtons.None };
+        bool inside = false;
+        arena.Run(25 * Second, () => inside |= bot.Self.Position.X > doorway.X + 0.4f);
+        _out.WriteLine($"door at {arena.Sim.Doors.Open(leaf):0.00}; bot at {bot.Self.Position}, {bot.Mode}");
+        Assert.True(inside, "the bot never got past the ajar door");
+    }
+
+    [Fact]
     public void Doors_start_the_same_from_the_same_seed_and_differently_from_another()
     {
         float[] Starts(ulong seed)

@@ -136,6 +136,49 @@ public static class LevelFactory
             PlaceProp(errors.Item(nameof(LevelDef.Props), i), def.Props[i], PlanFrame.Identity, string.Empty);
         }
 
+        // Tracks: two rails along each, paint only (feet step over them); the game draws them and their sleepers.
+        var tracks = new List<TrackSpec>();
+        for (int i = 0; def.Tracks is not null && i < def.Tracks.Length; i++)
+        {
+            TrackDef t = def.Tracks[i];
+            Validator item = errors.Item(nameof(LevelDef.Tracks), i);
+            MaterialRef rail = Material(item, nameof(TrackDef.RailMaterial), t.RailMaterial);
+            MaterialRef sleeper = Material(item, nameof(TrackDef.SleeperMaterial), t.SleeperMaterial);
+            if (t.Points_m.Length < 2 || t.Points_m.Any(p => p is not { Length: 2 }))
+            {
+                continue; // already reported
+            }
+
+            Vector3[] points = t.Points_m.Select(p => new Vector3(p[0], t.Elevation_m, p[1])).ToArray();
+            int owner = Owner($"track {i + 1}");
+            for (int k = 1; k < points.Length; k++)
+            {
+                Vector3 a = points[k - 1], b = points[k];
+                Vector3 along = b - a;
+                float length = along.Length();
+                if (length < 1e-3f)
+                {
+                    continue;
+                }
+
+                along /= length;
+                var across = new Vector3(-along.Z, 0f, along.X);
+                Quaternion turn = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.Atan2(along.X, along.Z));
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    Vector3 centre = (a + b) * 0.5f + across * (side * (t.Gauge_m + t.RailWidth_m) * 0.5f) + new Vector3(0f, t.RailHeight_m * 0.5f, 0f);
+                    sink.AddBox(PlanFrame.Identity, centre, turn, new Vector3(t.RailWidth_m * 0.5f, t.RailHeight_m * 0.5f, length * 0.5f), rail,
+                        PrimitiveFlags.Paint, PrimitiveRole.Rail, owner);
+                }
+            }
+
+            tracks.Add(new TrackSpec
+            {
+                Points = points, Gauge = t.Gauge_m, RailHeight = t.RailHeight_m, RailWidth = t.RailWidth_m,
+                RailMaterial = kit.Materials[rail.Index], SleeperMaterial = kit.Materials[sleeper.Index],
+            });
+        }
+
         // Invisible walking walls along the bounds.
         var bounds = new Aabb(Validator.ToVector3(def.BoundsMin_m), Validator.ToVector3(def.BoundsMax_m));
         AddBoundary(sink, bounds, ground.Ref, Owner("bounds"));
@@ -204,6 +247,8 @@ public static class LevelFactory
         }
 
         AreaSpec spawnArea = areas.First(a => a.Name == def.SpawnArea);
+        LevelObjectives objectives = def.Objectives is null ? LevelObjectives.None
+            : ToObjectives(errors.Scope(nameof(LevelDef.Objectives)), def.Objectives, areas, playerSpawns, bounds);
         errors.ThrowIfErrors();
 
         return new LevelLayout
@@ -233,7 +278,67 @@ public static class LevelFactory
             Viewpoints = (def.Viewpoints ?? Array.Empty<ViewpointDef>())
                 .Select(vp => new Viewpoint(vp.Name, Validator.ToVector3(vp.Position_m), vp.Yaw_deg * Units.DegreesToRadians, vp.Pitch_deg * Units.DegreesToRadians))
                 .ToArray(),
+            Objectives = objectives,
+            Tracks = tracks,
         };
+    }
+
+    /// <summary>
+    /// The level's objectives: each case spot with the biggest indoor area round it (its building, or that storey of it),
+    /// the ways out (by default one at each player spawn), and each room to hold from the areas of its name.
+    /// </summary>
+    private static LevelObjectives ToObjectives(Validator errors, LevelObjectivesDef def, IReadOnlyList<AreaSpec> areas,
+        IReadOnlyList<SpawnPoint> playerSpawns, Aabb bounds)
+    {
+        var spots = new List<CaseSpot>();
+        for (int i = 0; i < def.CaseSpots_m.Length; i++)
+        {
+            Vector3 at = Validator.ToVector3(def.CaseSpots_m[i]);
+            string key = $"{nameof(LevelObjectivesDef.CaseSpots_m)}[{i}]";
+            CheckInside(errors, key, at, bounds);
+            AreaSpec? building = areas.Where(a => a.Indoor && a.Box.Contains(at + new Vector3(0f, 0.1f, 0f))).MaxBy(a => a.Volume);
+            if (building is null)
+            {
+                errors.Error(key, $"{at} isn't inside an indoor area (the case starts in a building)");
+                continue;
+            }
+
+            spots.Add(new CaseSpot(at, building.Name, building.Box));
+        }
+
+        var exits = new List<ExitSpec>();
+        for (int i = 0; def.Exits is not null && i < def.Exits.Length; i++)
+        {
+            Vector3 at = Validator.ToVector3(def.Exits[i].At_m);
+            CheckInside(errors.Item(nameof(LevelObjectivesDef.Exits), i), nameof(ExitDef.At_m), at, bounds);
+            exits.Add(new ExitSpec(def.Exits[i].Name, at));
+        }
+
+        if (exits.Count == 0)
+        {
+            for (int i = 0; i < playerSpawns.Count; i++)
+            {
+                exits.Add(new ExitSpec($"way out {i + 1}", playerSpawns[i].Position));
+            }
+        }
+
+        var rooms = new List<HoldRoom>();
+        for (int i = 0; i < def.HoldRooms.Length; i++)
+        {
+            string name = def.HoldRooms[i];
+            Aabb[] boxes = areas.Where(a => a.Name == name).Select(a => a.Box).ToArray();
+            if (boxes.Length == 0)
+            {
+                errors.Error($"{nameof(LevelObjectivesDef.HoldRooms)}[{i}]", $"no area is called '{name}'");
+                continue;
+            }
+
+            Aabb biggest = boxes.MaxBy(b => (b.Max.X - b.Min.X) * (b.Max.Z - b.Min.Z));
+            var centre = new Vector3((biggest.Min.X + biggest.Max.X) * 0.5f, MathF.Max(biggest.Min.Y, 0f), (biggest.Min.Z + biggest.Max.Z) * 0.5f);
+            rooms.Add(new HoldRoom { Name = name, Boxes = boxes, Centre = centre });
+        }
+
+        return new LevelObjectives { CaseSpots = spots, Exits = exits, Rooms = rooms };
     }
 
     /// <summary>

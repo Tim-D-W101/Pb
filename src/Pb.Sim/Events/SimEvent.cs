@@ -44,6 +44,17 @@ public enum SimEventType : byte
     /// Extra = <see cref="Level.DoorMotion"/>.
     /// </summary>
     DoorMoved,
+    /// <summary>Retrieve: someone picked the case up. PlayerId = the carrier, Team = their team, Position = where it lay.</summary>
+    CaseTaken,
+    /// <summary>Retrieve: the carrier went out and the case fell. PlayerId = who carried it, Position = where it lies.</summary>
+    CaseDropped,
+    /// <summary>Retrieve: the case went out through a way out. PlayerId = the carrier, Extra = the way out's index.</summary>
+    CaseExtracted,
+    /// <summary>
+    /// Hold: who holds the room changed. Extra = <see cref="Match.HoldStatus"/>, Value = seconds held so far, Team = the
+    /// attacking side.
+    /// </summary>
+    HoldChanged,
 }
 
 public enum FootstepKind : byte

@@ -606,6 +606,20 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **Bots.** The squad knows the objective. Defenders start near it (`SpawnPlanner`), hold it while nothing's going on,
   and get an alarm (the carrier's position every few seconds, or the room being entered) that sends them after it.
   Attackers (your teammates) head for it, carry, escort and hold from cover.
+- **As built (M3.4).** Case spots are points (the factory finds the biggest indoor area round each: its building or that
+  storey, which the HUD marks); ways out are points with the rules' radius (default: the player spawns). The case spot
+  or room is dealt from the match seed (`ObjectiveState.PickIndex`), and `ObjectiveFocus.For` works it out before
+  anyone starts, so `SpawnPlanner` gathers the defenders round it (their guards play `objectives.guardRole`) and picks
+  your entry clear of it (`spawning.objectiveClearance_m`). `ObjectiveState.Update` runs in `MatchState.Update` after the
+  balls have flown, so a carrier hit this tick drops the case this tick; it sets `PlayerState.SprintBlocked`, which
+  `MovementModel` honours. The time limit doesn't end a round whose objective was done on its last tick. Bots: the squad
+  runs the alarms once a tick from its sync (`BotBrain.Alarm` gives a lead through `BotSenses.Alarm`, like a teammate's
+  call; `BotBrain.Guard` gives an objective post that replaces post, patrol and hunt); attackers play the objective from
+  `ActIdle` and go back to it after a fight, and a carrier or someone in the room (`OnTask`) drops everything short of
+  an enemy in sight. Records gained an `objective` key (old records read as eliminate). `NavGrid.Blocked` lets path
+  searches walk round moving things: the squad points it at `DoorSet.OpenLeafAt`, which says where a leaf standing
+  at least `doors.botRouteRound` open is. Game: `ObjectiveViews` (world), `ObjectiveHud` (marker, status line, hold
+  bar), `LevelMap.MarkObjective` (briefing), `ObjectiveDemo` (`-- --objective-demo` for screenshots).
 
 ### 15.5 New kit
 

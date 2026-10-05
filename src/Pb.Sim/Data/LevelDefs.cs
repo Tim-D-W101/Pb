@@ -226,10 +226,19 @@ public sealed class ColliderDef : IValidatable
     [Optional]
     public bool Walk { get; set; } = true;
 
+    /// <summary>Whether paint (and sight) meets it; false for a walking block only (the gap under a wagon, say).</summary>
+    [Optional]
+    public bool Paint { get; set; } = true;
+
     public void Validate(Validator v)
     {
         v.Vector(nameof(Center_m), Center_m);
         v.NotEmpty(nameof(Material), Material);
+        if (!Walk && !Paint)
+        {
+            v.Error(nameof(Paint), "a collider must block walking, paint or both");
+        }
+
         if (Rotation_deg is not null)
         {
             v.Vector(nameof(Rotation_deg), Rotation_deg);
@@ -1117,10 +1126,20 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public MarkingsDef? Markings { get; set; }
 
+    /// <summary>Where the objectives are played: the case's starting spots, the ways out and the rooms to hold.</summary>
+    [Optional]
+    public LevelObjectivesDef? Objectives { get; set; }
+
+    /// <summary>Railway tracks: rails paint hits and feet step over, with sleepers drawn under them.</summary>
+    [Optional]
+    public TrackDef[]? Tracks { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
+        Objectives?.Validate(v.Scope(nameof(Objectives)));
+        LevelDefChecks.Items(v, nameof(Tracks), Tracks);
         LevelDefChecks.Items(v, nameof(Viewpoints), Viewpoints);
         Scenery?.Validate(v.Scope(nameof(Scenery)));
         Markings?.Validate(v.Scope(nameof(Markings)));
@@ -1313,6 +1332,97 @@ public sealed class PickupDef : IValidatable
     {
         v.NotEmpty(nameof(Id), Id);
         v.Vector(nameof(Position_m), Position_m);
+    }
+}
+
+/// <summary>
+/// A level's objectives: where the case may start (Retrieve: one at random each round, each spot inside a named indoor
+/// area, its building), the ways out with it (without any, round each player spawn) and the rooms to hold (Hold: area
+/// names, every area of that name making up the room). A level offers each objective it has places for.
+/// </summary>
+public sealed class LevelObjectivesDef : IValidatable
+{
+    [Optional]
+    public float[][] CaseSpots_m { get; set; } = Array.Empty<float[]>();
+
+    [Optional]
+    public ExitDef[]? Exits { get; set; }
+
+    [Optional]
+    public string[] HoldRooms { get; set; } = Array.Empty<string>();
+
+    public void Validate(Validator v)
+    {
+        for (int i = 0; i < CaseSpots_m.Length; i++)
+        {
+            v.Vector($"{nameof(CaseSpots_m)}[{i}]", CaseSpots_m[i]);
+        }
+
+        LevelDefChecks.Items(v, nameof(Exits), Exits);
+        if (HoldRooms.Distinct(StringComparer.Ordinal).Count() != HoldRooms.Length)
+        {
+            v.Error(nameof(HoldRooms), "lists a room twice");
+        }
+    }
+}
+
+/// <summary>
+/// A railway track along a polyline in plan ([x, z] points, at <see cref="Elevation_m"/>): two rails of the given profile
+/// <see cref="Gauge_m"/> apart (inside faces), which paint and sight meet but walking steps over, and sleepers under them
+/// (drawn by the game, looks only) in the sleeper material.
+/// </summary>
+public sealed class TrackDef : IValidatable
+{
+    public float[][] Points_m { get; set; } = Array.Empty<float[]>();
+
+    [Optional]
+    public float Elevation_m { get; set; }
+
+    /// <summary>Between the rails' inside faces (standard gauge by default).</summary>
+    [Optional]
+    public float Gauge_m { get; set; } = 1.435f;
+
+    [Optional]
+    public float RailHeight_m { get; set; } = 0.15f;
+
+    [Optional]
+    public float RailWidth_m { get; set; } = 0.07f;
+
+    public string RailMaterial { get; set; } = "";
+
+    public string SleeperMaterial { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        if (Points_m.Length < 2)
+        {
+            v.Error(nameof(Points_m), "needs at least two points");
+        }
+
+        for (int i = 0; i < Points_m.Length; i++)
+        {
+            v.Vector($"{nameof(Points_m)}[{i}]", Points_m[i], 2);
+        }
+
+        v.InRange(nameof(Gauge_m), Gauge_m, 0.3, 3);
+        v.InRange(nameof(RailHeight_m), RailHeight_m, 0.02, 0.5);
+        v.InRange(nameof(RailWidth_m), RailWidth_m, 0.01, 0.3);
+        v.NotEmpty(nameof(RailMaterial), RailMaterial);
+        v.NotEmpty(nameof(SleeperMaterial), SleeperMaterial);
+    }
+}
+
+/// <summary>A way out with the case: carried within the rules' exit radius of it, the case is out.</summary>
+public sealed class ExitDef : IValidatable
+{
+    public string Name { get; set; } = "";
+
+    public float[] At_m { get; set; } = Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Name), Name);
+        v.Vector(nameof(At_m), At_m);
     }
 }
 

@@ -13,7 +13,8 @@ walkable derelict works yard with a warehouse, offices, pump house and guardhous
 kit. You pick it, a mode, how many play and a difficulty from the menu, read the briefing, and play:
 **solo** (clear the compound of a squad against the clock), **free-for-all** (up to ten players,
 everyone against everyone) or **teams** (you and bot teammates against a bot team, up to 5 v 5),
-picking up paint and air on the way. The bots hold posts, patrol, hunt and rush, notice you by sight
+picking up paint and air on the way. In solo and teams you can also play for an objective (Phase 3): **retrieve** (find
+the case in the marked building and carry it out) or **hold** (keep the marked room for a minute in all). The bots hold posts, patrol, hunt and rush, notice you by sight
 and sound, and fight from cover; in free-for-all and teams they fight each other too. The match HUD
 is in, and so is the art pass: photographic textures on every surface; every prop modelled (built in
 code from its colliders, with generated models replacing them as they arrive: so far the oil drum

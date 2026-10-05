@@ -874,6 +874,19 @@ public enum MatchModeKind
     Teams,
 }
 
+/// <summary>How a round is won besides being the last team standing (solo and teams; free-for-all is always eliminate).</summary>
+public enum ObjectiveKind
+{
+    /// <summary>Only the last team standing wins.</summary>
+    Eliminate,
+
+    /// <summary>Carry the case out through a way out.</summary>
+    Retrieve,
+
+    /// <summary>Hold the room for the hold time in all.</summary>
+    Hold,
+}
+
 /// <summary>Round rules (rules.jsonc).</summary>
 public sealed class RulesDef : IValidatable
 {
@@ -895,9 +908,12 @@ public sealed class RulesDef : IValidatable
 
     public DoorRulesDef Doors { get; set; } = new();
 
+    public ObjectivesDef Objectives { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MaxPlayers), MaxPlayers, 2, 32);
+        Objectives.Validate(v.Scope(nameof(Objectives)));
         v.InRange(nameof(SettleTime_s), SettleTime_s, 0, 10);
         v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.1, 5);
         v.InRange(nameof(AirPickupBelow), AirPickupBelow, 0, 1);
@@ -948,6 +964,9 @@ public sealed class DoorRulesDef : IValidatable
     /// <summary>Bots go through a door once it's this far open (share of the full swing).</summary>
     public float BotPassOpen { get; set; }
 
+    /// <summary>A leaf standing at least this open is out beside its doorway: bots plan their way round it.</summary>
+    public float BotRouteRound { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(Reach_m), Reach_m, 0.5, 4);
@@ -956,6 +975,7 @@ public sealed class DoorRulesDef : IValidatable
         v.InRange(nameof(EaseRate), EaseRate, 0.05, 5);
         v.InRange(nameof(Ajar), Ajar, 0.05, 0.95);
         v.InRange(nameof(BotPassOpen), BotPassOpen, 0.2, 1);
+        v.InRange(nameof(BotRouteRound), BotRouteRound, BotPassOpen, 1);
         if (RandomStart.Length == 0 || RandomStart.All(c => c.Weight <= 0f))
         {
             v.Error(nameof(RandomStart), "needs at least one start with a positive weight");
@@ -978,6 +998,122 @@ public sealed class StartChanceDef
     public DoorStart Start { get; set; }
 
     public float Weight { get; set; }
+}
+
+/// <summary>Objectives (rules.jsonc "objectives"): the menu's choices and how each is played.</summary>
+public sealed class ObjectivesDef : IValidatable
+{
+    /// <summary>The choices the menu offers, in order (a level offers those it has places for).</summary>
+    public ObjectiveChoiceDef[] Kinds { get; set; } = Array.Empty<ObjectiveChoiceDef>();
+
+    public RetrieveDef Retrieve { get; set; } = new();
+
+    public HoldDef Hold { get; set; } = new();
+
+    /// <summary>The behaviour (bots/archetypes.jsonc) the guards who start at the objective play.</summary>
+    public string GuardRole { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(GuardRole), GuardRole);
+        for (int i = 0; i < Kinds.Length; i++)
+        {
+            Kinds[i].Validate(v.Item(nameof(Kinds), i));
+        }
+
+        if (!Kinds.Any(k => k.Id == ObjectiveKind.Eliminate))
+        {
+            v.Error(nameof(Kinds), "must offer eliminate");
+        }
+
+        if (Kinds.Select(k => k.Id).Distinct().Count() != Kinds.Length)
+        {
+            v.Error(nameof(Kinds), "lists an objective twice");
+        }
+
+        Retrieve.Validate(v.Scope(nameof(Retrieve)));
+        Hold.Validate(v.Scope(nameof(Hold)));
+    }
+}
+
+public sealed class ObjectiveChoiceDef : IValidatable
+{
+    public ObjectiveKind Id { get; set; }
+
+    public string DisplayName { get; set; } = "";
+
+    /// <summary>What to do, for the menu and the briefing.</summary>
+    public string Description { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(DisplayName), DisplayName);
+        v.NotEmpty(nameof(Description), Description);
+    }
+}
+
+/// <summary>Retrieve: find the case, pick it up and carry it out.</summary>
+public sealed class RetrieveDef : IValidatable
+{
+    /// <summary>Your side picks the case up by walking within this of it.</summary>
+    public float PickupRadius_m { get; set; }
+
+    public bool CarrierCanSprint { get; set; }
+
+    /// <summary>Carried within this of a way out, it's out: your side wins.</summary>
+    public float ExitRadius_m { get; set; }
+
+    /// <summary>This many of its holders start right by the case ...</summary>
+    public int Guards { get; set; }
+
+    /// <summary>... and this share of the rest within <see cref="Near_m"/> of it.</summary>
+    public float NearShare { get; set; }
+
+    public float Near_m { get; set; }
+
+    /// <summary>Once it's moved, the holders learn where it is this often.</summary>
+    public float AlarmInterval_s { get; set; }
+
+    /// <summary>On each alarm this many holders nearest the case go after it; the rest make for the way out nearest it.</summary>
+    public int Chasers { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.2, 5);
+        v.InRange(nameof(ExitRadius_m), ExitRadius_m, 0.5, 30);
+        v.InRange(nameof(Guards), Guards, 0, 10);
+        v.InRange(nameof(NearShare), NearShare, 0, 1);
+        v.InRange(nameof(Near_m), Near_m, 1, 200);
+        v.InRange(nameof(AlarmInterval_s), AlarmInterval_s, 0.5, 60);
+        v.InRange(nameof(Chasers), Chasers, 0, 10);
+    }
+}
+
+/// <summary>Hold: take the room and keep it for the hold time in all.</summary>
+public sealed class HoldDef : IValidatable
+{
+    /// <summary>Time your side must hold the room, in all, to win.</summary>
+    public float HoldTime_s { get; set; }
+
+    /// <summary>This many defenders start in the room ...</summary>
+    public int Guards { get; set; }
+
+    /// <summary>... and this share of the rest within <see cref="Near_m"/> of it.</summary>
+    public float NearShare { get; set; }
+
+    public float Near_m { get; set; }
+
+    /// <summary>While your side is in the room, the defenders learn where you are this often.</summary>
+    public float AlarmInterval_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(HoldTime_s), HoldTime_s, 5, 900);
+        v.InRange(nameof(Guards), Guards, 0, 10);
+        v.InRange(nameof(NearShare), NearShare, 0, 1);
+        v.InRange(nameof(Near_m), Near_m, 1, 200);
+        v.InRange(nameof(AlarmInterval_s), AlarmInterval_s, 0.5, 60);
+    }
 }
 
 /// <summary>One mode the menu offers (rules.jsonc "modes").</summary>
@@ -1067,6 +1203,9 @@ public sealed class SpawningDef : IValidatable
 
     public float TeamSpread_m { get; set; }
 
+    /// <summary>With an objective, you come in at a player spawn at least minDistanceFromYou_m plus this from it.</summary>
+    public float ObjectiveClearance_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MinDistanceFromYou_m), MinDistanceFromYou_m, 0, 500);
@@ -1077,6 +1216,7 @@ public sealed class SpawningDef : IValidatable
         v.InRange(nameof(TeammatesWithin_m), TeammatesWithin_m, 1, 100);
         v.InRange(nameof(TeammateSpacing_m), TeammateSpacing_m, 0.5, 50);
         v.InRange(nameof(TeamSpread_m), TeamSpread_m, 1, 200);
+        v.InRange(nameof(ObjectiveClearance_m), ObjectiveClearance_m, 0, 200);
         if (CoverRoles.Length == 0)
         {
             v.Error(nameof(CoverRoles), "needs at least one role");

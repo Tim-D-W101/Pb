@@ -33,6 +33,9 @@ public sealed class PropColliderTemplate
     public required MaterialRef Material { get; init; }
 
     public required bool Walk { get; init; }
+
+    /// <summary>Paint and sight meet it (false: it only blocks walking).</summary>
+    public bool Paint { get; init; } = true;
 }
 
 public sealed class PropType
@@ -133,6 +136,7 @@ public sealed class KitCatalog
                         : Validator.ToVector3(cd.Size_m) * 0.5f,
                     Material = material,
                     Walk = cd.Walk,
+                    Paint = cd.Paint,
                 });
             }
 

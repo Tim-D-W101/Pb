@@ -93,8 +93,10 @@ for close-ups of anything in the level. On `Level.tscn`, through the player's ow
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
 sprinting, strafing, backing off and walking crouched, seen from the side (movement clips, or the steps without them). `-- --bot-match` (CI) has a bot play your slot until
-the round ends. `--mode=solo|ffa|teams` and `--size=N` pick the mode and size (the menu's choices; the
-modes are in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`. `-- --menu-tour` on the
+the round ends. `--mode=solo|ffa|teams`, `--size=N` and `--objective=eliminate|retrieve|hold` pick the mode, size and
+objective (the menu's choices; they're in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`, and
+`-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
+the room, the ways out. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's
 hardware can confirm the 60 fps target.
 

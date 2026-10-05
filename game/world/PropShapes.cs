@@ -15,7 +15,7 @@ namespace Pb.Game.World;
 /// with neither, the colliders are drawn as greybox. Each prop is varied by a seed from where it
 /// stands, so two pallet stacks never look the same but a level always looks the same.
 /// </summary>
-public static class PropShapes
+public static partial class PropShapes
 {
     private static readonly Dictionary<string, Action<Ctx>> Recipes = new(StringComparer.Ordinal)
     {
@@ -40,6 +40,14 @@ public static class PropShapes
         ["forklift"] = Forklift,
         ["roller_door"] = RollerDoor,
         ["container"] = Container,
+        ["box_van"] = BoxVan,
+        ["open_wagon"] = OpenWagon,
+        ["flat_wagon"] = FlatWagon,
+        ["tank_wagon"] = TankWagon,
+        ["shunter"] = Shunter,
+        ["buffer_stop"] = BufferStop,
+        ["sleeper_stack"] = SleeperStack,
+        ["rail_stack"] = RailStack,
     };
 
     public static IEnumerable<string> Kinds => Recipes.Keys;

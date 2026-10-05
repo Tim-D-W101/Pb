@@ -256,6 +256,12 @@ public sealed class NavGrid : IBotNavigation
         return s != None;
     }
 
+    /// <summary>
+    /// Where something that moves stands in the way (a door standing open): spans at whose floor point it says yes are
+    /// walked round, by searches and by the straightening of their paths. Null: nothing moves.
+    /// </summary>
+    public Func<Vector3, bool>? Blocked { get; set; }
+
     public bool FindPath(Vector3 from, Vector3 to, List<Vector3> path)
     {
         path.Clear();
@@ -343,7 +349,7 @@ public sealed class NavGrid : IBotNavigation
             for (int d = 0; d < 8; d++)
             {
                 int n = _links[s * 8 + d];
-                if (n == None || _closed[n] == generation)
+                if (n == None || _closed[n] == generation || (n != goal && Blocked is { } blocked && blocked(PositionOf(n))))
                 {
                     continue;
                 }
@@ -433,7 +439,7 @@ public sealed class NavGrid : IBotNavigation
                 }
             }
 
-            if (next == None)
+            if (next == None || (next != b && Blocked is { } blocked && blocked(PositionOf(next))))
             {
                 return false;
             }

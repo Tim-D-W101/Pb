@@ -117,8 +117,11 @@ public sealed class PresentationDef : IValidatable
 
     public HudDef Hud { get; set; } = new();
 
+    public ObjectivesViewDef Objectives { get; set; } = new();
+
     public void Validate(Validator v)
     {
+        Objectives.Validate(v.Scope(nameof(Objectives)));
         if (TeamColors.Length < 2)
         {
             v.Error(nameof(TeamColors), "needs at least two colours");
@@ -1316,6 +1319,56 @@ public sealed class MaskSprayViewDef : IValidatable
 }
 
 /// <summary>The match HUD: top bar, kill feed, subtitles, pickup prompts, hit marker, callsigns and callouts.</summary>
+/// <summary>How the objectives look (presentation.jsonc "objectives"): the marker colour, the case, the ways out and the room.</summary>
+public sealed class ObjectivesViewDef : IValidatable
+{
+    public string Color { get; set; } = "";
+
+    public float[] CaseSize_m { get; set; } = System.Array.Empty<float>();
+
+    public string CaseColor { get; set; } = "";
+
+    public string CaseLightColor { get; set; } = "";
+
+    public float CaseLightRange_m { get; set; }
+
+    public float CaseLightBlink_s { get; set; }
+
+    public float BeamHeight_m { get; set; }
+
+    public float BeamRadius_m { get; set; }
+
+    public float BeamAlpha { get; set; }
+
+    public float RoomOutlineWidth_m { get; set; }
+
+    /// <summary>The HUD marks the case itself once you've seen it from within this; until then, its building.</summary>
+    public float SeenWithin_m { get; set; }
+
+    public float MarkerSize_px { get; set; }
+
+    public void Validate(Validator v)
+    {
+        foreach ((string key, string value) in new[] { (nameof(Color), Color), (nameof(CaseColor), CaseColor), (nameof(CaseLightColor), CaseLightColor) })
+        {
+            if (!Godot.Color.HtmlIsValid(value))
+            {
+                v.Error(key, $"'{value}' is not a valid colour");
+            }
+        }
+
+        v.Vector(nameof(CaseSize_m), CaseSize_m);
+        v.InRange(nameof(CaseLightRange_m), CaseLightRange_m, 0, 20);
+        v.InRange(nameof(CaseLightBlink_s), CaseLightBlink_s, 0.1, 10);
+        v.InRange(nameof(BeamHeight_m), BeamHeight_m, 1, 100);
+        v.InRange(nameof(BeamRadius_m), BeamRadius_m, 0.05, 5);
+        v.InRange(nameof(BeamAlpha), BeamAlpha, 0, 1);
+        v.InRange(nameof(RoomOutlineWidth_m), RoomOutlineWidth_m, 0.01, 1);
+        v.InRange(nameof(SeenWithin_m), SeenWithin_m, 1, 200);
+        v.InRange(nameof(MarkerSize_px), MarkerSize_px, 4, 64);
+    }
+}
+
 public sealed class HudDef : IValidatable
 {
     public float IconSize_px { get; set; }
@@ -1386,6 +1439,14 @@ public sealed class CalloutsDef : IValidatable
 
     public string[] ManDown { get; set; } = System.Array.Empty<string>();
 
+    public string[] CaseTaken { get; set; } = System.Array.Empty<string>();
+
+    public string[] CaseDown { get; set; } = System.Array.Empty<string>();
+
+    public string[] CaseAlarm { get; set; } = System.Array.Empty<string>();
+
+    public string[] RoomAlarm { get; set; } = System.Array.Empty<string>();
+
     public string[] For(Pb.Sim.AI.CalloutKind kind) => kind switch
     {
         Pb.Sim.AI.CalloutKind.Spotted => Spotted,
@@ -1397,13 +1458,18 @@ public sealed class CalloutsDef : IValidatable
         Pb.Sim.AI.CalloutKind.Pushing => Pushing,
         Pb.Sim.AI.CalloutKind.Moving => Moving,
         Pb.Sim.AI.CalloutKind.ManDown => ManDown,
+        Pb.Sim.AI.CalloutKind.CaseTaken => CaseTaken,
+        Pb.Sim.AI.CalloutKind.CaseDown => CaseDown,
+        Pb.Sim.AI.CalloutKind.CaseAlarm => CaseAlarm,
+        Pb.Sim.AI.CalloutKind.RoomAlarm => RoomAlarm,
         _ => System.Array.Empty<string>(),
     };
 
     public void Validate(Validator v)
     {
         foreach ((string name, string[] lines) in new[] { (nameof(Spotted), Spotted), (nameof(Lost), Lost), (nameof(UnderFire), UnderFire), (nameof(Refill), Refill), (nameof(Hit), Hit),
-                     (nameof(Flanking), Flanking), (nameof(Pushing), Pushing), (nameof(Moving), Moving), (nameof(ManDown), ManDown) })
+                     (nameof(Flanking), Flanking), (nameof(Pushing), Pushing), (nameof(Moving), Moving), (nameof(ManDown), ManDown),
+                     (nameof(CaseTaken), CaseTaken), (nameof(CaseDown), CaseDown), (nameof(CaseAlarm), CaseAlarm), (nameof(RoomAlarm), RoomAlarm) })
         {
             if (lines.Length == 0)
             {

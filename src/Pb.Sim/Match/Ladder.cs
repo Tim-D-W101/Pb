@@ -6,14 +6,18 @@ namespace Pb.Sim.Match;
 
 /// <summary>One finished round, for the records: where and how it was played, and how it went for you.</summary>
 public readonly record struct RoundResult(
-    string LevelId, string ModeId, string TierId, RoundOutcome Outcome, float Elapsed, int Shots, int Hits, int Eliminations);
+    string LevelId, string ModeId, string TierId, RoundOutcome Outcome, float Elapsed, int Shots, int Hits, int Eliminations,
+    string ObjectiveId = LadderProgress.Eliminate);
 
-/// <summary>Your record on one level, mode and difficulty tier.</summary>
+/// <summary>Your record on one level, mode, objective and difficulty tier.</summary>
 public sealed class LevelRecord
 {
     public string Level { get; set; } = "";
 
     public string Mode { get; set; } = "";
+
+    /// <summary>"eliminate", "retrieve" or "hold" (records from before objectives read as eliminate).</summary>
+    public string Objective { get; set; } = LadderProgress.Eliminate;
 
     public string Tier { get; set; } = "";
 
@@ -80,6 +84,11 @@ public sealed class ProfileData
             data.Opened ??= new List<string>();
             data.Records ??= new List<LevelRecord>();
             data.Records.RemoveAll(r => r is null || string.IsNullOrEmpty(r.Level));
+            foreach (LevelRecord r in data.Records)
+            {
+                r.Objective = string.IsNullOrEmpty(r.Objective) ? LadderProgress.Eliminate : r.Objective;
+            }
+
             return data;
         }
         catch (JsonException)
@@ -91,12 +100,15 @@ public sealed class ProfileData
 
 /// <summary>
 /// The ladder's progress (levels/ladder.jsonc "unlock" and "records"): the first level is always open, and each
-/// later one opens when you win a round on the level before it, in any mode, on the rule's lowest tier or a
-/// harder one. Records keep your best on each level, mode and tier. Engine-free, so the rules are tested here;
+/// later one opens when you win a round on the level before it, in any mode and with any objective, on the rule's
+/// lowest tier or a harder one. Records keep your best on each level, mode, objective and tier. Engine-free, so the rules are tested here;
 /// the game loads and saves the <see cref="ProfileData"/>.
 /// </summary>
 public sealed class LadderProgress
 {
+    /// <summary>The objective id of a plain round (the last team standing wins).</summary>
+    public const string Eliminate = "eliminate";
+
     private readonly LadderDef _ladder;
 
     public LadderProgress(LadderDef ladder, ProfileData? data = null)
@@ -132,8 +144,16 @@ public sealed class LadderProgress
     /// <summary>The lowest tier whose wins count towards opening the next level (null: any).</summary>
     public string? MinTier => _ladder.Unlock.MinTier.Length > 0 ? _ladder.Unlock.MinTier : null;
 
-    public LevelRecord? Record(string level, string mode, string tier) =>
-        Data.Records.Find(r => r.Level == level && r.Mode == mode && r.Tier == tier);
+    public LevelRecord? Record(string level, string mode, string tier, string objective = Eliminate) =>
+        Data.Records.Find(r => r.Level == level && r.Mode == mode && r.Tier == tier && r.Objective == objective);
+
+    /// <summary>The id a record keeps for <paramref name="kind"/> ("eliminate", "retrieve", "hold").</summary>
+    public static string IdOf(ObjectiveKind kind) => kind switch
+    {
+        ObjectiveKind.Retrieve => "retrieve",
+        ObjectiveKind.Hold => "hold",
+        _ => Eliminate,
+    };
 
     /// <summary>Whether you've won on <paramref name="level"/> at <paramref name="tier"/>, in any mode.</summary>
     public bool WonOn(string level, string tier) => Data.Records.Exists(r => r.Level == level && r.Tier == tier && r.Wins > 0);
@@ -162,10 +182,10 @@ public sealed class LadderProgress
     /// </summary>
     public string? Add(RoundResult result)
     {
-        LevelRecord? record = Record(result.LevelId, result.ModeId, result.TierId);
+        LevelRecord? record = Record(result.LevelId, result.ModeId, result.TierId, result.ObjectiveId);
         if (record is null)
         {
-            record = new LevelRecord { Level = result.LevelId, Mode = result.ModeId, Tier = result.TierId };
+            record = new LevelRecord { Level = result.LevelId, Mode = result.ModeId, Objective = result.ObjectiveId, Tier = result.TierId };
             Data.Records.Add(record);
         }
 

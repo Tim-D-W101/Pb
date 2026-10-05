@@ -91,6 +91,9 @@ public sealed class DoorRules
     public required IReadOnlyList<(DoorStart Start, float Weight)> RandomStart { get; init; }
 
     public required float BotPassOpen { get; init; }
+
+    /// <summary>Bots plan their way round a leaf standing at least this open.</summary>
+    public required float BotRouteRound { get; init; }
 }
 
 /// <summary>
@@ -287,10 +290,43 @@ public sealed class DoorSet
     }
 
     /// <summary>
-    /// A leaf less than <paramref name="passOpen"/> open whose doorway the walk from <paramref name="from"/> to
-    /// <paramref name="to"/> crosses (on the same floor), or −1: what a bot has to open on its way.
+    /// Whether a body of <paramref name="radius"/> standing at <paramref name="feet"/> would be in a leaf standing at least
+    /// <paramref name="openAtLeast"/> open (out beside its doorway, in the way of anyone walking past): bots plan their
+    /// paths round such leaves, and through doorways whose leaves are shut or ajar, which they open.
     /// </summary>
-    public int ShutOnPath(Vector3 from, Vector3 to, float passOpen)
+    public bool OpenLeafAt(Vector3 feet, float radius, float openAtLeast)
+    {
+        for (int i = 0; i < _shapes.Length; i++)
+        {
+            if (_open[i] < openAtLeast)
+            {
+                continue;
+            }
+
+            DoorShape s = _shapes[i];
+            float bottom = s.Center.Y - s.Half.Y;
+            float dx = feet.X - s.Center.X, dz = feet.Z - s.Center.Z;
+            float reach = s.Half.X + s.Half.Z + radius;
+            if (dx * dx + dz * dz > reach * reach || feet.Y < bottom - 0.5f || feet.Y > bottom + 1.2f)
+            {
+                continue; // too far off, or on another floor
+            }
+
+            if (s.DistanceTo(feet with { Y = bottom + MathF.Min(1f, s.Half.Y) }, out _) < radius)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// A leaf less than <paramref name="passOpen"/> open whose doorway the walk from <paramref name="from"/> to
+    /// <paramref name="to"/> crosses (on the same floor), or −1: what a bot has to open on its way. The doorway counts
+    /// <paramref name="slack"/> wider at each end (a body's radius), so a walk grazing its jamb counts too.
+    /// </summary>
+    public int ShutOnPath(Vector3 from, Vector3 to, float passOpen, float slack = 0f)
     {
         for (int i = 0; i < _specs.Length; i++)
         {
@@ -305,7 +341,7 @@ public sealed class DoorSet
                 continue;
             }
 
-            Vector3 a = s.Hinge, b = s.Hinge + s.Across * s.Width;
+            Vector3 a = s.Hinge - s.Across * slack, b = s.Hinge + s.Across * (s.Width + slack);
             if (SegmentsCross(new Vector2(from.X, from.Z), new Vector2(to.X, to.Z), new Vector2(a.X, a.Z), new Vector2(b.X, b.Z)))
             {
                 return i;

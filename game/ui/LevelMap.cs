@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Pb.Game.Core;
+using Pb.Sim.Data;
 using Pb.Sim.Level;
+using Pb.Sim.Match;
 using SVector3 = System.Numerics.Vector3;
 
 namespace Pb.Game.Ui;
@@ -10,8 +12,9 @@ namespace Pb.Game.Ui;
 /// <summary>
 /// A plan of the level for the briefing card, drawn from its primitives (north up): the ground and its
 /// patches in their materials' colours, the buildings' ground floors, upper floors faintly over them,
-/// walls and columns dark, props in their own colours, and where you (and your team) start, with a
-/// north arrow and a scale bar. Drawn once, nothing loaded.
+/// walls and columns dark, props in their own colours, where you (and your team) start, and the objective
+/// (the case's building and the ways out, or the room to hold), with a north arrow and a scale bar. Drawn
+/// once, nothing loaded.
 /// </summary>
 public partial class LevelMap : Control
 {
@@ -23,7 +26,10 @@ public partial class LevelMap : Control
     private float _youYaw;
     private bool _hasYou;
     private readonly List<Vector2> _team = new();
+    private readonly List<Rect2> _objectiveAreas = new();
+    private readonly List<Vector2> _exits = new();
     private Color _accent = UiKit.Accent;
+    private Color _objectiveColour = UiKit.Accent;
 
     /// <summary>
     /// Draws <paramref name="level"/> at <paramref name="size"/>, with your start (plan position and yaw)
@@ -96,6 +102,32 @@ public partial class LevelMap : Control
         QueueRedraw();
     }
 
+    /// <summary>Marks the objective: the case's building and the ways out (Retrieve), or the room's parts (Hold).</summary>
+    public void MarkObjective(ObjectiveState objective, Color colour)
+    {
+        _objectiveColour = colour;
+        _objectiveAreas.Clear();
+        _exits.Clear();
+        static Rect2 Plan(Pb.Sim.Collision.Aabb box) => new(box.Min.X, box.Min.Z, box.Max.X - box.Min.X, box.Max.Z - box.Min.Z);
+        if (objective.Kind == ObjectiveKind.Retrieve)
+        {
+            _objectiveAreas.Add(Plan(objective.Spot.AreaBox));
+            foreach (ExitSpec exit in objective.Level.Exits)
+            {
+                _exits.Add(new Vector2(exit.Position.X, exit.Position.Z));
+            }
+        }
+        else if (objective.Room is { } room)
+        {
+            foreach (Pb.Sim.Collision.Aabb box in room.Boxes)
+            {
+                _objectiveAreas.Add(Plan(box));
+            }
+        }
+
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
         Vector2 size = Size;
@@ -126,6 +158,20 @@ public partial class LevelMap : Control
             {
                 DrawPolyline(points, fill, 1.6f, antialiased: true);
             }
+        }
+
+        // The objective: its area outlined and lightly filled, the ways out as rings.
+        foreach (Rect2 area in _objectiveAreas)
+        {
+            var r = new Rect2(Map(area.Position), area.Size * scale);
+            DrawRect(r, _objectiveColour with { A = 0.22f });
+            DrawRect(r, _objectiveColour, filled: false, width: 2f);
+        }
+
+        foreach (Vector2 exit in _exits)
+        {
+            DrawArc(Map(exit), 7f, 0f, Mathf.Tau, 20, _objectiveColour, 2.5f, antialiased: true);
+            DrawCircle(Map(exit), 2.5f, _objectiveColour);
         }
 
         // Teammates, then you: an arrow the way you face.

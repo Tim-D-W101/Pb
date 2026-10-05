@@ -38,6 +38,8 @@ public enum PrimitiveRole : byte
     Prop,
     GroundPatch,
     Boundary,
+    /// <summary>A rail of a track: paint hits it, feet step over it.</summary>
+    Rail,
 }
 
 /// <summary>

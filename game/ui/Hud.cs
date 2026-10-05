@@ -141,6 +141,19 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _subtitles.GrowVertical = Control.GrowDirection.Begin;
     }
 
+    /// <summary>The objective's marker and status line, once the round (with an objective) has started.</summary>
+    public void InitializeObjective(ObjectivesViewDef view)
+    {
+        if (_sim.Match?.Objective is not { } objective)
+        {
+            return;
+        }
+
+        var hud = new ObjectiveHud { Name = "Objective" };
+        GetNode<Control>("Root").AddChild(hud);
+        hud.Initialize(_sim, _player, objective, view);
+    }
+
     /// <summary>A subtitle for something a player shouted.</summary>
     public void Subtitle(string speaker, int team, string line) =>
         _subtitles?.Show(speaker, _teams.Length > 0 ? _teams[team % _teams.Length] : Colors.White, line);
@@ -172,6 +185,12 @@ public partial class Hud : CanvasLayer, ISimEventListener
             Eliminated(e);
         }
 
+        if (e.Type is SimEventType.CaseTaken or SimEventType.CaseDropped or SimEventType.CaseExtracted or SimEventType.HoldChanged)
+        {
+            ObjectiveToast(e);
+            return;
+        }
+
         if (e.PlayerId != _player?.Id)
         {
             return;
@@ -194,6 +213,32 @@ public partial class Hud : CanvasLayer, ISimEventListener
             case SimEventType.PickupTaken:
                 Toast((PickupKind)e.Extra == PickupKind.Air ? "Air tank refilled" : "Picked up a full pod");
                 break;
+        }
+    }
+
+    /// <summary>What just happened to the objective, from your side's point of view.</summary>
+    private void ObjectiveToast(in SimEvent e)
+    {
+        string who = _sim.FindPlayer(e.PlayerId)?.Name ?? "Someone";
+        string place = _sim.Match?.Objective?.Room?.Name ?? "room";
+        string room = ModeText.The(place);
+        string? line = e.Type switch
+        {
+            SimEventType.CaseTaken => e.PlayerId == _player.Id ? "You have the case: get it to a way out (you can't sprint with it)" : $"{who} has the case",
+            SimEventType.CaseDropped => e.PlayerId == _player.Id ? "You're out: the case is down" : $"{who} is out: the case is down",
+            SimEventType.CaseExtracted => e.PlayerId == _player.Id ? "You got the case out!" : $"{who} got the case out!",
+            SimEventType.HoldChanged => (Pb.Sim.Match.HoldStatus)e.Extra switch
+            {
+                Pb.Sim.Match.HoldStatus.Ours => $"You hold {room}",
+                Pb.Sim.Match.HoldStatus.Contested => $"{ModeText.TheCapital(place)} is contested",
+                Pb.Sim.Match.HoldStatus.Theirs => $"They're in {room}",
+                _ => null,
+            },
+            _ => null,
+        };
+        if (line is not null)
+        {
+            Toast(line, 3.0);
         }
     }
 

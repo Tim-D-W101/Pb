@@ -75,6 +75,13 @@
   "flankMinAngle_deg": 50,
   "noticedAngle_deg": 57,
 
+  // Objectives (rules.jsonc "objectives"): bots on your side fetch the case, carry it to the nearest way out or keep
+  // within escort_m of whoever carries it, or take a spot in the room to hold. Defenders sent to guard a spot (the way
+  // out nearest the case, guarded from exitGuardInset_m inside it, or the case where it fell) stand guardSpacing_m apart.
+  "escort_m": 5,
+  "guardSpacing_m": 2.5,
+  "exitGuardInset_m": 6,
+
   // Vantage (marksmen): each cover point is scored by how far you'd see from it, vantageRays rays of up to
   // vantageRange_m across vantageArc_deg of the side the cover faces, plus vantageHeightBonus_perM for every metre
   // above the ground (0.05 a metre: a 4 m mezzanine adds a fifth of a wide-open view).

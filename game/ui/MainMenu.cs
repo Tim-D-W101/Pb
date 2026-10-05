@@ -61,13 +61,15 @@ public partial class MainMenu : Control
         _settings = GameSettings.Load(_view);
         _settings.ApplyVolume();
         _progress = Profile.Load(_data.Ladder, _settings);
-        if (GameSession.LevelId is null && _progress.Data.Last is { } last && _data.Levels.ContainsKey(last.Level))
+        bool skipping = Args.Has("--level") && !_skippedToLevel;
+        if (GameSession.LevelId is null && !skipping && _progress.Data.Last is { } last && _data.Levels.ContainsKey(last.Level))
         {
-            // The choices you made last time the game ran.
+            // The choices you made last time the game ran (not when skipping to the level the command line names).
             GameSession.LevelId = last.Level;
             GameSession.ModeId = last.Mode;
             GameSession.Size = last.Size;
             GameSession.TierId = last.Tier;
+            GameSession.ObjectiveId = last.Objective.Length > 0 ? last.Objective : null;
         }
 
         Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -265,15 +267,17 @@ public partial class MainMenu : Control
         return $"Locked: win a round at {before.DisplayName}{tier} to open it.";
     }
 
-    /// <summary>Your record on this level in this mode and difficulty, and the difficulties you've won on.</summary>
-    private string RecordLine(LadderLevelDef entry, GameMode mode, LadderTierDef tier)
+    /// <summary>Your record on this level in this mode, objective and difficulty, and the difficulties you've won on.</summary>
+    private string RecordLine(LadderLevelDef entry, GameMode mode, ObjectiveChoice objective, LadderTierDef tier)
     {
         string[] won = (entry.Tiers ?? Array.Empty<LadderTierDef>()).Where(t => _progress.WonOn(entry.Id, t.Id)).Select(t => t.DisplayName).ToArray();
         string wins = won.Length > 0 ? $" Won on {string.Join(", ", won)}." : "";
-        LevelRecord? r = _progress.Record(entry.Id, mode.Id, tier.Id);
+        ObjectiveKind kind = mode.Kind == MatchModeKind.FreeForAll ? ObjectiveKind.Eliminate : objective.Kind;
+        LevelRecord? r = _progress.Record(entry.Id, mode.Id, tier.Id, LadderProgress.IdOf(kind));
+        string what = kind == ObjectiveKind.Eliminate ? $"{mode.DisplayName}, {tier.DisplayName}" : $"{mode.DisplayName}, {objective.DisplayName}, {tier.DisplayName}";
         if (r is null)
         {
-            return $"Your record ({mode.DisplayName}, {tier.DisplayName}): no rounds yet.{wins}";
+            return $"Your record ({what}): no rounds yet.{wins}";
         }
 
         var parts = new List<string> { $"won {r.Wins} of {r.Rounds}" };
@@ -288,12 +292,13 @@ public partial class MainMenu : Control
         }
 
         parts.Add($"most eliminations {r.MostEliminations}");
-        return $"Your record ({mode.DisplayName}, {tier.DisplayName}): {string.Join(" · ", parts)}.{wins}";
+        return $"Your record ({what}): {string.Join(" · ", parts)}.{wins}";
     }
 
     /// <summary>
-    /// Mode, size and difficulty (last round's choices, else the first mode at its default size on Normal),
-    /// what each means, and Start. Picking a mode offers its sizes.
+    /// Mode, size, objective and difficulty (last round's choices, else the first mode at its default size, eliminate,
+    /// on Normal), what each means, and Start. Picking a mode offers its sizes, and the objectives the level has places
+    /// for (none in free-for-all, which is always last one standing).
     /// </summary>
     private void AddRoundChoices(VBoxContainer card, LadderLevelDef entry, LadderTierDef[] tiers)
     {
@@ -302,6 +307,9 @@ public partial class MainMenu : Control
         int modeIndex = Math.Max(0, again ? modes.ToList().FindIndex(m => m.Id == GameSession.ModeId) : 0);
         GameMode mode = modes[modeIndex];
         int size = again && GameSession.Size is { } last && mode.Sizes.Contains(last) ? last : mode.DefaultSize;
+        ObjectiveChoice[] objectives = _data.Config.Rules.Objectives.Kinds.Where(k => _data.Levels[entry.Id].Objectives.Offers(k.Kind)).ToArray();
+        int objectiveIndex = Math.Max(0, again ? Array.FindIndex(objectives, o => LadderProgress.IdOf(o.Kind) == GameSession.ObjectiveId) : 0);
+        ObjectiveChoice objective = objectives[objectiveIndex];
         int tierIndex = Array.FindIndex(tiers, t => again && t.Id == GameSession.TierId);
         if (tierIndex < 0)
         {
@@ -316,9 +324,24 @@ public partial class MainMenu : Control
         var sizes = new VBoxContainer();
         Label details = UiKit.Body(TierDetails(tier), 17, UiKit.Dim, wrap: true);
         details.CustomMinimumSize = new Vector2(760, 0);
-        Label record = UiKit.Body(RecordLine(entry, mode, tier), 17, UiKit.Text, wrap: true);
+        Label record = UiKit.Body(RecordLine(entry, mode, objective, tier), 17, UiKit.Text, wrap: true);
         record.Name = $"Record_{entry.Id}";
         record.CustomMinimumSize = new Vector2(760, 0);
+        Label objectiveBlurb = UiKit.Body(objective.Description, 17, UiKit.Dim, wrap: true);
+        objectiveBlurb.CustomMinimumSize = new Vector2(760, 0);
+        HBoxContainer objectiveRow = UiKit.ChoiceRow("Objective", objectives.Select(o => o.DisplayName).ToArray(), objectiveIndex, k =>
+        {
+            objective = objectives[k];
+            objectiveBlurb.Text = objective.Description;
+            record.Text = RecordLine(entry, mode, objective, tier);
+        }, $"Objective_{entry.Id}_", buttonWidth: 160);
+
+        void ShowObjectives()
+        {
+            bool offered = mode.Kind != MatchModeKind.FreeForAll && objectives.Length > 1;
+            objectiveRow.Visible = offered;
+            objectiveBlurb.Visible = offered;
+        }
 
         void ShowSizes()
         {
@@ -339,21 +362,25 @@ public partial class MainMenu : Control
             mode = modes[k];
             size = mode.DefaultSize;
             modeBlurb.Text = mode.Description;
-            record.Text = RecordLine(entry, mode, tier);
+            record.Text = RecordLine(entry, mode, objective, tier);
             ShowSizes();
+            ShowObjectives();
         }, $"Mode_{entry.Id}_", buttonWidth: 190));
         card.AddChild(modeBlurb);
         ShowSizes();
         card.AddChild(sizes);
+        card.AddChild(objectiveRow);
+        card.AddChild(objectiveBlurb);
+        ShowObjectives();
         card.AddChild(UiKit.ChoiceRow("Difficulty", tiers.Select(t => t.DisplayName).ToArray(), tierIndex, k =>
         {
             tier = tiers[k];
             details.Text = TierDetails(tier);
-            record.Text = RecordLine(entry, mode, tier);
+            record.Text = RecordLine(entry, mode, objective, tier);
         }, $"Tier_{entry.Id}_", buttonWidth: 140));
         card.AddChild(details);
         card.AddChild(record);
-        Button start = UiKit.Button("Start", () => Play(entry, mode, size, tier), 260);
+        Button start = UiKit.Button("Start", () => Play(entry, mode, size, mode.Kind == MatchModeKind.FreeForAll ? objectives[0] : objective, tier), 260);
         start.Name = $"Start_{entry.Id}";
         start.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
         card.AddChild(start);
@@ -381,15 +408,18 @@ public partial class MainMenu : Control
         return Screen(UiKit.Panel(column, 720f), left: false);
     }
 
-    private void Play(LadderLevelDef entry, GameMode mode, int size, LadderTierDef tier)
+    private void Play(LadderLevelDef entry, GameMode mode, int size, ObjectiveChoice objective, LadderTierDef tier)
     {
+        string objectiveId = LadderProgress.IdOf(mode.Kind == MatchModeKind.FreeForAll ? ObjectiveKind.Eliminate : objective.Kind);
         GameSession.LevelId = entry.Id;
         GameSession.ModeId = mode.Id;
         GameSession.Size = size;
         GameSession.TierId = tier.Id;
-        _progress.Remember(entry.Id, mode.Id, size, tier.Id, "");
+        GameSession.ObjectiveId = objectiveId;
+        _progress.Remember(entry.Id, mode.Id, size, tier.Id, objectiveId);
         Profile.Save(_progress);
-        Load(GameSession.LevelScene, entry.DisplayName, $"{mode.DisplayName} · {ModeText.Size(mode, size)} · {tier.DisplayName}");
+        string what = objective.Kind == ObjectiveKind.Eliminate || mode.Kind == MatchModeKind.FreeForAll ? "" : $" · {objective.DisplayName}";
+        Load(GameSession.LevelScene, entry.DisplayName, $"{mode.DisplayName} · {ModeText.Size(mode, size)}{what} · {tier.DisplayName}");
     }
 
     /// <summary>
@@ -487,7 +517,8 @@ public partial class MainMenu : Control
                 problems.Add($"{entry.Id}: no Start button");
             }
 
-            // Picking each mode offers that mode's sizes.
+            // Picking each mode offers that mode's sizes, and the level's objectives except in free-for-all.
+            int objectives = _data.Config.Rules.Objectives.Kinds.Count(k => _data.Levels[entry.Id].Objectives.Offers(k.Kind));
             for (int m = 0; m < modes.Count; m++)
             {
                 buttons.First(b => b.Name == $"Mode_{entry.Id}_{m}").ButtonPressed = true;
@@ -495,6 +526,13 @@ public partial class MainMenu : Control
                 if (offered != modes[m].Sizes.Count)
                 {
                     problems.Add($"{entry.Id}: {modes[m].Id} offers {offered} sizes, not {modes[m].Sizes.Count}");
+                }
+
+                bool shown = buttons.FirstOrDefault(b => b.Name == $"Objective_{entry.Id}_0")?.GetParent<Control>().Visible ?? false;
+                bool wanted = modes[m].Kind != MatchModeKind.FreeForAll && objectives > 1;
+                if (shown != wanted)
+                {
+                    problems.Add($"{entry.Id}: {modes[m].Id} {(wanted ? "doesn't offer" : "offers")} objectives");
                 }
             }
         }
@@ -516,7 +554,7 @@ public partial class MainMenu : Control
         bool ok = playable.Length >= 1 && problems.Count == 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {_data.Ladder.Levels.Length} ladder levels ({playable.Length} playable, " +
                  $"{playable.Count(l => _progress.IsOpen(l.Id))} open{(_progress.OpenAll ? " with every level open" : "")}), " +
-                 $"{modes.Count} modes with their sizes and the difficulty tiers{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
+                 $"{modes.Count} modes with their sizes, objectives and the difficulty tiers{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
         GetTree().Quit(ok ? 0 : 1);
     }
 }

@@ -152,6 +152,12 @@ public sealed class LevelLayout
 
     public required IReadOnlyList<Viewpoint> Viewpoints { get; init; }
 
+    /// <summary>Where the objectives are played (none: the level offers only eliminate).</summary>
+    public LevelObjectives Objectives { get; init; } = LevelObjectives.None;
+
+    /// <summary>Railway tracks (their rails are among the primitives; the game draws them and their sleepers).</summary>
+    public IReadOnlyList<TrackSpec> Tracks { get; init; } = Array.Empty<TrackSpec>();
+
     /// <summary>Adds the ground plane and every paint primitive to <paramref name="world"/>.</summary>
     public void BuildCollision(CollisionWorld world)
     {

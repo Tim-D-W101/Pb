@@ -93,6 +93,13 @@ public sealed class BrainParams
     /// <summary>An enemy facing within this of a flanker has noticed it (rad).</summary>
     public required float NoticedAngle { get; init; }
 
+    /// <summary>Objectives: an escort keeps within this of the case's carrier.</summary>
+    public required float Escort { get; init; }
+
+    public required float GuardSpacing { get; init; }
+
+    public required float ExitGuardInset { get; init; }
+
     public required int VantageRays { get; init; }
 
     public required float VantageRange { get; init; }
@@ -277,6 +284,9 @@ public sealed class BotConfig
             RelocateDistance = brain.RelocateDistance_m,
             FlankMinAngle = brain.FlankMinAngle_deg * Units.DegreesToRadians,
             NoticedAngle = brain.NoticedAngle_deg * Units.DegreesToRadians,
+            Escort = brain.Escort_m,
+            GuardSpacing = brain.GuardSpacing_m,
+            ExitGuardInset = brain.ExitGuardInset_m,
             VantageRays = brain.VantageRays,
             VantageRange = brain.VantageRange_m,
             VantageArc = brain.VantageArc_deg * Units.DegreesToRadians,

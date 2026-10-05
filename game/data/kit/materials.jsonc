@@ -66,6 +66,16 @@
     // each bunker's colour, the dummies' masks, and thin hardboard boards.
     { "id": "nylon", "surface": "inflatable", "color": "#d6d4ce", "pattern": "tarp", "tile_m": 0.6, "roughness": 0.5, "weathering": 0.25 },
     { "id": "plastic_black", "surface": "rubber", "color": "#1c1d20", "pattern": "plain", "tile_m": 1.0, "roughness": 0.35, "weathering": 0.1 },
-    { "id": "hardboard", "surface": "panel", "color": "#c8b28a", "pattern": "wood", "tile_m": 0.4, "roughness": 0.85, "weathering": 0.3 }
+    { "id": "hardboard", "surface": "panel", "color": "#c8b28a", "pattern": "wood", "tile_m": 0.4, "roughness": 0.85, "weathering": 0.3 },
+
+    // The rail yard (Phase 3), from the photos above tinted until its own arrive: grey track ballast, creosoted
+    // sleepers, a red-brown planked van body, grey wagon steel, a black tank, the shunter's green, and soot-darkened brick.
+    { "id": "ballast", "surface": "gravel", "color": "#76746e", "pattern": "gravel", "tile_m": 1.6, "roughness": 0.96, "weathering": 0.35, "albedo": "res://art/textures/gravel_albedo.jpg", "normal": "res://art/textures/gravel_normal.jpg", "roughnessMap": "res://art/textures/gravel_roughness.jpg", "tint": "#b3b4b6", "breakUpRepeat": true },
+    { "id": "sleeper_timber", "surface": "wood", "color": "#3e3128", "pattern": "wood", "tile_m": 0.8, "roughness": 0.9, "weathering": 0.6, "albedo": "res://art/textures/wood_planks_albedo.jpg", "normal": "res://art/textures/wood_planks_normal.jpg", "roughnessMap": "res://art/textures/wood_planks_roughness.jpg", "tint": "#6a5646" },
+    { "id": "wagon_brown", "surface": "wood", "color": "#6b3a2a", "pattern": "wood", "tile_m": 1.0, "roughness": 0.85, "weathering": 0.7, "albedo": "res://art/textures/wood_planks_albedo.jpg", "normal": "res://art/textures/wood_planks_normal.jpg", "roughnessMap": "res://art/textures/wood_planks_roughness.jpg", "tint": "#a5644c" },
+    { "id": "wagon_grey", "surface": "metal", "color": "#5d6266", "pattern": "metal", "tile_m": 1.0, "roughness": 0.6, "weathering": 0.7, "metallic": 0.25, "albedo": "res://art/textures/steel_painted_albedo.jpg", "normal": "res://art/textures/steel_painted_normal.jpg", "roughnessMap": "res://art/textures/steel_painted_roughness.jpg", "tint": "#b9bcbe", "breakUpRepeat": true },
+    { "id": "tank_black", "surface": "metal", "color": "#27282a", "pattern": "metal", "tile_m": 1.0, "roughness": 0.5, "weathering": 0.6, "metallic": 0.35 },
+    { "id": "loco_green", "surface": "metal", "color": "#38513a", "pattern": "metal", "tile_m": 1.0, "roughness": 0.55, "weathering": 0.7, "metallic": 0.25, "albedo": "res://art/textures/steel_yellow_albedo.jpg", "normal": "res://art/textures/steel_yellow_normal.jpg", "roughnessMap": "res://art/textures/steel_yellow_roughness.jpg", "tint": "#6e9a6a", "breakUpRepeat": true },
+    { "id": "brick_sooty", "surface": "brick", "color": "#5a3f36", "pattern": "brick", "tile_m": 1.1, "roughness": 0.9, "weathering": 0.8, "albedo": "res://art/textures/brick_red_albedo.jpg", "normal": "res://art/textures/brick_red_normal.jpg", "roughnessMap": "res://art/textures/brick_red_roughness.jpg", "tint": "#8f7f78" }
   ]
 }
