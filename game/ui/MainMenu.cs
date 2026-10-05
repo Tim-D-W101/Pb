@@ -59,6 +59,8 @@ public partial class MainMenu : Control
         }
 
         _settings = GameSettings.Load(_view);
+        InputSetup.Apply(_settings.Bindings);
+        _settings.ApplyWindow();
         Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
         Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
         Pb.Game.Audio.SoundBank.Warm(_view.Audio.Variations);
@@ -156,7 +158,18 @@ public partial class MainMenu : Control
             case 105:
                 Open(_settingsScreen);
                 break;
-            case 150:
+            case 125:
+            case 145:
+            case 165:
+            case 185:
+                // Each of the settings' tabs in turn.
+                if (_settingsScreen.FindChild("SettingsMenu", recursive: true, owned: false) is SettingsMenu menu)
+                {
+                    menu.Tabs.CurrentTab = (_tourFrame - 106) / 20;
+                }
+
+                break;
+            case 210:
                 GetTree().Quit();
                 break;
         }
@@ -397,18 +410,18 @@ public partial class MainMenu : Control
     private Control SettingsScreen()
     {
         VBoxContainer column = UiKit.Column(16);
-        var panel = new SettingsPanel();
-        panel.Build(_settings, _view);
-        panel.AddChild(UiKit.CheckRow("Open every level", _settings.OpenAllLevels, on =>
+        var menu = new SettingsMenu { Name = "SettingsMenu" };
+        // Graphics changes show from the next scene (the backdrop keeps the look it was built with).
+        menu.Build(_settings, _view, extra: page => page.AddChild(UiKit.CheckRow("Open every level", _settings.OpenAllLevels, on =>
         {
             // For testing: shows the whole ladder open without counting as wins.
             _settings.OpenAllLevels = on;
             _settings.Save();
             _progress.OpenAll = on || Args.Has("--unlock-all");
-        }));
-        column.AddChild(panel);
+        })));
+        column.AddChild(menu);
         column.AddChild(UiKit.Button("Back", () => Open(_title), 200));
-        return Screen(UiKit.Panel(column, 720f), left: false);
+        return Screen(UiKit.Panel(column, 940f), left: false);
     }
 
     private void Play(LadderLevelDef entry, GameMode mode, int size, ObjectiveChoice objective, LadderTierDef tier)
@@ -554,10 +567,36 @@ public partial class MainMenu : Control
             problems.Add("the first level isn't open");
         }
 
+        // The settings: five tabs, and three slots to rebind for every action.
+        string settingsNote = "no settings menu";
+        if (_settingsScreen.FindChild("SettingsMenu", recursive: true, owned: false) is SettingsMenu menu)
+        {
+            int slots = menu.FindChildren("*", nameof(Button), owned: false)
+                .Count(b => b.GetParent()?.GetParent() is BindingsList && b.Name.ToString() is var n &&
+                            (n.EndsWith("_First", StringComparison.Ordinal) || n.EndsWith("_Second", StringComparison.Ordinal) || n.EndsWith("_Pad", StringComparison.Ordinal)));
+            int expected = 3 * (InputSetup.Current?.Actions.Length ?? 0);
+            if (menu.Tabs.GetTabCount() != 5)
+            {
+                problems.Add($"the settings have {menu.Tabs.GetTabCount()} tabs, not 5");
+            }
+
+            if (slots != expected)
+            {
+                problems.Add($"the settings offer {slots} binding slots, not {expected}");
+            }
+
+            settingsNote = $"settings in {menu.Tabs.GetTabCount()} tabs with {slots} binding slots";
+        }
+        else
+        {
+            problems.Add(settingsNote);
+        }
+
         bool ok = playable.Length >= 1 && problems.Count == 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {_data.Ladder.Levels.Length} ladder levels ({playable.Length} playable, " +
                  $"{playable.Count(l => _progress.IsOpen(l.Id))} open{(_progress.OpenAll ? " with every level open" : "")}), " +
-                 $"{modes.Count} modes with their sizes, objectives and the difficulty tiers{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
+                 $"{modes.Count} modes with their sizes, objectives and the difficulty tiers, {settingsNote}" +
+                 $"{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
         GetTree().Quit(ok ? 0 : 1);
     }
 }

@@ -5,6 +5,15 @@
   // teams use the first two (orange vs blue, a colourblind-safe pair); in free-for-all every player is a
   // team of their own with their own paint colour, so a ten-player round needs ten.
   "teamColors": ["#ff6a1a", "#2f8cff", "#3fd14a", "#e83fd0", "#ffd21a", "#19d3c5", "#e6332a", "#9d6bff", "#ff8fc8", "#f2f2ea"],
+  // Other sets the settings offer (Accessibility), as many colours as teamColors, in the same order of use: for
+  // red–green colour blindness (deuteranopia, protanopia: Okabe and Ito's palette, the first two orange and deep blue),
+  // and for blue–yellow (tritanopia: Paul Tol's "bright", the first two red and blue). They apply from the next round.
+  "teamColorSets": [
+    { "id": "redGreen", "name": "Red–green safe",
+      "colors": ["#e69f00", "#0072b2", "#56b4e9", "#f0e442", "#009e73", "#cc79a7", "#d55e00", "#f2f2ea", "#7a5195", "#a0a0a0"] },
+    { "id": "blueYellow", "name": "Blue–yellow safe",
+      "colors": ["#ee6677", "#4477aa", "#ccbb44", "#66ccee", "#228833", "#aa3377", "#f2f2ea", "#bbbbbb", "#ff9e4a", "#6d4c9f"] }
+  ],
 
   "ball": {
     // A 17.3 mm ball is under 1 px beyond ~17 m at 1080p / 90° FOV. Balls are drawn at least this

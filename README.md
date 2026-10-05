@@ -45,6 +45,12 @@ distant traffic and trains outside, and each room's own sound inside (dripping w
 rafters, a draught through broken windows, the dead quiet of a cold store). The bots' callouts and the
 referee's calls are subtitled, and voiced once their recordings are made.
 
+The settings (in the main menu and the pause menu) come in five tabs: Controls, where every action can be bound to
+two keys or mouse buttons and a pad button or stick, with clashes shown and swappable, and crouch and walk can be
+toggles; Video (window mode, v-sync, frame cap, the graphics preset and each of its parts, render scale, field of
+view); Audio (five volumes, subtitles); Gameplay (crosshair style, colour and size, hit marker, head-bob, camera jolt,
+paint on your mask); and Accessibility (two colourblind-safe team colour sets, HUD size).
+
 ## Run it
 
 **Just want to play (Windows)?** Download the latest test build,
@@ -151,7 +157,8 @@ same generated one you hold), one hand off it while they refill. Each
 wears an armband in their team colour and a slightly different tint, and flinches when a ball hits.
 Paint splats stick where the ball hit and move with them.
 
-Settings changed in game are saved to `user://settings.json`.
+Settings changed in game are saved to `user://settings.json`, your key bindings as changes over the defaults in
+[`game/data/input.jsonc`](game/data/input.jsonc); an older file loads with the new settings at their defaults.
 
 ## Tune it
 

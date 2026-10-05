@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Pb.Sim.Data;
@@ -13,6 +14,21 @@ public sealed class PresentationDef : IValidatable
     public const string File = "presentation.jsonc";
 
     public string[] TeamColors { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Other team colour sets the settings offer (colourblind-safe ones); "standard" is <see cref="TeamColors"/>.</summary>
+    public TeamColorSetDef[] TeamColorSets { get; set; } = System.Array.Empty<TeamColorSetDef>();
+
+    private string[]? _standardColors;
+
+    /// <summary>The usual team colours (teamColors), whichever set is in use.</summary>
+    public string[] StandardTeamColors => _standardColors ?? TeamColors;
+
+    /// <summary>Uses a team colour set from now on (anything built after takes its colours); "standard" or an unknown id is the usual set.</summary>
+    public void UseTeamColors(string id)
+    {
+        _standardColors ??= TeamColors;
+        TeamColors = TeamColorSets.FirstOrDefault(s => s.Id == id)?.Colors ?? _standardColors;
+    }
 
     public BallViewDef Ball { get; set; } = new();
 
@@ -127,6 +143,20 @@ public sealed class PresentationDef : IValidatable
             v.Error(nameof(TeamColors), "needs at least two colours");
         }
 
+        for (int i = 0; i < TeamColorSets.Length; i++)
+        {
+            TeamColorSets[i].Validate(v.Item(nameof(TeamColorSets), i));
+            if (TeamColorSets[i].Colors.Length != TeamColors.Length)
+            {
+                v.Item(nameof(TeamColorSets), i).Error(nameof(TeamColorSetDef.Colors), $"needs as many colours as teamColors ({TeamColors.Length})");
+            }
+        }
+
+        if (TeamColorSets.Select(t => t.Id).Append("standard").Distinct().Count() != TeamColorSets.Length + 1)
+        {
+            v.Error(nameof(TeamColorSets), "each set needs its own id (and not \"standard\", which is teamColors)");
+        }
+
         foreach (string c in TeamColors)
         {
             if (!Godot.Color.HtmlIsValid(c))
@@ -192,6 +222,29 @@ public sealed class PresentationDef : IValidatable
             if (Audio.Cast[i].Model >= Characters.Models.Length)
             {
                 v.Scope(nameof(Audio)).Item(nameof(AudioDef.Cast), i).Error(nameof(CastVoiceDef.Model), $"there are only {Characters.Models.Length} character models");
+            }
+        }
+    }
+}
+
+/// <summary>A set of team colours for the settings to offer: its id, its name in the menu and its colours, by team.</summary>
+public sealed class TeamColorSetDef : IValidatable
+{
+    public string Id { get; set; } = "";
+
+    public string Name { get; set; } = "";
+
+    public string[] Colors { get; set; } = System.Array.Empty<string>();
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Id), Id);
+        v.NotEmpty(nameof(Name), Name);
+        foreach (string c in Colors)
+        {
+            if (!Godot.Color.HtmlIsValid(c))
+            {
+                v.Error(nameof(Colors), $"'{c}' is not a valid colour");
             }
         }
     }
@@ -833,6 +886,53 @@ public sealed class GraphicsDef : IValidatable
         return Presets[0];
     }
 
+    /// <summary>
+    /// The preset with the parts the settings change on their own laid over it: shadows (off, or another preset's
+    /// size and distance), ambient occlusion, glow, how thick the weeds grow, the sunbeams and the ground detail.
+    /// </summary>
+    public GraphicsPresetDef Effective(string name, GraphicsParts parts)
+    {
+        GraphicsPresetDef p = Find(name).Copy();
+        if (parts.Shadows is { } shadows)
+        {
+            p.Shadows = shadows != "off";
+            if (shadows != "off" && Presets.FirstOrDefault(other => other.Name == shadows) is { } quality)
+            {
+                p.ShadowSize = quality.ShadowSize;
+                p.ShadowDistance_m = quality.ShadowDistance_m;
+            }
+        }
+
+        if (parts.AmbientOcclusion is { } ao)
+        {
+            p.Ssao = ao;
+        }
+
+        if (parts.Glow is { } glow)
+        {
+            p.Glow = glow;
+        }
+
+        if (parts.Weeds is { } weeds)
+        {
+            p.WeedDensity = weeds;
+        }
+
+        if (parts.Sunbeams is { } beams)
+        {
+            // On: as strong as the strongest preset's (the preset itself may have none).
+            p.LightShafts = beams ? Math.Max(p.LightShafts, Presets.Max(other => other.LightShafts)) : 0f;
+            p.Dust &= beams;
+        }
+
+        if (parts.GroundDetail is { } ground)
+        {
+            p.GroundDetail = ground;
+        }
+
+        return p;
+    }
+
     public void Validate(Validator v)
     {
         if (Presets.Length == 0)
@@ -925,6 +1025,12 @@ public sealed class GraphicsPresetDef : IValidatable
 
     /// <summary>Unshadowed fill lights inside windows and doors, and warm bounce light where sun patches hit the floor.</summary>
     public bool WindowLights { get; set; }
+
+    /// <summary>Whether the sun casts shadows (on unless the settings turn them off).</summary>
+    [Optional]
+    public bool Shadows { get; set; } = true;
+
+    public GraphicsPresetDef Copy() => (GraphicsPresetDef)MemberwiseClone();
 
     public void Validate(Validator v)
     {
@@ -1442,6 +1548,16 @@ public sealed class InputActionDef : IValidatable
 {
     public string Name { get; set; } = "";
 
+    /// <summary>What the settings call it ("Move forward"); without one, its name with spaces.</summary>
+    [Optional]
+    public string Label { get; set; } = "";
+
+    /// <summary>Which list the settings show it in: "movement", "combat" or "shortcuts".</summary>
+    [Optional]
+    public string Group { get; set; } = "shortcuts";
+
+    public string Display => Label.Length > 0 ? Label : char.ToUpperInvariant(Name[0]) + Name[1..].Replace('_', ' ');
+
     /// <summary>Godot key names (physical, layout-independent), e.g. "W", "Shift", "F1".</summary>
     [Optional]
     public string[]? Keys { get; set; }
@@ -1465,7 +1581,30 @@ public sealed class InputActionDef : IValidatable
     {
         v.NotEmpty(nameof(Name), Name);
         v.InRange(nameof(Deadzone), Deadzone, 0, 0.95);
+        if (Group is not ("movement" or "combat" or "shortcuts"))
+        {
+            v.Error(nameof(Group), $"'{Group}' is not movement, combat or shortcuts");
+        }
+
+        // The settings show two keyboard-and-mouse bindings and one pad binding for each action.
+        if ((Keys?.Length ?? 0) + (Mouse?.Length ?? 0) > 2)
+        {
+            v.Error(nameof(Keys), "more than two keyboard and mouse bindings (the settings have room for two)");
+        }
+
+        if ((Buttons?.Length ?? 0) + (Axes?.Length ?? 0) > 1)
+        {
+            v.Error(nameof(Buttons), "more than one pad binding (the settings have room for one)");
+        }
     }
+
+    /// <summary>Its bindings as text (<see cref="Binding"/>): keys, then mouse buttons, then the pad's button or axis.</summary>
+    public IReadOnlyList<string> Bindings =>
+        (Keys ?? System.Array.Empty<string>()).Select(k => "key:" + k)
+        .Concat((Mouse ?? System.Array.Empty<string>()).Select(m => "mouse:" + m))
+        .Concat((Buttons ?? System.Array.Empty<string>()).Select(b => "pad:" + b))
+        .Concat((Axes ?? System.Array.Empty<string>()).Select(a => "axis:" + a))
+        .ToArray();
 }
 
 #pragma warning restore CA1707

@@ -471,18 +471,38 @@ record belong to the cast; presentation's validation checks that no two lines sh
 
 ### M3.9 Settings and rebinding
 
-- [ ] A tabbed settings menu (the same one in the main menu and the pause menu): **Controls**, **Video**, **Audio**,
+- [x] A tabbed settings menu (the same one in the main menu and the pause menu): **Controls**, **Video**, **Audio**,
   **Gameplay**, **Accessibility**.
-- [ ] Rebinding: every action, two mouse-and-keyboard bindings and one pad binding each, captured by pressing the
+- [x] Rebinding: every action, two mouse-and-keyboard bindings and one pad binding each, captured by pressing the
   new key or button; clashes are shown and can be swapped; reset per action or all. Saved as overrides on top of
   `input.jsonc`.
-- [ ] Controls: mouse sensitivity, invert Y, stick speed and response curve, crouch and walk as hold or toggle.
-- [ ] Video: window mode, v-sync, frame cap, graphics preset plus its parts (shadows, ambient occlusion, glow,
+- [x] Controls: mouse sensitivity, invert Y, stick speed and response curve, crouch and walk as hold or toggle.
+- [x] Video: window mode, v-sync, frame cap, graphics preset plus its parts (shadows, ambient occlusion, glow,
   weeds, sunbeams, ground detail), render scale, field of view.
-- [ ] Audio: the bus volumes, subtitles on or off and their size.
-- [ ] Gameplay and accessibility: crosshair (on, style, colour, size), hit marker, head-bob, camera jolt, mask spray
+- [x] Audio: the bus volumes, subtitles on or off and their size.
+- [x] Gameplay and accessibility: crosshair (on, style, colour, size), hit marker, head-bob, camera jolt, mask spray
   strength, colourblind-safe team colour sets (spec §6), HUD scale.
-- [ ] Tests for the settings file (old files load, bad values are clamped) and the binding overrides.
+- [x] Tests for the settings file (old files load, bad values are clamped) and the binding overrides.
+
+As built: `SettingsMenu` (`game/ui/`) builds the five tabs from `UiKit`'s rows; every change is saved at once and
+applied where it can be (window, v-sync and frame cap straight away, the graphics and the HUD through their owners,
+team colours from the next round). The Controls tab lists every action of `input.jsonc` (which now gives each a label
+and a group: movement, combat, shortcuts) with its two keyboard-and-mouse slots and its pad slot (`BindingsList`): click
+a slot and press the key, mouse button, pad button or stick (Esc cancels, Backspace empties it); a binding another
+action has turns red, with an offer to swap the two (the pad's X stays shared by refill and doors, as the defaults
+have it); Reset per action and for all. A binding is text (`key:W`, `mouse:Left`, `pad:A`, `axis:TriggerRight+`), so
+the bindings (`BindingSet`) and the settings (`GameSettings`, its file part) are plain C# that the sim test project
+compiles too, with `GameSettings.Godot.cs` doing the file, the defaults from the data and the window; `input.jsonc`
+stays the defaults and only your changes are saved. A graphics part left "as the preset" follows the preset;
+shadows can be turned off or take another preset's size and distance. The crosshair comes in four styles (ticks and a
+dot, ticks, a dot, a ring), seven colours and 50–250% sizes. Team colours: the standard set, a red–green safe one
+(Okabe and Ito's palette) and a blue–yellow safe one (Paul Tol's "bright"), in `presentation.jsonc` "teamColorSets".
+The HUD lays itself out at its scale across the whole screen, so the corners stay in the corners. Old settings files
+(version 1) load with the new choices at their defaults. The F-key shortcuts still work and now save to the same
+settings (F11 switches between windowed and borderless full screen). Nine sim tests: a Phase 2 settings file loads,
+bad values are put right, an unreadable file gives the defaults, settings and bindings survive a reload, overrides
+apply over the defaults, a taken binding clashes and swaps, resets put the defaults back, and a binding in the wrong
+slot is refused; the menu smoke test checks the five tabs and a slot for every binding.
 
 ### M3.10 Art
 

@@ -141,8 +141,8 @@ public partial class PlayerController : PawnBody, IPlayerDriver
             float magnitude = stick.Length();
             if (magnitude > 0f)
             {
-                float curved = Mathf.Pow(Mathf.Min(magnitude, 1f), _view.Look.StickExponent);
-                Vector2 look = stick / magnitude * curved * _view.Look.StickSpeed_degps * Units.DegreesToRadians * (float)delta;
+                float curved = Mathf.Pow(Mathf.Min(magnitude, 1f), _settings.StickCurve);
+                Vector2 look = stick / magnitude * curved * _settings.StickSpeedDegps * Units.DegreesToRadians * (float)delta;
                 _yaw -= look.X;
                 _pitch -= look.Y * (_settings.InvertY ? -1f : 1f);
                 _pitch = Math.Clamp(_pitch, -Move.MaxPitch, Move.MaxPitch);
@@ -185,7 +185,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         Vector3 right = new(Mathf.Cos(_yaw), 0f, -Mathf.Sin(_yaw));
         // Hit from the left (pushed right), the view rolls right, as a head knocked that way would.
         _joltRoll = _joltPush.Dot(right) >= 0f ? 1f : -1f;
-        _joltStrength = Mathf.Clamp(speed / 90f, 0.3f, 1f);
+        _joltStrength = Mathf.Clamp(speed / 90f, 0.3f, 1f) * _settings.CameraJolt;
         _joltAge = 0f;
     }
 
@@ -226,6 +226,10 @@ public partial class PlayerController : PawnBody, IPlayerDriver
                 }
             }
 
+            // Crouch and walk can be toggles (Controls): a press latches them, the next lets go; sprinting stands you up.
+            buttons = Toggle(buttons, InputButtons.Crouch, _settings.CrouchToggle, ref _crouchHeld, ref _crouchLatched, (buttons & InputButtons.Sprint) != 0);
+            buttons = Toggle(buttons, InputButtons.Walk, _settings.WalkToggle, ref _walkHeld, ref _walkLatched, (buttons & InputButtons.Sprint) != 0);
+
             // One button bound to both (the pad's refill button): facing a door it works the door, anywhere else it refills.
             const InputButtons Both = InputButtons.Interact | InputButtons.Refill;
             if ((buttons & Both) == Both)
@@ -243,6 +247,36 @@ public partial class PlayerController : PawnBody, IPlayerDriver
             Pitch = _pitch,
             Buttons = buttons,
         };
+    }
+
+    private bool _crouchHeld, _crouchLatched, _walkHeld, _walkLatched;
+
+    /// <summary>
+    /// A button as a toggle: each press flips it on or off, and <paramref name="release"/> lets go of it; as a hold it's
+    /// just whether it's down.
+    /// </summary>
+    private static InputButtons Toggle(InputButtons buttons, InputButtons button, bool toggle, ref bool held, ref bool latched, bool release)
+    {
+        bool down = (buttons & button) != 0;
+        if (!toggle)
+        {
+            held = down;
+            latched = false;
+            return buttons;
+        }
+
+        if (down && !held)
+        {
+            latched = !latched;
+        }
+
+        held = down;
+        if (release)
+        {
+            latched = false;
+        }
+
+        return latched ? buttons | button : buttons & ~button;
     }
 
     /// <summary>Input actions (input.jsonc) and the command buttons they hold down.</summary>

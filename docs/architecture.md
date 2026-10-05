@@ -686,3 +686,11 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **Bindings**: `input.jsonc` stays the defaults; the player's changes are overrides (per action: its keyboard/mouse
   and pad events) saved with the settings and applied over the defaults by `InputSetup`.
 - **Settings menu** (`game/ui/SettingsMenu.cs`): tabs built from the shared `UiKit`, the same in the main and pause menus.
+- **As built (M3.9).** Bindings are text (`key:W`, `mouse:Left`, `pad:A`, `axis:TriggerRight+`); `BindingSet` holds
+  each action's two keyboard-and-mouse slots and pad slot, the defaults' shared bindings (allowed) and clashes, and
+  saves only the differences. `GameSettings` is split: `GameSettings.cs` (the values, migration from older files and
+  clamping, no engine) and `GameSettings.Godot.cs` (the file, the defaults from `presentation.jsonc`, the window). The
+  test project compiles both engine-free files. Startup order in every scene: `InputSetup.Apply(inputDef)` (checks and
+  applies the defaults, records the actions), `GameSettings.Load`, `InputSetup.Apply(settings.Bindings)`,
+  `view.UseTeamColors(settings.TeamColors)`, then the rest. `GraphicsDef.Effective(preset, parts)` lays the settings'
+  graphics parts over a preset for every `ApplyGraphics`.

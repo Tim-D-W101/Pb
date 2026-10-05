@@ -41,7 +41,7 @@ public partial class MenuBackdrop : Node3D
             return;
         }
 
-        GraphicsPresetDef preset = view.Graphics.Find(settings.GraphicsPreset);
+        GraphicsPresetDef preset = view.Graphics.Effective(settings.GraphicsPreset, settings.Graphics);
         var environment = new WorldEnvironment { Name = "WorldEnvironment", Environment = new Godot.Environment() };
         var sun = new DirectionalLight3D { Name = "Sun", ShadowEnabled = true };
         var collision = new CollisionWorld();

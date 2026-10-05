@@ -72,9 +72,11 @@ public partial class RangeMain : Node3D, ISimEventListener
         }
 
         _settings = GameSettings.Load(_view);
+        InputSetup.Apply(_settings.Bindings);
+        _view.UseTeamColors(_settings.TeamColors);
         Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
         Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
-        ApplyVsync();
+        _settings.ApplyWindow();
 
         _sim = new SimWorld(_data.Config);
         _sim.LoadRange(_data.Range, _data.Stress);
@@ -84,7 +86,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         _world.Build(_data.Range, _data.Kit.Materials, _view);
         _world.Weeds?.Follow(_sim);
         Atmosphere.ApplyLighting(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), _view.Lighting);
-        ApplyGraphics(_view.Graphics.Find(_settings.GraphicsPreset));
+        ApplyGraphics(_view.Graphics.Effective(_settings.GraphicsPreset, _settings.Graphics));
         _player.Initialize(_sim, state, _view, _settings, teamColor);
         _player.BuildBody(_view.Characters, teamColor, look: 0);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
@@ -105,7 +107,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         _settings.ApplyVolume();
         _pause = new PauseMenu { Name = "Pause" };
         AddChild(_pause);
-        _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Find(s.GraphicsPreset)), restart: null);
+        _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Effective(s.GraphicsPreset, s.Graphics)), restart: null, hudChanged: _ => _hud.ApplySettings());
 
         _driver.Initialize(_sim);
         _driver.AddDriver(_player);
@@ -232,7 +234,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         else if (e.IsActionPressed("toggle_vsync"))
         {
             _settings.Vsync = !_settings.Vsync;
-            ApplyVsync();
+            _settings.ApplyWindow();
             SaveAndToast(_settings.Vsync ? "V-sync on" : "V-sync off");
         }
         else if (e.IsActionPressed("reload_data"))
@@ -246,8 +248,9 @@ public partial class RangeMain : Node3D, ISimEventListener
         }
         else if (e.IsActionPressed("toggle_fullscreen"))
         {
-            bool full = DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen;
-            DisplayServer.WindowSetMode(full ? DisplayServer.WindowMode.Windowed : DisplayServer.WindowMode.Fullscreen);
+            _settings.WindowMode = _settings.WindowMode == "windowed" ? "borderless" : "windowed";
+            _settings.ApplyWindow();
+            SaveAndToast(_settings.WindowMode == "windowed" ? "Windowed" : "Full screen");
         }
         else if (e.IsActionPressed("fov_down") || e.IsActionPressed("fov_up"))
         {
@@ -281,7 +284,7 @@ public partial class RangeMain : Node3D, ISimEventListener
             _sim.LoadRange(data.Range, data.Stress);
             _world.Build(data.Range, data.Kit.Materials, view);
             Atmosphere.ApplyLighting(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), view.Lighting);
-            ApplyGraphics(view.Graphics.Find(_settings.GraphicsPreset));
+            ApplyGraphics(view.Graphics.Effective(_settings.GraphicsPreset, _settings.Graphics));
             _splats.ClearAll();
             _drips.ClearAll();
             _player.ApplyMovementParams(data.Config.Movement);
@@ -316,9 +319,6 @@ public partial class RangeMain : Node3D, ISimEventListener
         _settings.Save();
         _hud.Toast(message);
     }
-
-    private void ApplyVsync() =>
-        DisplayServer.WindowSetVsyncMode(_settings.Vsync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
 
     private Aabb RenderBounds()
     {

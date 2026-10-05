@@ -160,10 +160,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _settings = GameSettings.Load(_view);
+        InputSetup.Apply(_settings.Bindings);
+        _view.UseTeamColors(_settings.TeamColors);
         Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
         Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
         _settings.ApplyVolume();
-        DisplayServer.WindowSetVsyncMode(_settings.Vsync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
+        _settings.ApplyWindow();
 
         // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
         bool botDemo = Args.Has("--bot-demo");
@@ -214,7 +216,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         Color teamColor = TeamColor(state.Team);
         _teamColor = teamColor;
 
-        GraphicsPresetDef preset = _view.Graphics.Find(Args.Value("--preset") ?? _settings.GraphicsPreset);
+        GraphicsPresetDef preset = _view.Graphics.Effective(Args.Value("--preset") ?? _settings.GraphicsPreset, _settings.Graphics);
         _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, _view.Woods);
         _doors = new DoorViews { Name = "Doors" };
         AddChild(_doors);
@@ -350,12 +352,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         AddChild(_overlays);
         _pause = new PauseMenu { Name = "Pause" };
         AddChild(_pause);
-        _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Find(s.GraphicsPreset)),
-            restart: () => GetTree().ReloadCurrentScene());
+        _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Effective(s.GraphicsPreset, s.Graphics)),
+            restart: () => GetTree().ReloadCurrentScene(), hudChanged: _ => _hud.ApplySettings());
 
         var maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
         AddChild(maskSpray);
-        maskSpray.Initialize(_view, state.Id);
+        maskSpray.Initialize(_view, state.Id, _settings);
 
         _sim.Collision.SkipDynamic = false;
         _driver.Initialize(_sim);
@@ -947,7 +949,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         else if (e.IsActionPressed("toggle_vsync"))
         {
             _settings.Vsync = !_settings.Vsync;
-            DisplayServer.WindowSetVsyncMode(_settings.Vsync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
+            _settings.ApplyWindow();
             SaveAndToast(_settings.Vsync ? "V-sync on" : "V-sync off");
         }
         else if (e.IsActionPressed("cycle_graphics"))
@@ -956,7 +958,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             int index = Array.FindIndex(presets, p => p.Name == _settings.GraphicsPreset);
             GraphicsPresetDef next = presets[(index + 1) % presets.Length];
             _settings.GraphicsPreset = next.Name;
-            ApplyGraphics(next);
+            ApplyGraphics(_view.Graphics.Effective(next.Name, _settings.Graphics));
             SaveAndToast($"Graphics: {next.Name}");
         }
         else if (e.IsActionPressed("toggle_invert_y"))
@@ -966,8 +968,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (e.IsActionPressed("toggle_fullscreen"))
         {
-            bool full = DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen;
-            DisplayServer.WindowSetMode(full ? DisplayServer.WindowMode.Windowed : DisplayServer.WindowMode.Fullscreen);
+            _settings.WindowMode = _settings.WindowMode == "windowed" ? "borderless" : "windowed";
+            _settings.ApplyWindow();
+            SaveAndToast(_settings.WindowMode == "windowed" ? "Windowed" : "Full screen");
         }
         else if (e.IsActionPressed("fov_down") || e.IsActionPressed("fov_up"))
         {

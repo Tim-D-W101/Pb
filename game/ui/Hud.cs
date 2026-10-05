@@ -154,16 +154,66 @@ public partial class Hud : CanvasLayer, ISimEventListener
         hud.Initialize(_sim, _player, objective, view);
     }
 
-    /// <summary>A subtitle for something a player shouted.</summary>
-    public void Subtitle(string speaker, int team, string line) =>
-        _subtitles?.Show(speaker, _teams.Length > 0 ? _teams[team % _teams.Length] : Colors.White, line);
+    /// <summary>A subtitle for something a player shouted (unless subtitles are off).</summary>
+    public void Subtitle(string speaker, int team, string line)
+    {
+        if (_settings?.Subtitles != false)
+        {
+            _subtitles?.Show(speaker, _teams.Length > 0 ? _teams[team % _teams.Length] : Colors.White, line, _settings?.SubtitleSize ?? 1f);
+        }
+    }
 
-    /// <summary>A subtitle for what the referee called.</summary>
-    public void RefereeSubtitle(string line) => _subtitles?.Show("Referee", Colors.White, line);
+    /// <summary>A subtitle for what the referee called (unless subtitles are off).</summary>
+    public void RefereeSubtitle(string line)
+    {
+        if (_settings?.Subtitles != false)
+        {
+            _subtitles?.Show("Referee", Colors.White, line, _settings?.SubtitleSize ?? 1f);
+        }
+    }
 
     public void ApplyView(PresentationDef view)
     {
-        _crosshair.Configure(view.Crosshair.Size_px, view.Crosshair.Gap_px, view.Crosshair.Thickness_px, Color.FromHtml(view.Crosshair.Color));
+        _crosshairDef = view.Crosshair;
+        ApplySettings();
+    }
+
+    /// <summary>
+    /// What the settings change in the HUD: the crosshair's style, colour and size, and the HUD's own size (it's laid
+    /// out at that scale across the whole screen, so the corners stay in the corners).
+    /// </summary>
+    public void ApplySettings()
+    {
+        if (_crosshairDef is { } c && _settings is { } s)
+        {
+            Color colour = Color.FromHtml(s.CrosshairColor.Length > 0 ? s.CrosshairColor : c.Color);
+            _crosshair.Configure(c.Size_px * s.CrosshairSize, c.Gap_px * s.CrosshairSize, c.Thickness_px * Mathf.Sqrt(s.CrosshairSize), colour, s.CrosshairStyle);
+        }
+
+        _scaled = -1f;
+    }
+
+    private CrosshairDef? _crosshairDef;
+    private float _scaled = -1f;
+    private Vector2 _scaledFor;
+
+    /// <summary>Lays the HUD out at the settings' scale whenever it or the window's size changes.</summary>
+    private void ApplyScale()
+    {
+        float scale = _settings?.HudScale ?? 1f;
+        Vector2 screen = GetViewport().GetVisibleRect().Size;
+        if (Mathf.IsEqualApprox(scale, _scaled) && screen == _scaledFor)
+        {
+            return;
+        }
+
+        _scaled = scale;
+        _scaledFor = screen;
+        var root = GetNode<Control>("Root");
+        root.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
+        root.Position = Vector2.Zero;
+        root.Scale = new Vector2(scale, scale);
+        root.Size = screen / scale;
     }
 
     /// <summary>Full-screen message shown instead of the game when data can't be loaded.</summary>
@@ -259,7 +309,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         string distance = shooter is null ? "" : $" · {System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition):0} m";
         Color Of(PlayerState p) => _teams[p.Team % _teams.Length];
         _feed!.Add(shooter?.Name ?? "Stray ball", shooter is null ? Colors.White : Of(shooter), victim.Name, Of(victim), part + distance);
-        if (shooter == _player)
+        if (shooter == _player && _settings.HitMarker)
         {
             _crosshair.Flash(_hudDef!.HitMarkerTime_s, Color.FromHtml(_hudDef.HitMarkerColor));
         }
@@ -273,6 +323,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         }
 
         _crosshair.Visible = _settings.Crosshair;
+        ApplyScale();
         UpdatePrompt();
         if (_toastTimer > 0 && (_toastTimer -= delta) <= 0)
         {
