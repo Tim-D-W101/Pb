@@ -535,7 +535,7 @@ round on its teammate's call and look out from its spot. The Flanker demo finds 
 the brain's own flank-spot search (now a public query, `BotBrain.FlankSpot`): somewhere a teammate of a Flanker sees
 you, within earshot of it and out of its sight, with a way round to your side wherever within the call's 2.5 m error
 the call puts you. Scripting it showed the Flanker reach its spot and walk on towards you (M3.3 above, now fixed). A
-bot match can be filmed through to its summary (`--fast=32 --show-summary`), which is how the summary's "new level
+bot match can be filmed through to its summary (`--fast --show-summary` at `--fixed-fps 1`), which is how the summary's "new level
 open" was captured; and a level that fails to load now quits a headless run instead of waiting on its error screen
 (asking for teams at size 6, for instance, which is 6 a side).
 

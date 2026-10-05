@@ -107,7 +107,7 @@ sprinting, strafing, backing off and walking crouched, seen from the side (movem
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
-the round ends (`--fast=32 --show-summary` at `--fixed-fps 10` films it through to its summary in a few dozen frames). `--mode=solo|ffa|teams`, `--size=N` and `--objective=eliminate|retrieve|hold` pick the mode, size and
+the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N` and `--objective=eliminate|retrieve|hold` pick the mode, size and
 objective (the menu's choices; they're in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`, and
 `-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
 the room, the ways out. `-- --menu-tour` on the

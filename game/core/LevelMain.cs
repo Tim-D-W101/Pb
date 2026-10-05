@@ -47,8 +47,9 @@ namespace Pb.Game.Core;
 ///                         runs use the data's seed and, in solo, the level's roster, so they play out the same every time)
 ///   --random-spawns       deals random starts in a scripted solo run too (CI's bot match; other modes always do)
 ///   --record              the bot match goes in your records as a round of yours (CI, to exercise the profile)
-///   --fast=N              the bot match at N times speed (to film a whole round with --write-movie)
-///   --show-summary        the bot match ends on its summary, up for two seconds (for a screenshot)
+///   --fast                no cap on sim ticks a frame, so a low --fixed-fps runs the round in few frames (to film a
+///                         whole bot match with --write-movie: --fixed-fps 1 is a second of the round a frame)
+///   --show-summary        the bot match ends on its summary, up for three seconds (for a screenshot)
 ///   --unlock-all          every level of the ladder open, whatever the profile says
 /// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
 /// them. In solo, bots play their spawn's behaviour; in free-for-all and teams, one dealt from the
@@ -438,11 +439,11 @@ public partial class LevelMain : Node3D, ISimEventListener
             BotBrain brain = _squad.Add(state, _data.Bots.Archetypes["hunter"], _data.Bots.Difficulty[_tier.Bots], you);
             _player.AutoPilot = new BotPilot(brain);
             _hud.ShowPerf = false;
-            if (float.TryParse(Args.Value("--fast"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float fast) && fast > 1f)
+            if (Args.Has("--fast"))
             {
-                // The sim steps once per physics tick, so more ticks a second (and a frame) is a faster round.
-                Engine.PhysicsTicksPerSecond = (int)MathF.Round(_sim.Config.TickRate * fast);
-                Engine.MaxPhysicsStepsPerFrame = (int)MathF.Ceiling(8f * fast);
+                // The tick rate must stay as it is (walking moves by Godot's physics step), so a faster round is more
+                // ticks a frame: a low --fixed-fps asks for them, and this lifts Godot's usual cap of eight.
+                Engine.MaxPhysicsStepsPerFrame = 1024;
             }
 
             GD.Print($"BOT MATCH a hunter bot plays your slot in {_round.Line} with {_bots.Count} {_tier.Bots} bots, {setup.TimeLimit:0} s on the clock");
@@ -774,9 +775,8 @@ public partial class LevelMain : Node3D, ISimEventListener
                  $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
         if (Args.Has("--show-summary"))
         {
-            Engine.PhysicsTicksPerSecond = (int)MathF.Round(_sim.Config.TickRate);
             ShowSummary();
-            GetTree().CreateTimer(2.0).Timeout += () => GetTree().Quit(ok ? 0 : 1);
+            GetTree().CreateTimer(3.0).Timeout += () => GetTree().Quit(ok ? 0 : 1);
             return;
         }
 
