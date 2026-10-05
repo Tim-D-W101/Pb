@@ -515,6 +515,8 @@ slot is refused; the menu smoke test checks the five tabs and a slot for every b
 
 - [ ] The three texture sheets and the props that get generated models, imported with their provenance.
 - [ ] The Phase 2 leftovers: generated tyres, sandbag wall, pallet stack and generator, and the crouched walk.
+  *Booked by the Phase 2 session's own check-in on 2026-10-06, in its own PR into `main`; that day's five generations
+  go to them, so Phase 3's voices and art start the day after.*
 
 ### M3.11 Verify and report
 
@@ -533,7 +535,7 @@ round on its teammate's call and look out from its spot. The Flanker demo finds 
 the brain's own flank-spot search (now a public query, `BotBrain.FlankSpot`): somewhere a teammate of a Flanker sees
 you, within earshot of it and out of its sight, with a way round to your side wherever within the call's 2.5 m error
 the call puts you. Scripting it showed the Flanker reach its spot and walk on towards you (M3.3 above, now fixed). A
-bot match can be filmed through to its summary (`--fast=8 --show-summary`), which is how the summary's "new level
+bot match can be filmed through to its summary (`--fast=32 --show-summary`), which is how the summary's "new level
 open" was captured; and a level that fails to load now quits a headless run instead of waiting on its error screen
 (asking for teams at size 6, for instance, which is 6 a side).
 
