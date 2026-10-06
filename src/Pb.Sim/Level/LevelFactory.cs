@@ -250,10 +250,13 @@ public static class LevelFactory
         LevelObjectives objectives = def.Objectives is null ? LevelObjectives.None
             : ToObjectives(errors.Scope(nameof(LevelDef.Objectives)), def.Objectives, areas, playerSpawns, bounds);
         Vector3 deadZone = Validator.ToVector3(def.DeadZone_m);
+        Viewpoint[] viewpoints = (def.Viewpoints ?? Array.Empty<ViewpointDef>())
+            .Select(vp => new Viewpoint(vp.Name, Validator.ToVector3(vp.Position_m), vp.Yaw_deg * Units.DegreesToRadians, vp.Pitch_deg * Units.DegreesToRadians))
+            .ToArray();
         var places = new List<PlaceSpec>();
         for (int i = 0; i < def.Places.Length; i++)
         {
-            places.Add(ToPlace(def.Places[i], errors.Item(nameof(LevelDef.Places), i), bounds, playerSpawns, deadZone));
+            places.Add(ToPlace(def.Places[i], errors.Item(nameof(LevelDef.Places), i), bounds, playerSpawns, deadZone, viewpoints));
         }
 
         errors.ThrowIfErrors();
@@ -282,9 +285,7 @@ public static class LevelFactory
             OpponentSpawns = spawns,
             Patrols = patrols.Values.ToArray(),
             Pickups = pickups,
-            Viewpoints = (def.Viewpoints ?? Array.Empty<ViewpointDef>())
-                .Select(vp => new Viewpoint(vp.Name, Validator.ToVector3(vp.Position_m), vp.Yaw_deg * Units.DegreesToRadians, vp.Pitch_deg * Units.DegreesToRadians))
-                .ToArray(),
+            Viewpoints = viewpoints,
             Objectives = objectives,
             Tracks = tracks,
             Places = places,
@@ -292,8 +293,9 @@ public static class LevelFactory
         };
     }
 
-    /// <summary>A place from its definition: its rect inside the level, with an entry and a walk-off spot inside it.</summary>
-    private static PlaceSpec ToPlace(PlaceDef d, Validator item, Aabb bounds, List<SpawnPoint> levelEntries, Vector3 levelDeadZone)
+    /// <summary>A place from its definition: its rect inside the level, with an entry, a walk-off spot and the viewpoint of its picture inside it.</summary>
+    private static PlaceSpec ToPlace(PlaceDef d, Validator item, Aabb bounds, List<SpawnPoint> levelEntries, Vector3 levelDeadZone,
+        IReadOnlyList<Viewpoint> viewpoints)
     {
         Aabb? rect = null;
         if (d.Rect_m is { Length: 4 } r && r[2] > r[0] && r[3] > r[1])
@@ -314,6 +316,7 @@ public static class LevelFactory
             PlayerSpawns = d.PlayerSpawns?.Select(s => new SpawnPoint(Validator.ToVector3(s.Position_m), s.Yaw_deg * Units.DegreesToRadians)).ToArray(),
             DeadZone = d.DeadZone_m is { Length: 3 } z ? Validator.ToVector3(z) : null,
             SpawnScale = d.SpawnScale,
+            Still = StillOf(d, item, rect, viewpoints),
         };
 
         IReadOnlyList<SpawnPoint> entries = place.PlayerSpawns ?? levelEntries.Where(s => place.Contains(s.Position)).ToArray();
@@ -336,6 +339,41 @@ public static class LevelFactory
         }
 
         return place;
+    }
+
+    /// <summary>The viewpoint a place's picture is taken from: the one it names (inside it), or the first inside it.</summary>
+    private static Viewpoint StillOf(PlaceDef d, Validator item, Aabb? rect, IReadOnlyList<Viewpoint> viewpoints)
+    {
+        bool Inside(Viewpoint v) => rect is not { } r || (v.Position.X >= r.Min.X && v.Position.X <= r.Max.X && v.Position.Z >= r.Min.Z && v.Position.Z <= r.Max.Z);
+        if (d.Still is { } name)
+        {
+            foreach (Viewpoint v in viewpoints)
+            {
+                if (v.Name == name)
+                {
+                    if (!Inside(v))
+                    {
+                        item.Error(nameof(PlaceDef.Still), $"'{name}' is outside the place's rect");
+                    }
+
+                    return v;
+                }
+            }
+
+            item.Error(nameof(PlaceDef.Still), $"names no viewpoint of the level ('{name}')");
+            return default;
+        }
+
+        foreach (Viewpoint v in viewpoints)
+        {
+            if (Inside(v))
+            {
+                return v;
+            }
+        }
+
+        item.Error(nameof(PlaceDef.Still), "no viewpoint inside the place for its picture in the menu: add one, or name one");
+        return default;
     }
 
     /// <summary>

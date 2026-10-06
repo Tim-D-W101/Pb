@@ -103,6 +103,9 @@ public sealed class PlaceSpec
     /// <summary>The starts' distances are scaled by this here.</summary>
     public float SpawnScale { get; init; } = 1f;
 
+    /// <summary>The viewpoint its picture in the menu is taken from (the level file's, or the first inside it).</summary>
+    public required Viewpoint Still { get; init; }
+
     public bool Whole => Bounds is null;
 
     /// <summary>Whether <paramref name="point"/> is in the place (on the plan; anywhere for the whole level).</summary>

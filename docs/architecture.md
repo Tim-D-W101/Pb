@@ -742,3 +742,30 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **Stairs** get walking-only blocks under the ramp (`KitGeometry.Stairs`), so nobody walks into a flight.
 - **Bots** stroll (`brain.jsonc` → `strollPace`) on patrol, back to a post and walking off; to an objective's duty post
   they walk.
+
+### 15.10 More life in the opponents (as built, M3.14)
+
+- **The head** is in the sim, so what you see is still what you can hit: `InputCommand.HeadYaw` → `PlayerState.HeadYaw`
+  (clamped to `movement.jsonc` → `maxHeadTurn_deg`, 0 once out) → `HitboxPose.HeadYaw`, and `HitboxRig.Pose` turns the
+  head box in place and swings the mask round it about the vertical; the marker, arms and body stay on the aim.
+  `BotSenses` looks along `Yaw + HeadYaw`. `BotBrain.TurnHead` turns it at `headTurnSpeed_degps` towards
+  `Wrap(wantYaw − yaw)` (the head leads every turn) plus a glance when calm (idle or going back, nothing on the go:
+  `glance*`), from a second `Pcg32` per bot so the brain's own random numbers are unchanged. `BotBrain.Sweep` replaces the
+  sine scan of a post, a held room and a patrol pause with held looks (`scanHold*`); the Marksman's vantage keeps its slow
+  sine. People send 0 (their view is the aim).
+- **`StepGait`** adds three things, all drawing: the stop (on the frame the smoothed speed drops below 0.3 m/s from
+  above `stopFrom_mps`, the steps into the stance shorten to `stopStep_s` with a tighter tolerance for `stopWindow_s`, and
+  `Settling()` dips the hips `stopDip_m` and tips the upper body `stopLean_deg`, scaled by how fast it was going); the
+  weight shift (standing settled, a target of −1, 0 or +1 every `weightEvery*`, eased in over `weightShift_s`, moving the
+  hips `weightSway_m` and rolling them `weightRoll_deg`; `Vary(seed)` gives each character its own timing); and
+  `KneesOut`, which narrows the stagger, sets both feet back by up to `kneeBack_m` and turns the knee bend out to the side.
+- **`CharacterVisual`** probes the paint geometry ahead of the body each frame at knee height (crouched only) and at
+  elbow height (`Closeness`), easing `KneesOut` and `CharacterPoser.ElbowsOut` (elbows in and back along the body); it
+  breathes (`Breathe`: rate and depth from how hard the body has been going, `breath*`) into `CharacterPoser.Breath`
+  (chest up, neck back); passes the head's turn to `CharacterPoser.HeadYaw` (40% neck, 60% head); and when the player
+  goes out, blends the gear and arms from their last pose in to the sim's out pose over `outRaise_s` (nothing counts on an
+  out player's hitboxes) while `SupportRaise` takes the support hand off the marker to over the head, its elbow out.
+- **Place stills**: `PlaceSpec.Still` is the viewpoint the level file's `"still"` names (inside the place), else the first
+  inside it, checked at load. `PlaceStills` (`-- --place-stills=DIR --level=ID`) puts a camera at each, hides everyone,
+  holds 30 frames and saves the frame's middle band at 720 × 320 as JPEG; the area card shows `res://ui/places/LEVEL_PLACE.jpg`
+  under the places when it's there.

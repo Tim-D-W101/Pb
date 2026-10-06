@@ -1,11 +1,12 @@
 # Phase 3 report: open areas
 
-**Date:** 2026-10-05, updated 2026-10-06 after your play-test ([below](#after-your-play-test-2026-10-06)) · **PRs:**
+**Date:** 2026-10-05, updated 2026-10-06 after your play-test ([below](#after-your-play-test-2026-10-06)) and with more
+life in the opponents ([M3.14](#more-life-in-the-opponents-m314)) · **PRs:**
 [Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4) into `main`, and the open areas stacked on it.
 **Status:** built and tested. Three things are left:
 
-- **your play-test** on your PC: every area and its places, the new opponents, the sound, and 60 fps on Medium
-  with ten people in a round (see [Your check](#your-check));
+- **your play-test** on your PC: every area and its places, the new opponents (now with M3.14's life in them), the
+  sound, and 60 fps on Medium with ten people in a round (see [Your check](#your-check));
 - **the voices**: everything for them is built and tested, but Higgsfield allows five generations a day. Those of
   2026-10-05 had gone on the last Phase 2 art before Phase 3 began, and those of 2026-10-06 on the Phase 2 session's
   own check-in (the four generated props and the crouched walk left over from Phase 2, in their own PR), as booked.
@@ -117,6 +118,44 @@ run has finished, `Play.bat` brings it the next time you start the game (until a
 - **A place's edge is a rectangle,** so some parts take in a strip of a neighbour's ground (in Oxbarrow Works, the yard
   and the warehouse share the gravel in front of the bays), and a few doors on an edge are taped shut.
 
+## More life in the opponents (M3.14)
+
+You said the plan was OK and to go ahead, so the opponents got the rest of what M3.14 planned:
+
+- **Looking round.** Standing about, they glance one way or the other every few seconds, and when something makes them
+  turn (a noise, a shout, the next corner) the head goes first and the body follows. Their eyes are where their head
+  looks, and the head and mask hitboxes turn with it, so what you see is still what you can hit; the marker stays on
+  the aim.
+- **On a post** they look one way, hold it, back to the middle, the other way, hold it, instead of a steady swing.
+- **Standing still** the weight goes from one foot to the other every few seconds, and they breathe, harder just after
+  a sprint.
+- **Pulling up from a run**, the last step comes down short and the other foot follows at once, while they dip into
+  their knees and tip on over their feet, then settle; no more feet catching up after the body has stopped.
+- **Hit**, the flinch, then the marker up over the head and the other hand up, and they walk off like that, with "Hit!"
+  over them (the voice comes with the recordings).
+- **Behind low cover** their knees go out to the sides and their feet back, and their elbows tuck in, instead of
+  sticking into the cover. Measured with `-- --cover-demo`: crouched at the low cover by Oxbarrow's guardhouse, the
+  knees went 12.8 cm into it and the elbows 6.0 cm; now neither does. Out in the open on the Rail Yard, 4.0 cm of knee
+  before, none now.
+- **Where to play** shows a picture of the place you pick, under the places, from one of its viewpoints.
+
+The hands-up walk-off and the refill were going to be generated clips (8 credits each); built on the poser they keep
+the planted steps and match the hitboxes, so no clips were bought. Everything is in the data (`presentation.jsonc`
+`characters` and `steps`, `brain.jsonc`, `movement.jsonc` → `maxHeadTurn_deg`), and six new sim tests cover the head:
+its hitboxes, its limit, that a bot sees where its head looks, glances when nothing's going on, looks at a noise before
+its body comes round, and sweeps a post a look at a time.
+
+![Pulling up from a sprint, before and after](phase-3/m3.14-1-pulling-up.jpg)
+*Pulling up from a sprint, a frame every tenth of a second: before (top) the body stops upright and the feet catch up;
+now (bottom) it dips into the knees and tips on, then settles.*
+
+![Looking round](phase-3/m3.14-2-looking-round.jpg)
+*Looking round: straight down the marker, a look towards you, back, a look away, back. The marker stays on the aim.*
+
+![Out: the marker up and a hand up](phase-3/m3.14-3-out.jpg)
+*Hit at 2 m: the ball breaks on the chest, the marker comes up over the head and the other hand goes up, and the walk
+off starts.*
+
 ## What was built
 
 You asked to continue and build Phase 3, the level ladder from the roadmap you approved with Phase 2. All of it is in
@@ -190,10 +229,19 @@ but the recordings and the art above. *(Since 2026-10-06 the ladder is open area
 
 ### Tests
 
-`dotnet test` runs **304 sim tests** (191 at the end of Phase 2), all green. Against the plan's test table:
+`dotnet test` runs **381 sim tests** (304 when this report was first written, 191 at the end of Phase 2), all green.
+Against the plan's test table:
 
 - **Profile and unlocks:** as in the table above, plus the shipped ladder opening in order and a rule naming a tier a
-  level lacks failing to load.
+  level lacks failing to load. *(Since 2026-10-06 the record book's tests replace these: records by area, place, mode,
+  objective and difficulty, a ladder save loading, every area and place open, and no unlock key accepted.)*
+- **Places (M3.12):** every part of every area keeps only what lies inside it, reaches every spawn, case spot and room
+  inside from each entry and nothing outside, and starts every mode, size and objective inside it, apart and on
+  walkable ground; bad places are named by file and key; each has its own picture for the menu, from a viewpoint
+  inside it.
+- **The head (M3.14):** the head and mask hitboxes turn with it and the marker doesn't; the sim keeps it within 70°
+  and straightens it once out; a bot sees where its head looks, glances round when nothing's going on, looks at a
+  noise before its body comes round, and sweeps a post a look at a time.
 - **Doors:** leaves hang where the files say; a shut door stops paint and sight and an open one doesn't; a tap swings
   the door you face and nothing else, holding eases it open; a door stops rather than swing into someone; opening and
   shutting make a noise a bot hears; bots open shut doors on their way, doors swinging towards them and doors standing

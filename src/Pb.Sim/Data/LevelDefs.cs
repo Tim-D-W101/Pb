@@ -1292,6 +1292,10 @@ public sealed class PlaceDef : IValidatable
     [Optional]
     public float SpawnScale { get; set; } = 1f;
 
+    /// <summary>The viewpoint (by name) its picture in the menu is taken from; the first inside it if left out.</summary>
+    [Optional]
+    public string? Still { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);

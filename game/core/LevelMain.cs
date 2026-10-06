@@ -43,6 +43,8 @@ namespace Pb.Game.Core;
 ///   --gait-demo           an opponent walks, runs, sprints, pulls up, strafes, backs off, walks crouched and looks round
 ///   --gait-only=NAME      with --gait-demo, only the moves whose names start with NAME (e.g. "look", "sprint")
 ///   --cover-demo          an opponent tucks in behind low cover, stands to shoot over it and tucks in again, from the side
+///   --cover-at=X,Z        with --cover-demo, the low cover nearest that point (else the nearest out in the open)
+///   --place-stills=DIR    takes the menu's picture of each of the level's places into DIR (res://ui/places), then quits
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
 ///   --preset=NAME         uses that graphics preset instead of the saved one (for comparing their cost)
@@ -192,7 +194,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool gaitDemo = Args.Has("--gait-demo");
         bool coverDemo = Args.Has("--cover-demo");
         _botMatch = Args.Has("--bot-match");
-        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
+        _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
                     roleDemo is not null || gaitDemo || coverDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
         _counts = !_scripted && !roundTour;
@@ -445,6 +447,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             _player.AutoPilot = demo;
             _hud.ShowHelp = false;
             _hud.ShowPerf = false;
+        }
+        else if (Args.Value("--place-stills") is { Length: > 0 } stills)
+        {
+            var take = new PlaceStills { Name = "PlaceStills" };
+            AddChild(take);
+            take.Start(_data.Levels[_entry.Id], stills, _hud, _player.ViewModel, _pawns.Select(p => (Node3D)p), _view.Camera.FarClip_m);
         }
         else if (Args.Has("--shots"))
         {

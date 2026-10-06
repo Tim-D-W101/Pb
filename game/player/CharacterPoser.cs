@@ -395,9 +395,10 @@ public partial class CharacterPoser : SkeletonModifier3D
         Vector3 rightBend = down * 0.6f + right * 0.4f, leftBend = down * 0.6f - right * 0.4f;
         if (ElbowsOut > 0f)
         {
-            // Something just ahead at elbow height: the elbows come up level and out to the sides, clear of it.
-            rightBend = rightBend.Lerp(right * 0.95f + down * 0.1f, ElbowsOut);
-            leftBend = leftBend.Lerp(-right * 0.95f + down * 0.1f, ElbowsOut);
+            // Something just ahead at elbow height: the elbows come in and back along the body, out to the sides, clear of it.
+            Vector3 back = -ahead;
+            rightBend = rightBend.Lerp(right * 0.6f + back * 0.75f + down * 0.25f, ElbowsOut);
+            leftBend = leftBend.Lerp(-right * 0.6f + back * 0.75f + down * 0.25f, ElbowsOut);
         }
         if (SupportRaise > 0f)
         {

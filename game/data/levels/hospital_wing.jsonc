@@ -190,13 +190,16 @@
   // together (rules.jsonc "spawning" scaled by spawnScale). Its opponent spawns, patrols, pickups and
   // objectives are the level's that lie inside it; with no way out inside it, the case goes out the way
   // you came in, and a part with no case spots or rooms to hold offers only last one standing.
+  // Its picture in the menu is taken from the viewpoint named in "still" (the first inside it if left out).
   "places": [
     {
       "id": "whole", "displayName": "The whole hospital",
+      "still": "over the grounds",
       "description": "Everything inside the fence: both wings on all three floors, the courtyard they look down on, the fallen end, the boiler house, the ambulance bay and the car park. You come in at the gate, the breach in the east fence or the gap in the west fence."
     },
     {
       "id": "wings", "displayName": "The wings and the courtyard",
+      "still": "down the north corridor",
       "description": "Both wings, all three floors of wards, corridors and stairwells, the operating theatre and the fallen end, round the overgrown courtyard. You come in from the courtyard's south side.",
       "rect_m": [-50, -38, 8, 18],
       "playerSpawns": [

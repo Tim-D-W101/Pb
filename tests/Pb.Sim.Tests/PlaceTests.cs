@@ -171,6 +171,26 @@ public class PlaceTests
         }
     }
 
+    [Theory]
+    [MemberData(nameof(AllPlaces))]
+    public void Every_place_has_a_picture_for_the_menu_from_inside_it(string areaId, string placeId)
+    {
+        LevelLayout area = Data.Levels[areaId];
+        PlaceSpec place = area.PlaceOf(placeId);
+        Assert.Contains(place.Still, area.Viewpoints);
+        Assert.True(place.Contains(place.Still.Position), $"{placeId}: its picture is taken from outside it");
+    }
+
+    [Fact]
+    public void Each_part_of_an_area_has_a_picture_of_its_own()
+    {
+        foreach (AreaEntryDef entry in Data.Areas.Areas)
+        {
+            LevelLayout area = Data.Levels[entry.Id];
+            Assert.Equal(area.Places.Count, area.Places.Select(p => p.Still.Name).Distinct().Count());
+        }
+    }
+
     [Fact]
     public void Bad_places_are_named_by_file_and_key()
     {
@@ -192,5 +212,16 @@ public class PlaceTests
         ex = Assert.Throws<DataException>(() => GameData.Load(renamed));
         Assert.Contains("levels/rail_yard.jsonc", ex.Message);
         Assert.Contains("places", ex.Message);
+
+        // A picture from a viewpoint the level hasn't got, or from outside the place.
+        var noSuchView = new EditedDataSource(TestData.Source).Edit("levels/rail_yard.jsonc",
+            t => t.Replace("\"still\": \"between the wagons\"", "\"still\": \"between the carriages\""));
+        ex = Assert.Throws<DataException>(() => GameData.Load(noSuchView));
+        Assert.Contains("places[2].still", ex.Message);
+        Assert.Contains("between the carriages", ex.Message);
+        var outsideView = new EditedDataSource(TestData.Source).Edit("levels/rail_yard.jsonc",
+            t => t.Replace("\"still\": \"between the wagons\"", "\"still\": \"inside the engine shed\""));
+        ex = Assert.Throws<DataException>(() => GameData.Load(outsideView));
+        Assert.Contains("places[2].still", ex.Message);
     }
 }

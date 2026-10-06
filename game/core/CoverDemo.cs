@@ -16,7 +16,9 @@ namespace Pb.Game.Core;
 /// <c>-- --cover-demo</c>: an opponent tucks in behind the nearest low cover, stands to shoot over it and
 /// tucks in again, seen from the side, for checking that knees and elbows stay out of what they crouch
 /// behind. It prints how far into the cover the knees and elbows got (as spheres the size of the joint) and
-/// quits. Like the gait demo it runs by sim ticks, so it plays out the same at any rendering speed.
+/// quits. The cover is the nearest out in the open to the first opponent, or with <c>--cover-at=x,z</c> the
+/// nearest to that point, indoors or out. Like the gait demo it runs by sim ticks, so it plays out the same at
+/// any rendering speed.
 /// </summary>
 public partial class CoverDemo : Node, ICommandSource
 {
@@ -45,7 +47,9 @@ public partial class CoverDemo : Node, ICommandSource
         _sim = sim;
         _who = opponents.FirstOrDefault(o => o.State.Alive);
         hud.Visible = false;
-        if (_who is null || !FindSpot(squad.Cover, _who.State.Position, out CoverPoint point))
+        SVector3 near = _who?.State.Position ?? SVector3.Zero;
+        bool given = Args.Value("--cover-at") is { } text && TryPoint(text, out near);
+        if (_who is null || !FindSpot(squad.Cover, near, outdoors: !given, out CoverPoint point))
         {
             GD.PushError("COVER DEMO found nobody or no low cover with a clear side view; quitting");
             GetTree().Quit(1);
@@ -132,15 +136,16 @@ public partial class CoverDemo : Node, ICommandSource
         return (1f - hit.T) * SVector3.Distance(a, b);
     }
 
-    /// <summary>The nearest low cover point to <paramref name="near"/> with room beside it to watch from.</summary>
-    private bool FindSpot(CoverSet cover, SVector3 near, out CoverPoint found)
+    /// <summary>The nearest low cover point to <paramref name="near"/> out in the open (sky overhead, so it's lit) with room beside it to watch from.</summary>
+    private bool FindSpot(CoverSet cover, SVector3 near, bool outdoors, out CoverPoint found)
     {
         found = default;
         float best = float.MaxValue;
         foreach (CoverPoint p in cover.Points)
         {
-            float d = SVector3.DistanceSquared(p.Position, near);
-            if (p.Height != CoverHeight.Half || d >= best)
+            float d = SVector3.DistanceSquared(p.Position with { Y = 0f }, near with { Y = 0f });
+            if (p.Height != CoverHeight.Half || d >= best ||
+                outdoors && _sim.Collision.SweepSphere(p.Position + new SVector3(0f, 1.2f, 0f), p.Position + new SVector3(0f, 40f, 0f), 0.2f, out _))
             {
                 continue;
             }
@@ -155,6 +160,16 @@ public partial class CoverDemo : Node, ICommandSource
         }
 
         return best < float.MaxValue;
+    }
+
+    /// <summary>A point on the plan from <c>x,z</c> (m).</summary>
+    private static bool TryPoint(string text, out SVector3 point)
+    {
+        string[] parts = text.Split(',');
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        bool ok = parts.Length == 2 & float.TryParse(parts[0], culture, out float x) & float.TryParse(parts.Length > 1 ? parts[1] : "", culture, out float z);
+        point = new SVector3(x, 0f, z);
+        return ok;
     }
 
     /// <summary>Whether the side view of <paramref name="p"/> from along <paramref name="side"/> is unobstructed.</summary>

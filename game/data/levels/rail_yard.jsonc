@@ -222,9 +222,11 @@
   // together (rules.jsonc "spawning" scaled by spawnScale). Its opponent spawns, patrols, pickups and
   // objectives are the level's that lie inside it; with no way out inside it, the case goes out the way
   // you came in, and a part with no case spots or rooms to hold offers only last one standing.
+  // Its picture in the menu is taken from the viewpoint named in "still" (the first inside it if left out).
   "places": [
     {
       "id": "whole", "displayName": "The whole yard",
+      "still": "over the yard",
       "description": "Everything inside the wall: the engine shed, the wagons on all four tracks, the footbridge, the goods shed, the signal box and the yard office. You come in at the south gate, the breach in the east wall or the gap in the west wall."
     },
     {
@@ -240,6 +242,7 @@
     },
     {
       "id": "wagons", "displayName": "Between the wagons",
+      "still": "between the wagons",
       "description": "The four tracks east of the engine shed: long lanes between the rakes of wagons, short exposed crossings, the footbridge over the lot, and the coal stage and water tower at the far end. Paint flies under the wagons at your ankles.",
       "rect_m": [-18, -40, 75, 3],
       "playerSpawns": [
@@ -251,12 +254,14 @@
     },
     {
       "id": "signal_box", "displayName": "The signal box and the yard office",
+      "still": "from the signal box",
       "description": "The south-west of the yard: the signal box looking down the tracks from its upper floor, the yard office, the gate road and the open ground between. You come in at the south gate.",
       "rect_m": [-75, -1, -0.5, 48],
       "spawnScale": 0.55
     },
     {
       "id": "goods_shed", "displayName": "The goods shed",
+      "still": "the goods platform",
       "description": "The goods shed and its raised platform, the loading road, the stacks of sleepers and the lamp hut, along the south side of the tracks. You come in at the breach in the east wall.",
       "rect_m": [4, -6, 85, 48],
       "deadZone_m": [82, 0, 36],

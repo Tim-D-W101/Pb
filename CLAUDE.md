@@ -40,6 +40,11 @@ tools/package/godot-project.sh                        # self-contained project z
 python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate the hospital wings (edit the script, not the files)
 ```
 
+The menu's picture of each place (`game/ui/places/LEVEL_PLACE.jpg`) is taken in the game, from the viewpoint the level
+file's place names in `"still"`; retake a level's after changing it (under lavapipe, below), then import:
+`xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan res://scenes/Level.tscn -- --level=ID
+--place-stills=res://ui/places` and `godot --headless --path game --import`.
+
 The Windows build needs the export templates: `tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe
 windows_release_x86_64_console.exe` pulls just those from the 1.2 GB release archive. Exported builds always
 start on the main menu; `-- --level=ID` (with the level's other options, and `--place=ID` for one of the level's
@@ -107,8 +112,11 @@ for close-ups of anything in the level. On `Level.tscn`, through the player's ow
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
-sprinting, strafing, backing off and walking crouched, seen from the side (the planted steps, or the movement clips with
-`characters.legs` = `"clips"`), printing how far the planted feet slid.
+sprinting, pulling up, strafing, backing off, walking crouched and looking round, seen from the side (the planted steps,
+or the movement clips with `characters.legs` = `"clips"`), printing how far the planted feet slid (`--gait-only=NAME`
+plays only the moves starting with NAME). `-- --cover-demo` tucks an opponent in behind low cover, stands it up to shoot
+over and tucks it in again, printing how far its knees and elbows got into the cover (`--cover-at=X,Z` picks the cover
+nearest that point); it runs headless too, for the numbers alone.
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until

@@ -3,8 +3,8 @@
 > **Status: revised 2026-10-06 and approved the same day with the defaults ("the plan is OK go ahead").** Approved
 > 2026-10-05 as the level ladder (you asked to "continue and build phase 3"), and M3.1–M3.9 and M3.11 were built
 > ([report](reports/phase-3.md)). After your play-test you asked for the areas to be open, each with places to choose
-> from, and for the opponents to stop glitching through things and walk clearly: that's M3.12 and M3.13, done. What's
-> left is M3.8's voices, M3.10's art and M3.14 (more life in the opponents), in progress. Technical design:
+> from, and for the opponents to stop glitching through things and walk clearly: that's M3.12 and M3.13, done, and
+> M3.14 (more life in the opponents) is done too. What's left is M3.8's voices and M3.10's art. Technical design:
 > [architecture.md §15](architecture.md#15-phase-3-open-areas). Everything in [spec.md](spec.md) still applies:
 > ballistics, paint rules, gear, metric units, original IP, data files, tests.
 
@@ -234,8 +234,8 @@ cobwebs, run-off, birds, sunbeams through holes in the roof), which work on any 
 | Voices: six voices × about 35 lines, plus the referee (about 220 lines) | ≈ 35 |
 | Three texture sheets (twelve materials) | ≈ 13 |
 | Up to four generated props (one picture of six, then Tripo H3.1 at 18 each) | ≈ 77 |
-| Two movement clips for the opponents (M3.14): the hands-up walk-off and the refill (8 each) | 16 |
-| **Phase 3 total** | **≈ 141 (cap 150)** |
+| ~~Two movement clips for the opponents (M3.14): the hands-up walk-off and the refill~~ (built on the poser instead) | ~~16~~ 0 |
+| **Phase 3 total** | **≈ 125 (cap 150)** |
 
 Generations are limited to five a day, so the art arrives over several days; everything works before it does.
 
@@ -630,15 +630,35 @@ open" was captured; and a level that fails to load now quits a headless run inst
 
 ### M3.14 The opponents: more life
 
-**In progress** (approved 2026-10-06).
+**Done 2026-10-06**, but for the voices (M3.8). [Pictures](reports/phase-3/).
 
-- [ ] **Standing:** shifting weight from foot to foot, breathing, glancing round now and then; the head turns
-  towards a noise before the body follows; on a post, the marker sweeps it.
-- [ ] **In cover:** knees and elbows kept out of what they crouch behind; a shoulder to a wall edge before peeking.
-- [ ] **Hit:** a flinch, the marker up over the head, "Hit!", and the walk off with the other hand up, as at a real
-  game, from a generated clip (8 credits). A refill clip too (8): a pod from the harness, tipped into the loader.
-- [ ] **Running into a stop:** the last steps shorten and the body settles, instead of the feet catching up.
-- [ ] **A still of each place in the menu**, from one of its viewpoints, so you can see where you're picking.
+- [x] **Standing:** the weight goes from foot to foot every few seconds and the chest breathes, quicker after a
+  sprint; they glance round now and then; the head turns towards a noise (or wherever they're turning to look) before
+  the body follows; on a post the view is swept a look at a time: one way, back, the other way, each look held.
+- [x] **In cover:** crouched with cover just ahead, the knees go out to the sides and the feet back, and the elbows
+  come in and back along the body, instead of into it. *A shoulder to a wall edge before peeking* needed nothing new:
+  the cover point is at the edge and the peek already steps out past it and leans.
+- [x] **Hit:** the flinch, then the marker up over the head in the trigger hand and the other hand up, open, and the
+  walk off like that, with "Hit!" over them. Built on the poser rather than as a generated clip, so it works with the
+  planted steps and saved the clip's 8 credits; the refill already had its hand to the pods and up to the loader, so
+  that clip was left out too (8 more).
+- [x] **Running into a stop:** the foot in the air comes down short into the stance and the other follows at once,
+  while the hips dip into the knees and the upper body tips on over the feet and settles back.
+- [x] **A still of each place in the menu**, between the places and what's there, from the viewpoint the level file
+  names for it (`"still"`), else the first inside it.
+
+As built: the head is the sim's, so its hitboxes turn with it: `InputCommand.HeadYaw` (rad from the aim, positive to the
+left, up to `movement.jsonc` → `maxHeadTurn_deg`, 70) goes into `PlayerState.HeadYaw` and the hitbox pose; the head box
+turns in place and the mask goes round it, the marker staying on the aim. Bots turn theirs at `brain.jsonc` →
+`headTurnSpeed_degps` towards where the body is turning (so they look at a noise first), add a glance when nothing's going
+on (`glance*`), and see where they look (`BotSenses` uses the head's direction). Glances and the post sweep (`scanHold*`)
+draw from their own random numbers, so nothing else a bot decides changes. Your head is your view, so it stays on the
+aim. The stop (`presentation.jsonc` → `characters.steps.stop*`), the weight (`steps.weight*`), the knees and elbows in
+cover (`steps.knee*`, `steps.elbow*`), the breathing (`characters.breath*`) and the raise when out (`outRaise_s`,
+`outHand*`) are drawing only. `-- --cover-demo` tucks an opponent in behind low cover and prints how far its knees and
+elbows got into it: at the low cover by Oxbarrow's guardhouse, 12.8 cm and 6.0 cm before, 0 now; out in the open on the
+Rail Yard, 4.0 cm of knee before, 0 now. `-- --gait-demo` ends with a look round from in front (`--gait-only=look` plays
+just that). `-- --place-stills=DIR` takes the menu's pictures (`game/ui/places/`).
 
 ## Tests
 
@@ -684,4 +704,5 @@ open" was captured; and a level that fails to load now quits a headless run inst
 6. **Higgsfield spend.** **Up to 150 of the 235 credits left on Phase 3** (now including the opponents' two clips).
 7. **Sound effects.** **Synthesised in code** (Higgsfield only makes speech). Recorded sounds could replace them later.
 8. **More life in the opponents (M3.14).** **All of it, with the hands-up walk-off and the refill as generated
-   clips.** Or leave the opponents as they are now.
+   clips.** Or leave the opponents as they are now. *(Built 2026-10-06; the walk-off and the refill came out better on
+   the poser than a clip would have, as they keep the planted steps and the marker's hitboxes, so no clips were bought.)*

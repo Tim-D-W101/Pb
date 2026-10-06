@@ -366,6 +366,15 @@ public partial class MainMenu : Control
 
         Label placeBlurb = UiKit.Body(place.Description, 17, UiKit.Dim, wrap: true);
         placeBlurb.CustomMinimumSize = new Vector2(360, 0);
+        // The place as you'd see it there: a picture from one of its viewpoints (none until it's been taken).
+        var still = new TextureRect
+        {
+            Name = $"Still_{entry.Id}",
+            CustomMinimumSize = new Vector2(360, 160),
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
+            Texture = PlaceStills.For(entry.Id, place.Id),
+        };
         Label modeBlurb = UiKit.Body(mode.Description, 17, UiKit.Dim, wrap: true);
         var sizes = new VBoxContainer();
         var objectiveBox = new VBoxContainer();
@@ -418,9 +427,11 @@ public partial class MainMenu : Control
         {
             place = places[k];
             placeBlurb.Text = place.Description;
+            still.Texture = PlaceStills.For(entry.Id, place.Id);
             ShowObjectives();
             ShowRecord();
         }, $"Place_{entry.Id}_", buttonWidth: 360));
+        where.AddChild(still);
         where.AddChild(placeBlurb);
 
         how.AddChild(UiKit.ChoiceRow("Mode", modes.Select(m => m.DisplayName).ToArray(), modeIndex, k =>

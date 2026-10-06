@@ -190,9 +190,11 @@
   // in (yaw 0 faces north, positive turns left), a spot the eliminated walk off to, and starts closer
   // together (rules.jsonc "spawning" scaled by spawnScale). Its opponent spawns, patrols and pickups
   // are the level's that lie inside it.
+  // Its picture in the menu is taken from the viewpoint named in "still" (the first inside it if left out).
   "places": [
     {
       "id": "whole", "displayName": "The whole works",
+      "still": "over the yard",
       "description": "Everything inside the wall: the warehouse, the offices, the pump house, the yard and the east field. You come in at the main gate, the breach in the west wall or the collapse in the north-east corner."
     },
     {
@@ -230,6 +232,7 @@
     },
     {
       "id": "east_field", "displayName": "The east field",
+      "still": "east field",
       "description": "Packed dirt and scrap round the pump house and the water tower, open to long shots, with the north-east corner of the wall knocked down.",
       "rect_m": [26, -48, 54.7, 39.7],
       "playerSpawns": [
