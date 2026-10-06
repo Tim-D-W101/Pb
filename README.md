@@ -4,9 +4,10 @@ An original first-person tactical paintball game: physically simulated paintball
 eliminations, played through abandoned industrial compounds you explore and clear, with up to
 ten players a round. Built with Godot 4.7 (.NET / C#).
 
-**Status: Phase 3 is built ([report](docs/reports/phase-3.md), [plan](docs/phase-3.md)): the level ladder, three more
-compounds, doors, objectives, new opponents, sound, full settings; the voices and the new levels' generated art follow
-over the next days.** Phase 2 is built
+**Status: Phase 3 is built ([report](docs/reports/phase-3.md), [plan](docs/phase-3.md)): four open areas, each with
+places to play in, doors, objectives, new opponents, sound, full settings; after your play-test (2026-10-06) every area
+is open with nothing to unlock, and the opponents plant their steps. The voices, the new areas' generated art and more
+life in the opponents (the revised plan's M3.14) wait on your OK.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -15,12 +16,13 @@ kit. You pick it, a mode, how many play and a difficulty from the menu, read the
 **solo** (clear the compound of a squad against the clock), **free-for-all** (up to ten players,
 everyone against everyone) or **teams** (you and bot teammates against a bot team, up to 5 v 5),
 picking up paint and air on the way. In solo and teams you can also play for an objective (Phase 3): **retrieve** (find
-the case in the marked building and carry it out) or **hold** (keep the marked room for a minute in all). Win a round
-there and the second level opens, **the Rail Yard**: a goods yard left to rust, rakes of dead wagons on four tracks (you
+the case in the marked building and carry it out) or **hold** (keep the marked room for a minute in all). Every area is
+open from the start, and in each you pick where to play: the whole of it, or one part (a building, the tracks, a
+courtyard), taped off all round, with the round kept inside. Besides Oxbarrow Works there's **the Rail Yard**: a goods yard left to rust, rakes of dead wagons on four tracks (you
 can shoot under them, not crawl), an engine shed with a gantry, a goods shed with its platform, a signal box and a
 footbridge over the lot, with Marksmen watching from the high places. Then **the Cold Store**: a refrigerated depot gone
 dark, its floor a lorry's height above the yard, chambers of racking behind heavy doors off a long aisle, and trailers
-backed onto the docks that you run through to get in. Last and hardest, **the Hospital Wing**: three storeys of wards
+backed onto the docks that you run through to get in. And the hardest, **the Hospital Wing**: three storeys of wards
 and corridors in two wings round an overgrown courtyard that every window looks down on, an operating theatre, a lift
 shaft open through every floor and the end of one wing fallen in. The bots hold posts, patrol, hunt and rush, notice you by sight
 and sound, and fight from cover; in free-for-all and teams they fight each other too. They shout where you are, so
@@ -35,8 +37,10 @@ crows wheeling overhead and scattering at gunfire; dust kicked up underfoot, foo
 (in paint, or wet, if you've trodden in some), ripples in the puddles, water dripping through the
 holes in the roof, and litter, bags and torn roofing blowing in one wind; paint running down the
 walls where it lands; the generated marker in your gloved hands, and your own shadow on the ground;
-three rigged opponents who walk and run with generated movement clips, flinch when a ball hits them
-and refill from their pods in plain sight; the compound itself behind the main menu; and the
+three rigged opponents who plant every step (feet that stay put on the ground whichever way they
+move, a shooter's stance standing still, steps round when they turn), bring their markers up off a
+wall instead of pushing them through it, flinch when a ball hits them and refill from their pods in
+plain sight; the compound itself behind the main menu; and the
 training ground dressed to match, with netting, a timber backstop, inflatable bunkers and masked
 dummies covered in old paint. Generated models for four more props and a crouched-walk clip follow.
 
@@ -71,9 +75,9 @@ To run it from Godot:
 1. Install **Godot 4.7.2 – .NET** (the ".NET" download, not the standard one) and the
    **.NET 8 SDK** (or newer).
 2. Open `game/project.godot` in Godot. The first open imports the project and builds the C# code.
-3. Press **F5** (Run Project) for the main menu. **Play**, then pick a level (each opens once you've won a round on the
-   one before), a mode, how many play and a difficulty, **Start**, and **Start** again on the briefing card. **Training
-   ground** is the Phase 1 range.
+3. Press **F5** (Run Project) for the main menu. **Play**, then pick an area, where in it to play (the whole of it or
+   one of its parts: every area and place is open from the start), a mode, how many play, an objective and a
+   difficulty, **Start**, and **Start** again on the briefing card. **Training ground** is the Phase 1 range.
 
 Only want to play it? `tools/package/godot-project.sh` packs the game as one self-contained
 project zip (`builds/Pb-godot-project.zip`). In Godot's Project Manager, click **Import**, choose
@@ -128,6 +132,10 @@ and so are they. When the last opponent or you go out, the round waits a moment 
 for balls still in the air, so going out together is a trade. You start with a full loader and a
 few spare pods; walk over a pod to put it in an empty pod slot, or over an air tank to refill
 yours. The summary shows your time, shots, hits, accuracy, eliminations and pickups.
+
+Played in part of an area, the round stays inside it: red-and-white tape on posts marks the edge
+wherever you could walk across it (doorways included), and you can't walk past it, though paint
+flies over. The briefing map shows the part you're in, with the rest dimmed.
 
 ### The HUD
 
@@ -187,7 +195,7 @@ reported with the file and key; the game won't silently use a wrong value.
 | `ranges/phase1.jsonc` | Range layout: targets, props, distance markers |
 | `kit/*.jsonc` | Level kit: surface materials, props, building templates |
 | `levels/*.jsonc` | Compound levels (layout, spawns, patrols, pickups) |
-| `levels/ladder.jsonc` | Level order and difficulty tiers: bot difficulty, time limits, starting pods, pickups; each level's roster for scripted runs |
+| `levels/areas.jsonc` | The areas to play in, all open, in menu order, with their difficulty tiers (bot difficulty, time limits, starting pods, pickups), each area's roster for scripted runs, and what the records count. Where in an area to play is the level file's `places` |
 | `rules.jsonc` | Round rules: mode, settle window for balls in the air, trades, pickup radius |
 | `stress.jsonc` | Stress-mode ball count and cannons |
 | `presentation.jsonc` | Team colours, FOV, ball visibility, splats, HUD, audio, lighting, weeds, sunbeams, dust, window light, graphics presets, character models and posing |
@@ -197,7 +205,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 126 sim tests (ballistics vs spec, collision, gear, level kit, movement, hitboxes, rounds, bots…) — no Godot needed
+dotnet test                                          # 355 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots…) — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, a bot match and the art import (Linux/macOS)
 ```

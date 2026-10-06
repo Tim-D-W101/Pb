@@ -1,13 +1,34 @@
-# Phase 3 — The level ladder: plan
+# Phase 3 — Open areas: plan
 
-> **Status: approved 2026-10-05** (you asked to "continue and build phase 3"; the defaults below are taken, and
-> any of them can still change). Phase 2 is merged ([report](reports/phase-2.md)). Technical design:
-> [architecture.md §15](architecture.md#15-phase-3-the-level-ladder), added as the milestones land. Everything in
-> [spec.md](spec.md) still applies: ballistics, paint rules, gear, metric units, original IP, data files, tests.
+> **Status: revised 2026-10-06, waiting on your OK for what's left.** Approved 2026-10-05 as the level ladder (you
+> asked to "continue and build phase 3"), and M3.1–M3.9 and M3.11 were built ([report](reports/phase-3.md)). After
+> your play-test you asked for the areas to be open, each with places to choose from, and for the opponents to stop
+> glitching through things and walk clearly: that's M3.12 and M3.13, done. What's left is M3.8's voices, M3.10's art
+> and the new M3.14 (more life in the opponents), with the questions at the end. Technical design:
+> [architecture.md §15](architecture.md#15-phase-3-open-areas). Everything in [spec.md](spec.md) still applies:
+> ballistics, paint rules, gear, metric units, original IP, data files, tests.
 
 ## Your direction
 
-From the revised roadmap you approved with Phase 2 ([phase-2.md](phase-2.md#revised-roadmap)):
+After playing the Phase 3 build (2026-10-06):
+
+> "Change the setting so that you have different areas to play in. It's not like a level where, if you win in
+> Oxparrow, you now have to go to the new ones. You have the different areas, and in each area, you choose where you
+> want to play. It's not that it's locked, and they must all be open, all the areas."
+
+> "…the mannequins … seem a bit glitchy, like they glitch through, and when they walk, it's not very clear … make it
+> more realistic."
+
+How I've read it:
+
+| You said | What it becomes |
+|---|---|
+| Different areas to play in | The four compounds are **areas**: Oxbarrow Works, the Rail Yard, the Cold Store and the Hospital Wing. |
+| In each area, you choose where you want to play | Each area offers **places**: the whole of it, or one part (a building, the tracks, a courtyard), with the round kept inside that part. |
+| Not locked; they must all be open | Every area and every place is open from the start, in every mode, size, objective and difficulty. Nothing unlocks; your records are only there to beat. |
+| The mannequins glitch through; walking isn't clear; more realistic | Planted steps, a gait for every pace, markers that come up off walls, no walking through stairs (M3.13), and more life to come (M3.14). |
+
+From the revised roadmap you approved with Phase 2 ([phase-2.md](phase-2.md#revised-roadmap)), the first plan's brief:
 
 > **Level ladder:** 3–4 more compound levels of rising difficulty, unlocks and a local save, Marksman and Flanker
 > behaviours, objectives (retrieve an item, hold a room), audio pass with voiced callouts, doors that open and
@@ -19,19 +40,18 @@ surface and positional 3D audio (§8).
 
 ## Goal
 
-A ladder of four abandoned compounds, each harder than the last, that you climb in order and that remembers how
-far you got. Each place plays differently, opponents gain two new behaviours, rounds can be won by objectives as
+Four abandoned compounds, every one open, each with places to play in, and a record of your best in each. Each area plays differently, opponents gain two new behaviours, rounds can be won by objectives as
 well as by eliminations, doors open and close, the game sounds like a real paintball game with opponents who shout
 out loud, and every setting and key can be changed. The rules and ballistics stay exactly as they are: one hit
 eliminates, a bounce never does.
 
 ## What you'll be able to do
 
-- **Climb the ladder.** Start at Oxbarrow Works. Win a round there (any mode, any difficulty) and the Rail Yard
-  opens, then the Cold Store, then the Hospital Wing. Level select shows what's open, what's locked and why, and
-  your best result on each difficulty. Progress and your last choices survive quitting the game. An "open every
-  level" switch in the settings skips the climb (for testing).
-- **Play three new places**, each in every mode (solo, free-for-all, teams), every size and every difficulty:
+- **Play anywhere.** Pick any area, then where in it: the whole of it or one of its parts, taped off all round.
+  Every area and place is open from the start, in every mode, size and difficulty, and with every objective the
+  place has room for. The menu shows your best there for the mode, objective and difficulty you've picked, and
+  remembers your last choices.
+- **Play three new areas**, each in every mode (solo, free-for-all, teams), every size and every difficulty:
   - **The Rail Yard**: long sightlines down the tracks broken by rows of rusting wagons, an engine shed with a
     gantry, a signal box and a footbridge over the tracks for whoever wants height, and paint that flies under
     the wagons at your ankles.
@@ -64,9 +84,9 @@ eliminates, a bounce never does.
   effects, voices, ambience and menus, subtitles, crosshair style and colour, head-bob and camera jolt, and
   colourblind-safe team colours.
 
-## The levels
+## The areas
 
-All three are built from the level kit like Oxbarrow Works, so one definition makes the visible meshes, walking,
+All three new areas are built from the level kit like Oxbarrow Works, so one definition makes the visible meshes, walking,
 paint, sight and the bots' navigation. Every name is a placeholder in data. Sizes are the walled area.
 
 ### Level 2: The Rail Yard (about 150 × 80 m)
@@ -150,16 +170,31 @@ chimney.
   +---------------------------------------------------------------+
 ```
 
-### Rising difficulty
+### Places in each area (M3.12)
+
+Each area's level file lists its places (`"places"`): the whole of it first, then its parts. A part is a rectangle on
+the plan with its own ways in, a spot the eliminated walk off to, and starts closer together; its opponent spawns,
+patrols, pickups and objectives are the area's that lie inside it, and a part with no case spots or rooms to hold
+offers only last one standing.
+
+| Area | Places |
+|---|---|
+| Oxbarrow Works | The whole works · the warehouse · the office block · the yard · the east field |
+| The Rail Yard | The whole yard · the engine shed · between the wagons · the signal box and the yard office · the goods shed |
+| The Cold Store | The whole depot · inside the cold store · the docks and the lorry park · the plant room and the depot office |
+| The Hospital Wing | The whole hospital · the wings and the courtyard · the courtyard · the boiler house and the ambulance bay · the car park |
+
+### How the areas differ
 
 Difficulty still sets only how good the bots are, how long the round lasts and what everyone carries, never how many
-there are. Going up the ladder:
+there are. Nothing has to be played in order any more, but the areas still differ:
 
-- **The places get harder**: more height, more doors, darker interiors, shorter sightlines that end in a corner.
-- **The opponents' mix gets harder**: Oxbarrow Works keeps its sentries, patrollers and rushers; the Rail Yard adds
-  Marksmen; the Cold Store adds Flankers; the Hospital Wing has both.
-- **The clock and paint get tighter**: each level's own Easy, Normal and Hard tiers (in `levels/ladder.jsonc`) give a
-  little less time and a pod less than the level before.
+- **The places**: more height, more doors, darker interiors and shorter sightlines that end in a corner from Oxbarrow
+  Works to the Hospital Wing.
+- **The opponents' mix**: Oxbarrow Works keeps its sentries, patrollers and rushers; the Rail Yard adds Marksmen;
+  the Cold Store adds Flankers; the Hospital Wing has both.
+- **The clock and paint**: each area's own Easy, Normal and Hard tiers (in `levels/areas.jsonc`) give a little less
+  time and a pod less than Oxbarrow Works' do.
 
 ## How it will look
 
@@ -191,15 +226,16 @@ cobwebs, run-off, birds, sunbeams through holes in the roof), which work on any 
 
 ## Higgsfield budget
 
-About 297 credits are left. Speech is cheap (0.15 credits a line):
+235 credits are left (2026-10-06, after the Phase 2 leftovers: four props and the crouched walk). Speech is cheap
+(0.15 credits a line):
 
 | Item | Credits |
 |---|---|
 | Voices: six voices × about 35 lines, plus the referee (about 220 lines) | ≈ 35 |
 | Three texture sheets (twelve materials) | ≈ 13 |
 | Up to four generated props (one picture of six, then Tripo H3.1 at 18 each) | ≈ 77 |
-| **Phase 3 total** | **≈ 125 (cap 150)** |
-| Already approved in Phase 2: four props (tyres, sandbag wall, pallet stack, generator) and the crouched walk | 80 |
+| Two movement clips for the opponents (M3.14): the hands-up walk-off and the refill (8 each) | 16 |
+| **Phase 3 total** | **≈ 141 (cap 150)** |
 
 Generations are limited to five a day, so the art arrives over several days; everything works before it does.
 
@@ -207,7 +243,9 @@ Generations are limited to five a day, so the art arrives over several days; eve
 
 **In:**
 
-- Profile, unlocks and records (local save).
+- Profile and records (local save); every area and place open (no unlocks since 2026-10-06).
+- Places to play in each area (M3.12).
+- The opponents' movement and gear (M3.13), and more life in them (M3.14).
 - Doors that open and close, for you and the bots.
 - Marksman and Flanker behaviours; bots sharing what they see.
 - Objectives: retrieve and hold, in solo and teams.
@@ -230,7 +268,8 @@ Each milestone is pushed as it lands, with screenshots.
 
 ### M3.1 Save and unlocks
 
-**Done 2026-10-05.**
+**Done 2026-10-05. Revised 2026-10-06 (M3.12): the unlocks are gone, the records stay, kept per place.** As first
+built:
 
 - [x] A profile in `user://profile.json`: unlocked levels, and per level, mode and difficulty your rounds, wins, best
   time to clear, best accuracy and most eliminations; plus your last level, mode, size and difficulty (the objective
@@ -380,7 +419,7 @@ in one tick), and an unreachable place cost the whole search budget each time a 
 out walking distances from eight landmarks when the level loads (`navigation.jsonc` → `landmarks`; under a second on
 the Rail Yard), which keeps searches like that under a thousand spans, refuses a goal in another connected piece
 without searching, and straightens paths in doubling strides; the sim tests got faster with fourteen more of them.
-`LadderLevelTests` checks every playable level the same way (reachability from every way in, starts for every mode,
+`LadderLevelTests` (now `AreaLevelTests`) checks every playable level the same way (reachability from every way in, starts for every mode,
 objective and size, and bot rounds), and `RailYardTests` the tracks, the wagons, the high places and the ways up.
 
 ### M3.6 The Cold Store
@@ -528,7 +567,8 @@ slot is refused; the menu smoke test checks the five tabs and a slot for every b
   free-for-all on all four, teams with an objective on all four).
 - [x] Benchmark: the sim with ten players and 1,000 balls stays within 0.5 ms a tick on every level (0.40–0.44 ms).
 - [x] [`docs/reports/phase-3.md`](reports/phase-3.md) with screenshots of every level, door, objective and screen.
-- [ ] Your check: the ladder from Level 1 to Level 4, the new opponents, the sound, and 60 fps on Medium.
+- [ ] Your check: every area and its places, the new opponents, the sound, and 60 fps on Medium. *(Was "the ladder from
+  Level 1 to Level 4" until 2026-10-06.)*
 
 As built: `-- --role-demo=marksman` and `=flanker` (`game/core/RoleDemo.cs`) show the two new roles at work with the
 F3 overlay, on the sim's clock so they can be captured at a low frame rate, and CI runs both as smoke tests: the
@@ -542,11 +582,70 @@ newest level you've opened); the three new levels have one now. A bot match can 
 open" was captured; and a level that fails to load now quits a headless run instead of waiting on its error screen
 (asking for teams at size 6, for instance, which is 6 a side).
 
+### M3.12 Open areas and places
+
+**Done 2026-10-06**, after your play-test. [Screenshots](reports/phase-3/).
+
+- [x] The ladder is gone: `levels/ladder.jsonc` became `levels/areas.jsonc`, the areas in menu order, every one open,
+  each with its difficulty tiers and the roster scripted runs fill. The unlock rule, Settings → "Open every level",
+  `--unlock-all` and the summary's "new level open" went with it. A save from the ladder still loads: its records
+  count as the whole area's, and what it had opened no longer matters.
+- [x] Each level lists its places (`"places"`, the whole of it first, called `whole`; see the table above).
+  `LevelLayout.ForPlace` makes the level for a round in a part: four walking-only walls on its edge (paint and sight
+  pass over them), its own ways in and walk-off spot, and only the opponent spawns, patrols, pickups, viewpoints,
+  case spots and rooms inside it; ways out inside it, else the way you came in. Starts are dealt as before, at
+  `spawnScale` times the distances, in the area's spawn ground inside the place; when the spawns inside run short,
+  at cover. Every door and track stays.
+- [x] Red-and-white tape on posts (`PlaceBoundary`, `presentation.jsonc` → `placeBoundary`) wherever a walk could cross
+  a part's edge: open ground, doorways, gaps between props, tied off at walls. It's surveyed against the walking
+  geometry, so it never crosses a window or a roof.
+- [x] **Where to play**: the four areas in a row, then the chosen area's card: where in it (the places down the left,
+  with what each is), then the mode, size, objective (those the place has room for), difficulty, your record there,
+  and Start. Back sits by the title. The briefing names the place, frames its map on it with the rest dimmed and the
+  edge taped, and says what's lying about there.
+- [x] Records per area, place, mode, objective and difficulty (`RecordBook`, user://profile.json).
+- [x] Tests: every place of every area keeps everything inside it and has a way from each entry to each spawn, case
+  spot and room inside, and none out; every mode, size and objective starts inside it, apart and on walkable ground;
+  bad places are named by file and key; records by place, and a ladder save loading. The menu smoke test picks every
+  area and every place in turn; CI plays a bot match in a part of each area.
+
+### M3.13 The opponents: planted steps and gear off the walls
+
+**Done 2026-10-06**, after your play-test. [Screenshots](reports/phase-3/).
+
+- [x] **Planted steps** for the legs (`presentation.jsonc` → `characters.legs` = `"steps"`; `"clips"` brings the walk and
+  run clips back). Each foot is planted where it lands until its next step, whichever way the body moves, at any
+  pace, turning on the spot or on stairs. A gait table by speed sets the cadence, the time each foot is in the air,
+  the lift, the stride and the bob, so a stroll, a walk, a run and a sprint each look like themselves. The heel peels
+  up behind and the toes come up to land; the hips drop when a leg needs to reach; running is on bent knees.
+- [x] Standing, a shooter's stance, bladed and staggered; turning, steps round instead of spinning on the spot.
+  The idle clip's 42° turn of the hips is taken back out, so the stance comes from the steps.
+- [x] Bots stroll on patrol, back to a post and walking off (1.65 m/s); guarding an objective they walk briskly.
+- [x] **Gear off the walls**: pressed up to a wall or a crate, the arms and marker come up off it just far enough to
+  clear it (`hitboxes.jsonc` → `tuck*`). The sim does it, so the hitboxes come up too (what you see is what you can hit,
+  lag compensation included); it's set at once during the briefing.
+- [x] **No walking through stairs**: walking blocks under every flight, so nobody walks into one from below or the side.
+- [x] `-- --gait-demo` measures how far the planted feet move while they're down, and how far an ankle falls short
+  (walking: 0.12 m/s and 0.0 cm, most of it the heel-to-toe roll).
+
+### M3.14 The opponents: more life
+
+**Planned (waiting on your OK).**
+
+- [ ] **Standing:** shifting weight from foot to foot, breathing, glancing round now and then; the head turns
+  towards a noise before the body follows; on a post, the marker sweeps it.
+- [ ] **In cover:** knees and elbows kept out of what they crouch behind; a shoulder to a wall edge before peeking.
+- [ ] **Hit:** a flinch, the marker up over the head, "Hit!", and the walk off with the other hand up, as at a real
+  game, from a generated clip (8 credits). A refill clip too (8): a pod from the harness, tipped into the loader.
+- [ ] **Running into a stop:** the last steps shorten and the body settles, instead of the feet catching up.
+- [ ] **A still of each place in the menu**, from one of its viewpoints, so you can see where you're picking.
+
 ## Tests
 
 | Test | Pass criterion |
 |---|---|
-| Profile and unlocks | Winning on a level opens the next and nothing else; losing opens nothing; records keep the best; the file round-trips and an old or broken one loads with defaults. |
+| Profile and records | Records keep the best per area, place, mode, objective and difficulty; the file round-trips; a ladder save, or an old or broken one, loads. Every area and place is open. |
+| Places | Every part of every area keeps what's inside it, its entries reach everything inside and nothing outside, and every mode, size and objective starts inside it fairly. |
 | Doors | A shut door stops paint and sight, an open one doesn't; interact opens only the door in reach and in front; doors stop for people in their way; a bot gets through a shut door; door noise is heard through walls less. |
 | Marksman | Vantage scores rank long, high views first; a Marksman holds its vantage, engages at long range and relocates after being shot at. |
 | Flanker | Its route is less exposed to the enemy than the straight one, and it arrives at least 45° off the enemy's line to its teammate. |
@@ -560,8 +659,9 @@ open" was captured; and a level that fails to load now quits a headless run inst
 
 | Check | How it's shown |
 |---|---|
-| Climb the ladder: win on each level to open the next; progress survives a restart | You play it; sim tests for the rules; the summary's unlock screenshot |
-| Three new levels of rising difficulty, each playable in every mode, size and difficulty | Level select; CI bot matches on every level in three modes |
+| Every area and every place in it open from the start; records survive a restart | The menu smoke test picks every area and place; you play it |
+| Three new areas, each playable in every mode, size and difficulty, and in each of its places | Where to play; CI bot matches on every area in three modes, and in a part of each |
+| The opponents walk, run and turn on planted feet and keep their gear out of walls | The gait demo's measurements; screenshots; you watch them |
 | Marksman and Flanker behave as described | Sim tests; a scripted demo of each, screenshots |
 | Objectives: retrieve and hold can be won and lost by their rules | Sim tests and headless rounds; screenshots of the HUD |
 | Doors open and close for you and the bots, stop paint and sight | Sim tests; the level smoke test opens a door; screenshots |
@@ -571,16 +671,17 @@ open" was captured; and a level that fails to load now quits a headless run inst
 
 ## Questions (defaults in bold)
 
-1. **Levels.** **The three the ladder already announces (Rail Yard, Cold Store, Hospital Wing), making four.** A fifth
-   can follow if you want one.
-2. **Unlocks.** **Win any round on a level (any mode, any difficulty) to open the next, with an "open every level"
-   switch in settings.** Stricter would be "win on Normal or harder".
+1. **Areas.** **Four: Oxbarrow Works, the Rail Yard, the Cold Store and the Hospital Wing.** A fifth can follow if
+   you want one.
+2. **Places.** **The parts in the table above, every one open.** Say if you'd like a place added, moved or split
+   (each is a rectangle in the level file, so it's quick to change).
 3. **Objectives.** **Retrieve and hold, in solo and teams; free-for-all stays last one standing.** Your side always
    attacks and theirs defends.
 4. **Doors.** **You open and close them with interact; opponents open them on their way and never lock them.** No
    kicking doors in.
 5. **Voices.** **Six voices across the three character models plus a referee, about 35 lines each, from Higgsfield's
    text-to-speech.**
-6. **Higgsfield spend.** **Up to 150 of the ~297 credits left on Phase 3**, plus the Phase 2 leftovers you already
-   approved (80).
+6. **Higgsfield spend.** **Up to 150 of the 235 credits left on Phase 3** (now including the opponents' two clips).
 7. **Sound effects.** **Synthesised in code** (Higgsfield only makes speech). Recorded sounds could replace them later.
+8. **More life in the opponents (M3.14).** **All of it, with the hands-up walk-off and the refill as generated
+   clips.** Or leave the opponents as they are now.

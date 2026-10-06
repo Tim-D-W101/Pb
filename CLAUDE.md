@@ -42,7 +42,8 @@ python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate th
 
 The Windows build needs the export templates: `tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe
 windows_release_x86_64_console.exe` pulls just those from the 1.2 GB release archive. Exported builds always
-start on the main menu; `-- --level=ID` (with the level's other options) skips it once. The game's own pack leaves
+start on the main menu; `-- --level=ID` (with the level's other options, and `--place=ID` for one of the level's
+`places`) skips it once. The game's own pack leaves
 `art/` out: `tools/package/art-packs.sh` exports it as one pack per asset (`art/Pb-art-<id>.pck`), which `ArtFiles`
 mounts in exported builds, and the release lists every game file's SHA-256 so `Play.bat` downloads only what changed.
 The Windows build runs headless under Wine (`apt-get install wine`), the way to catch faults only the Windows .NET
@@ -106,12 +107,15 @@ for close-ups of anything in the level. On `Level.tscn`, through the player's ow
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
-sprinting, strafing, backing off and walking crouched, seen from the side (movement clips, or the steps without them).
+sprinting, strafing, backing off and walking crouched, seen from the side (the planted steps, or the movement clips with
+`characters.legs` = `"clips"`), printing how far the planted feet slid.
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
-the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N` and `--objective=eliminate|retrieve|hold` pick the mode, size and
-objective (the menu's choices; they're in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`, and
+the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
+objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`), e.g.
+`-- --round-tour --mode=ffa --size=6 --place=warehouse`; `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
+runs quicker; and
 `-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
 the room, the ways out. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's

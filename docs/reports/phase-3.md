@@ -1,9 +1,10 @@
-# Phase 3 report: the level ladder
+# Phase 3 report: open areas
 
-**Date:** 2026-10-05 · **PR:** [Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4), into `main`.
+**Date:** 2026-10-05, updated 2026-10-06 after your play-test ([below](#after-your-play-test-2026-10-06)) · **PRs:**
+[Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4) into `main`, and the open areas stacked on it.
 **Status:** built and tested. Three things are left:
 
-- **your play-test** on your PC: the climb from Level 1 to Level 4, the new opponents, the sound, and 60 fps on Medium
+- **your play-test** on your PC: every area and its places, the new opponents, the sound, and 60 fps on Medium
   with ten people in a round (see [Your check](#your-check));
 - **the voices**: everything for them is built and tested, but Higgsfield allows five generations a day. Those of
   2026-10-05 had gone on the last Phase 2 art before Phase 3 began, and those of 2026-10-06 on the Phase 2 session's
@@ -16,12 +17,110 @@
   and the shader's procedural look elsewhere (the hospital's hedges are plain green boxes).
 
 The plan, with every milestone's details, is [phase-3.md](../phase-3.md); the technical design is
-[architecture §15](../architecture.md#15-phase-3-the-level-ladder).
+[architecture §15](../architecture.md#15-phase-3-open-areas).
+
+## After your play-test (2026-10-06)
+
+You said the opponents looked glitchy, clipping through things, that you couldn't really make out their walk, and
+that the areas should all be open, each with places to choose from, not a ladder you climb by winning. This is what
+changed (M3.12 and M3.13 in the [revised plan](../phase-3.md), which also has what's next and waits on your OK).
+
+**Every area open, each with places.**
+
+- **No more ladder.** Oxbarrow Works, the Rail Yard, the Cold Store and the Hospital Wing are all open from the start,
+  in every mode, size, objective and difficulty. The unlock rule, Settings → "Open every level" and the summary's "new
+  level open" are gone. Your records stay, now kept for each place, and are only there to beat.
+- **Where to play** in the menu: the four areas along the top; under the one you pick, where in it (the whole of it
+  or a part, each with what's there), then the mode, size, objective, difficulty, your record there, and Start.
+- **The places:**
+
+  | Area | Places |
+  |---|---|
+  | Oxbarrow Works | the whole works · the warehouse · the office block · the yard · the east field |
+  | The Rail Yard | the whole yard · the engine shed · between the wagons · the signal box and the yard office · the goods shed |
+  | The Cold Store | the whole depot · inside the cold store · the docks and the lorry park · the plant room and the depot office |
+  | The Hospital Wing | the whole hospital · the wings and the courtyard · the courtyard · the boiler house and the ambulance bay · the car park |
+
+- **A round in a part stays inside it:** invisible walls on its edge (paint flies over them), red-and-white tape on
+  posts wherever you could walk across (doorways included); you come in at its own entries, everyone starts inside it
+  as far apart as it allows, and only its own pickups, case spots and rooms count. A part with no case spot or room to
+  hold offers last one standing only.
+- **The briefing** names the place, frames its map on it with the rest dimmed and the edge taped, and says what's
+  lying about there.
+
+**The opponents.**
+
+- **Planted steps** replace the movement clips for their legs: a foot stays where it lands until its next step,
+  whichever way they move, at any pace, turning on the spot or on stairs. The clips only covered walking forwards, so
+  strafing, backing off and turning slid, and at the walking pace they shuffled.
+- **Each pace looks like itself:** a stroll on patrol (1.65 m/s), a walk, a run on bent knees and a sprint, each with
+  its own cadence, stride, lift and bob. Standing, a shooter's stance; turning, steps round.
+- **Markers stay out of walls:** pressed up to a wall or a crate, the arms and marker come up off it, just far enough
+  to clear it, and the hitboxes with them.
+- **No walking through stairs:** an opponent (or you) could walk into a flight of stairs from underneath or the side.
+
+Measured with `-- --gait-demo` (one opponent seen from the side: how far a foot's ball moves while it's down, and how
+far an ankle ever falls short of where the steps put it):
+
+| Move | Foot movement while down | Worst ankle miss |
+|---|---|---|
+| Walk | 0.12 m/s | 0.0 cm |
+| Strafe right / left | 0.11 / 0.12 m/s | 0.0 cm |
+| Back off | 0.11 m/s | 3.6 cm |
+| Crouched walk | 0.07 m/s | 0.0 cm |
+| Sprint | 0.20 m/s | 2.6 cm |
+| Run | 0.76 m/s | 9.7 cm |
+
+Walking, most of that movement is the foot rolling from heel to toe. The run's figure comes from the demo's turn from a
+walk straight into a run: while the body picks up speed, a foot pushing off can still be pulled a few centimetres.
+
+![Where to play](phase-3/m3.12-1-where-to-play.jpg)
+*Where to play: the four areas along the top, then where in Oxbarrow Works (here the warehouse), the mode, size,
+objective and difficulty, and your record there.*
+
+![Where to play in the Hospital Wing](phase-3/m3.12-2-where-to-play-hospital-wing.jpg)
+*The Hospital Wing's places: the whole hospital, the wings and the courtyard, the courtyard alone, the boiler house and
+the ambulance bay, and the car park.*
+
+![The briefing for a hold inside the Cold Store](phase-3/m3.12-3-briefing-inside-the-cold-store.jpg)
+*A 3 v 3 hold inside the Cold Store: the map framed on the building, the room to hold marked, the edge taped.*
+
+![Tape round the engine shed](phase-3/m3.12-4-tape-round-the-engine-shed.jpg)
+*The Rail Yard's engine shed: tape across the tracks outside its doors, and along the south side, tied off at a wagon.*
+
+![Tape across the Cold Store's doors](phase-3/m3.12-5-tape-across-the-cold-store-doors.jpg)
+*Inside the Cold Store: a dock door and the east door taped off.*
+
+![Tape round the courtyard](phase-3/m3.12-6-tape-round-the-courtyard.jpg)
+*The Hospital Wing's courtyard, its open side taped.*
+
+![Tape round the warehouse](phase-3/m3.12-7-tape-round-the-warehouse.jpg)
+*Oxbarrow Works' warehouse: the east loading gap and the west and north doors taped off, and the gravel out front.*
+
+![Before: an opponent walking into the stairs](phase-3/m3.13-1-before-walking-into-the-stairs.jpg)
+*Before: an opponent walking into the warehouse stairs from the side and disappearing inside the flight.*
+
+![Walking, from the side](phase-3/m3.13-2-walking.jpg)
+*Walking (3 m/s), a frame every tenth of a second: each foot planted until it steps, the marker shouldered.*
+
+![Running, from the side](phase-3/m3.13-3-running.jpg)
+*Running (5.5 m/s): bent knees, long strides, and both feet off the ground between steps.*
+
+**How to get it:** this is a pull request stacked on Phase 3's ([Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4)):
+merge that one into `main`, then this one. CI publishes each run's build as the test build, so once this pull request's
+run has finished, `Play.bat` brings it the next time you start the game (until another pull request's run replaces it).
+
+**Known issues from this round:**
+
+- **No new clips or voices yet:** Higgsfield's daily generation limit stopped them today (no credits spent). The
+  planted steps cover every move without clips.
+- **A place's edge is a rectangle,** so some parts take in a strip of a neighbour's ground (in Oxbarrow Works, the yard
+  and the warehouse share the gravel in front of the bays), and a few doors on an edge are taped shut.
 
 ## What was built
 
 You asked to continue and build Phase 3, the level ladder from the roadmap you approved with Phase 2. All of it is in
-but the recordings and the art above.
+but the recordings and the art above. *(Since 2026-10-06 the ladder is open areas, each with places: see above.)*
 
 - **The ladder and the save** (M3.1). Four compounds of rising difficulty: Oxbarrow Works, then the Rail Yard, the Cold
   Store and the Hospital Wing. Winning any round on a level opens the next (the rule is data, in `levels/ladder.jsonc`,
@@ -157,9 +256,9 @@ fast.
 
 About ten minutes, on the latest test build (`Play.bat` updates it):
 
-1. **The climb.** With "Open every level" off (Settings → Accessibility), only the levels you've won your way to are
-   open: on a first run, just Oxbarrow Works. Win a round there (Solo, Easy, 3 opponents is quickest) and the summary
-   says the Rail Yard is open; quit and restart, and it's still open.
+1. **Where to play.** Every area is open on a first run. Pick one, then a part of it (the engine shed, say): the round
+   stays inside the tape. Play a round, and your record there shows under the difficulty when you come back; quit and
+   restart, and it's still there.
 2. **The frame rate.** On the Medium preset (F12 cycles them), with v-sync off (F8), start the **Hospital Wing** as a
    **Free-for-all** with **10 players** and press **F4** for the performance overlay. The target is **60 fps or more at
    1080p**. The Hospital Wing has the most to draw; the Rail Yard the longest views.
@@ -376,6 +475,6 @@ imported, with this report updated.
 **Useful from you:**
 
 - your frame rate and GPU, from the check above;
-- how the Marksmen and Flankers feel on each difficulty, and whether the climb's pace is right (the unlock rule can
-  ask for a win on Normal or harder);
+- how the Marksmen and Flankers feel on each difficulty, and whether the places are the right ones (each is a
+  rectangle in the level file, quick to move);
 - whether a fifth level is wanted before multiplayer.

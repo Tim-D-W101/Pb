@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **Status: approved (defaults accepted 2026-09-30); Phases 1 and 2 built.** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-the-level-ladder) with [phase-3.md](phase-3.md) on 2026-10-05. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
+> **Status: approved (defaults accepted 2026-09-30); Phases 1 and 2 built.** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-open-areas) with [phase-3.md](phase-3.md) on 2026-10-05 (revised 2026-10-06: open areas, each with places). Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
@@ -479,7 +479,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   - a random role for each (`rules.jsonc` → `spawning`, or the mode's `roles`).
 
   The same seed always deals the same starts, so a round can be replayed with `--seed`.
-- **Level flow and difficulty live in `levels/ladder.jsonc`:** order, tiers (bot difficulty, time limit, starting gear, pickups) and the roster scripted solo runs fill.
+- **Areas and difficulty live in `levels/areas.jsonc`:** the areas in menu order (every one open), each with its tiers (bot difficulty, time limit, starting gear, pickups) and the roster scripted solo runs fill. Where in an area to play is its level file's `places` (§15.8). Until 2026-10-06 this was a ladder (`levels/ladder.jsonc`) that opened one level after another.
 
 ### 14.6 AI
 
@@ -526,17 +526,23 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 | Phase | Adds |
 |---|---|
 | 2 The compound | Level kit and loader, Level 1, realism pass (materials, lighting, props, characters), hitbox rig, lean/slide/shoulder-swap/jump, `EliminationRules`, bots (Sentry, Patroller, Rusher; three tiers), menus, match HUD |
-| 3 Level ladder | 3–4 more levels, unlocks and local save, Marksman and Flanker, objectives, audio pass with voiced callouts, doors, full settings and rebinding |
+| 3 Open areas | Three more areas (four in all), every one open, each with places to play in; local save and records; Marksman and Flanker; objectives; audio pass with voiced callouts; doors; full settings and rebinding; planted steps for the opponents |
 | 4 Multiplayer | `Pb.Net`, dedicated and listen server, lobby, lag compensation, co-op vs bots and PvP for up to 10 players |
 | 5 Locker and extras | Gear locker, fictional brands, gear models, splat shaders; speedball field, CTF and Arcade as optional modes |
 | 6 Progression (optional) | As before |
 
-## 15. Phase 3: the level ladder
+## 15. Phase 3: open areas
 
-> **Status: approved 2026-10-05 with the [Phase 3 plan](phase-3.md) (defaults taken).** This section is the technical
-> design; each part gains "as built" notes as its milestone lands.
+> **Status: approved 2026-10-05 with the [Phase 3 plan](phase-3.md) (defaults taken) as the level ladder; revised
+> 2026-10-06 at the owner's request: every area open, each with places to play in (§15.8), and the opponents' planted
+> steps (§15.9).** This section is the technical design; each part gains "as built" notes as its milestone lands.
 
-### 15.1 Profile and unlocks
+### 15.1 Profile and records
+
+> **Revised 2026-10-06.** The unlocks are gone. `Pb.Sim/Match/RecordBook.cs` (was `Ladder.cs`) keeps your records per
+> area, place, mode, objective and difficulty, and the last choices (the place among them); `ProfileData` version 2
+> drops `opened`. A ladder save still loads: its records read as the whole area's (place `whole`), and `opened` is
+> ignored. Settings → "Open every level", `--unlock-all` and the summary's "new level open" are gone. As first built:
 
 - **The profile** (`game/core/Profile.cs`, `user://profile.json`) is presentation-side state, like the settings: the
   sim never reads it. It holds the levels opened, per level × mode × difficulty the rounds played and won with the best
@@ -700,3 +706,39 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   applies the defaults, records the actions), `GameSettings.Load`, `InputSetup.Apply(settings.Bindings)`,
   `view.UseTeamColors(settings.TeamColors)`, then the rest. `GraphicsDef.Effective(preset, parts)` lays the settings'
   graphics parts over a preset for every `ApplyGraphics`.
+
+### 15.8 Places to play (as built, M3.12)
+
+- **Data.** Each level file lists its `places`: the whole level first, called `whole` (the records keep it by that
+  name; validation insists), then parts, each a rectangle on the plan with optional ways in (`playerSpawns`), a walk-off
+  spot (`deadZone_m`) and a `spawnScale`. `LevelFactory` checks each part's entries and walk-off spot are inside it.
+- **`LevelLayout.ForPlace`** makes the level for a round in a part. It adds four `Boundary` boxes on the edge that block
+  walking only (paint and sight pass over), and keeps what lies inside: opponent spawns, patrols (all their points),
+  pickups, viewpoints, case spots, rooms to hold (every box of the room) and ways out (else the entries, "where you came
+  in"). Doors and tracks stay. Random starts go to the level's spawn ground inside the place (a place that reaches past
+  the perimeter for its way in doesn't start anyone out there), or the whole place if none of it is spawn ground.
+  `CoverSet` keeps only cover inside; `SpawnRules.Scaled` shrinks the distances; the planner falls back to cover points
+  when the spawns inside run short. A place offers the objectives its layout has room for (`LevelObjectives.Offers`).
+- **`PlaceBoundary`** (presentation only) surveys the edge every 0.2 m against a walking-only collision world (the
+  ground, walking primitives and stairs, not the boundary itself): a gap is a floor (ground, floor, stairs; never a roof
+  or a container) clear to head height, so tape never crosses a window. Open stretches are strung with tape at 0.95 m on
+  posts at corners, loose ends and every 2.6 m, tied off where a wall closes them; one mesh and one MultiMesh.
+- **The menu** (`MainMenu`): the areas in a row; the chosen one's card has the places down the left and the round's
+  choices on the right; your record is per place. **The briefing** frames its map on the place (`LevelMap`).
+
+### 15.9 Planted steps and gear off the walls (as built, M3.13)
+
+- **`StepGait`** (presentation only) drives the legs by default (`characters.legs` = `"steps"`): each foot is planted in
+  the world until its next step. A gait table by speed (`characters.steps.gaits`: cadence, swing share, lift, landing
+  point, bob) blends between rows; a swing moves on a minimum-jerk curve in the body's frame and lands on the ground under
+  it (a drop onto the paint geometry: a stair tread, a kerb). Heel and toe roll about the ball of the foot and the heel;
+  the hips drop at once (eased back up) as far as a leg needs to reach, and sit lower on bent knees running; a foot that
+  can't reach behind is drawn along until it lifts. Standing, a shooter's stance (bladed, staggered); past
+  `settleTwist_deg` the feet step round, one at a time. `CharacterPoser` takes the idle clip's hip turn back out and
+  turns the spine to keep the chest on the aim.
+- **The tuck** is in the sim: `SimWorld.UpdateTuck` sweeps the barrel line (`HitboxRig.MarkerLine`) and, when it's blocked,
+  finds the least pitch up about the back of the marker that clears it (in steps, then refined), reached at
+  `tuckRate_degps`, at once before the round goes live. `HitboxPose` records it, so lag compensation sees it too.
+- **Stairs** get walking-only blocks under the ramp (`KitGeometry.Stairs`), so nobody walks into a flight.
+- **Bots** stroll (`brain.jsonc` → `strollPace`) on patrol, back to a post and walking off; to an objective's duty post
+  they walk.
