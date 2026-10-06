@@ -21,6 +21,14 @@ public partial class PlaceBoundary : Node3D
     /// <summary>How far apart two samples' floors may be and still be one run of tape (m).</summary>
     private const float SameFloor = 0.3f;
 
+    /// <summary>How far inside the edge a floor is looked for, and walked from to reach the edge (past a wall on the edge line, m).</summary>
+    private const float Inside = 0.45f;
+
+    /// <summary>How wide a way up to the edge must be (a body's half-width at the knees and the chest, m).</summary>
+    private const float ReachRadius = 0.12f;
+
+    private readonly List<Vector2> _inward = new();
+
     private readonly record struct Anchor(Vector2 At, float Floor, bool Post);
 
     private PlaceBoundaryDef _def = null!;
@@ -56,25 +64,40 @@ public partial class PlaceBoundary : Node3D
         // Round the edge, corner to corner: each sample's floors with room to walk through.
         var at = new List<Vector2>();
         var corner = new List<bool>();
+        _inward.Clear();
         for (int e = 0; e < 4; e++)
         {
             Vector2 a = corners[e], b = corners[(e + 1) % 4];
+            Vector2 along = (b - a).Normalized();
             int n = Math.Max(1, (int)MathF.Ceiling(a.DistanceTo(b) / def.Sample_m));
             for (int k = 0; k < n; k++)
             {
                 at.Add(a.Lerp(b, (float)k / n));
                 corner.Add(k == 0);
+                // The corners go round anticlockwise in x–z, so the inside is to the left of each edge.
+                _inward.Add(new Vector2(-along.Y, along.X));
             }
         }
 
         int count = at.Count;
         float top = level.Bounds.Max.Y;
         var floors = new List<float>();
+        var inner = new List<float>();
         var open = new List<float>[count];
         for (int i = 0; i < count; i++)
         {
+            // The floors on the edge and just inside it (a doorway on the edge line has its floor on the inside).
             FloorsAt(at[i], top, floors);
-            open[i] = floors.FindAll(h => Clear(at[i], h));
+            FloorsAt(at[i] + _inward[i] * Inside, top, inner);
+            foreach (float h in inner)
+            {
+                if (!floors.Exists(f => MathF.Abs(f - h) < 0.15f))
+                {
+                    floors.Add(h);
+                }
+            }
+
+            open[i] = floors.FindAll(h => Open(at[i], _inward[i], h));
         }
 
         var anchors = new List<List<Anchor>>();
@@ -159,6 +182,34 @@ public partial class PlaceBoundary : Node3D
         }
 
         return !float.IsNaN(best) && MathF.Abs(best - near) < SameFloor ? best : near;
+    }
+
+    /// <summary>
+    /// Whether a walk could cross the edge at <paramref name="plan"/> on the floor at <paramref name="floor"/>: there's
+    /// room there, and a way to it from just inside (so not across a window from a floor behind a wall).
+    /// </summary>
+    private bool Open(Vector2 plan, Vector2 inward, float floor)
+    {
+        if (!Clear(plan, floor))
+        {
+            return false;
+        }
+
+        Vector2 from = plan + inward * Inside;
+        foreach (float h in _def.ClearHeights_m)
+        {
+            if (h > 1.2f)
+            {
+                continue; // the way up need only clear the knees and the chest
+            }
+
+            if (_walk.SweepSphere(new SVector3(from.X, floor + h, from.Y), new SVector3(plan.X, floor + h, plan.Y), ReachRadius, out _))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Whether there's room to walk through <paramref name="plan"/> on the floor at <paramref name="floor"/>.</summary>
@@ -251,7 +302,7 @@ public partial class PlaceBoundary : Node3D
         var held = new List<Anchor>();
         if (!loop)
         {
-            held.Add(End(at[(run[0].I - 1 + count) % count], at[run[0].I], run[0].H));
+            held.Add(End(at[(run[0].I - 1 + count) % count], at[run[0].I], _inward[run[0].I], run[0].H));
         }
 
         foreach ((int i, float h) in run)
@@ -268,7 +319,7 @@ public partial class PlaceBoundary : Node3D
         }
         else
         {
-            held.Add(End(at[(run[^1].I + 1) % count], at[run[^1].I], run[^1].H));
+            held.Add(End(at[(run[^1].I + 1) % count], at[run[^1].I], _inward[run[^1].I], run[^1].H));
         }
 
         float length = 0f;
@@ -305,13 +356,13 @@ public partial class PlaceBoundary : Node3D
     /// One end of a stretch, between its last open sample and the closed one past it: found to a few
     /// millimetres, then tied to what closes it, or on a post if there's nothing at the tape's height.
     /// </summary>
-    private Anchor End(Vector2 closed, Vector2 open, float floor)
+    private Anchor End(Vector2 closed, Vector2 open, Vector2 inward, float floor)
     {
         Vector2 inside = open, outside = closed;
         for (int k = 0; k < 7; k++)
         {
             Vector2 mid = (inside + outside) * 0.5f;
-            if (Clear(mid, floor))
+            if (Open(mid, inward, floor))
             {
                 inside = mid;
             }
