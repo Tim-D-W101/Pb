@@ -768,4 +768,5 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **Place stills**: `PlaceSpec.Still` is the viewpoint the level file's `"still"` names (inside the place), else the first
   inside it, checked at load. `PlaceStills` (`-- --place-stills=DIR --level=ID`) puts a camera at each, hides everyone,
   holds 30 frames and saves the frame's middle band at 720 × 320 as JPEG; the area card shows `res://ui/places/LEVEL_PLACE.jpg`
-  under the places when it's there.
+  under the places when it's there. The menu's smoke test picks every place of every area and checks the laid-out page
+  fits the project's 1600 × 900 less the screen's margins (headless windows are taller, so the room is worked out).

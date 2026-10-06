@@ -364,13 +364,14 @@ public partial class MainMenu : Control
         columns.AddChild(how);
         card.AddChild(columns);
 
-        Label placeBlurb = UiKit.Body(place.Description, 17, UiKit.Dim, wrap: true);
-        placeBlurb.CustomMinimumSize = new Vector2(360, 0);
-        // The place as you'd see it there: a picture from one of its viewpoints (none until it's been taken).
+        // The place: a picture of it under the list (from one of its viewpoints; none until it's been taken), and what's
+        // there at the head of the right-hand column, where it has the width.
+        Label placeBlurb = UiKit.Body(place.Description, 16, UiKit.Dim, wrap: true);
+        placeBlurb.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         var still = new TextureRect
         {
             Name = $"Still_{entry.Id}",
-            CustomMinimumSize = new Vector2(360, 160),
+            CustomMinimumSize = new Vector2(360, 166),
             ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
             StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
             Texture = PlaceStills.For(entry.Id, place.Id),
@@ -432,7 +433,7 @@ public partial class MainMenu : Control
             ShowRecord();
         }, $"Place_{entry.Id}_", buttonWidth: 360));
         where.AddChild(still);
-        where.AddChild(placeBlurb);
+        how.AddChild(placeBlurb);
 
         how.AddChild(UiKit.ChoiceRow("Mode", modes.Select(m => m.DisplayName).ToArray(), modeIndex, k =>
         {
@@ -456,11 +457,16 @@ public partial class MainMenu : Control
         }, $"Tier_{entry.Id}_", buttonWidth: 140));
         how.AddChild(details);
         ShowRecord();
-        how.AddChild(record);
+        // Your record here, and Start beside it.
+        HBoxContainer finish = UiKit.Row(24);
+        record.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        record.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        finish.AddChild(record);
         Button start = UiKit.Button("Start", () => Play(entry, place, mode, size, mode.Kind == MatchModeKind.FreeForAll ? objectives[0] : objective, tier), 260);
         start.Name = $"Start_{entry.Id}";
-        start.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-        how.AddChild(start);
+        start.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
+        finish.AddChild(start);
+        how.AddChild(finish);
     }
 
     private static string TierDetails(TierDef tier) =>
@@ -519,6 +525,24 @@ public partial class MainMenu : Control
         GetTree().ChangeSceneToFile(scene);
     }
 
+    /// <summary>
+    /// How far a screen's laid-out content is taller than the room it has on the smallest screen the menus are laid out
+    /// for (the project's 1600 × 900, less the screen's margins), px; 0 or less when it fits without scrolling. Headless
+    /// runs have a taller window, so the room is worked out rather than read off the screen.
+    /// </summary>
+    private static float Overflow(Control screen)
+    {
+        if (screen.FindChildren("*", nameof(ScrollContainer), owned: false).FirstOrDefault() is not ScrollContainer scroll ||
+            scroll.GetChildCount() == 0 || scroll.GetChild(0) is not Control content || scroll.GetParent() is not MarginContainer margins)
+        {
+            return 0f;
+        }
+
+        float room = ProjectSettings.GetSetting("display/window/size/viewport_height").AsInt32() -
+                     margins.GetThemeConstant("margin_top") - margins.GetThemeConstant("margin_bottom");
+        return content.GetCombinedMinimumSize().Y - room;
+    }
+
     /// <summary>A screen laid out at the left third (title, lists) or centred (dialogs).</summary>
     private static Control Screen(Control content, bool left)
     {
@@ -565,7 +589,7 @@ public partial class MainMenu : Control
         return rect;
     }
 
-    private void SmokeTest()
+    private async void SmokeTest()
     {
         var problems = new List<string>();
         IReadOnlyList<GameMode> modes = _data.Config.Rules.Modes;
@@ -615,6 +639,7 @@ public partial class MainMenu : Control
             for (int p = 0; p < level.Places.Count; p++)
             {
                 buttons.First(b => b.Name == $"Place_{entry.Id}_{p}").ButtonPressed = true;
+
                 int objectives = _data.Config.Rules.Objectives.Kinds.Count(k => level.ForPlace(level.Places[p]).Objectives.Offers(k.Kind));
                 for (int m = 0; m < modes.Count; m++)
                 {
@@ -660,8 +685,34 @@ public partial class MainMenu : Control
             problems.Add(settingsNote);
         }
 
+        // Each area's card fits on a 1600 × 900 screen, Start and all, whichever place is picked: measured once laid out.
+        ShowLevels();
+        for (int a = 0; a < areas.Length; a++)
+        {
+            if (_levels.FindChild($"Area_{a}", recursive: true, owned: false) is Button areaButton)
+            {
+                areaButton.ButtonPressed = true;
+            }
+
+            LevelLayout level = _data.Levels[areas[a].Id];
+            for (int p = 0; p < level.Places.Count; p++)
+            {
+                if (_levels.FindChild($"Place_{areas[a].Id}_{p}", recursive: true, owned: false) is Button placeButton)
+                {
+                    placeButton.ButtonPressed = true;
+                }
+
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                if (Overflow(_levels) is > 0.5f and var over)
+                {
+                    problems.Add($"{areas[a].Id}, {level.Places[p].Id}: the card is {over:0} px too tall for the screen");
+                }
+            }
+        }
+
         bool ok = areas.Length >= 1 && problems.Count == 0;
-        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {areas.Length} area{(areas.Length == 1 ? "" : "s")} with {places} places to play, all open, " +
+        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {areas.Length} area{(areas.Length == 1 ? "" : "s")} with {places} places to play, all open, each card on one screen, " +
                  $"{modes.Count} modes with their sizes, objectives and the difficulty tiers, {settingsNote}" +
                  $"{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
         GetTree().Quit(ok ? 0 : 1);

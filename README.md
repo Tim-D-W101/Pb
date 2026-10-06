@@ -6,8 +6,9 @@ ten players a round. Built with Godot 4.7 (.NET / C#).
 
 **Status: Phase 3 is built ([report](docs/reports/phase-3.md), [plan](docs/phase-3.md)): four open areas, each with
 places to play in, doors, objectives, new opponents, sound, full settings; after your play-test (2026-10-06) every area
-is open with nothing to unlock, and the opponents plant their steps. The voices, the new areas' generated art and more
-life in the opponents (the revised plan's M3.14) wait on your OK.** Phase 2 is built
+is open with nothing to unlock, and the opponents plant their steps; since then they look round, shift their weight,
+pull up from a run, keep out of their cover and put a hand up when hit (M3.14). The voices and the new areas' generated
+art come with Higgsfield's daily generations.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -38,9 +39,11 @@ crows wheeling overhead and scattering at gunfire; dust kicked up underfoot, foo
 holes in the roof, and litter, bags and torn roofing blowing in one wind; paint running down the
 walls where it lands; the generated marker in your gloved hands, and your own shadow on the ground;
 three rigged opponents who plant every step (feet that stay put on the ground whichever way they
-move, a shooter's stance standing still, steps round when they turn), bring their markers up off a
-wall instead of pushing them through it, flinch when a ball hits them and refill from their pods in
-plain sight; the compound itself behind the main menu; and the
+move, a shooter's stance standing still, steps round when they turn, short last steps pulling up from a run),
+glance round and look at a noise before they turn to it, shift their weight and breathe, keep their knees and elbows
+out of the cover they tuck in behind, bring their markers up off a wall instead of pushing them through it, flinch when
+a ball hits them, put the marker and a hand up to walk off when they're out, and refill from their pods in plain sight;
+the compound itself behind the main menu; and the
 training ground dressed to match, with netting, a timber backstop, inflatable bunkers and masked
 dummies covered in old paint. Generated models for four more props and a crouched-walk clip follow.
 
@@ -151,7 +154,8 @@ stood shows you, marker up, and whoever got you.
 ### The opponents
 
 Each opponent stands at a spawn whose roles give its behaviour: a **sentry** holds its post and
-scans, a **patroller** walks a route, a **rusher** comes straight at you firing on the move.
+scans it a look at a time, a **patroller** walks a route, a **rusher** comes straight at you firing on the move. They
+see where their head looks, and it turns before their body does.
 They spot you faster up close, in daylight, standing or moving, and in the middle of their view;
 they hear shots, balls breaking near them and your footsteps (crouch-walk to stay quiet), and
 remember where you were. Once they've seen you they shoot, then take cover and peek round it,

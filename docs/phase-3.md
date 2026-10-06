@@ -644,8 +644,9 @@ open" was captured; and a level that fails to load now quits a headless run inst
   that clip was left out too (8 more).
 - [x] **Running into a stop:** the foot in the air comes down short into the stance and the other follows at once,
   while the hips dip into the knees and the upper body tips on over the feet and settles back.
-- [x] **A still of each place in the menu**, between the places and what's there, from the viewpoint the level file
-  names for it (`"still"`), else the first inside it.
+- [x] **A still of each place in the menu**, under the list of places, from the viewpoint the level file names for it
+  (`"still"`), else the first inside it. What's there moved to the head of the right-hand column, and Start beside your
+  record, so the card still fits on a 1600 × 900 screen (the menu's smoke test now checks every place's card does).
 
 As built: the head is the sim's, so its hitboxes turn with it: `InputCommand.HeadYaw` (rad from the aim, positive to the
 left, up to `movement.jsonc` → `maxHeadTurn_deg`, 70) goes into `PlayerState.HeadYaw` and the hitbox pose; the head box

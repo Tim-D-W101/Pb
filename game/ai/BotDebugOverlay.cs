@@ -120,7 +120,8 @@ public partial class BotDebugOverlay : Node3D
         const int segments = 12;
         for (int k = 0; k <= segments; k++)
         {
-            float yaw = bot.Self.Yaw - half + 2f * half * k / segments;
+            // Where it sees is where its head looks.
+            float yaw = bot.Self.Yaw + bot.Self.HeadYaw - half + 2f * half * k / segments;
             Vector3 edge = origin + (ViewAngles.FlatForward(yaw) * reach).ToGodot();
             if (k == 0 || k == segments)
             {

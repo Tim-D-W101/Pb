@@ -137,7 +137,8 @@ You said the plan was OK and to go ahead, so the opponents got the rest of what 
   sticking into the cover. Measured with `-- --cover-demo`: crouched at the low cover by Oxbarrow's guardhouse, the
   knees went 12.8 cm into it and the elbows 6.0 cm; now neither does. Out in the open on the Rail Yard, 4.0 cm of knee
   before, none now.
-- **Where to play** shows a picture of the place you pick, under the places, from one of its viewpoints.
+- **Where to play** shows a picture of the place you pick under the list of places, from one of its viewpoints; what's
+  there now heads the right-hand column and Start sits beside your record, so the whole card fits on the screen.
 
 The hands-up walk-off and the refill were going to be generated clips (8 credits each); built on the poser they keep
 the planted steps and match the hitboxes, so no clips were bought. Everything is in the data (`presentation.jsonc`
@@ -155,6 +156,14 @@ now (bottom) it dips into the knees and tips on, then settles.*
 ![Out: the marker up and a hand up](phase-3/m3.14-3-out.jpg)
 *Hit at 2 m: the ball breaks on the chest, the marker comes up over the head and the other hand goes up, and the walk
 off starts.*
+
+![Tucked in behind cover](phase-3/m3.14-4-tucked-in.jpg)
+*Tucked in behind an electrical cabinet in Oxbarrow Works (`-- --cover-demo`): crouched tight to it, the knee stops at
+its face and the marker is up off it; stood up, the marker goes over the top.*
+
+![Where to play with a picture of the place](phase-3/m3.14-5-where-to-play-with-a-picture.jpg)
+*Where to play: the place you pick, as you'd see it there, under the list; what's there at the head of the right-hand
+column, and Start beside your record.*
 
 ## What was built
 
