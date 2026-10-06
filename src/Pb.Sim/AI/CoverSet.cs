@@ -108,6 +108,12 @@ public sealed class CoverSet
             }
         }
 
+        // In a part of the level (a place), only cover inside it.
+        if (level.Place is { Whole: false } place)
+        {
+            set._points.RemoveAll(c => !place.Contains(c.Position));
+        }
+
         set.Index();
         return set;
     }

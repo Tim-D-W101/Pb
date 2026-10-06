@@ -45,7 +45,8 @@ public partial class GaitDemo : Node, ICommandSource
     private int _first = -1;
     private int _current = -1;
 
-    public void Start(SimWorld sim, IReadOnlyList<OpponentPawn> opponents, Hud hud, float farClip)
+    /// <param name="towardSun">Which way the sun is (world, level): the camera watches from that side, so the walker is lit.</param>
+    public void Start(SimWorld sim, IReadOnlyList<OpponentPawn> opponents, Hud hud, float farClip, SVector3 towardSun)
     {
         _sim = sim;
         // The nearest clear lane to the first opponent, searched outwards on a 2 m grid.
@@ -88,6 +89,11 @@ public partial class GaitDemo : Node, ICommandSource
         _walker.Steer(this);
         SVector3 ahead = ViewAngles.FlatForward(_yaw);
         _side = new SVector3(-ahead.Z, 0f, ahead.X);
+        if (SVector3.Dot(_side, towardSun) < 0f)
+        {
+            _side = -_side;
+        }
+
         _camera = new Camera3D { Name = "GaitCamera", Fov = 50f, Far = farClip, Near = 0.05f };
         AddChild(_camera);
         _camera.MakeCurrent();
@@ -100,7 +106,82 @@ public partial class GaitDemo : Node, ICommandSource
         if (_walker is not null)
         {
             Track();
+            Measure((float)delta);
         }
+    }
+
+    // How the feet behave in each move, printed as the next starts: steps a second, how far a foot slides
+    // while it's down (it shouldn't), and how far the hips rise and fall.
+    private readonly Vector3[] _toe = new Vector3[2];
+    private readonly bool[] _down = new bool[2];
+    private int _steps;
+    private float _slide;
+    private float _downTime;
+    private float _time;
+    private float _hipsLow = float.MaxValue, _hipsHigh = float.MinValue;
+    private int _measured = -1;
+    private float _settledAt;
+
+    /// <summary>Each move is measured from this long after it starts.</summary>
+    private const float Settle = 0.6f;
+
+    private void Measure(float delta)
+    {
+        if (_walker!.Visual.Model is not { } model || _current < 0)
+        {
+            return;
+        }
+
+        if (_measured != _current)
+        {
+            if (_measured >= 0 && _time > 0f)
+            {
+                CharacterPoser poser = model.Poser;
+                GD.Print($"GAIT DEMO   {Moves[_measured].Name}: {_steps / Mathf.Max(_time - _settledAt, 0.01f):0.0} steps/s, feet slide {(poser.CheckDown > 0f ? poser.CheckSlide / poser.CheckDown : 0f):0.000} m/s while down, " +
+                         $"hips {_hipsLow:0.00}–{_hipsHigh:0.00} m up, ankles up to {poser.CheckMiss * 100f:0.0} cm off their marks");
+                poser.CheckSlide = poser.CheckDown = poser.CheckMiss = 0f;
+            }
+
+            _measured = _current;
+            _steps = 0;
+            _settledAt = 0f;
+            _slide = _downTime = _time = 0f;
+            _hipsLow = float.MaxValue;
+            _hipsHigh = float.MinValue;
+        }
+
+        float floor = _walker.State.Position.Y;
+        _time += delta;
+        if (_time - delta < Settle && _time >= Settle)
+        {
+            // Measured once the move has settled in (not the start, the turn or the stop).
+            model.Poser.CheckSlide = model.Poser.CheckDown = model.Poser.CheckMiss = 0f;
+            _steps = 0;
+            _settledAt = _time;
+        }
+        for (int i = 0; i < 2; i++)
+        {
+            Vector3 toe = model.Attachment(i == 0 ? "LeftToeBase" : "RightToeBase").GlobalPosition;
+            bool down = model.Steps is { } steps ? (i == 0 ? steps.LeftPlanted : steps.RightPlanted) : toe.Y - floor < 0.06f;
+
+            if (down && _down[i])
+            {
+                _slide += new Vector2(toe.X - _toe[i].X, toe.Z - _toe[i].Z).Length();
+                _downTime += delta;
+            }
+            else if (down && !_down[i])
+            {
+                _steps++;
+            }
+
+            _down[i] = down;
+            _toe[i] = toe;
+        }
+
+        float hips = model.Attachment("Hips").GlobalPosition.Y - floor;
+
+        _hipsLow = Mathf.Min(_hipsLow, hips);
+        _hipsHigh = Mathf.Max(_hipsHigh, hips);
     }
 
     public InputCommand Next(int tick, PlayerState me)

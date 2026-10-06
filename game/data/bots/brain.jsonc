@@ -49,6 +49,11 @@
   // Eliminated, they walk to the dead zone and leave the field, at the latest after this long.
   "walkOffTime_s": 25,
 
+  // Patrols, going back to a post and walking off after a hit are at a calm walk, this share of the
+  // walking speed (movement.jsonc "walkSpeed_mps": 0.55 of 3 m/s is about 1.65 m/s). Investigating,
+  // searching and hunting stay at the brisk walking speed.
+  "strollPace": 0.55,
+
   // They shout (spotted you, lost you, under fire, refilling, hit) at most this often; you see it
   // as a subtitle when you're close enough to hear (presentation.jsonc "hud").
   "calloutCooldown_s": 4,

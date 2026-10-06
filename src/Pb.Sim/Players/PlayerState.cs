@@ -87,6 +87,12 @@ public sealed class PlayerState
     /// <summary>The side the marker is moving to (+1 right, −1 left).</summary>
     public float ShoulderTarget { get; set; } = 1f;
 
+    /// <summary>
+    /// How far the marker is pitched up off a wall in front (rad, 0 = shouldered): close to a wall the
+    /// gear comes up about the back of the marker until the barrel clears it, rather than poke through.
+    /// </summary>
+    public float Tuck { get; set; }
+
     /// <summary>Seconds into the current slide.</summary>
     public float SlideTime { get; set; }
 

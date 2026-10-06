@@ -185,6 +185,61 @@
     { "name": "east field", "position_m": [50, 1.7, 30], "yaw_deg": 30, "pitch_deg": 3 },
     { "name": "the containers", "position_m": [-1, 1.7, 9], "yaw_deg": 32, "pitch_deg": 4 }
   ],
+  // Where in the works you can choose to play, every one open, in menu order: the whole of it, or one
+  // part, taped off all round (you can't walk out; paint flies over the tape). A part has its own ways
+  // in (yaw 0 faces north, positive turns left), a spot the eliminated walk off to, and starts closer
+  // together (rules.jsonc "spawning" scaled by spawnScale). Its opponent spawns, patrols and pickups
+  // are the level's that lie inside it.
+  "places": [
+    {
+      "id": "whole", "displayName": "The whole works",
+      "description": "Everything inside the wall: the warehouse, the offices, the pump house, the yard and the east field. You come in at the main gate, the breach in the west wall or the collapse in the north-east corner."
+    },
+    {
+      "id": "warehouse", "displayName": "The warehouse",
+      "description": "Close quarters under the fallen roof: the floor, the loading bays and the mezzanine, with the gravel out front. Its other doors are taped off.",
+      "rect_m": [-34.15, -36.15, 6.15, -6],
+      "playerSpawns": [
+        { "position_m": [-14, 0, -7], "yaw_deg": 0 },
+        { "position_m": [2, 0, -7], "yaw_deg": 0 },
+        { "position_m": [-28, 0, -7], "yaw_deg": 0 }
+      ],
+      "deadZone_m": [5.2, 0, -6.6],
+      "spawnScale": 0.45
+    },
+    {
+      "id": "offices", "displayName": "The office block",
+      "description": "Room to room through both floors of the empty offices, the stairwell and the corridor, and round the outside: the car park and the strip along the west wall.",
+      "rect_m": [-54.7, 3, -13, 31],
+      "playerSpawns": [
+        { "position_m": [-16, 0, 16], "yaw_deg": 90 },
+        { "position_m": [-33, 0, 30], "yaw_deg": 0 }
+      ],
+      "deadZone_m": [-53.5, 0, 30.2],
+      "spawnScale": 0.45
+    },
+    {
+      "id": "yard", "displayName": "The yard",
+      "description": "The open yard between the buildings: rusting containers, the burnt-out car, pallets, tyres and sandbags, and the guardhouse by the main gate. You come in through the gate.",
+      "rect_m": [-20, -10, 26, 48],
+      "playerSpawns": [
+        { "position_m": [8, 0, 45], "yaw_deg": 0 },
+        { "position_m": [-18, 0, 37], "yaw_deg": -45 }
+      ],
+      "spawnScale": 0.6
+    },
+    {
+      "id": "east_field", "displayName": "The east field",
+      "description": "Packed dirt and scrap round the pump house and the water tower, open to long shots, with the north-east corner of the wall knocked down.",
+      "rect_m": [26, -48, 54.7, 39.7],
+      "playerSpawns": [
+        { "position_m": [42, 0, -45], "yaw_deg": 180 },
+        { "position_m": [28, 0, 37], "yaw_deg": 0 }
+      ],
+      "deadZone_m": [42, 0, -46.5],
+      "spawnScale": 0.55
+    }
+  ],
   "pickups": [
     { "id": "pod_guardhouse", "kind": "pod", "position_m": [0.5, 0, 33] },
     { "id": "pod_office_upstairs", "kind": "pod", "position_m": [-39.5, 3.2, 19.5] },

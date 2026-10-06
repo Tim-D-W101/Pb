@@ -231,7 +231,7 @@ public class ObjectiveTests
     [Fact]
     public void Free_for_all_is_always_last_one_standing()
     {
-        LadderTierDef tier = TestData.Data.Ladder.Levels[0].Tiers![0];
+        TierDef tier = TestData.Data.Areas.Areas[0].Tiers[0];
         Assert.Equal(ObjectiveKind.Eliminate, MatchSetup.From(tier, 0, MatchModeKind.FreeForAll, ObjectiveKind.Retrieve).Objective);
         (SimWorld sim, _, _, _) = Round(ObjectiveKind.Retrieve, mode: MatchModeKind.FreeForAll);
         Assert.Null(sim.Match!.Objective);

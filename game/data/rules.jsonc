@@ -1,7 +1,7 @@
 // Round rules for the compound levels (Phase 2).
 {
   // The modes the menu offers, in this order. The mode and its size set who plays whom and how many;
-  // the difficulty (levels/ladder.jsonc "tiers") sets only how good the bots are and what everyone
+  // the difficulty (levels/areas.jsonc "tiers") sets only how good the bots are and what everyone
   // carries, never how many there are. Every mode is won by the last team standing.
   //   kind          "solo": you against a squad holding the level (they never fight each other)
   //                 "freeForAll": everyone against everyone, each player a team of their own with their
@@ -73,7 +73,8 @@
   // in at one of the level's player spawns, and opponents start at a random mix of the level's
   // opponent spawns and cover points (anywhere the level offers cover) inside its spawn area, spread
   // out, away from you and out of your sight. Scripted runs (smoke tests, demos) keep the data's seed
-  // and the level's roster (levels/ladder.jsonc).
+  // and the area's roster (levels/areas.jsonc). A round in part of an area (its level's "places")
+  // starts everyone inside that part, with the distances scaled by the place's "spawnScale".
   "spawning": {
     "minDistanceFromYou_m": 28,
     // Opponents start at least this far apart (relaxed if the level can't fit them).

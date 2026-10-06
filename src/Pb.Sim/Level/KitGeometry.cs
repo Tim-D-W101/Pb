@@ -497,7 +497,26 @@ public static class KitGeometry
         var topCenter = new Vector3(0f, rise - 0.05f, -(run - depth * 0.25f));
         sink.AddBox(frame, origin + Vector3.Transform(topCenter, stairRotation), stairRotation,
             new Vector3(width * 0.5f, 0.05f, depth * 0.25f), material, PrimitiveFlags.Walk, PrimitiveRole.Ramp, owner);
+
+        // The drawn steps are solid down to the floor, so bodies mustn't walk under or into the flight
+        // from the side: under the ramp, each step is solid for walking too, its top a little below
+        // where the ramp crosses the step's front edge, so it never touches feet on the ramp.
+        for (int k = 0; k < steps; k++)
+        {
+            float top = (k + 0.5f) * stepHeight - UnderRampGap;
+            if (top <= 0.02f)
+            {
+                continue;
+            }
+
+            var local = new Vector3(0f, top * 0.5f, -(k + 0.5f) * depth);
+            sink.AddBox(frame, origin + Vector3.Transform(local, stairRotation), stairRotation,
+                new Vector3(width * 0.5f, top * 0.5f, depth * 0.5f), material, PrimitiveFlags.Walk, PrimitiveRole.Ramp, owner);
+        }
     }
+
+    /// <summary>How far below the walking ramp the solid under a flight stays (m).</summary>
+    private const float UnderRampGap = 0.03f;
 
     public static void Column(PrimitiveSink sink, PlanFrame frame, Vector2 at, Vector2 size, float baseY, float height,
         MaterialRef material, int owner)

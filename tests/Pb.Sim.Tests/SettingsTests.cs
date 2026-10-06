@@ -73,8 +73,8 @@ public class SettingsTests
         Assert.Equal("high", s.GraphicsPreset);
         Assert.Equal(0.75f, s.RenderScale);
         Assert.Equal(0.5f, s.Volume);
-        Assert.True(s.OpenAllLevels);
-        // ...and what wasn't starts at its default.
+        // ...a setting since dropped ("openAllLevels": every area is open now) is ignored...
+        // ...and what wasn't saved starts at its default.
         Assert.Equal(220f, s.StickSpeedDegps);
         Assert.Equal(2f, s.StickCurve);
         Assert.Empty(s.Bindings);

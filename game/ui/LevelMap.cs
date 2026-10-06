@@ -13,15 +13,23 @@ namespace Pb.Game.Ui;
 /// A plan of the level for the briefing card, drawn from its primitives (north up): the ground and its
 /// patches in their materials' colours, the buildings' ground floors, upper floors faintly over them,
 /// walls and columns dark, props in their own colours, where you (and your team) start, and the objective
-/// (the case's building and the ways out, or the room to hold), with a north arrow and a scale bar. Drawn
+/// (the case's building and the ways out, or the room to hold), with a north arrow and a scale bar. A round in
+/// part of the area frames that part, with the rest dimmed round it and its edge taped red and white. Drawn
 /// once, nothing loaded.
 /// </summary>
 public partial class LevelMap : Control
 {
     private const float Margin = 14f;
 
+    /// <summary>How much of the area round a part of it the map shows (m).</summary>
+    private const float AroundPlace = 8f;
+
+    private static readonly Color Tape = new(0.8f, 0.2f, 0.15f);
+
     private readonly List<(Vector2[] Outline, Color Fill, bool Wall)> _shapes = new();
     private Pb.Sim.Collision.Aabb _bounds;
+    private Rect2 _frame;
+    private Rect2? _place;
     private Vector2 _you;
     private float _youYaw;
     private bool _hasYou;
@@ -39,7 +47,11 @@ public partial class LevelMap : Control
     {
         CustomMinimumSize = size;
         MouseFilter = MouseFilterEnum.Ignore;
+        ClipContents = true;
         _bounds = level.Bounds;
+        var whole = new Rect2(_bounds.Min.X, _bounds.Min.Z, _bounds.Max.X - _bounds.Min.X, _bounds.Max.Z - _bounds.Min.Z);
+        _place = level.Place is { Bounds: { } pb } ? new Rect2(pb.Min.X, pb.Min.Z, pb.Max.X - pb.Min.X, pb.Max.Z - pb.Min.Z) : null;
+        _frame = _place is { } place ? place.Grow(AroundPlace).Intersection(whole) : whole;
         _accent = colour ?? UiKit.Accent;
         _shapes.Clear();
         Color Of(int material, float shade = 1f) => (Color.FromHtml(level.Materials[material].Def.Color) * shade) with { A = 1f };
@@ -132,7 +144,7 @@ public partial class LevelMap : Control
     {
         Vector2 size = Size;
         DrawRect(new Rect2(Vector2.Zero, size), new Color(0.09f, 0.095f, 0.1f));
-        float w = _bounds.Max.X - _bounds.Min.X, d = _bounds.Max.Z - _bounds.Min.Z;
+        float w = _frame.Size.X, d = _frame.Size.Y;
         if (w <= 0f || d <= 0f)
         {
             return;
@@ -141,7 +153,7 @@ public partial class LevelMap : Control
         float scale = MathF.Min((size.X - 2f * Margin) / w, (size.Y - 2f * Margin) / d);
         var origin = new Vector2((size.X - w * scale) * 0.5f, (size.Y - d * scale) * 0.5f);
         // North (−z) is up the page, east (+x) to the right.
-        Vector2 Map(Vector2 plan) => origin + new Vector2(plan.X - _bounds.Min.X, plan.Y - _bounds.Min.Z) * scale;
+        Vector2 Map(Vector2 plan) => origin + (plan - _frame.Position) * scale;
 
         foreach ((Vector2[] outline, Color fill, bool wall) in _shapes)
         {
@@ -157,6 +169,28 @@ public partial class LevelMap : Control
             if (wall)
             {
                 DrawPolyline(points, fill, 1.6f, antialiased: true);
+            }
+        }
+
+        // A part of the area: the rest dimmed, the edge taped.
+        if (_place is { } place)
+        {
+            Vector2 a = Map(place.Position), b = Map(place.End);
+            var dim = new Color(0.05f, 0.05f, 0.06f, 0.62f);
+            DrawRect(new Rect2(0f, 0f, size.X, a.Y), dim);
+            DrawRect(new Rect2(0f, b.Y, size.X, size.Y - b.Y), dim);
+            DrawRect(new Rect2(0f, a.Y, a.X, b.Y - a.Y), dim);
+            DrawRect(new Rect2(b.X, a.Y, size.X - b.X, b.Y - a.Y), dim);
+            Vector2[] corners = { a, new(b.X, a.Y), b, new(a.X, b.Y) };
+            for (int e = 0; e < 4; e++)
+            {
+                Vector2 from = corners[e], to = corners[(e + 1) % 4];
+                float length = from.DistanceTo(to);
+                int dashes = Math.Max(1, (int)(length / 7f));
+                for (int k = 0; k < dashes; k++)
+                {
+                    DrawLine(from.Lerp(to, (float)k / dashes), from.Lerp(to, (float)(k + 1) / dashes), k % 2 == 0 ? Tape : UiKit.Text, 2.5f);
+                }
             }
         }
 

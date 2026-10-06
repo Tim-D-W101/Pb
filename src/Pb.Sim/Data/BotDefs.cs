@@ -79,6 +79,8 @@ public sealed class BrainDef : IValidatable
 
     public float WalkOffTime_s { get; set; }
 
+    public float StrollPace { get; set; }
+
     public float CalloutCooldown_s { get; set; }
 
     public int HuntChoices { get; set; }
@@ -166,6 +168,7 @@ public sealed class BrainDef : IValidatable
         v.InRange(nameof(AimSettleTime_s), AimSettleTime_s, 0.01, 30);
         v.InRange(nameof(AimTolerance_deg), AimTolerance_deg, 0.05, 45);
         v.InRange(nameof(WalkOffTime_s), WalkOffTime_s, 1, 600);
+        v.InRange(nameof(StrollPace), StrollPace, 0.2, 1);
     }
 }
 
@@ -247,6 +250,9 @@ public enum BotGait
 {
     Walk,
     Run,
+
+    /// <summary>A calm walk, slower than <see cref="Walk"/>: patrols, going back to a post, walking off.</summary>
+    Stroll,
 }
 
 /// <summary>One bot behaviour (bots/archetypes.jsonc).</summary>

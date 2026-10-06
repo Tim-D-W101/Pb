@@ -68,6 +68,9 @@ public sealed class BrainParams
 
     public required float WalkOffTime { get; init; }
 
+    /// <summary>A stroll's share of the walking speed (patrols, going back to a post, walking off).</summary>
+    public required float StrollPace { get; init; }
+
     public required float CalloutCooldown { get; init; }
 
     /// <summary>Hunting, the next spot is picked at random from this many nearest unvisited ones.</summary>
@@ -279,6 +282,7 @@ public sealed class BotConfig
             AimSettleTime = brain.AimSettleTime_s,
             AimTolerance = brain.AimTolerance_deg * Units.DegreesToRadians,
             WalkOffTime = brain.WalkOffTime_s,
+            StrollPace = brain.StrollPace,
             CalloutCooldown = brain.CalloutCooldown_s,
             HuntChoices = brain.HuntChoices,
             HuntLookAround = brain.HuntLookAround_s,

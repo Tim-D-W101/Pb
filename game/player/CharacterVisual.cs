@@ -43,8 +43,12 @@ public partial class CharacterVisual : Node3D
     private Node3D? _marker;
     private MarkerModelDef? _markerDef;
     private readonly System.Collections.Generic.Dictionary<GeometryInstance3D, (GeometryInstance3D.ShadowCastingSetting Cast, bool Visible)> _drawn = new();
+    private StepGait.GroundQuery _ground = null!;
 
     public bool HasModel => _model is not null;
+
+    /// <summary>The drawn model, if the character has one (null: hitbox boxes).</summary>
+    public CharacterModel? Model => _model;
 
     /// <summary>
     /// Only the character's shadow shows (your own body in first person): the model casts its shadow but
@@ -86,6 +90,7 @@ public partial class CharacterVisual : Node3D
         _sim = sim;
         _state = state;
         _look = characters;
+        _ground = Ground;
         _paint = jersey;
         _standEye = sim.Config.Movement.StandEyeHeight;
         _crouchEye = sim.Config.Movement.CrouchEyeHeight;
@@ -227,12 +232,20 @@ public partial class CharacterVisual : Node3D
             poser.SupportHand = Refill(Grip(_look.SupportGrip), feet, eye, poser);
         }
 
-        // The legs, by the ground the feet covered since the last frame.
+        // The legs: planted steps where the body goes, or the clips by the ground the feet covered.
         Vector3 moved = feet - _lastFeet;
         _lastFeet = feet;
         float crouch = (_standEye - eye) / Mathf.Max(_standEye - _crouchEye, 0.01f);
-        _model.Gait.Update(moved, _state.Velocity.ToGodot(), poser.Forward, crouch, _state.Stance == Stance.Sliding,
-            _state.Grounded, (float)GetProcessDeltaTime());
+        float delta = (float)GetProcessDeltaTime();
+        if (_model.Steps is { } steps)
+        {
+            steps.Update(feet, yaw, crouch, poser.HipDrop, Mathf.Lerp(_poseBefore.Shoulder, _poseNow.Shoulder, alpha), _state.Stance == Stance.Sliding,
+                _state.Grounded, delta, _ground);
+        }
+        else
+        {
+            _model.Gait?.Update(moved, _state.Velocity.ToGodot(), poser.Forward, crouch, _state.Stance == Stance.Sliding, _state.Grounded, delta);
+        }
     }
 
     /// <summary>
@@ -289,6 +302,21 @@ public partial class CharacterVisual : Node3D
         _pod ??= _model!.Pod(poser.RightHanded ? "LeftHand" : "RightHand", _paint);
         _pod.Visible = f is > 0.3f and < 0.88f;
         return hand;
+    }
+
+    /// <summary>The ground's height near <paramref name="at"/>: what a drop down from a little above it lands on (paint geometry, so the drawn stair treads).</summary>
+    private bool Ground(Vector3 at, out float height)
+    {
+        System.Numerics.Vector3 from = at.ToSim() + new System.Numerics.Vector3(0f, 0.6f, 0f);
+        System.Numerics.Vector3 to = at.ToSim() - new System.Numerics.Vector3(0f, 0.6f, 0f);
+        if (_sim.Collision.SweepSphere(from, to, 0.02f, out SweepHit hit) && hit.Normal.Y > 0.6f)
+        {
+            height = hit.Point.Y - 0.02f * hit.Normal.Y;
+            return true;
+        }
+
+        height = at.Y;
+        return false;
     }
 
     private static bool IsGear(HitboxPart part) => part is HitboxPart.Marker or HitboxPart.Loader or HitboxPart.Tank;

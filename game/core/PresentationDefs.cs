@@ -111,6 +111,8 @@ public sealed class PresentationDef : IValidatable
 
     public YardFittingsDef YardFittings { get; set; } = new();
 
+    public PlaceBoundaryDef PlaceBoundary { get; set; } = new();
+
     public WallHangingsDef WallHangings { get; set; } = new();
 
     public CreepersDef Creepers { get; set; } = new();
@@ -206,6 +208,7 @@ public sealed class PresentationDef : IValidatable
         FloorDebris.Validate(v.Scope(nameof(FloorDebris)));
         Woods.Validate(v.Scope(nameof(Woods)));
         YardFittings.Validate(v.Scope(nameof(YardFittings)));
+        PlaceBoundary.Validate(v.Scope(nameof(PlaceBoundary)));
         WallHangings.Validate(v.Scope(nameof(WallHangings)));
         Creepers.Validate(v.Scope(nameof(Creepers)));
         MenuBackdrop.Validate(v.Scope(nameof(MenuBackdrop)));
@@ -1314,19 +1317,6 @@ public sealed class CharactersDef : IValidatable
     /// <summary>How far a ball hitting a body at full speed turns its upper body away (degrees; slower balls less).</summary>
     public float Flinch_deg { get; set; }
 
-    /// <summary>Steps while moving: stride length and how high a foot lifts.</summary>
-    public float Stride_m { get; set; }
-
-    public float StepLift_m { get; set; }
-
-    /// <summary>Speed at which steps reach their full stride, and how long they take to get there from a standstill.</summary>
-    public float FullStrideSpeed_mps { get; set; }
-
-    public float StrideEase_s { get; set; }
-
-    /// <summary>How far the hips bob down at each footfall.</summary>
-    public float HipBob_m { get; set; }
-
     /// <summary>How far the hips drop for each metre the eye drops (crouching).</summary>
     public float HipDropPerEyeDrop { get; set; }
 
@@ -1342,7 +1332,13 @@ public sealed class CharactersDef : IValidatable
 
     public float GripDrop_m { get; set; }
 
-    /// <summary>Movement clips shared by every model; without a walk, the steps above stand in.</summary>
+    /// <summary>How the legs move: "steps" plants each foot in the world as it walks (<see cref="Steps"/>), "clips" plays the movement clips.</summary>
+    public string Legs { get; set; } = "steps";
+
+    /// <summary>The planted steps (<see cref="Pb.Game.Player.StepGait"/>).</summary>
+    public StepsDef Steps { get; set; } = new();
+
+    /// <summary>Movement clips shared by every model, for "clips" legs; without a walk clip, the steps stand in.</summary>
     public CharacterClipsDef Clips { get; set; } = new();
 
     /// <summary>How long clips take to blend in and out, and between walk, run and crouch.</summary>
@@ -1365,11 +1361,12 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(ArmbandWidth_m), ArmbandWidth_m, 0.01, 0.5);
         v.InRange(nameof(ArmbandGap_m), ArmbandGap_m, 0, 0.05);
         v.InRange(nameof(Flinch_deg), Flinch_deg, 0, 30);
-        v.InRange(nameof(Stride_m), Stride_m, 0.1, 2);
-        v.InRange(nameof(StepLift_m), StepLift_m, 0, 0.5);
-        v.InRange(nameof(FullStrideSpeed_mps), FullStrideSpeed_mps, 0.1, 20);
-        v.InRange(nameof(StrideEase_s), StrideEase_s, 0.01, 5);
-        v.InRange(nameof(HipBob_m), HipBob_m, 0, 0.2);
+        if (Legs is not ("steps" or "clips"))
+        {
+            v.Error(nameof(Legs), $"'{Legs}' is neither \"steps\" nor \"clips\"");
+        }
+
+        Steps.Validate(v.Scope(nameof(Steps)));
         v.InRange(nameof(HipDropPerEyeDrop), HipDropPerEyeDrop, 0, 1.5);
         v.InRange(nameof(ChestPitch), ChestPitch, 0, 1);
         v.InRange(nameof(HeadPitch), HeadPitch, 0, 1);
@@ -1378,6 +1375,192 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(GripDrop_m), GripDrop_m, -0.3, 0.3);
         v.InRange(nameof(ClipBlend_s), ClipBlend_s, 0.02, 2);
         v.InRange(nameof(MaxLegYaw_deg), MaxLegYaw_deg, 0, 90);
+    }
+}
+
+/// <summary>
+/// How characters step (<see cref="Pb.Game.Player.StepGait"/>): the gait by speed, the stance, turning on
+/// the spot, the heel and toe, the hips, and the poses off the ground.
+/// </summary>
+public sealed class StepsDef : IValidatable
+{
+    /// <summary>The gait by speed, in rising order; between rows it blends.</summary>
+    public GaitRowDef[] Gaits { get; set; } = System.Array.Empty<GaitRowDef>();
+
+    /// <summary>Crouched, the cadence and the lift scale by these.</summary>
+    public float CrouchCadence { get; set; }
+
+    public float CrouchLift { get; set; }
+
+    /// <summary>The feet's spacing across (m, ankle to ankle), standing and crouched.</summary>
+    public float StanceWidth_m { get; set; }
+
+    public float CrouchStanceWidth_m { get; set; }
+
+    /// <summary>Standing still, how far the support-side foot is ahead of the other (m), standing and crouched.</summary>
+    public float Stagger_m { get; set; }
+
+    public float CrouchStagger_m { get; set; }
+
+    /// <summary>Standing still, how far the hips turn off the aim towards the trigger side (a shooter's stance).</summary>
+    public float Blade_deg { get; set; }
+
+    /// <summary>Toes turned out from the legs' heading.</summary>
+    public float ToeOut_deg { get; set; }
+
+    /// <summary>The most the hips turn from the aim; moving, the share of the travel's angle they turn by.</summary>
+    public float MaxTwist_deg { get; set; }
+
+    public float TravelTwist { get; set; }
+
+    /// <summary>Moving more than this far round from the aim is backing off: the legs face away from the travel.</summary>
+    public float BackOff_deg { get; set; }
+
+    /// <summary>How fast the legs' heading turns.</summary>
+    public float LegTurnRate_degps { get; set; }
+
+    /// <summary>Standing, the hips turn this far from the feet towards the aim before a foot has to move.</summary>
+    public float HipGive_deg { get; set; }
+
+    /// <summary>Standing, a foot steps back into the stance when it's this far from its place, or the aim this far round from the feet.</summary>
+    public float SettleDistance_m { get; set; }
+
+    public float SettleTwist_deg { get; set; }
+
+    /// <summary>Such a step's time and lift.</summary>
+    public float SettleStep_s { get; set; }
+
+    public float SettleLift_m { get; set; }
+
+    /// <summary>The heel lifts by up to this much late in a foot's time down, starting this far behind the hip and fully up this much further; the toes come up this much to land.</summary>
+    public float HeelOff_deg { get; set; }
+
+    public float HeelOffFrom_m { get; set; }
+
+    public float HeelOffOver_m { get; set; }
+
+    public float ToeUp_deg { get; set; }
+
+    /// <summary>The hips sit this far below their rest height, so the knees are never locked straight.</summary>
+    public float SoftKnees_m { get; set; }
+
+    public float RunSink_m { get; set; }
+
+    /// <summary>The hips sway this far over the foot that's down, turn this much with the stride and roll this much over the foot in the air.</summary>
+    public float Sway_m { get; set; }
+
+    public float HipTurn_deg { get; set; }
+
+    public float HipRoll_deg { get; set; }
+
+    /// <summary>The upper body leans forward this much per m/s, at most this much.</summary>
+    public float LeanPerSpeed_deg { get; set; }
+
+    public float MaxLean_deg { get; set; }
+
+    /// <summary>Legs reach this share of their length at full stretch; a step lands at most this many leg lengths from its hip; the hips drop at most this far to let the legs reach.</summary>
+    public float MaxStretch { get; set; }
+
+    public float MaxStep { get; set; }
+
+    public float MaxReachDrop_m { get; set; }
+
+    /// <summary>A foot lands on ground at most this far above or below the body's own floor (a stair tread, a kerb), else on the body's floor.</summary>
+    public float StepUp_m { get; set; }
+
+    public float StepDown_m { get; set; }
+
+    /// <summary>In the air the feet tuck up this far; sliding, the lead foot reaches this far ahead.</summary>
+    public float TuckLift_m { get; set; }
+
+    public float SlideReach_m { get; set; }
+
+    /// <summary>How quickly the body's measured velocity follows its movement (s).</summary>
+    public float VelocitySmoothing_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (Gaits.Length < 2)
+        {
+            v.Error(nameof(Gaits), "needs at least two rows");
+        }
+
+        for (int i = 0; i < Gaits.Length; i++)
+        {
+            Gaits[i].Validate(v.Item(nameof(Gaits), i));
+            if (i > 0 && Gaits[i].Speed_mps <= Gaits[i - 1].Speed_mps)
+            {
+                v.Item(nameof(Gaits), i).Error(nameof(GaitRowDef.Speed_mps), "speeds must rise down the table");
+            }
+        }
+
+        v.InRange(nameof(CrouchCadence), CrouchCadence, 0.2, 2);
+        v.InRange(nameof(CrouchLift), CrouchLift, 0, 2);
+        v.InRange(nameof(StanceWidth_m), StanceWidth_m, 0, 0.8);
+        v.InRange(nameof(CrouchStanceWidth_m), CrouchStanceWidth_m, 0, 0.8);
+        v.InRange(nameof(Stagger_m), Stagger_m, 0, 0.8);
+        v.InRange(nameof(CrouchStagger_m), CrouchStagger_m, 0, 0.8);
+        v.InRange(nameof(Blade_deg), Blade_deg, 0, 60);
+        v.InRange(nameof(ToeOut_deg), ToeOut_deg, 0, 30);
+        v.InRange(nameof(MaxTwist_deg), MaxTwist_deg, 0, 90);
+        v.InRange(nameof(TravelTwist), TravelTwist, 0, 1);
+        v.InRange(nameof(BackOff_deg), BackOff_deg, 90, 180);
+        v.InRange(nameof(LegTurnRate_degps), LegTurnRate_degps, 10, 3600);
+        v.InRange(nameof(HipGive_deg), HipGive_deg, 0, 60);
+        v.InRange(nameof(SettleDistance_m), SettleDistance_m, 0.02, 1);
+        v.InRange(nameof(SettleTwist_deg), SettleTwist_deg, 5, 90);
+        v.InRange(nameof(SettleStep_s), SettleStep_s, 0.05, 2);
+        v.InRange(nameof(SettleLift_m), SettleLift_m, 0, 0.3);
+        v.InRange(nameof(HeelOff_deg), HeelOff_deg, 0, 70);
+        v.InRange(nameof(HeelOffFrom_m), HeelOffFrom_m, -0.5, 1);
+        v.InRange(nameof(HeelOffOver_m), HeelOffOver_m, 0.01, 1);
+        v.InRange(nameof(ToeUp_deg), ToeUp_deg, 0, 40);
+        v.InRange(nameof(SoftKnees_m), SoftKnees_m, 0, 0.2);
+        v.InRange(nameof(RunSink_m), RunSink_m, 0, 0.2);
+        v.InRange(nameof(Sway_m), Sway_m, 0, 0.1);
+        v.InRange(nameof(HipTurn_deg), HipTurn_deg, 0, 30);
+        v.InRange(nameof(HipRoll_deg), HipRoll_deg, 0, 20);
+        v.InRange(nameof(LeanPerSpeed_deg), LeanPerSpeed_deg, 0, 10);
+        v.InRange(nameof(MaxLean_deg), MaxLean_deg, 0, 40);
+        v.InRange(nameof(MaxStretch), MaxStretch, 0.8, 1.0);
+        v.InRange(nameof(MaxStep), MaxStep, 0.2, 2);
+        v.InRange(nameof(MaxReachDrop_m), MaxReachDrop_m, 0, 0.6);
+        v.InRange(nameof(StepUp_m), StepUp_m, 0, 0.6);
+        v.InRange(nameof(StepDown_m), StepDown_m, 0, 0.8);
+        v.InRange(nameof(TuckLift_m), TuckLift_m, 0, 0.6);
+        v.InRange(nameof(SlideReach_m), SlideReach_m, 0, 1);
+        v.InRange(nameof(VelocitySmoothing_s), VelocitySmoothing_s, 0.005, 1);
+    }
+}
+
+/// <summary>
+/// The gait at one speed: cycles a second (a cycle is two steps), the share of the cycle each foot is
+/// in the air (under half is a walk, both feet down between steps; over half a run, both off the
+/// ground between them), how high a foot lifts, where it lands (as a share of the ground the body
+/// covers while the foot is down: 0.5 puts it under the hip halfway through), and the hips' bob.
+/// </summary>
+public sealed class GaitRowDef : IValidatable
+{
+    public float Speed_mps { get; set; }
+
+    public float Cadence_hz { get; set; }
+
+    public float Swing { get; set; }
+
+    public float Lift_m { get; set; }
+
+    public float LandAhead { get; set; }
+
+    public float Bob_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Speed_mps), Speed_mps, 0, 15);
+        v.InRange(nameof(Cadence_hz), Cadence_hz, 0.2, 4);
+        v.InRange(nameof(Swing), Swing, 0.2, 0.85);
+        v.InRange(nameof(Lift_m), Lift_m, 0, 0.6);
+        v.InRange(nameof(LandAhead), LandAhead, 0, 1);
+        v.InRange(nameof(Bob_m), Bob_m, 0, 0.15);
     }
 }
 
@@ -2932,6 +3115,89 @@ public sealed class YardFittingsDef : IValidatable
 }
 
 /// <summary>
+/// The tape round a place smaller than its whole area (game/world/PlaceBoundary.cs): how finely the edge
+/// is surveyed; what counts as a gap to tape (clear of the walking geometry by clearRadius_m at each of
+/// clearHeights_m above a floor, and at least minGap_m wide); the strands' heights above the floor, the
+/// tape's width, sag per 2.5 m and stripes (two colours, each stripe_m long), how far it flutters; and
+/// the posts: most spacing on a long run, height, width and the length of their painted bands.
+/// </summary>
+public sealed class PlaceBoundaryDef : IValidatable
+{
+    public float Sample_m { get; set; }
+
+    public float ClearRadius_m { get; set; }
+
+    public float[] ClearHeights_m { get; set; } = System.Array.Empty<float>();
+
+    public float MinGap_m { get; set; }
+
+    public float[] Strands_m { get; set; } = System.Array.Empty<float>();
+
+    public float TapeWidth_m { get; set; }
+
+    public float Sag_m { get; set; }
+
+    public float Stripe_m { get; set; }
+
+    public string[] Colors { get; set; } = System.Array.Empty<string>();
+
+    public float Flutter_m { get; set; }
+
+    public float PostSpacing_m { get; set; }
+
+    public float PostHeight_m { get; set; }
+
+    public float PostWidth_m { get; set; }
+
+    public float PostBand_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Sample_m), Sample_m, 0.05, 1);
+        v.InRange(nameof(ClearRadius_m), ClearRadius_m, 0.02, 0.5);
+        if (ClearHeights_m.Length == 0)
+        {
+            v.Error(nameof(ClearHeights_m), "needs at least one height");
+        }
+
+        foreach (float h in ClearHeights_m)
+        {
+            v.InRange(nameof(ClearHeights_m), h, 0.1, 2.5);
+        }
+
+        v.InRange(nameof(MinGap_m), MinGap_m, 0, 3);
+        if (Strands_m.Length == 0)
+        {
+            v.Error(nameof(Strands_m), "needs at least one strand");
+        }
+
+        foreach (float h in Strands_m)
+        {
+            v.InRange(nameof(Strands_m), h, 0.1, PostHeight_m);
+        }
+
+        v.InRange(nameof(TapeWidth_m), TapeWidth_m, 0.01, 0.2);
+        v.InRange(nameof(Sag_m), Sag_m, 0, 0.3);
+        v.InRange(nameof(Stripe_m), Stripe_m, 0.02, 1);
+        if (Colors.Length != 2)
+        {
+            v.Error(nameof(Colors), "needs two colours, the stripes'");
+        }
+
+        foreach (string c in Colors)
+        {
+            TrainingGroundDef.Colour(v, nameof(Colors), c);
+        }
+
+        v.InRange(nameof(Flutter_m), Flutter_m, 0, 0.2);
+        v.InRange(nameof(PostSpacing_m), PostSpacing_m, 0.5, 10);
+        v.InRange(nameof(PostHeight_m), PostHeight_m, 0.3, 2);
+        v.InRange(nameof(PostWidth_m), PostWidth_m, 0.01, 0.2);
+        v.InRange(nameof(PostBand_m), PostBand_m, 0.02, 1);
+    }
+}
+
+/// <summary>
 /// Trees out beyond the levels and the training ground (game/world/Woods.cs): how many copses, how many
 /// trees in each (least, most) and how far they spread from its middle, how far the nearest stand from
 /// the place and the farthest reach beyond that, how far they keep from power and pole lines, how tall
@@ -3313,7 +3579,7 @@ public sealed class CreepersDef : IValidatable
 /// </summary>
 public sealed class MenuBackdropDef : IValidatable
 {
-    /// <summary>A camera drift per level; the menu shows the newest level you've opened that has one (else the first).</summary>
+    /// <summary>A camera drift per area; the menu shows the area you played last, if it has one (else the first).</summary>
     public BackdropShotDef[] Shots { get; set; } = System.Array.Empty<BackdropShotDef>();
 
     public float Period_s { get; set; }

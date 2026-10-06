@@ -4,9 +4,9 @@ using Pb.Game.Core;
 namespace Pb.Game.Player;
 
 /// <summary>
-/// How a character's legs move: which movement clips play, how much, where in their cycle and which
-/// way the legs face; or, without a walk clip, the procedural steps. It's fed the ground covered each
-/// frame, so clips play at the pace that keeps their feet planted. Walk blends into run between the
+/// How a character's legs move with movement clips ("clips" legs; <see cref="StepGait"/> plants steps
+/// instead): which clips play, how much, where in their cycle and which way the legs face. It's fed the
+/// ground covered each frame, so clips play at the pace that keeps their feet planted. Walk blends into run between the
 /// two clips' own speeds and into the crouched walk as the body crouches, all on one phase so the feet
 /// stay in step; the legs turn towards where the body is going (the chest stays on the aim), and
 /// backing off plays the cycle backwards. <see cref="CharacterPoser"/> applies it.
@@ -49,13 +49,6 @@ public sealed class Gait
     /// <summary>How far the legs turn from the facing towards the travel (rad, positive to the left).</summary>
     public float LegYaw { get; private set; }
 
-    /// <summary>Procedural steps, without clips: phase (rad), how much of a full step (0–1) and which way (world, unit).</summary>
-    public float StepPhase { get; private set; }
-
-    public float StepAmount { get; private set; }
-
-    public Vector3 StepDirection { get; private set; } = Vector3.Forward;
-
     /// <summary>How far below their rest height the playing clips already carry the hips, on average (m).</summary>
     public float ClipHipsDrop
     {
@@ -86,7 +79,6 @@ public sealed class Gait
         float distance = sliding || !grounded ? 0f : moved.Length();
         if (Walk is null)
         {
-            Steps(speed, distance, velocity, forward, delta);
             return;
         }
 
@@ -134,21 +126,5 @@ public sealed class Gait
         cycle = Mathf.Lerp(cycle, Crouch?.CycleDistance_m ?? cycle, CrouchWeight);
         Phase += (_backward ? -1f : 1f) * distance / Mathf.Max(cycle, 0.1f);
         Phase -= Mathf.Floor(Phase);
-    }
-
-    /// <summary>Without clips: one stride per half cycle, as far as the feet have moved, along the travel; they settle when it stops.</summary>
-    private void Steps(float speed, float distance, Vector3 velocity, Vector3 forward, float delta)
-    {
-        float target = Mathf.Clamp(speed / _look.FullStrideSpeed_mps, 0f, 1f);
-        StepAmount = Mathf.MoveToward(StepAmount, target, delta / _look.StrideEase_s);
-        StepPhase = Mathf.Wrap(StepPhase + distance / _look.Stride_m * Mathf.Pi, 0f, Mathf.Tau);
-        if (speed > Standing)
-        {
-            StepDirection = velocity.Normalized();
-        }
-        else if (StepAmount <= 0f)
-        {
-            StepDirection = forward;
-        }
     }
 }

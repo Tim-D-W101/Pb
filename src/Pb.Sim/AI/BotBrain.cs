@@ -671,7 +671,7 @@ public sealed class BotBrain
 
             if (!_hasGoal)
             {
-                GoTo(route.Points[_patrolIndex], BotGait.Walk);
+                GoTo(route.Points[_patrolIndex], BotGait.Stroll);
             }
 
             FollowPath(dt);
@@ -696,7 +696,7 @@ public sealed class BotBrain
         {
             if (!_hasGoal || FlatDistance(_goal, post) > 0.5f)
             {
-                GoTo(post, BotGait.Walk);
+                GoTo(post, _dutyPost is null ? BotGait.Stroll : BotGait.Walk);
             }
 
             FollowPath(dt);
@@ -1806,7 +1806,7 @@ public sealed class BotBrain
             SetMode(BotMode.Out);
             _squad.Cover.Release(Self.Id);
             _cover = -1;
-            GoTo(_sim.Level?.DeadZone ?? Home, BotGait.Walk);
+            GoTo(_sim.Level?.DeadZone ?? Home, BotGait.Stroll);
         }
 
         _outFor += dt;
@@ -1843,7 +1843,7 @@ public sealed class BotBrain
     private void GoHome()
     {
         Vector3 home = _dutyPost ?? (Route is { Points.Count: > 0 } route ? route.Points[_patrolIndex = NearestRoutePoint(route, Self.Position)] : Home);
-        GoTo(home, BotGait.Walk);
+        GoTo(home, _dutyPost is null ? BotGait.Stroll : BotGait.Walk);
     }
 
     private void GoTo(Vector3 goal, BotGait gait)
@@ -2058,8 +2058,13 @@ public sealed class BotBrain
 
         d /= length;
         float scale = MathF.Min(1f, length / 0.25f + 0.2f);
+        if (gait == BotGait.Stroll)
+        {
+            scale *= _b.StrollPace;
+        }
+
         _cmd.Move = new Vector2(Vector3.Dot(d, ViewAngles.Right(_yaw)), Vector3.Dot(d, ViewAngles.FlatForward(_yaw))) * scale;
-        if (gait == BotGait.Walk)
+        if (gait is BotGait.Walk or BotGait.Stroll)
         {
             _cmd.Buttons |= InputButtons.Walk;
         }

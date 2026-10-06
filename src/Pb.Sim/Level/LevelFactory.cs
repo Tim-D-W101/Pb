@@ -249,6 +249,13 @@ public static class LevelFactory
         AreaSpec spawnArea = areas.First(a => a.Name == def.SpawnArea);
         LevelObjectives objectives = def.Objectives is null ? LevelObjectives.None
             : ToObjectives(errors.Scope(nameof(LevelDef.Objectives)), def.Objectives, areas, playerSpawns, bounds);
+        Vector3 deadZone = Validator.ToVector3(def.DeadZone_m);
+        var places = new List<PlaceSpec>();
+        for (int i = 0; i < def.Places.Length; i++)
+        {
+            places.Add(ToPlace(def.Places[i], errors.Item(nameof(LevelDef.Places), i), bounds, playerSpawns, deadZone));
+        }
+
         errors.ThrowIfErrors();
 
         return new LevelLayout
@@ -280,7 +287,55 @@ public static class LevelFactory
                 .ToArray(),
             Objectives = objectives,
             Tracks = tracks,
+            Places = places,
+            Place = places.FirstOrDefault(p => p.Whole),
         };
+    }
+
+    /// <summary>A place from its definition: its rect inside the level, with an entry and a walk-off spot inside it.</summary>
+    private static PlaceSpec ToPlace(PlaceDef d, Validator item, Aabb bounds, List<SpawnPoint> levelEntries, Vector3 levelDeadZone)
+    {
+        Aabb? rect = null;
+        if (d.Rect_m is { Length: 4 } r && r[2] > r[0] && r[3] > r[1])
+        {
+            rect = new Aabb(new Vector3(r[0], bounds.Min.Y, r[1]), new Vector3(r[2], bounds.Max.Y, r[3]));
+            if (r[0] < bounds.Min.X || r[2] > bounds.Max.X || r[1] < bounds.Min.Z || r[3] > bounds.Max.Z)
+            {
+                item.Error(nameof(PlaceDef.Rect_m), "reaches outside the level bounds");
+            }
+        }
+
+        var place = new PlaceSpec
+        {
+            Id = d.Id,
+            DisplayName = d.DisplayName,
+            Description = d.Description,
+            Bounds = rect,
+            PlayerSpawns = d.PlayerSpawns?.Select(s => new SpawnPoint(Validator.ToVector3(s.Position_m), s.Yaw_deg * Units.DegreesToRadians)).ToArray(),
+            DeadZone = d.DeadZone_m is { Length: 3 } z ? Validator.ToVector3(z) : null,
+            SpawnScale = d.SpawnScale,
+        };
+
+        IReadOnlyList<SpawnPoint> entries = place.PlayerSpawns ?? levelEntries.Where(s => place.Contains(s.Position)).ToArray();
+        if (entries.Count == 0)
+        {
+            item.Error(nameof(PlaceDef.PlayerSpawns), "no entry inside the place: give it playerSpawns of its own");
+        }
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            if (!place.Contains(entries[i].Position))
+            {
+                item.Item(nameof(PlaceDef.PlayerSpawns), i).Error(nameof(SpawnDef.Position_m), "is outside the place's rect");
+            }
+        }
+
+        if (!place.Contains(place.DeadZone ?? levelDeadZone))
+        {
+            item.Error(nameof(PlaceDef.DeadZone_m), place.DeadZone is null ? "needed: the level's dead zone is outside the place's rect" : "is outside the place's rect");
+        }
+
+        return place;
     }
 
     /// <summary>

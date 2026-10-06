@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Runs each scene headless with its scripted smoke test and fails on a non-zero exit, a missing
 # "SMOKE PASS" line, or any engine/script error in the log:
-#   menu   (game/ui/MainMenu.cs): builds every screen and checks the ladder's levels and tiers are offered
-#          (with every level open: --unlock-all)
+#   menu   (game/ui/MainMenu.cs): builds every screen and checks every area offers all its places, all open
 #   range  (game/core/SmokeTest.cs): autopilot, 1,000-ball stress mode and a hot reload
 #   level  (game/core/LevelSmokeTest.cs): walk in through the compound gate, sweeping and firing, up every
 #          flight of stairs and ramp, through a door and a duel; then the same on the Rail Yard, the Cold Store and
@@ -13,7 +12,9 @@
 #          team round, an eight-player free-for-all, a 3 v 3 retrieve and a solo hold against four; then
 #          on the Rail Yard a solo round, a 3 v 3 retrieve and an eight-player free-for-all, on the Cold Store a
 #          solo round, a 3 v 3 hold and an eight-player free-for-all, and on the Hospital Wing a solo round, a 4 v 4
-#          retrieve and a ten-player free-for-all
+#          retrieve and a ten-player free-for-all; and in parts of the areas (walled in and taped off): a
+#          six-player free-for-all in Oxbarrow Works' warehouse, a solo round in the Rail Yard's engine shed,
+#          a 3 v 3 hold inside the Cold Store and a 3 v 3 retrieve in the Hospital Wing's wings
 #   roles  (--role-demo): a Marksman on the Rail Yard spots you far down its view and opens up, and a Flanker on the
 #          Hospital Wing goes round on a teammate's call and looks out from its spot
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
@@ -43,7 +44,7 @@ run() {
   fi
 }
 
-run menu res://scenes/Main.tscn -- --smoke-test --unlock-all
+run menu res://scenes/Main.tscn -- --smoke-test
 run range res://scenes/Range.tscn -- "--smoke-test=$range_ticks"
 run level res://scenes/Level.tscn -- "--smoke-test=$level_ticks"
 run match res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art --random-spawns --record
@@ -65,5 +66,9 @@ run match-hospital-wing-retrieve res://scenes/Level.tscn -- --bot-match --time-l
 run match-hospital-wing-ffa res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=ffa --size=10 --level=hospital_wing
 run role-marksman res://scenes/Level.tscn -- --role-demo=marksman --level=rail_yard --no-art
 run role-flanker res://scenes/Level.tscn -- --role-demo=flanker --level=hospital_wing --no-art
+run match-place res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=ffa --size=6 --place=warehouse
+run match-place-rail-yard res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --random-spawns --level=rail_yard --place=engine_shed
+run match-place-cold-store res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=hold --level=cold_store --place=store
+run match-place-hospital-wing res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=retrieve --level=hospital_wing --place=wings
 run art res://tools/ArtImport.tscn -- --selftest
 exit "$failed"

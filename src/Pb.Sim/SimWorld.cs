@@ -225,6 +225,7 @@ public sealed class SimWorld
                 InputCommand cmd = commands[i];
                 player.Yaw = cmd.Yaw;
                 player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
+                UpdateTuck(player, dt);
                 UpdateFootsteps(player);
                 bool live = IsLive;
                 var input = new MarkerInput(
@@ -335,6 +336,61 @@ public sealed class SimWorld
 
         float firstStep = MathF.Max(1e-5f, Dt - shot.TimeOffset);
         Ballistics.Spawn(solution.Origin, velocity, player.Id, shot.Sequence, player.Team, rng, firstStep, Tick, Events);
+    }
+
+    /// <summary>
+    /// Brings the marker up off whatever is in front of it (<see cref="PlayerState.Tuck"/>): the least pitch,
+    /// in the rig's steps and then refined, at which the barrel from the shoulder to the muzzle clears the
+    /// world, reached at the tuck rate (at once before the round goes live, so nobody starts with the
+    /// barrel in a wall). Eliminated players' gear is up anyway.
+    /// </summary>
+    private void UpdateTuck(PlayerState player, float dt)
+    {
+        HitboxParams rig = Config.Hitboxes;
+        float target = 0f;
+        if (player.Alive && player.Present && rig.TuckMax > 0f && !BarrelClear(player, 0f))
+        {
+            target = rig.TuckMax;
+            float clear = -1f;
+            for (float angle = rig.TuckStep; angle < rig.TuckMax + 1e-4f; angle += rig.TuckStep)
+            {
+                if (BarrelClear(player, MathF.Min(angle, rig.TuckMax)))
+                {
+                    clear = MathF.Min(angle, rig.TuckMax);
+                    break;
+                }
+            }
+
+            if (clear > 0f)
+            {
+                // Between the last blocked step and the first clear one.
+                float low = clear - rig.TuckStep, high = clear;
+                for (int k = 0; k < 3; k++)
+                {
+                    float mid = (low + high) * 0.5f;
+                    if (BarrelClear(player, mid))
+                    {
+                        high = mid;
+                    }
+                    else
+                    {
+                        low = mid;
+                    }
+                }
+
+                target = high;
+            }
+        }
+
+        float step = IsLive ? rig.TuckRate * dt : float.MaxValue;
+        player.Tuck = MathF.Abs(target - player.Tuck) <= step ? target : player.Tuck + MathF.CopySign(step, target - player.Tuck);
+    }
+
+    private bool BarrelClear(PlayerState player, float tuck)
+    {
+        (Vector3 back, Vector3 front) = HitboxRig.MarkerLine(player.EyePosition, player.Yaw, player.Pitch, player.LeanRoll, player.Shoulder, tuck,
+            Config.Hitboxes);
+        return !Collision.SweepSphere(back, front, Config.Hitboxes.TuckBarrelRadius, out _);
     }
 
     /// <summary>

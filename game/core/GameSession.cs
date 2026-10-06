@@ -1,13 +1,17 @@
 namespace Pb.Game.Core;
 
 /// <summary>
-/// What the menus chose, carried across scene changes: the level, mode, size, objective and difficulty tier to play.
-/// Empty when a scene is run directly (the level then takes its options from the command line, or picks
-/// its first playable level, the first mode at its default size, and "normal").
+/// What the menus chose, carried across scene changes: the area (its level), the place in it, the mode,
+/// size, objective and difficulty tier to play. Empty when a scene is run directly (the level then takes its
+/// options from the command line, or picks the first area, the whole of it, the first mode at its default
+/// size, and "normal").
 /// </summary>
 public static class GameSession
 {
     public static string? LevelId { get; set; }
+
+    /// <summary>Where in the area (its level's "places"); null for the first, the whole of it.</summary>
+    public static string? PlaceId { get; set; }
 
     public static string? TierId { get; set; }
 

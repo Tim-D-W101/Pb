@@ -38,6 +38,19 @@ public sealed class HitboxParams
     /// <summary>Pitch of the raised marker of an eliminated player (rad).</summary>
     public required float EliminatedPitch { get; init; }
 
+    /// <summary>
+    /// Near a wall the gear comes up off it instead of poking through: the most it pitches up about the
+    /// back of the marker (rad), how fast (rad/s), the steps the clearance check tries (rad) and the
+    /// barrel's radius for that check (m).
+    /// </summary>
+    public float TuckMax { get; init; }
+
+    public float TuckRate { get; init; }
+
+    public float TuckStep { get; init; } = 0.17f;
+
+    public float TuckBarrelRadius { get; init; }
+
     /// <summary>Indexed by <see cref="HitboxPart"/>.</summary>
     public required bool[] LethalParts { get; init; }
 
@@ -48,12 +61,15 @@ public sealed class HitboxParams
     public bool IsLethal(HitboxPart part) => (int)part < LethalParts.Length && LethalParts[(int)part];
 }
 
-/// <summary>Everything the rig needs from a player, recorded every tick for the hitbox history.</summary>
+/// <summary>
+/// Everything the rig needs from a player, recorded every tick for the hitbox history. <see cref="Tuck"/>
+/// is how far the gear is pitched up off a wall in front (rad, see <see cref="PlayerState.Tuck"/>).
+/// </summary>
 public readonly record struct HitboxPose(
-    Vector3 Position, float Yaw, float Pitch, float EyeHeight, float LeanRoll, float Shoulder, bool Alive, bool Present)
+    Vector3 Position, float Yaw, float Pitch, float EyeHeight, float LeanRoll, float Shoulder, bool Alive, bool Present, float Tuck = 0f)
 {
     public static HitboxPose Of(PlayerState p) =>
-        new(p.Position, p.Yaw, p.Pitch, p.EyeHeight, p.LeanRoll, p.Shoulder, p.Alive, p.Present);
+        new(p.Position, p.Yaw, p.Pitch, p.EyeHeight, p.LeanRoll, p.Shoulder, p.Alive, p.Present, p.Tuck);
 }
 
 /// <summary>One posed hitbox: an oriented box in world space.</summary>
@@ -73,8 +89,9 @@ public struct PosedBox
 /// <summary>
 /// Poses a player's hitboxes (spec §1.2) from their state: the legs stand on the feet and turn with
 /// the yaw; the torso and head roll about the hips with the lean; the mask, arms and gear follow the
-/// aim, and the arms and gear sit on the shoulder side. Eliminated players hold the marker up.
-/// Characters are drawn from the same boxes, so what you see is what you can hit.
+/// aim, and the arms and gear sit on the shoulder side. Near a wall the arms and gear pitch up about
+/// the back of the marker (the tuck), so the barrel never pokes through. Eliminated players hold the
+/// marker up. Characters are drawn from the same boxes, so what you see is what you can hit.
 /// </summary>
 public static class HitboxRig
 {
@@ -100,10 +117,38 @@ public static class HitboxRig
             new Vector3(rig.TorsoWidth * 0.5f, torso * 0.5f, rig.TorsoDepth * 0.5f));
         parts[2] = FromEye(HitboxPart.Head, rig.Head, eye, upper, 1f);
         parts[3] = FromEye(HitboxPart.Mask, rig.Mask, eye, aim, 1f);
-        parts[4] = FromEye(HitboxPart.Arms, rig.Arms, hands, aim, pose.Shoulder);
-        parts[5] = FromEye(HitboxPart.Marker, rig.Marker, hands, aim, pose.Shoulder);
-        parts[6] = FromEye(HitboxPart.Loader, rig.Loader, hands, aim, pose.Shoulder);
-        parts[7] = FromEye(HitboxPart.Tank, rig.Tank, hands, aim, pose.Shoulder);
+        float tuck = pose.Alive ? pose.Tuck : 0f;
+        Quaternion tilt = Quaternion.CreateFromAxisAngle(Vector3.UnitX, tuck);
+        Quaternion gear = tuck > 0f ? Quaternion.Concatenate(tilt, aim) : aim;
+        Vector3 back = MarkerBack(rig, pose.Shoulder);
+        parts[4] = Gear(HitboxPart.Arms, rig.Arms, hands, aim, gear, tilt, back, pose.Shoulder);
+        parts[5] = Gear(HitboxPart.Marker, rig.Marker, hands, aim, gear, tilt, back, pose.Shoulder);
+        parts[6] = Gear(HitboxPart.Loader, rig.Loader, hands, aim, gear, tilt, back, pose.Shoulder);
+        parts[7] = Gear(HitboxPart.Tank, rig.Tank, hands, aim, gear, tilt, back, pose.Shoulder);
+    }
+
+    /// <summary>
+    /// The marker's back (where it rests at the shoulder) and its front, the muzzle, in world space for a
+    /// player whose eye is at <paramref name="eye"/>, with the gear pitched up by <paramref name="tuck"/>.
+    /// </summary>
+    public static (Vector3 Back, Vector3 Front) MarkerLine(Vector3 eye, float yaw, float pitch, float leanRoll, float shoulder, float tuck, HitboxParams rig)
+    {
+        Quaternion aim = Quaternion.CreateFromYawPitchRoll(yaw, pitch, -leanRoll);
+        Vector3 back = MarkerBack(rig, shoulder);
+        Vector3 front = back + Vector3.Transform(new Vector3(0f, 0f, -2f * rig.Marker.HalfExtents.Z), Quaternion.CreateFromAxisAngle(Vector3.UnitX, tuck));
+        return (eye + Vector3.Transform(back, aim), eye + Vector3.Transform(front, aim));
+    }
+
+    /// <summary>The back of the marker in the aim frame's own space (z back): what the gear pitches up about.</summary>
+    private static Vector3 MarkerBack(HitboxParams rig, float side) =>
+        new(rig.Marker.Centre.X * side, rig.Marker.Centre.Y, -(rig.Marker.Centre.Z - rig.Marker.HalfExtents.Z));
+
+    /// <summary>A gear box placed from the eye like <see cref="FromEye"/>, then turned up about <paramref name="pivot"/> by <paramref name="tilt"/>.</summary>
+    private static PosedBox Gear(HitboxPart part, PartBox box, Vector3 hands, Quaternion aim, Quaternion gear, Quaternion tilt, Vector3 pivot, float side)
+    {
+        var local = new Vector3(box.Centre.X * side, box.Centre.Y, -box.Centre.Z);
+        Vector3 tilted = pivot + Vector3.Transform(local - pivot, tilt);
+        return Box(part, hands + Vector3.Transform(tilted, aim), gear, box.HalfExtents);
     }
 
     private static PosedBox FromEye(HitboxPart part, PartBox box, Vector3 eye, Quaternion frame, float side)

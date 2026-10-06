@@ -86,7 +86,7 @@ foreach ((string id, LevelLayout level) in data.Levels)
     Console.WriteLine();
     Console.WriteLine("| Bots (hard), with you in the yard | Mean ms/tick (brains) | p95 ms/tick | Max ms/tick | Path searches |");
     Console.WriteLine("|---|---|---|---|---|");
-    LadderLevelDef entry = data.Ladder.Levels.First(l => l.Id == id);
+    AreaEntryDef entry = data.Areas.Areas.First(l => l.Id == id);
     string[] roster = (entry.Roster ?? Array.Empty<string>()).Take(data.Config.Rules.MaxPlayers - 1).ToArray();
     if (roster.Length > 0 && entry.Tiers is { Length: > 0 } tiers)
     {

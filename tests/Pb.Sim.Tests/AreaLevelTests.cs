@@ -12,22 +12,22 @@ using Xunit.Abstractions;
 namespace Pb.Sim.Tests;
 
 /// <summary>
-/// Every playable level on the ladder, held to the same bar: a grid that reaches everything the level names from every
+/// Every area's level, held to the same bar: a grid that reaches everything the level names from every
 /// way in, starts for every mode and objective, and whole bot rounds that play out without errors.
 /// </summary>
 [Collection(BotArenaCollection.Name)]
-public class LadderLevelTests
+public class AreaLevelTests
 {
     private const int Second = 120;
     private readonly ITestOutputHelper _out;
 
-    public LadderLevelTests(ITestOutputHelper output)
+    public AreaLevelTests(ITestOutputHelper output)
     {
         _out = output;
     }
 
     public static IEnumerable<object[]> Levels() =>
-        TestData.Data.Ladder.Levels.Where(l => !string.IsNullOrWhiteSpace(l.File)).Select(l => new object[] { l.Id });
+        TestData.Data.Areas.Areas.Select(l => new object[] { l.Id });
 
     [Theory]
     [MemberData(nameof(Levels))]

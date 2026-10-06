@@ -1,23 +1,20 @@
-// The level ladder: levels in play order, each harder than the last. Entries without a "file"
-// are announced in level select but locked until they're built (Phase 3).
-// Each playable level has difficulty tiers. A tier sets how good the bots are and what everyone
-// carries; never how many there are (the mode and size are picked separately, see rules.jsonc "modes"):
+// The areas to play in, in menu order. Every area is open, and so is every place to play in it (its
+// level file's "places": the whole area, or one part of it with the round kept inside): nothing is
+// unlocked by playing another, so pick any area, any place, any mode, size and difficulty.
+// Each area has difficulty tiers. A tier sets how good the bots are and what everyone carries; never
+// how many there are (the mode and size are picked separately, see rules.jsonc "modes"):
 //   bots         how good every bot is, teammates and opponents alike (a tier in bots/difficulty.jsonc)
 //   timeLimit_s  how long the round lasts
 //   startPods    full pods you start with (the loader starts full); botPods the same for every bot
-//   pickups      whether the level's paint and air pickups are out
-// roster: the opponent spawns scripted solo runs (smoke tests, demos) fill, in this order, so they play
-// out the same every time. Real rounds deal random starts (rules.jsonc "spawning").
+//   pickups      whether the place's paint and air pickups are out
+// roster: the opponent spawns scripted solo runs over the whole area (smoke tests, demos) fill, in this
+// order, so they play out the same every time. Real rounds deal random starts (rules.jsonc "spawning").
 {
-  // How the ladder opens: the first level is always open; each later one opens when you win a round on the
-  // level before it, in any mode, on this tier or a harder one (later in that level's list; "" = any tier).
-  // Settings → "Open every level" (or --unlock-all) opens them all without counting as wins.
-  "unlock": { "minTier": "easy" },
-
-  // Level select's records: accuracy only counts from rounds with at least this many shots.
+  // The menu keeps your best result in each area, place, mode, objective and difficulty (records only:
+  // they unlock nothing). Accuracy only counts from rounds with at least this many shots.
   "records": { "accuracyMinShots": 10 },
 
-  "levels": [
+  "areas": [
     {
       "id": "oxbarrow_works", "displayName": "Oxbarrow Works", "file": "levels/oxbarrow_works.jsonc",
       "tiers": [

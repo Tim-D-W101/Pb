@@ -5,16 +5,17 @@ using Pb.Sim.Match;
 namespace Pb.Game.Core;
 
 /// <summary>
-/// Your progress up the ladder (levels opened, records, last menu choices), saved to user://profile.json. The
-/// rules live in the sim's <see cref="LadderProgress"/>; this only reads and writes the file. An unreadable file
-/// is set aside as profile.bad.json and you start afresh, so a broken save never stops the game.
+/// Your records (your best in each area, place, mode, objective and difficulty) and the menu's last choices, saved to
+/// user://profile.json. The rules live in the sim's <see cref="RecordBook"/>; this only reads and writes the file. An
+/// unreadable file is set aside as profile.bad.json and you start afresh, so a broken save never stops the game. Saves
+/// from the ladder load too (their records count as the whole area's; the levels they had opened don't matter now).
 /// </summary>
 public static class Profile
 {
     private const string Path = "user://profile.json";
 
-    /// <summary>The saved progress (or a fresh one), with every level shown open if the settings or <c>--unlock-all</c> say so.</summary>
-    public static LadderProgress Load(LadderDef ladder, GameSettings settings)
+    /// <summary>The saved records, or a fresh book.</summary>
+    public static RecordBook Load(AreaListDef areas)
     {
         ProfileData? data = null;
         if (FileAccess.FileExists(Path))
@@ -28,10 +29,10 @@ public static class Profile
             }
         }
 
-        return new LadderProgress(ladder, data) { OpenAll = settings.OpenAllLevels || Args.Has("--unlock-all") };
+        return new RecordBook(areas, data);
     }
 
-    public static void Save(LadderProgress progress)
+    public static void Save(RecordBook records)
     {
         using FileAccess? file = FileAccess.Open(Path, FileAccess.ModeFlags.Write);
         if (file is null)
@@ -40,6 +41,6 @@ public static class Profile
             return;
         }
 
-        file.StoreString(progress.Data.ToJson());
+        file.StoreString(records.Data.ToJson());
     }
 }
