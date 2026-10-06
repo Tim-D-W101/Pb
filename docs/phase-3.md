@@ -444,8 +444,10 @@ until M3.10 gives them a texture.
 - [ ] Voices: the cast and lines in `presentation.jsonc`, imported with `tools/art/import.sh voice` and recorded in
   `assets.jsonc` (provenance, like the art); each bot gets a voice of its model; callouts play from the caller with
   the subtitle; new callouts for flanking, pushing, a teammate out, the case and the room; the referee's lines.
-  *Everything but the recordings is built; Higgsfield refused the first take on 2026-10-05 because that day's five
-  generations had gone on art, so the seven takes come with the next days' generations.*
+  *Everything but the recordings is built; Higgsfield refused the first take on 2026-10-05 and again on 2026-10-06,
+  because each day's five generations had gone on art (the second day's on Phase 2's leftovers, as booked), so the
+  seven takes start with the generations of 2026-10-07. The refusal says the limit belongs to the account's grace
+  period.*
 - [x] Everything off with `--no-art` falls back to subtitles, and CI runs without audio as now.
 
 As built: every sound is synthesised when the game starts (`game/audio/SoundBank.cs`), 87 of them in 225 variations

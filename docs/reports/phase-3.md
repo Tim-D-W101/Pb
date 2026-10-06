@@ -5,11 +5,12 @@
 
 - **your play-test** on your PC: the climb from Level 1 to Level 4, the new opponents, the sound, and 60 fps on Medium
   with ten people in a round (see [Your check](#your-check));
-- **the voices**: everything for them is built and tested, but Higgsfield allows five generations a day and today's
-  had gone on the last Phase 2 art before Phase 3 began. Tomorrow's five are already booked by the Phase 2 session's
-  own check-in (the four generated props and the crouched walk left over from Phase 2, in their own PR), so the seven
-  takes (six callout voices and the referee) come the day after. Until then the callouts are subtitles, as in Phase 2,
-  and the referee's calls are subtitles with the horn and whistles;
+- **the voices**: everything for them is built and tested, but Higgsfield allows five generations a day. Those of
+  2026-10-05 had gone on the last Phase 2 art before Phase 3 began, and those of 2026-10-06 on the Phase 2 session's
+  own check-in (the four generated props and the crouched walk left over from Phase 2, in their own PR), as booked.
+  The seven takes (six callout voices and the referee) start with the generations of 2026-10-07. Higgsfield's refusal
+  says the five-a-day limit belongs to the account's grace period, so updating its plan would lift it. Until then the
+  callouts are subtitles, as in Phase 2, and the referee's calls are subtitles with the horn and whistles;
 - **the art for the new levels** (M3.10): three texture sheets (twelve materials) and up to four generated props, with
   the daily generations after the voices. Until then the new levels wear the 30 photographic materials where they fit
   and the shader's procedural look elsewhere (the hospital's hedges are plain green boxes).
@@ -204,7 +205,7 @@ None yet in Phase 3: 296.87 credits are left. The plan allows up to 150:
 | Three texture sheets (twelve materials) | ≈ 13 |
 | Up to four generated props (one picture of six, then Tripo H3.1 at 18 each) | ≈ 77 |
 | **Phase 3, to come** | **≈ 115** |
-| Phase 2's leftovers (four props and the crouched walk), approved with Phase 2 and booked for tomorrow by its own check-in | 80 |
+| Phase 2's leftovers (four props and the crouched walk), approved with Phase 2 and made on 2026-10-06 by its own check-in | 80 |
 
 At five generations a day, Phase 3's share is about three days of generations once Phase 2's are done: the voices
 first, then the texture sheets, then the props.
