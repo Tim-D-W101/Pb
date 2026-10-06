@@ -266,6 +266,7 @@ public sealed class GameData
         LeanInTime = d.LeanInTime_s,
         LeanReturnTime = d.LeanReturnTime_s,
         HeadRadius = d.HeadRadius_m,
+        MaxHeadTurn = d.MaxHeadTurn_deg * Units.DegreesToRadians,
         ShoulderSwapTime = d.ShoulderSwapTime_s,
         SlideMinSpeed = d.SlideMinSpeed_mps,
         SlideBoost = d.SlideBoost_mps,

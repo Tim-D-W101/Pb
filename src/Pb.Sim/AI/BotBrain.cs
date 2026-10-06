@@ -154,6 +154,15 @@ public sealed class BotBrain
     private bool _wasVisible;
     private float _scanPhase;
 
+    // The head (its own random numbers, so glances never change what else the bot decides) and the sweep of a post.
+    private Pcg32 _lookRng;
+    private float _headYaw;
+    private float _glanceIn;
+    private float _glanceLeft;
+    private float _glanceYaw;
+    private float _sweepHold;
+    private int _sweepStep;
+
     // Combat.
     private int _cover = -1;
     private float _phaseTime;
@@ -220,6 +229,10 @@ public sealed class BotBrain
         Senses = new BotSenses(_sim, self, squad.Config.Senses, tier, seed ^ 0x5EED5EED);
         _yaw = _wantYaw = self.Yaw;
         _scanPhase = _rng.NextFloat() * MathF.Tau;
+        _lookRng = new Pcg32(SeedHash.Combine(_sim.MatchSeed, (ulong)(0x10CC + self.Id * 104729)));
+        _glanceIn = Between(_b.GlanceEveryMin, _b.GlanceEveryMax);
+        _sweepStep = (int)(_lookRng.NextUInt() & 3);
+        _sweepHold = Between(_b.ScanHoldMin, _b.ScanHoldMax);
         _nextPull = tier.PullInterval;
         _sincePull = tier.PullInterval;
         if (Route is not null)
@@ -316,6 +329,7 @@ public sealed class BotBrain
         {
             _cmd.Yaw = _yaw;
             _cmd.Pitch = _pitch;
+            TurnHead(dt, calm: true);
             return _cmd;
         }
 
@@ -349,8 +363,58 @@ public sealed class BotBrain
         Look(dt);
         _cmd.Yaw = _yaw;
         _cmd.Pitch = _pitch;
+        TurnHead(dt, Mode is BotMode.Idle or BotMode.Return && Senses.Focus is not { HasLead: true });
         return _cmd;
     }
+
+    /// <summary>
+    /// The head: ahead of the body as it turns, towards what it's turning to look at; and with nothing going on
+    /// (<paramref name="calm"/>), a glance round now and then.
+    /// </summary>
+    private void TurnHead(float dt, bool calm)
+    {
+        float glance = 0f;
+        if (!calm)
+        {
+            _glanceLeft = 0f;
+        }
+        else if (_glanceLeft > 0f)
+        {
+            _glanceLeft -= dt;
+            glance = _glanceYaw;
+        }
+        else if ((_glanceIn -= dt) <= 0f)
+        {
+            _glanceYaw = Between(_b.GlanceAngleMin, _b.GlanceAngleMax) * (_lookRng.NextFloat() < 0.5f ? -1f : 1f);
+            _glanceLeft = Between(_b.GlanceHoldMin, _b.GlanceHoldMax);
+            _glanceIn = Between(_b.GlanceEveryMin, _b.GlanceEveryMax);
+            glance = _glanceYaw;
+        }
+
+        float most = _sim.Config.Movement.MaxHeadTurn;
+        float want = Math.Clamp(BotAim.Wrap(_wantYaw - _yaw) + glance, -most, most);
+        _headYaw = BotAim.TurnTowards(_headYaw, want, _b.HeadTurnSpeed * dt);
+        _cmd.HeadYaw = _headYaw;
+    }
+
+    /// <summary>
+    /// Sweeping a view about <paramref name="facing"/> as a person does: a look one way, back to the middle, the
+    /// other way and back, each held a while, the body turning between them (the head there first).
+    /// </summary>
+    private float Sweep(float facing, float dt)
+    {
+        _sweepHold -= dt;
+        if (_sweepHold <= 0f)
+        {
+            _sweepStep = (_sweepStep + 1) & 3;
+            _sweepHold = Between(_b.ScanHoldMin, _b.ScanHoldMax);
+        }
+
+        float side = _sweepStep == 1 ? 1f : _sweepStep == 3 ? -1f : 0f;
+        return facing + _b.ScanAngle * side;
+    }
+
+    private float Between(float min, float max) => min + (max - min) * _lookRng.NextFloat();
 
     /// <summary>
     /// Something that can't wait for the next decision: an enemy just spotted, shots landing close, or a
@@ -705,8 +769,7 @@ public sealed class BotBrain
         }
 
         Stop();
-        _scanPhase += dt * MathF.Tau / _b.ScanPeriod;
-        _wantYaw = yaw + _b.ScanAngle * MathF.Sin(_scanPhase);
+        _wantYaw = Sweep(yaw, dt);
         _wantPitch = 0f;
     }
 
@@ -761,11 +824,13 @@ public sealed class BotBrain
             return true;
         }
 
-        // There (or close enough to the carrier): stand and watch.
+        // There (or close enough to the carrier): stand and watch, out of the room or away from the carrier.
         Stop();
-        _scanPhase += dt * MathF.Tau / _b.ScanPeriod;
-        float facing = objective.Kind == ObjectiveKind.Hold && objective.Room is { } held ? YawTo(held.Centre, Self.Position) : _yaw;
-        _wantYaw = facing + _b.ScanAngle * MathF.Sin(_scanPhase);
+        float facing = objective.Kind == ObjectiveKind.Hold && objective.Room is { } held ? YawTo(held.Centre, Self.Position)
+            : objective.Carrier >= 0 && objective.Carrier != Self.Id && _sim.FindPlayer(objective.Carrier) is { } escorted &&
+              FlatDistance(escorted.Position, Self.Position) > 0.5f ? YawTo(escorted.Position, Self.Position)
+            : HomeYaw;
+        _wantYaw = Sweep(facing, dt);
         _wantPitch = 0f;
         return true;
     }
@@ -966,7 +1031,6 @@ public sealed class BotBrain
 
     private void Scan(Vector3 around, float dt)
     {
-        _scanPhase += dt * MathF.Tau / _b.ScanPeriod;
         float baseYaw = HomeYaw;
         if (Route is { } route && route.Points.Count > 1)
         {
@@ -977,7 +1041,7 @@ public sealed class BotBrain
             }
         }
 
-        _wantYaw = baseYaw + _b.ScanAngle * MathF.Sin(_scanPhase);
+        _wantYaw = Sweep(baseYaw, dt);
         _wantPitch = 0f;
     }
 

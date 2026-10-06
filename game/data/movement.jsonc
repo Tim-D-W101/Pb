@@ -36,6 +36,10 @@
   "leanReturnTime_s": 0.12,
   // The head is a sphere this big for the lean's wall check: you can't lean your head into a wall.
   "headRadius_m": 0.12,
+  // The head turns up to this far either way from the aim (to glance round, or towards a noise before
+  // the body comes round), the head and mask hitboxes with it; the marker stays on the aim. Bots turn
+  // theirs; yours is your view, so it stays on the aim.
+  "maxHeadTurn_deg": 70,
 
   // Shoulder swap moves the marker to the other side of your face, so you can shoot round a
   // left-hand edge without stepping out. The marker can't fire while it's moving across.

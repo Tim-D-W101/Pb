@@ -1317,6 +1317,28 @@ public sealed class CharactersDef : IValidatable
     /// <summary>How far a ball hitting a body at full speed turns its upper body away (degrees; slower balls less).</summary>
     public float Flinch_deg { get; set; }
 
+    /// <summary>
+    /// Breathing: the chest rises and falls this much (deg), this often at rest (Hz) and up to this often just after a
+    /// sprint (Hz), easing back over this long (s).
+    /// </summary>
+    public float Breath_deg { get; set; }
+
+    public float BreathRest_hz { get; set; }
+
+    public float BreathHard_hz { get; set; }
+
+    public float BreathRecover_s { get; set; }
+
+    /// <summary>
+    /// Out of the round, the marker comes up over the head over this long (s), and the support hand goes up, this far
+    /// over the top of the head and this far out to its side (m).
+    /// </summary>
+    public float OutRaise_s { get; set; }
+
+    public float OutHandAbove_m { get; set; }
+
+    public float OutHandOut_m { get; set; }
+
     /// <summary>How far the hips drop for each metre the eye drops (crouching).</summary>
     public float HipDropPerEyeDrop { get; set; }
 
@@ -1361,6 +1383,13 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(ArmbandWidth_m), ArmbandWidth_m, 0.01, 0.5);
         v.InRange(nameof(ArmbandGap_m), ArmbandGap_m, 0, 0.05);
         v.InRange(nameof(Flinch_deg), Flinch_deg, 0, 30);
+        v.InRange(nameof(Breath_deg), Breath_deg, 0, 5);
+        v.InRange(nameof(BreathRest_hz), BreathRest_hz, 0.05, 2);
+        v.InRange(nameof(BreathHard_hz), BreathHard_hz, BreathRest_hz, 3);
+        v.InRange(nameof(BreathRecover_s), BreathRecover_s, 0.5, 120);
+        v.InRange(nameof(OutRaise_s), OutRaise_s, 0.01, 3);
+        v.InRange(nameof(OutHandAbove_m), OutHandAbove_m, -0.2, 0.6);
+        v.InRange(nameof(OutHandOut_m), OutHandOut_m, 0, 0.6);
         if (Legs is not ("steps" or "clips"))
         {
             v.Error(nameof(Legs), $"'{Legs}' is neither \"steps\" nor \"clips\"");
@@ -1431,6 +1460,61 @@ public sealed class StepsDef : IValidatable
     public float SettleStep_s { get; set; }
 
     public float SettleLift_m { get; set; }
+
+    /// <summary>
+    /// Pulling up from faster than this (m/s), for this long after (s), a foot this far out of the stance
+    /// steps (m), each step this long (s) and lifting this much (m); the hips dip this far (m) and the upper
+    /// body tips on this much (deg), in over this long (s) and settling over this long (s), in full from this
+    /// speed (m/s).
+    /// </summary>
+    public float StopFrom_mps { get; set; }
+
+    public float StopWindow_s { get; set; }
+
+    public float StopTolerance_m { get; set; }
+
+    public float StopStep_s { get; set; }
+
+    public float StopLift_m { get; set; }
+
+    public float StopDip_m { get; set; }
+
+    public float StopLean_deg { get; set; }
+
+    public float StopDipIn_s { get; set; }
+
+    public float StopSettle_s { get; set; }
+
+    public float StopFull_mps { get; set; }
+
+    /// <summary>
+    /// Standing still, the weight goes onto one foot or back onto both every so often (between these, s), taking
+    /// this long (s); the hips move this far over the foot (m) and roll this much (deg).
+    /// </summary>
+    public float WeightEveryMin_s { get; set; }
+
+    public float WeightEveryMax_s { get; set; }
+
+    public float WeightShift_s { get; set; }
+
+    public float WeightSway_m { get; set; }
+
+    public float WeightRoll_deg { get; set; }
+
+    /// <summary>
+    /// Crouched with something within this far ahead at knee height (m), the knees go out to the sides instead of
+    /// into it, fully once it's this close (m), and standing still the feet come back from it by up to this much (m).
+    /// </summary>
+    public float KneeReach_m { get; set; }
+
+    public float KneeClose_m { get; set; }
+
+    public float KneeBack_m { get; set; }
+
+    /// <summary>Likewise the elbows, for something ahead at elbow height (m): out to the sides, level, instead of into it.</summary>
+    public float ElbowReach_m { get; set; }
+
+    public float ElbowClose_m { get; set; }
 
     /// <summary>The heel lifts by up to this much late in a foot's time down, starting this far behind the hip and fully up this much further; the toes come up this much to land.</summary>
     public float HeelOff_deg { get; set; }
@@ -1511,6 +1595,29 @@ public sealed class StepsDef : IValidatable
         v.InRange(nameof(SettleTwist_deg), SettleTwist_deg, 5, 90);
         v.InRange(nameof(SettleStep_s), SettleStep_s, 0.05, 2);
         v.InRange(nameof(SettleLift_m), SettleLift_m, 0, 0.3);
+        v.InRange(nameof(StopFrom_mps), StopFrom_mps, 0.3, 10);
+        v.InRange(nameof(StopWindow_s), StopWindow_s, 0, 3);
+        v.InRange(nameof(StopTolerance_m), StopTolerance_m, 0.01, 1);
+        v.InRange(nameof(StopStep_s), StopStep_s, 0.05, 1);
+        v.InRange(nameof(StopLift_m), StopLift_m, 0, 0.3);
+        v.InRange(nameof(StopDip_m), StopDip_m, 0, 0.15);
+        v.InRange(nameof(StopLean_deg), StopLean_deg, 0, 20);
+        v.InRange(nameof(StopDipIn_s), StopDipIn_s, 0.01, 1);
+        v.InRange(nameof(StopSettle_s), StopSettle_s, 0.02, 2);
+        v.InRange(nameof(KneeReach_m), KneeReach_m, 0.1, 1.5);
+        v.InRange(nameof(KneeClose_m), KneeClose_m, 0, KneeReach_m - 0.01);
+        v.InRange(nameof(KneeBack_m), KneeBack_m, 0, 0.4);
+        v.InRange(nameof(ElbowReach_m), ElbowReach_m, 0.1, 1.5);
+        v.InRange(nameof(ElbowClose_m), ElbowClose_m, 0, ElbowReach_m - 0.01);
+        v.InRange(nameof(WeightEveryMin_s), WeightEveryMin_s, 0.2, 60);
+        v.InRange(nameof(WeightEveryMax_s), WeightEveryMax_s, WeightEveryMin_s, 120);
+        v.InRange(nameof(WeightShift_s), WeightShift_s, 0.05, 5);
+        v.InRange(nameof(WeightSway_m), WeightSway_m, 0, 0.1);
+        v.InRange(nameof(WeightRoll_deg), WeightRoll_deg, 0, 10);
+        if (StopFull_mps <= StopFrom_mps)
+        {
+            v.Error(nameof(StopFull_mps), $"must be more than stopFrom_mps ({StopFrom_mps})");
+        }
         v.InRange(nameof(HeelOff_deg), HeelOff_deg, 0, 70);
         v.InRange(nameof(HeelOffFrom_m), HeelOffFrom_m, -0.5, 1);
         v.InRange(nameof(HeelOffOver_m), HeelOffOver_m, 0.01, 1);

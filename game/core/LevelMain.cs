@@ -40,7 +40,9 @@ namespace Pb.Game.Core;
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
 ///   --role-demo=ROLE      a Marksman ("marksman") or a Flanker ("flanker") at work, with the bot overlay
 ///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
-///   --gait-demo           an opponent walks, runs, sprints, strafes, backs off and walks crouched, seen from the side
+///   --gait-demo           an opponent walks, runs, sprints, pulls up, strafes, backs off, walks crouched and looks round
+///   --gait-only=NAME      with --gait-demo, only the moves whose names start with NAME (e.g. "look", "sprint")
+///   --cover-demo          an opponent tucks in behind low cover, stands to shoot over it and tucks in again, from the side
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
 ///   --preset=NAME         uses that graphics preset instead of the saved one (for comparing their cost)
@@ -188,9 +190,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool botDemo = Args.Has("--bot-demo");
         string? roleDemo = Args.Value("--role-demo");
         bool gaitDemo = Args.Has("--gait-demo");
+        bool coverDemo = Args.Has("--cover-demo");
         _botMatch = Args.Has("--bot-match");
         _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    roleDemo is not null || gaitDemo || _botMatch || Args.Has("--objective-demo");
+                    roleDemo is not null || gaitDemo || coverDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
         _counts = !_scripted && !roundTour;
 
@@ -483,6 +486,13 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(demo);
             float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
             demo.Start(_sim, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
+        }
+        else if (coverDemo)
+        {
+            var demo = new CoverDemo { Name = "CoverDemo" };
+            AddChild(demo);
+            float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
+            demo.Start(_sim, _squad, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
         }
         else if (botDemo)
         {

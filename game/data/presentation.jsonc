@@ -892,6 +892,18 @@
     // A ball hitting a body, breaking or bouncing off, makes it flinch: the upper body turns away from
     // the hit by up to this much (a ball at 90 m/s; slower ones less), snapping there and easing back.
     "flinch_deg": 9,
+    // Breathing: the chest rises and falls breath_deg, breathRest_hz at rest and up to breathHard_hz just
+    // after a sprint, easing back to rest over breathRecover_s.
+    "breath_deg": 0.8,
+    "breathRest_hz": 0.25,
+    "breathHard_hz": 0.65,
+    "breathRecover_s": 12,
+    // Hit, a player brings the marker up over their head in the trigger hand (over outRaise_s) and puts
+    // the other hand up, open, outHandAbove_m over the top of the head and outHandOut_m to its side, and
+    // walks off like that, as at a real game.
+    "outRaise_s": 0.45,
+    "outHandAbove_m": 0.2,
+    "outHandOut_m": 0.17,
     // How the legs move. "steps" plants each foot in the world where it lands until its next step, so
     // feet never skate, in any direction, at any pace, turning on the spot or on stairs (below).
     // "clips" plays the movement clips instead (forward clips only: strafing and turning slide).
@@ -941,6 +953,39 @@
       "settleTwist_deg": 40,
       "settleStep_s": 0.3,
       "settleLift_m": 0.06,
+      // Pulling up from faster than stopFrom_mps (the body halts in a few hundredths of a second, at the
+      // sim's deceleration), the foot in the air comes down short into the stance and the other follows
+      // at once: for stopWindow_s after the stop a foot stopTolerance_m out of place steps, each step
+      // stopStep_s long and lifting stopLift_m. The hips dip stopDip_m into the knees and the upper body
+      // tips on stopLean_deg, in over stopDipIn_s and settling back over stopSettle_s; all of it in full
+      // from stopFull_mps, less from slower.
+      "stopFrom_mps": 1.2,
+      "stopWindow_s": 0.7,
+      "stopTolerance_m": 0.05,
+      "stopStep_s": 0.17,
+      "stopLift_m": 0.05,
+      "stopDip_m": 0.035,
+      "stopLean_deg": 4,
+      "stopDipIn_s": 0.09,
+      "stopSettle_s": 0.22,
+      "stopFull_mps": 5.5,
+      // Crouched with something (a wall, sandbags) within kneeReach_m ahead at knee height, the knees go
+      // out to the sides instead of into it, fully once it's kneeClose_m away, and standing still the
+      // feet come back from it by up to kneeBack_m. Likewise the elbows, for something within
+      // elbowReach_m ahead at elbow height: out to the sides, level, fully at elbowClose_m.
+      "kneeReach_m": 0.62,
+      "kneeClose_m": 0.34,
+      "kneeBack_m": 0.12,
+      "elbowReach_m": 0.5,
+      "elbowClose_m": 0.3,
+      // Standing still, the weight goes onto one foot (or now and then back onto both) every
+      // weightEveryMin_s to weightEveryMax_s, taking weightShift_s: the hips move weightSway_m over that
+      // foot and roll weightRoll_deg, the other knee easing.
+      "weightEveryMin_s": 2.5,
+      "weightEveryMax_s": 6,
+      "weightShift_s": 0.8,
+      "weightSway_m": 0.03,
+      "weightRoll_deg": 2.5,
       // Heel and toe: the heel comes up by up to heelOff_deg as the foot falls behind the hip, from
       // heelOffFrom_m behind it to fully up heelOffOver_m further; the toes come up toeUp_deg to land.
       "heelOff_deg": 50,

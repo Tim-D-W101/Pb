@@ -63,13 +63,15 @@ public sealed class HitboxParams
 
 /// <summary>
 /// Everything the rig needs from a player, recorded every tick for the hitbox history. <see cref="Tuck"/>
-/// is how far the gear is pitched up off a wall in front (rad, see <see cref="PlayerState.Tuck"/>).
+/// is how far the gear is pitched up off a wall in front (rad, see <see cref="PlayerState.Tuck"/>), and
+/// <see cref="HeadYaw"/> how far the head is turned from the aim (rad, see <see cref="PlayerState.HeadYaw"/>).
 /// </summary>
 public readonly record struct HitboxPose(
-    Vector3 Position, float Yaw, float Pitch, float EyeHeight, float LeanRoll, float Shoulder, bool Alive, bool Present, float Tuck = 0f)
+    Vector3 Position, float Yaw, float Pitch, float EyeHeight, float LeanRoll, float Shoulder, bool Alive, bool Present, float Tuck = 0f,
+    float HeadYaw = 0f)
 {
     public static HitboxPose Of(PlayerState p) =>
-        new(p.Position, p.Yaw, p.Pitch, p.EyeHeight, p.LeanRoll, p.Shoulder, p.Alive, p.Present, p.Tuck);
+        new(p.Position, p.Yaw, p.Pitch, p.EyeHeight, p.LeanRoll, p.Shoulder, p.Alive, p.Present, p.Tuck, p.HeadYaw);
 }
 
 /// <summary>One posed hitbox: an oriented box in world space.</summary>
@@ -89,9 +91,10 @@ public struct PosedBox
 /// <summary>
 /// Poses a player's hitboxes (spec §1.2) from their state: the legs stand on the feet and turn with
 /// the yaw; the torso and head roll about the hips with the lean; the mask, arms and gear follow the
-/// aim, and the arms and gear sit on the shoulder side. Near a wall the arms and gear pitch up about
-/// the back of the marker (the tuck), so the barrel never pokes through. Eliminated players hold the
-/// marker up. Characters are drawn from the same boxes, so what you see is what you can hit.
+/// aim, and the arms and gear sit on the shoulder side. The head and mask turn with the head, about
+/// the middle of the head. Near a wall the arms and gear pitch up about the back of the marker (the
+/// tuck), so the barrel never pokes through. Eliminated players hold the marker up. Characters are drawn
+/// from the same boxes, so what you see is what you can hit.
 /// </summary>
 public static class HitboxRig
 {
@@ -117,6 +120,15 @@ public static class HitboxRig
             new Vector3(rig.TorsoWidth * 0.5f, torso * 0.5f, rig.TorsoDepth * 0.5f));
         parts[2] = FromEye(HitboxPart.Head, rig.Head, eye, upper, 1f);
         parts[3] = FromEye(HitboxPart.Mask, rig.Mask, eye, aim, 1f);
+        if (pose.HeadYaw != 0f && pose.Alive)
+        {
+            // Turned about the vertical through the middle of the head: the head turns in place, the mask goes round it.
+            Quaternion turn = Quaternion.CreateFromAxisAngle(Vector3.UnitY, pose.HeadYaw);
+            Vector3 middle = parts[2].Center;
+            parts[2] = Box(HitboxPart.Head, middle, Quaternion.Concatenate(upper, turn), rig.Head.HalfExtents);
+            parts[3] = Box(HitboxPart.Mask, middle + Vector3.Transform(parts[3].Center - middle, turn), Quaternion.Concatenate(aim, turn),
+                rig.Mask.HalfExtents);
+        }
         float tuck = pose.Alive ? pose.Tuck : 0f;
         Quaternion tilt = Quaternion.CreateFromAxisAngle(Vector3.UnitX, tuck);
         Quaternion gear = tuck > 0f ? Quaternion.Concatenate(tilt, aim) : aim;

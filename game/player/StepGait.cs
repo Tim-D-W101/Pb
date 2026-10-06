@@ -12,9 +12,11 @@ namespace Pb.Game.Player;
 /// both off the ground. Each landing is aimed ahead along the body's travel so the foot passes under its
 /// hip partway through its time down, and set on the real ground there (stair treads, kerbs). Standing,
 /// the feet keep their places in a shooter's stance while the upper body turns with the aim, and step
-/// round, one then the other, when the twist or the drift gets too much. The hips bob, sway, turn with the
-/// stride and drop as far as both legs need to reach their feet. <see cref="CharacterPoser"/> bends the
-/// legs to it.
+/// round, one then the other, when the twist or the drift gets too much. Pulling up from a run (the body
+/// halts in a few hundredths of a second), the foot in the air comes down short into the stance and the
+/// other follows at once, while the hips dip and the upper body tips on and settles back. The hips bob,
+/// sway, turn with the stride and drop as far as both legs need to reach their feet.
+/// <see cref="CharacterPoser"/> bends the legs to it.
 /// </summary>
 public sealed class StepGait
 {
@@ -43,6 +45,14 @@ public sealed class StepGait
     private float _crouch;
     private float _hipDrop;
     private float _soft;
+    private float _lean;
+    private float _recentSpeed;
+    private float _stopFrom;
+    private float _stopAge = 10f;
+    private System.Random _random = new(1);
+    private float _weight;
+    private float _weightTarget;
+    private float _weightIn;
 
     public StepGait(StepsDef def)
     {
@@ -50,8 +60,21 @@ public sealed class StepGait
         _feet = new[] { _left, _right };
     }
 
+    /// <summary>Gives this character its own timing for the idle shifts of weight (so two side by side don't move as one).</summary>
+    public void Vary(int seed)
+    {
+        _random = new System.Random(seed);
+        _weightIn = Between(0f, _def.WeightEveryMax_s);
+    }
+
     /// <summary>The legs' build (m): set once the model's rest pose has been measured.</summary>
     public LegBuild Build { get; set; }
+
+    /// <summary>
+    /// How far the knees go out to the sides instead of forward (0–1): crouched with something just ahead at knee height.
+    /// Standing still the feet also come back from it, up to kneeBack_m.
+    /// </summary>
+    public float KneesOut { get; set; }
 
     public bool HasBuild => Build.Length > 0f;
 
@@ -86,8 +109,8 @@ public sealed class StepGait
     /// <summary>The hips' roll with the stride (rad, positive drops the right hip).</summary>
     public float HipsRoll { get; private set; }
 
-    /// <summary>The upper body's lean into a run (rad, forward).</summary>
-    public float Lean { get; private set; }
+    /// <summary>The upper body's lean (rad, forward): into a run, and on over the feet as it pulls up.</summary>
+    public float Lean => _lean + Mathf.DegToRad(_def.StopLean_deg) * Settling();
 
     /// <summary>
     /// Moves on a frame. <paramref name="root"/> is where the body stands (world, its feet),
@@ -118,6 +141,7 @@ public sealed class StepGait
         var flat = new Vector3(moved.X / delta, 0f, moved.Z / delta);
         _velocity = _velocity.Lerp(flat, 1f - Mathf.Exp(-delta / _def.VelocitySmoothing_s));
         float speed = _velocity.Length();
+        _stopAge += delta;
 
         if (!grounded || sliding)
         {
@@ -145,7 +169,15 @@ public sealed class StepGait
         {
             Start();
         }
+        else if (!moving && _moving)
+        {
+            // Pulling up: how fast the body was going just before decides how hard the stop is.
+            _stopFrom = _recentSpeed;
+            _stopAge = 0f;
+        }
 
+        // The fastest the body has gone lately (it falls away over a quarter of a second).
+        _recentSpeed = Mathf.Max(speed, Mathf.Lerp(_recentSpeed, speed, 1f - Mathf.Exp(-delta / 0.25f)));
         _moving = moving;
         float turn = Mathf.DegToRad(_def.LegTurnRate_degps) * delta;
         if (moving)
@@ -165,8 +197,35 @@ public sealed class StepGait
 
         KeepTwistInLimits();
         Feet(delta);
+        ShiftWeight(delta);
         Hips(gait.Bob, delta);
     }
+
+    /// <summary>
+    /// Standing still, the weight goes from foot to foot every few seconds (or back onto both), as a person's does
+    /// while they wait; moving, it's back on both at once.
+    /// </summary>
+    private void ShiftWeight(float delta)
+    {
+        bool settled = !_moving && !_left.Swinging && !_right.Swinging;
+        if (!settled)
+        {
+            _weightTarget = 0f;
+            _weightIn = Mathf.Max(_weightIn, _def.WeightEveryMin_s);
+        }
+        else if ((_weightIn -= delta) <= 0f)
+        {
+            // From both feet onto either; from one, onto the other, or now and then back onto both.
+            _weightTarget = _weightTarget == 0f ? (_random.NextDouble() < 0.5 ? -1f : 1f)
+                : _random.NextDouble() < 0.7 ? -_weightTarget : 0f;
+            _weightIn = Between(_def.WeightEveryMin_s, _def.WeightEveryMax_s);
+        }
+
+        float time = settled ? _def.WeightShift_s : 0.15f;
+        _weight = Mathf.Lerp(_weight, _weightTarget, 1f - Mathf.Exp(-delta / (time * 0.35f)));
+    }
+
+    private float Between(float min, float max) => min + (max - min) * (float)_random.NextDouble();
 
     /// <summary>Puts both feet straight down under the body, in the standing stance.</summary>
     private void Reset(Vector3 root, GroundQuery ground)
@@ -177,6 +236,7 @@ public sealed class StepGait
         _started = true;
         _moving = false;
         _reachDrop = 0f;
+        _stopFrom = 0f;
         foreach (FootState foot in _feet)
         {
             foot.Plant(Grounded(Neutral(foot, _legYaw, true), ground), FootYaw(foot, _legYaw));
@@ -207,6 +267,7 @@ public sealed class StepGait
     /// </summary>
     private void Start()
     {
+        _stopFrom = 0f;
         FootState? swinging = _left.Swinging ? _left : _right.Swinging ? _right : null;
         if (swinging is not null)
         {
@@ -265,13 +326,17 @@ public sealed class StepGait
         float give = Mathf.DegToRad(_def.HipGive_deg);
         _legYaw = ApproachAngle(_legYaw, feet + Mathf.Clamp(Mathf.AngleDifference(feet, stand), -give, give), turn);
 
-        float lift = Mathf.Min(gait.Lift, _def.SettleLift_m);
+        // Just pulled up from a run, the steps into the stance are quicker and lower, and closer counts as out of place.
+        bool stopping = _stopFrom > _def.StopFrom_mps && _stopAge < _def.StopWindow_s;
+        float stepTime = stopping ? _def.StopStep_s : _def.SettleStep_s;
+        float tolerance = stopping ? _def.StopTolerance_m : _def.SettleDistance_m;
+        float lift = Mathf.Min(gait.Lift, stopping ? _def.StopLift_m : _def.SettleLift_m);
         foreach (FootState foot in _feet)
         {
             if (foot.Swinging)
             {
                 Vector3 land = Neutral(foot, stand, true) - _root;
-                foot.Swing(Mathf.Min(1f, foot.Progress + delta / _def.SettleStep_s), _root, land, Grounded(_root + land, ground).Y, lift, FootYaw(foot, stand));
+                foot.Swing(Mathf.Min(1f, foot.Progress + delta / stepTime), _root, land, Grounded(_root + land, ground).Y, lift, FootYaw(foot, stand));
                 if (foot.Progress >= 1f)
                 {
                     foot.Land();
@@ -291,7 +356,7 @@ public sealed class StepGait
         foreach (FootState foot in _feet)
         {
             Vector3 want = Neutral(foot, stand, true);
-            float off = new Vector2(foot.Planted.X - want.X, foot.Planted.Z - want.Z).Length() / _def.SettleDistance_m;
+            float off = new Vector2(foot.Planted.X - want.X, foot.Planted.Z - want.Z).Length() / tolerance;
             float yaw = Mathf.Abs(Mathf.AngleDifference(foot.Yaw, FootYaw(foot, stand))) / Mathf.DegToRad(_def.SettleTwist_deg);
             float score = Mathf.Max(off, Mathf.Max(yaw, twist) * (0.5f + 0.5f * Mathf.Min(yaw, 1f)));
             if (score > worst)
@@ -346,7 +411,7 @@ public sealed class StepGait
         HipsOffset = HipsOffset.Lerp(Vector3.Zero, 1f - Mathf.Exp(-delta / 0.1f));
         HipsTwist = Mathf.AngleDifference(_facing, _legYaw);
         HipsRoll = 0f;
-        Lean = Mathf.Lerp(Lean, 0f, 1f - Mathf.Exp(-delta / 0.2f));
+        _lean = Mathf.Lerp(_lean, 0f, 1f - Mathf.Exp(-delta / 0.2f));
     }
 
     /// <summary>
@@ -417,11 +482,12 @@ public sealed class StepGait
 
         // Walking vaults over the foot (highest mid-stance); running sinks onto it (lowest mid-stance).
         float vertical = _moving ? Mathf.Lerp((up - 0.5f) * bob, (0.35f - up) * bob, _run) : 0f;
-        // Knees a little soft, never locked straight.
+        // Knees a little soft, never locked straight; and down into them for a moment when pulling up.
         _soft = Mathf.Lerp(_soft, _def.SoftKnees_m + _def.RunSink_m * _run, 1f - Mathf.Exp(-delta / 0.3f));
-        vertical -= _soft;
+        vertical -= _soft + _def.StopDip_m * Settling();
         Vector3 right = Right(_legYaw);
-        Vector3 offset = Vector3.Up * vertical + right * (sway * _def.Sway_m * (1f - 0.6f * _run));
+        // Over the foot that's down; standing, over the foot the weight is on.
+        Vector3 offset = Vector3.Up * vertical + right * (sway * _def.Sway_m * (1f - 0.6f * _run) + _weight * _def.WeightSway_m);
 
         // As low as each leg needs to reach its ankle (straight legs give out a touch short of their
         // length), to a point: a foot still out of reach behind is pushing off, and comes along with the
@@ -459,9 +525,27 @@ public sealed class StepGait
         float stride = _moving ? 1f : 0f;
         float swingTurn = Mathf.Sin(Mathf.Tau * _phase) * Mathf.DegToRad(_def.HipTurn_deg) * stride;
         HipsTwist = Mathf.AngleDifference(_facing, _legYaw) + swingTurn;
-        HipsRoll = -sway * Mathf.DegToRad(_def.HipRoll_deg) * (1f - 0.5f * _run) * stride;
+        // The hip over the weighted foot up, the other dropped (that knee eases).
+        HipsRoll = -sway * Mathf.DegToRad(_def.HipRoll_deg) * (1f - 0.5f * _run) * stride - _weight * Mathf.DegToRad(_def.WeightRoll_deg);
         float lean = Mathf.Min(_velocity.Length() * Mathf.DegToRad(_def.LeanPerSpeed_deg), Mathf.DegToRad(_def.MaxLean_deg));
-        Lean = Mathf.Lerp(Lean, _moving ? lean : 0f, 1f - Mathf.Exp(-delta / 0.2f));
+        _lean = Mathf.Lerp(_lean, _moving ? lean : 0f, 1f - Mathf.Exp(-delta / 0.2f));
+    }
+
+    /// <summary>
+    /// How far into its settle a stop is (0–1): in quickly as the body pulls up, then easing out, and the
+    /// more the faster it was going (nothing for a stop from a stroll).
+    /// </summary>
+    private float Settling()
+    {
+        if (_stopFrom <= _def.StopFrom_mps)
+        {
+            return 0f;
+        }
+
+        float hard = Mathf.Clamp((_stopFrom - _def.StopFrom_mps) / Mathf.Max(_def.StopFull_mps - _def.StopFrom_mps, 0.1f), 0f, 1f);
+        float t = _stopAge;
+        float shape = t < _def.StopDipIn_s ? Mathf.SmoothStep(0f, _def.StopDipIn_s, t) : Mathf.Exp(-(t - _def.StopDipIn_s) / _def.StopSettle_s);
+        return hard * shape;
     }
 
     /// <summary>Where a hip joint is (world) with the hips <paramref name="vertical"/> off their standing height for the crouch.</summary>
@@ -517,8 +601,9 @@ public sealed class StepGait
 
         float width = Mathf.Lerp(_def.StanceWidth_m, _def.CrouchStanceWidth_m, _crouch);
         float stagger = Mathf.Lerp(_def.Stagger_m, _def.CrouchStagger_m, _crouch);
-        float forward = foot.Side == -_side ? stagger * 0.5f : -stagger * 0.5f;
-        return _root + Right(_facing) * (foot.Side * width * 0.5f) + Forward(_facing) * forward;
+        // Tucked in behind something, the front foot comes back level and both a little back, the knees out.
+        float forward = (foot.Side == -_side ? stagger * 0.5f : -stagger * 0.5f) * (1f - KneesOut) - _def.KneeBack_m * KneesOut;
+        return _root + Right(_facing) * (foot.Side * width * 0.5f * (1f + 0.3f * KneesOut)) + Forward(_facing) * forward;
     }
 
     /// <summary>A landing no further from its hip than a step can reach (for a sudden change of pace).</summary>

@@ -1,10 +1,10 @@
 # Phase 3 — Open areas: plan
 
-> **Status: revised 2026-10-06, waiting on your OK for what's left.** Approved 2026-10-05 as the level ladder (you
-> asked to "continue and build phase 3"), and M3.1–M3.9 and M3.11 were built ([report](reports/phase-3.md)). After
-> your play-test you asked for the areas to be open, each with places to choose from, and for the opponents to stop
-> glitching through things and walk clearly: that's M3.12 and M3.13, done. What's left is M3.8's voices, M3.10's art
-> and the new M3.14 (more life in the opponents), with the questions at the end. Technical design:
+> **Status: revised 2026-10-06 and approved the same day with the defaults ("the plan is OK go ahead").** Approved
+> 2026-10-05 as the level ladder (you asked to "continue and build phase 3"), and M3.1–M3.9 and M3.11 were built
+> ([report](reports/phase-3.md)). After your play-test you asked for the areas to be open, each with places to choose
+> from, and for the opponents to stop glitching through things and walk clearly: that's M3.12 and M3.13, done. What's
+> left is M3.8's voices, M3.10's art and M3.14 (more life in the opponents), in progress. Technical design:
 > [architecture.md §15](architecture.md#15-phase-3-open-areas). Everything in [spec.md](spec.md) still applies:
 > ballistics, paint rules, gear, metric units, original IP, data files, tests.
 
@@ -630,7 +630,7 @@ open" was captured; and a level that fails to load now quits a headless run inst
 
 ### M3.14 The opponents: more life
 
-**Planned (waiting on your OK).**
+**In progress** (approved 2026-10-06).
 
 - [ ] **Standing:** shifting weight from foot to foot, breathing, glancing round now and then; the head turns
   towards a noise before the body follows; on a post, the marker sweeps it.

@@ -12,7 +12,8 @@ namespace Pb.Game.Player;
 /// with movement clips (<see cref="Gait"/>), the clips play over the idle with the legs turned towards
 /// the travel and the feet IK'd onto the clips' footfalls;</item>
 /// <item>the hips drop for a crouch;</item>
-/// <item>the spine rolls with the lean, and the chest and head pitch with the aim;</item>
+/// <item>the spine rolls with the lean, the chest and head pitch with the aim, the chest breathes and the
+/// head turns as the sim's head does;</item>
 /// <item>both hands go to the marker by two-bone IK.</item>
 /// </list>
 /// <see cref="CharacterModel"/> sets the targets in world space every frame; the hitboxes stay the sim's.
@@ -52,6 +53,12 @@ public partial class CharacterPoser : SkeletonModifier3D
     /// <summary>A flinch: the upper body turned about this axis (world space) by its length (rad), more towards the top.</summary>
     public Vector3 Flinch { get; set; }
 
+    /// <summary>How far the head is turned from the aim (rad, positive to the left), the sim's: the neck takes some, the head the rest.</summary>
+    public float HeadYaw { get; set; }
+
+    /// <summary>The breath this frame (rad): the chest lifts and opens by it, the neck keeping the head where it was.</summary>
+    public float Breath { get; set; }
+
     /// <summary>Shares of the aim pitch taken by the chest and by the neck and head.</summary>
     public float ChestPitch { get; set; } = 0.3f;
 
@@ -63,6 +70,12 @@ public partial class CharacterPoser : SkeletonModifier3D
     public Vector3 SupportHand { get; set; }
 
     public bool RightHanded { get; set; } = true;
+
+    /// <summary>How far the support hand is off the marker and up over the head (0–1): out of the round, walking off.</summary>
+    public float SupportRaise { get; set; }
+
+    /// <summary>How far the elbows go out to the sides, level, instead of hanging (0–1): something just ahead at elbow height.</summary>
+    public float ElbowsOut { get; set; }
 
     public bool HandsOnMarker { get; set; } = true;
 
@@ -152,8 +165,8 @@ public partial class CharacterPoser : SkeletonModifier3D
         }
 
         UpperBody(skeleton, up, forward, right, toSkeleton);
-        StepLeg(skeleton, toSkeleton, _leftLeg, _leftToe, _leftRest, steps.LeftAnkle, steps.LeftForward, steps.LeftHeel, -1f, up);
-        StepLeg(skeleton, toSkeleton, _rightLeg, _rightToe, _rightRest, steps.RightAnkle, steps.RightForward, steps.RightHeel, 1f, up);
+        StepLeg(skeleton, toSkeleton, _leftLeg, _leftToe, _leftRest, steps.LeftAnkle, steps.LeftForward, steps.LeftHeel, -1f, up, steps.KneesOut);
+        StepLeg(skeleton, toSkeleton, _rightLeg, _rightToe, _rightRest, steps.RightAnkle, steps.RightForward, steps.RightHeel, 1f, up, steps.KneesOut);
         Hands(skeleton, toSkeleton, up, right);
         Check(skeleton, 0, _leftLeg[2], _leftToe, steps.LeftAnkle, steps.LeftPlanted, (float)delta);
         Check(skeleton, 1, _rightLeg[2], _rightToe, steps.RightAnkle, steps.RightPlanted, (float)delta);
@@ -270,17 +283,17 @@ public partial class CharacterPoser : SkeletonModifier3D
 
     /// <summary>
     /// One leg to its planted-step target: the ankle where the steps put it, the knee bent over the foot
-    /// and a little out, the foot along its heading and pitched for the heel or toe, the toes staying on
-    /// the ground while the heel is up.
+    /// and a little out (out to the side, <paramref name="kneesOut"/>, tucked in behind something), the foot
+    /// along its heading and pitched for the heel or toe, the toes staying on the ground while the heel is up.
     /// </summary>
     private void StepLeg(Skeleton3D skeleton, Transform3D toSkeleton, int[] chain, int toe, FootRest rest, Vector3 ankle, Vector3 heading,
-        float heel, float side, Vector3 up)
+        float heel, float side, Vector3 up, float kneesOut)
     {
         Vector3 target = toSkeleton * ankle;
         Vector3 ahead = (toSkeleton.Basis * heading).Normalized();
         Vector3 upright = up.Normalized();
         Vector3 outward = upright.Cross(ahead).Normalized() * -side;
-        SolveTwoBone(skeleton, chain, target, ahead + outward * 0.12f, keepEnd: false);
+        SolveTwoBone(skeleton, chain, target, ahead * (1f - 0.75f * kneesOut) + outward * (0.12f + 0.9f * kneesOut), keepEnd: false);
 
         // The foot flat on the ground along its heading, then pitched about its own across axis.
         Basis flat = LookFrame(ahead, upright) * rest.Frame.Inverse();
@@ -348,9 +361,15 @@ public partial class CharacterPoser : SkeletonModifier3D
         }
 
         Vector3 pitchAxis = right.Normalized();
-        Rotate(skeleton, _spineTop, pitchAxis, Pitch * ChestPitch);
-        Rotate(skeleton, _neck, pitchAxis, Pitch * HeadPitch * 0.5f);
+        Rotate(skeleton, _spineTop, pitchAxis, Pitch * ChestPitch + Breath);
+        Rotate(skeleton, _neck, pitchAxis, Pitch * HeadPitch * 0.5f - Breath);
         Rotate(skeleton, _head, pitchAxis, Pitch * HeadPitch * 0.5f);
+        if (!Mathf.IsZeroApprox(HeadYaw))
+        {
+            Vector3 axis = up.Normalized();
+            Rotate(skeleton, _neck, axis, HeadYaw * 0.4f);
+            Rotate(skeleton, _head, axis, HeadYaw * 0.6f);
+        }
         if (Flinch.LengthSquared() > 1e-6f)
         {
             Vector3 flinchAxis = (toSkeleton.Basis * Flinch).Normalized();
@@ -370,10 +389,31 @@ public partial class CharacterPoser : SkeletonModifier3D
 
         Vector3 trigger = toSkeleton * TriggerHand;
         Vector3 support = toSkeleton * SupportHand;
-        // Elbows hang down and out.
+        // Elbows hang down and out; an arm raised over the head bends its elbow out to the side and a little forward.
         Vector3 down = -up;
-        SolveTwoBone(skeleton, _rightArm, RightHanded ? trigger : support, down * 0.6f + right * 0.4f, keepEnd: false);
-        SolveTwoBone(skeleton, _leftArm, RightHanded ? support : trigger, down * 0.6f - right * 0.4f, keepEnd: false);
+        Vector3 ahead = (toSkeleton.Basis * Forward).Normalized() * right.Length();
+        Vector3 rightBend = down * 0.6f + right * 0.4f, leftBend = down * 0.6f - right * 0.4f;
+        if (ElbowsOut > 0f)
+        {
+            // Something just ahead at elbow height: the elbows come up level and out to the sides, clear of it.
+            rightBend = rightBend.Lerp(right * 0.95f + down * 0.1f, ElbowsOut);
+            leftBend = leftBend.Lerp(-right * 0.95f + down * 0.1f, ElbowsOut);
+        }
+        if (SupportRaise > 0f)
+        {
+            Vector3 raised = (RightHanded ? -right : right) * 0.9f + ahead * 0.3f + down * 0.15f;
+            if (RightHanded)
+            {
+                leftBend = leftBend.Lerp(raised, SupportRaise);
+            }
+            else
+            {
+                rightBend = rightBend.Lerp(raised, SupportRaise);
+            }
+        }
+
+        SolveTwoBone(skeleton, _rightArm, RightHanded ? trigger : support, rightBend, keepEnd: false);
+        SolveTwoBone(skeleton, _leftArm, RightHanded ? support : trigger, leftBend, keepEnd: false);
     }
 
     /// <summary>Sets every bone to the gait's blend of its clips, over the idle as far as the gait moves.</summary>

@@ -350,6 +350,8 @@ public sealed class MovementDef : IValidatable
 
     public float HeadRadius_m { get; set; }
 
+    public float MaxHeadTurn_deg { get; set; }
+
     public float ShoulderSwapTime_s { get; set; }
 
     public float SlideMinSpeed_mps { get; set; }
@@ -403,6 +405,7 @@ public sealed class MovementDef : IValidatable
         v.InRange(nameof(LeanInTime_s), LeanInTime_s, 0.01, 2);
         v.InRange(nameof(LeanReturnTime_s), LeanReturnTime_s, 0.01, 2);
         v.InRange(nameof(HeadRadius_m), HeadRadius_m, 0.05, 0.3);
+        v.InRange(nameof(MaxHeadTurn_deg), MaxHeadTurn_deg, 0, 90);
         v.InRange(nameof(ShoulderSwapTime_s), ShoulderSwapTime_s, 0.01, 3);
         v.InRange(nameof(SlideMinSpeed_mps), SlideMinSpeed_mps, 0.5, 20);
         v.InRange(nameof(SlideBoost_mps), SlideBoost_mps, 0, 10);

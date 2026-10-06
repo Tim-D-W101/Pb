@@ -11,11 +11,12 @@ using SVector3 = System.Numerics.Vector3;
 namespace Pb.Game.Core;
 
 /// <summary>
-/// <c>-- --gait-demo</c>: one opponent stands, walks, runs, sprints, strafes, backs off and walks
-/// crouched along a clear lane while a camera tracks them from the side, for checking the movement
-/// clips (or the steps without them) by eye or capturing them with <c>--write-movie</c>. The moves run
-/// by sim ticks, so they play out the same at any rendering speed; each is printed as it starts, and
-/// the game quits after the last.
+/// <c>-- --gait-demo</c>: one opponent stands, walks, runs, sprints, pulls up, strafes, backs off, walks
+/// crouched and stands looking round along a clear lane while a camera tracks them from the side (from
+/// in front for the look round), for checking the movement clips (or the steps without them) by eye or
+/// capturing them with <c>--write-movie</c>. <c>--gait-only=NAME</c> plays only the moves whose names start
+/// with NAME (after a second's stand), to film one quickly. The moves run by sim ticks, so they play out
+/// the same at any rendering speed; each is printed as it starts, and the game quits after the last.
 /// </summary>
 public partial class GaitDemo : Node, ICommandSource
 {
@@ -34,7 +35,14 @@ public partial class GaitDemo : Node, ICommandSource
         new("back off", 2.0f, 0f, -1f, InputButtons.Walk),
         new("crouched walk", 2.4f, 0f, 1f, InputButtons.Crouch),
         new("stand", 1.5f, 0f, 0f, InputButtons.None),
+        new("look round", 6f, 0f, 0f, InputButtons.None, Look: true),
     };
+
+    /// <summary>The look round: the head's turn (deg, left positive) from this many seconds into it.</summary>
+    private static readonly (float From, float Head)[] LookRound = { (0f, 0f), (0.8f, 55f), (2.2f, 0f), (3.2f, -60f), (4.6f, 0f) };
+
+    private Move[] _moves = Moves;
+    private float _head;
 
     private SimWorld _sim = null!;
     private OpponentPawn? _walker;
@@ -83,6 +91,11 @@ public partial class GaitDemo : Node, ICommandSource
             GD.PushError("GAIT DEMO found no clear lane for anyone to walk; quitting");
             GetTree().Quit(1);
             return;
+        }
+
+        if (Args.Value("--gait-only") is { Length: > 0 } only)
+        {
+            _moves = Moves.Take(1).Concat(Moves.Skip(1).Where(m => m.Name.StartsWith(only, System.StringComparison.Ordinal))).ToArray();
         }
 
         _walker.Teleport(_start, _yaw);
@@ -137,7 +150,7 @@ public partial class GaitDemo : Node, ICommandSource
             if (_measured >= 0 && _time > 0f)
             {
                 CharacterPoser poser = model.Poser;
-                GD.Print($"GAIT DEMO   {Moves[_measured].Name}: {_steps / Mathf.Max(_time - _settledAt, 0.01f):0.0} steps/s, feet slide {(poser.CheckDown > 0f ? poser.CheckSlide / poser.CheckDown : 0f):0.000} m/s while down, " +
+                GD.Print($"GAIT DEMO   {_moves[_measured].Name}: {_steps / Mathf.Max(_time - _settledAt, 0.01f):0.0} steps/s, feet slide {(poser.CheckDown > 0f ? poser.CheckSlide / poser.CheckDown : 0f):0.000} m/s while down, " +
                          $"hips {_hipsLow:0.00}–{_hipsHigh:0.00} m up, ankles up to {poser.CheckMiss * 100f:0.0} cm off their marks");
                 poser.CheckSlide = poser.CheckDown = poser.CheckMiss = 0f;
             }
@@ -194,10 +207,12 @@ public partial class GaitDemo : Node, ICommandSource
         float seconds = (tick - _first) * _sim.Config.Dt;
         int index = 0;
         float yaw = _yaw;
-        for (float end = Moves[0].Seconds; index < Moves.Length - 1 && seconds >= end; end += Moves[index].Seconds)
+        float start = 0f;
+        for (float end = _moves[0].Seconds; index < _moves.Length - 1 && seconds >= end; end += _moves[index].Seconds)
         {
+            start = end;
             index++;
-            if (Moves[index].Turn)
+            if (_moves[index].Turn)
             {
                 yaw += Mathf.Pi;
             }
@@ -206,23 +221,37 @@ public partial class GaitDemo : Node, ICommandSource
         if (index != _current)
         {
             _current = index;
-            GD.Print($"GAIT DEMO {Moves[index].Name} at tick {tick}");
+            GD.Print($"GAIT DEMO {_moves[index].Name} at tick {tick}");
         }
 
-        if (index == Moves.Length - 1 && seconds >= Total())
+        if (index == _moves.Length - 1 && seconds >= Total())
         {
             GD.Print("GAIT DEMO done");
             GetTree().Quit();
         }
 
-        Move move = Moves[index];
-        return new InputCommand { Tick = tick, Yaw = yaw, Pitch = 0f, Buttons = move.Buttons, Move = new System.Numerics.Vector2(move.Right, move.Forward) };
+        Move move = _moves[index];
+        // Looking round, the head turns to each look in turn at a bot's pace (brain.jsonc "headTurnSpeed_degps").
+        float look = 0f;
+        if (move.Look)
+        {
+            foreach ((float from, float head) in LookRound)
+            {
+                look = seconds - start >= from ? head : look;
+            }
+        }
+
+        _head = Mathf.MoveToward(_head, Mathf.DegToRad(look), Mathf.DegToRad(300f) * _sim.Config.Dt);
+        return new InputCommand
+        {
+            Tick = tick, Yaw = yaw, Pitch = 0f, HeadYaw = _head, Buttons = move.Buttons, Move = new System.Numerics.Vector2(move.Right, move.Forward),
+        };
     }
 
-    private static float Total()
+    private float Total()
     {
         float total = 0f;
-        foreach (Move m in Moves)
+        foreach (Move m in _moves)
         {
             total += m.Seconds;
         }
@@ -230,13 +259,16 @@ public partial class GaitDemo : Node, ICommandSource
         return total;
     }
 
-    /// <summary>From the side of the lane, level with the hips, keeping its distance.</summary>
+    /// <summary>From the side of the lane, level with the hips, keeping its distance; for the look round, closer, from in front and to the side.</summary>
     private void Track()
     {
         SVector3 at = _walker!.State.Position;
-        SVector3 eye = at + _side * 5.5f + new SVector3(0f, 1.1f, 0f);
+        bool look = _current >= 0 && _moves[_current].Look;
+        SVector3 eye = look
+            ? at + (_side * 0.7f + ViewAngles.FlatForward(_walker.State.Yaw)) * 2.4f + new SVector3(0f, 1.5f, 0f)
+            : at + _side * 5.5f + new SVector3(0f, 1.1f, 0f);
         _camera.GlobalPosition = eye.ToGodot();
-        _camera.LookAt((at + new SVector3(0f, 0.95f, 0f)).ToGodot(), Vector3.Up);
+        _camera.LookAt((at + new SVector3(0f, look ? 1.25f : 0.95f, 0f)).ToGodot(), Vector3.Up);
     }
 
     /// <summary>The ground under <paramref name="near"/>, if it's within a couple of metres of its height.</summary>
@@ -270,6 +302,6 @@ public partial class GaitDemo : Node, ICommandSource
         return true;
     }
 
-    /// <summary>One move: how long, the stick (right and forward), the buttons, and whether it turns round first.</summary>
-    private readonly record struct Move(string Name, float Seconds, float Right, float Forward, InputButtons Buttons, bool Turn = false);
+    /// <summary>One move: how long, the stick (right and forward), the buttons, whether it turns round first, and whether it's the look round.</summary>
+    private readonly record struct Move(string Name, float Seconds, float Right, float Forward, InputButtons Buttons, bool Turn = false, bool Look = false);
 }

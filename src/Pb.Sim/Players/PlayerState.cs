@@ -88,6 +88,12 @@ public sealed class PlayerState
     public float ShoulderTarget { get; set; } = 1f;
 
     /// <summary>
+    /// How far the head is turned from the aim (rad, positive to the left): the head and mask turn with it, and a
+    /// bot sees where its head looks. 0 once out.
+    /// </summary>
+    public float HeadYaw { get; set; }
+
+    /// <summary>
     /// How far the marker is pitched up off a wall in front (rad, 0 = shouldered): close to a wall the
     /// gear comes up about the back of the marker until the barrel clears it, rather than poke through.
     /// </summary>

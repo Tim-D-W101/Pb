@@ -225,6 +225,7 @@ public sealed class SimWorld
                 InputCommand cmd = commands[i];
                 player.Yaw = cmd.Yaw;
                 player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
+                player.HeadYaw = player.Alive ? Math.Clamp(cmd.HeadYaw, -Config.Movement.MaxHeadTurn, Config.Movement.MaxHeadTurn) : 0f;
                 UpdateTuck(player, dt);
                 UpdateFootsteps(player);
                 bool live = IsLive;
