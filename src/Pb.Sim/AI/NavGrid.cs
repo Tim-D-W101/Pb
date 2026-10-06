@@ -68,7 +68,7 @@ public sealed class NavGrid : IBotNavigation
     private readonly int[] _seen;
     private readonly int[] _closed;
     private readonly SpanHeap _open;
-    private readonly List<int> _spans = new();
+    private readonly List<int> _spans;
     private int _generation;
 
     private NavGrid(NavParams p, float minX, float minZ, int cols, int rows, int[] columnStart, float[] spanY)
@@ -99,6 +99,9 @@ public sealed class NavGrid : IBotNavigation
         _seen = new int[spanY.Length];
         _closed = new int[spanY.Length];
         _open = new SpanHeap(Math.Min(spanY.Length, 65536) + 16);
+
+        // Room for a path many times longer than any level's (4 km of cells), so a search never grows it.
+        _spans = new List<int>(Math.Min(spanY.Length, 16384));
         Link();
         _component = new int[spanY.Length];
         int biggest = LabelComponents();

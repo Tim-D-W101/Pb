@@ -47,10 +47,7 @@ public class SimWorldTests
         StepTicks(0, 600); // warm up: pool fills to the stress target, JIT settles
         Assert.True(sim.Ballistics.Pool.Count >= 900, $"stress mode should sustain ~1000 balls (got {sim.Ballistics.Pool.Count})");
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        StepTicks(600, 600);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.Equal(0, allocated);
+        Assert.Equal(0, Allocations.During(() => StepTicks(600, 600)));
     }
 
     [Fact]

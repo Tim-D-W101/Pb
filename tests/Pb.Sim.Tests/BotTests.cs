@@ -544,9 +544,7 @@ public class BotTests
         arena.Start();
         arena.PlaceHero(new Vector3(60f, 0f, 45f), new Vector3(60f, 0f, 40f));
         arena.Run(8 * Second); // warm up: paths planned, lists at size, JIT done
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        arena.Run(4 * Second);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.During(() => arena.Run(4 * Second));
         Assert.True(allocated == 0, $"{allocated} bytes allocated by 9 bots over 4 s");
     }
 

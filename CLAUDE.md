@@ -125,7 +125,9 @@ hardware can confirm the 60 fps target.
 
 - C# 12, nullable enabled, file-scoped namespaces. `Pb.Sim` builds with warnings as errors.
 - Godot scripts: one class per file, file name = class name, `partial`.
-- Hot paths (anything per ball or per tick) must not allocate. A test enforces this for `SimWorld.Step`.
+- Hot paths (anything per ball or per tick) must not allocate. A test enforces this for `SimWorld.Step`. Measure with
+  `Allocations.During` (tests' `TestSupport.cs`), not a bare `GC.GetAllocatedBytesForCurrentThread()`: another thread's
+  collection can add a few phantom bytes to the count, which fails such tests at random on CI.
 - The sim uses System.Numerics. Convert with `Pb.Game.Core.Conv` (`ToGodot()` / `ToSim()`).
 - Coordinates match Godot: Y up, yaw 0 faces −Z, positive yaw turns left, positive pitch looks up.
 - `game/Pb.csproj` keeps tiered PGO and quick JIT for loops off. With them on, the .NET 8 JIT on Windows x64 crashes

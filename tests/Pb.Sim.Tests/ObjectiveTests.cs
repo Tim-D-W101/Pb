@@ -299,9 +299,7 @@ public class ObjectiveTests
             }
 
             Steps(0, 700);
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            Steps(700, 700);
-            Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            Assert.Equal(0, Allocations.During(() => Steps(700, 700)));
         }
     }
 

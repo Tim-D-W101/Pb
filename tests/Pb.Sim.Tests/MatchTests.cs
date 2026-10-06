@@ -355,9 +355,7 @@ public class MatchTests
         }
 
         StepTicks(0, 240);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        StepTicks(240, 240);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, Allocations.During(() => StepTicks(240, 240)));
         Assert.Equal(MatchPhase.Live, sim.Match!.Phase);
     }
 
@@ -382,12 +380,9 @@ public class MatchTests
         }
 
         StepTicks(0, 240); // warm up
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        StepTicks(240, 240);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(20, sim.Match!.StatsFor(hero.Id)!.Shots); // 10 a second, under the marker's rate cap
 
-        Assert.Equal(0, allocated);
-        Assert.Equal(MatchPhase.Live, sim.Match!.Phase);
-        Assert.Equal(40, sim.Match.StatsFor(hero.Id)!.Shots); // 10 a second, under the marker's rate cap
+        Assert.Equal(0, Allocations.During(() => StepTicks(240, 240)));
+        Assert.Equal(MatchPhase.Live, sim.Match.Phase);
     }
 }

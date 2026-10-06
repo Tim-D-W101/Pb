@@ -364,9 +364,7 @@ public class DoorTests
         }
 
         Steps(0, 400);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        Steps(400, 400);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, Allocations.During(() => Steps(400, 400)));
     }
 
     [Fact]

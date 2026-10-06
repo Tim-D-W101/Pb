@@ -123,13 +123,13 @@ public class NavGridTests
         var path = new List<Vector3>(256);
         Vector3 goal = Level.OpponentSpawns.First(s => s.Id == "pump_house").Position;
         Grid.FindPath(Level.PlayerSpawn, goal, path); // warm up: lists reach their size
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 5; i++)
+        Assert.Equal(0, Allocations.During(() =>
         {
-            Grid.FindPath(Level.PlayerSpawn, goal, path);
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+            for (int i = 0; i < 5; i++)
+            {
+                Grid.FindPath(Level.PlayerSpawn, goal, path);
+            }
+        }));
     }
 
     private static float PathLength(Vector3 start, List<Vector3> path)
