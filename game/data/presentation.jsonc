@@ -855,7 +855,7 @@
     // the pace that keeps its feet planted; walk blends into run between the two clips' own speeds,
     // and into the crouched walk as you crouch, all in step. Any can be left out; without a walk, the
     // steps below stand in.
-    "clips": { "walk": "res://art/models/clip_walk.glb", "run": "res://art/models/clip_run.glb" },
+    "clips": { "walk": "res://art/models/clip_walk.glb", "run": "res://art/models/clip_run.glb", "crouchWalk": "res://art/models/clip_crouch.glb" },
     // How long clips take to blend in and out, and between each other.
     "clipBlend_s": 0.2,
     // The legs turn from where you face towards where you're going, by up to this much (the chest
