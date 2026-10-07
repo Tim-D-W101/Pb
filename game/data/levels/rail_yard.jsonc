@@ -1,0 +1,258 @@
+// Level 2: The Rail Yard (working name), a disused goods yard and engine shed.
+// World frame: metres, x east, z south (north is −Z), y up. A brick wall encloses x −75…75, z −40…40; you come in at
+// the south gate, the breach in the east wall or the gap in the west wall.
+// Four tracks run east–west the length of the yard (z −24, −17, −8, −1), the first two on into the engine shed in the
+// north-west and the fourth through the goods shed; rakes of derelict wagons stand on them with gaps between, so the
+// lanes along the tracks are long and the crossings short and exposed. The footbridge crosses them all at x 0.
+// Perimeter wall segments: 0 north (x −75→75, at_m = x + 75), 1 east (z −40→40, at_m = z + 40),
+// 2 south (x 75→−75, at_m = 75 − x), 3 west (z 40→−40, at_m = 40 − z).
+{
+  "id": "rail_yard",
+  "displayName": "The Rail Yard",
+  "description": "A goods yard left to rust: rakes of dead wagons on four tracks, an engine shed with a gantry, a goods shed with its platform, a signal box looking down on it all and a footbridge over the lot.",
+  "boundsMin_m": [-88, -2, -52],
+  "boundsMax_m": [88, 40, 52],
+  "groundMaterial": "gravel",
+  "groundPatches": [
+    // Scrub outside the wall.
+    { "rect_m": [-88, -52, 88, -40.2], "material": "grass_dry" },
+    { "rect_m": [-88, 40.2, -24, 52], "material": "grass_dry" },
+    { "rect_m": [-16, 40.2, 88, 52], "material": "grass_dry" },
+    { "rect_m": [-88, -40.2, -75.2, 40.2], "material": "grass_dry" },
+    { "rect_m": [75.2, -40.2, 88, 40.2], "material": "grass_dry" },
+    // Ballast under the tracks (and the main line outside the north wall).
+    { "rect_m": [-74.8, -25.8, 74.8, -22.2], "material": "ballast" },
+    { "rect_m": [-74.8, -18.8, 74.8, -15.2], "material": "ballast" },
+    { "rect_m": [-74.8, -9.8, 74.8, -6.2], "material": "ballast" },
+    { "rect_m": [-74.8, -2.8, 74.8, 0.8], "material": "ballast" },
+    { "rect_m": [-88, -47.8, 88, -44.2], "material": "ballast" },
+    // The gate road and the loading road along the goods shed, and dirt round the signal box and the lamp hut.
+    { "rect_m": [-24, 26, -16, 52], "material": "asphalt_cracked" },
+    { "rect_m": [-24, 9, 62, 16], "material": "asphalt_cracked" },
+    { "rect_m": [-60, 10, -30, 30], "material": "dirt" },
+    { "rect_m": [52, 18, 74.8, 39.8], "material": "dirt" }
+  ],
+  "playerSpawns": [
+    { "position_m": [-20, 0, 46], "yaw_deg": 0 },
+    { "position_m": [82, 0, 28], "yaw_deg": 90 },
+    { "position_m": [-82, 0, 8], "yaw_deg": -90 }
+  ],
+  "spawnArea": "the yard",
+  "deadZone_m": [-8, 0, 47],
+  "scenery": {
+    "powerLines": [ { "points_m": [[-480, -190], [-100, -175], [480, -170]], "spacing_m": 240, "height_m": 28, "material": "steel_galvanised", "wire": "steel_painted" } ],
+    "poleLines": [
+      { "points_m": [[-300, -50.5], [300, -50.5]], "spacing_m": 45, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" },
+      { "points_m": [[-15, 56], [-12, 200], [10, 420]], "spacing_m": 42, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" }
+    ]
+  },
+  "markings": {
+    "color": "#dedbd0",
+    "lineWidth_m": 0.12,
+    // Worn white lines along the loading road and a stop line inside the gate.
+    "lines_m": [[-22, 9.6, 60, 9.6], [-22, 15.4, 60, 15.4], [-23.5, 37.5, -16.5, 37.5]],
+    "stencils": [
+      { "text": "LOADING", "at_m": [12, 0, 12.5], "size_m": 0.9 },
+      { "text": "NO SHUNTING", "at_m": [-20, 0, 33], "size_m": 0.6 }
+    ]
+  },
+  "buildings": [
+    { "building": "engine_shed", "position_m": [-66, 0, -30] },
+    { "building": "goods_shed", "position_m": [22, 0, -3.5] },
+    { "building": "footbridge", "position_m": [0, 0, -28] },
+    { "building": "signal_box", "position_m": [-48, 0, 14] },
+    { "building": "yard_office", "position_m": [-12, 0, 20] },
+    { "building": "lamp_hut", "position_m": [58, 0, 22] }
+  ],
+  "walls": [
+    {
+      "baseElevation_m": 0, "height_m": 3.0,
+      "points_m": [[-75, -40], [75, -40], [75, 40], [-75, 40]], "closed": true,
+      "thickness_m": 0.35, "material": "brick_sooty",
+      // Piers, a coping and barbed wire leaning out, broken bricks at the breaks (looks only).
+      "dressing": { "pierSpacing_m": 5.0, "pierSize_m": 0.5, "coping": "concrete_wall", "wire": "steel_rust", "rubble": true },
+      "openings": [
+        // The south gate, the breach in the east wall, the gap in the west wall, and a stretch knocked down to waist
+        // height on the north side, looking out over the main line.
+        { "segment": 2, "at_m": 95, "width_m": 7.0, "kind": "gap" },
+        { "segment": 1, "at_m": 68, "width_m": 3.5, "kind": "gap" },
+        { "segment": 3, "at_m": 32, "width_m": 4.0, "kind": "gap" },
+        { "segment": 0, "at_m": 105, "width_m": 6.0, "sill_m": 1.1, "kind": "window" }
+      ]
+    }
+  ],
+  // Rails sit on sleepers 0.1 m deep; the wagons are built to stand on them.
+  "tracks": [
+    { "points_m": [[-60, -24], [70, -24]], "elevation_m": 0.1, "railMaterial": "steel_rust", "sleeperMaterial": "sleeper_timber" },
+    { "points_m": [[-60, -17], [70, -17]], "elevation_m": 0.1, "railMaterial": "steel_rust", "sleeperMaterial": "sleeper_timber" },
+    { "points_m": [[-74, -8], [70, -8]], "elevation_m": 0.1, "railMaterial": "steel_rust", "sleeperMaterial": "sleeper_timber" },
+    { "points_m": [[-74, -1], [70, -1]], "elevation_m": 0.1, "railMaterial": "steel_rust", "sleeperMaterial": "sleeper_timber" },
+    // The main line, running past outside the north wall.
+    { "points_m": [[-88, -46], [88, -46]], "elevation_m": 0.1, "railMaterial": "steel_rust", "sleeperMaterial": "sleeper_timber" }
+  ],
+  "props": [
+    // Track 1 (z −24): an open wagon in the shed; two vans and two tanks out in the yard.
+    { "prop": "open_wagon", "position_m": [-50, 0, -24], "yaw_deg": 90 },
+    { "prop": "box_van", "position_m": [7, 0, -24], "yaw_deg": 90 },
+    { "prop": "box_van", "position_m": [15.4, 0, -24], "yaw_deg": 90 },
+    { "prop": "tank_wagon", "position_m": [40, 0, -24], "yaw_deg": 90 },
+    { "prop": "tank_wagon", "position_m": [48.6, 0, -24], "yaw_deg": 90 },
+    // Track 2 (z −17): the shunter in the shed; a tank, two open wagons and a van outside.
+    { "prop": "shunter", "position_m": [-40, 0, -17], "yaw_deg": 90 },
+    { "prop": "tank_wagon", "position_m": [-12, 0, -17], "yaw_deg": 90 },
+    { "prop": "open_wagon", "position_m": [22, 0, -17], "yaw_deg": 90 },
+    { "prop": "open_wagon", "position_m": [29.8, 0, -17], "yaw_deg": 90 },
+    { "prop": "box_van", "position_m": [58, 0, -17], "yaw_deg": 90 },
+    // Track 3 (z −8): two flats of pipes in the west, two vans, then an open wagon and a van in the east.
+    { "prop": "flat_wagon", "position_m": [-56, 0, -8], "yaw_deg": 90 },
+    { "prop": "flat_wagon", "position_m": [-46, 0, -8], "yaw_deg": 90 },
+    { "prop": "box_van", "position_m": [-20, 0, -8], "yaw_deg": 90 },
+    { "prop": "box_van", "position_m": [-11.6, 0, -8], "yaw_deg": 90 },
+    { "prop": "open_wagon", "position_m": [32, 0, -8], "yaw_deg": 90 },
+    { "prop": "box_van", "position_m": [46, 0, -8], "yaw_deg": 90 },
+    // Track 4 (z −1): a flat in the west, a van and an open wagon in the goods shed.
+    { "prop": "flat_wagon", "position_m": [-36, 0, -1], "yaw_deg": 90 },
+    { "prop": "box_van", "position_m": [29, 0, -1], "yaw_deg": 90 },
+    { "prop": "open_wagon", "position_m": [45, 0, -1], "yaw_deg": 90 },
+    // Buffer stops at the ends of the tracks.
+    { "prop": "buffer_stop", "position_m": [69, 0, -24], "yaw_deg": 90 },
+    { "prop": "buffer_stop", "position_m": [69, 0, -17], "yaw_deg": 90 },
+    { "prop": "buffer_stop", "position_m": [69, 0, -8], "yaw_deg": 90 },
+    { "prop": "buffer_stop", "position_m": [69, 0, -1], "yaw_deg": 90 },
+    { "prop": "buffer_stop", "position_m": [-61, 0, -24], "yaw_deg": -90 },
+    { "prop": "buffer_stop", "position_m": [-61, 0, -17], "yaw_deg": -90 },
+    { "prop": "buffer_stop", "position_m": [-73, 0, -8], "yaw_deg": -90 },
+    { "prop": "buffer_stop", "position_m": [-73, 0, -1], "yaw_deg": -90 },
+
+    // The north side: the coal stage's heaps and barriers, the water tower, drums.
+    { "prop": "water_tower", "position_m": [64, 0, -33] },
+    { "prop": "rubble_pile", "position_m": [46, 0, -34], "yaw_deg": 10 },
+    { "prop": "scrap_pile", "position_m": [51, 0, -33.5], "yaw_deg": -25 },
+    { "prop": "concrete_barrier", "position_m": [44, 0, -30.5] },
+    { "prop": "concrete_barrier", "position_m": [48, 0, -30.5] },
+    { "prop": "concrete_barrier", "position_m": [52, 0, -30.5] },
+    { "prop": "oil_drum_rust", "position_m": [30, 0, -36] },
+    { "prop": "oil_drum", "position_m": [30.6, 0, -36.4] },
+    { "prop": "rail_stack", "position_m": [10, 0, -34], "yaw_deg": 90 },
+    { "prop": "sleeper_stack", "position_m": [-12, 0, -35] },
+
+    // The loading road and the south yard.
+    { "prop": "pallet_stack", "position_m": [28, 0, 11.5] },
+    { "prop": "pallet_stack_tall", "position_m": [29.4, 0, 11.6], "yaw_deg": 5 },
+    { "prop": "crate_large", "position_m": [40, 0, 12.5] },
+    { "prop": "crate_small", "position_m": [41.3, 0, 12.6] },
+    { "prop": "forklift", "position_m": [47, 0, 12], "yaw_deg": 80 },
+    { "prop": "sleeper_stack", "position_m": [20, 0, 20] },
+    { "prop": "sleeper_stack", "position_m": [23, 0, 20], "yaw_deg": 90 },
+    { "prop": "sleeper_stack", "position_m": [20, 0, 23] },
+    { "prop": "rail_stack", "position_m": [34, 0, 21], "yaw_deg": 90 },
+    { "prop": "rail_stack", "position_m": [34, 0, 23.5], "yaw_deg": 90 },
+    { "prop": "car_wreck", "position_m": [-27, 0, 31], "yaw_deg": 20 },
+    { "prop": "concrete_barrier", "position_m": [-25, 0, 35], "yaw_deg": 90 },
+    { "prop": "concrete_barrier", "position_m": [-15, 0, 35], "yaw_deg": 90 },
+    { "prop": "skip_bin", "position_m": [-34, 0, 34], "yaw_deg": 90 },
+    { "prop": "generator", "position_m": [-52, 0, 20] },
+    { "prop": "cable_reel", "position_m": [-56, 0, 26], "yaw_deg": 30 },
+    { "prop": "tyre_stack", "position_m": [55, 0, 26] },
+    { "prop": "tyre_stack", "position_m": [55.8, 0, 26.4] },
+    { "prop": "container_green", "position_m": [62, 0, 34] },
+    { "prop": "container_red", "position_m": [8, 0, 32], "yaw_deg": 85 },
+    { "prop": "oil_drum_tipped", "position_m": [5, 0, 28], "yaw_deg": 60 },
+    { "prop": "pallet_stack", "position_m": [-40, 0, 32] },
+    // Cover across the open south yard, so crossing it isn't a walk across a firing range.
+    { "prop": "container_blue", "position_m": [30, 0, 31], "yaw_deg": 5 },
+    { "prop": "skip_bin", "position_m": [14, 0, 26], "yaw_deg": 80 },
+    { "prop": "concrete_barrier", "position_m": [44, 0, 32] },
+    { "prop": "concrete_barrier", "position_m": [47.2, 0, 33] },
+    { "prop": "concrete_barrier", "position_m": [50.4, 0, 32] },
+    { "prop": "scrap_pile", "position_m": [70, 0, 20], "yaw_deg": 40 },
+    { "prop": "pallet_stack", "position_m": [2, 0, 20] },
+    { "prop": "crate_large", "position_m": [3.4, 0, 21.2], "yaw_deg": 12 },
+    { "prop": "cable_reel", "position_m": [38, 0, 37], "yaw_deg": 20 },
+    { "prop": "sandbag_wall", "position_m": [22, 0, 36] },
+
+    // The west end.
+    { "prop": "scrap_pile", "position_m": [-66, 0, 14], "yaw_deg": 30 },
+    { "prop": "sandbag_wall", "position_m": [-64, 0, 6], "yaw_deg": 90 },
+    { "prop": "crate_large", "position_m": [-70, 0, 24] },
+
+    // Outside the wall.
+    { "prop": "box_van", "position_m": [-30, 0, -46], "yaw_deg": 90 },
+    { "prop": "rubble_pile", "position_m": [80, 0, 24], "yaw_deg": -15 },
+    { "prop": "car_wreck", "position_m": [-34, 0, 46], "yaw_deg": 95 },
+    { "prop": "tyre_stack", "position_m": [-82, 0, 12] }
+  ],
+  "areas": [
+    { "name": "outside the wall", "rect_m": [-88, -52, 88, 52] },
+    { "name": "the yard", "rect_m": [-75, -40, 75, 40] },
+    { "name": "the north side", "rect_m": [-75, -40, 75, -28] },
+    { "name": "the north tracks", "rect_m": [-75, -28, 75, -13] },
+    { "name": "the south tracks", "rect_m": [-75, -12, 75, 3] },
+    { "name": "the loading road", "rect_m": [-22, 9, 62, 16] },
+    { "name": "the gate road", "rect_m": [-28, 26, -12, 40] },
+    { "name": "the coal stage", "rect_m": [40, -38, 58, -29] }
+  ],
+  "opponentSpawns": [
+    { "id": "signal_box_up", "position_m": [-44, 3.2, 15.2], "yaw_deg": 0, "roles": ["marksman", "sentry"] },
+    { "id": "footbridge_deck", "position_m": [1.2, 6.0, -12], "yaw_deg": 90, "roles": ["marksman", "sentry"] },
+    { "id": "shed_gantry", "position_m": [-40, 4.5, -29], "yaw_deg": 180, "roles": ["marksman", "sentry"] },
+    { "id": "shed_floor", "position_m": [-30, 0, -20.5], "yaw_deg": -90, "roles": ["sentry", "patroller"], "patrol": "shed_aisle" },
+    { "id": "goods_platform", "position_m": [35, 1.2, 6.5], "yaw_deg": 0, "roles": ["sentry"] },
+    { "id": "goods_track", "position_m": [38, 0, -2.6], "yaw_deg": 90, "roles": ["sentry", "rusher"] },
+    { "id": "north_lane", "position_m": [10, 0, -20.5], "yaw_deg": 90, "roles": ["patroller", "rusher"], "patrol": "north_lane" },
+    { "id": "south_lane", "position_m": [-5, 0, -4.5], "yaw_deg": -90, "roles": ["patroller", "rusher"], "patrol": "south_lane" },
+    { "id": "yard_office", "position_m": [-7, 0, 23], "yaw_deg": 0, "roles": ["sentry"] },
+    { "id": "lamp_hut", "position_m": [59.5, 0, 26], "yaw_deg": 90, "roles": ["sentry", "rusher"] },
+    { "id": "coal_stage", "position_m": [48, 0, -32], "yaw_deg": 180, "roles": ["sentry", "patroller"], "patrol": "east_end" },
+    { "id": "water_tower", "position_m": [66, 0, -28], "yaw_deg": 90, "roles": ["patroller"], "patrol": "east_end" },
+    { "id": "sleepers", "position_m": [25, 0, 22], "yaw_deg": 0, "roles": ["rusher", "sentry"] },
+    { "id": "west_end", "position_m": [-68, 0, 2], "yaw_deg": -90, "roles": ["sentry", "patroller"], "patrol": "south_yard" }
+  ],
+  // Routes keep 20 m and more from the ways in, so nobody walks past a gap just as you come through it.
+  "patrols": [
+    { "id": "north_lane", "points_m": [[-15, 0, -20.5], [62, 0, -20.5]], "loop": false, "pause_s": 3 },
+    { "id": "south_lane", "points_m": [[-62, 0, -4.5], [18, 0, -4.5]], "loop": false, "pause_s": 3 },
+    { "id": "shed_aisle", "points_m": [[-56, 0, -20.5], [-26, 0, -20.5]], "loop": false, "pause_s": 2 },
+    { "id": "east_end", "points_m": [[62, 0, -36], [72, 0, -36], [72, 0, -4.5], [62, 0, -4.5]], "pause_s": 2 },
+    { "id": "south_yard", "points_m": [[-52, 0, 4], [-30, 0, 6], [-32, 0, 22], [-52, 0, 24]], "pause_s": 2 }
+  ],
+  "pickups": [
+    { "id": "pod_gantry", "kind": "pod", "position_m": [-31, 4.5, -29.0] },
+    { "id": "pod_signal_box", "kind": "pod", "position_m": [-46.5, 3.2, 15.2] },
+    { "id": "pod_platform", "kind": "pod", "position_m": [25, 1.2, 4.0] },
+    { "id": "pod_footbridge", "kind": "pod", "position_m": [1.2, 6.0, -6] },
+    { "id": "pod_office", "kind": "pod", "position_m": [-9, 0, 24.5] },
+    { "id": "pod_lamp_hut", "kind": "pod", "position_m": [59, 0, 23.6] },
+    { "id": "air_office", "kind": "air", "position_m": [-24, 0, 24] },
+    { "id": "air_water_tower", "kind": "air", "position_m": [60, 0, -29.5] }
+  ],
+  // Camera positions for the briefing fly-over and screenshots (yaw 0 = north, positive turns left).
+  "viewpoints": [
+    { "name": "the gate", "position_m": [-20, 1.7, 44], "yaw_deg": 0, "pitch_deg": -2 },
+    { "name": "over the yard", "position_m": [60, 20, 34], "yaw_deg": 52, "pitch_deg": -26 },
+    { "name": "from the footbridge", "position_m": [1.2, 7.7, -12], "yaw_deg": 90, "pitch_deg": -12 },
+    { "name": "between the wagons", "position_m": [24, 1.7, -20.5], "yaw_deg": 90, "pitch_deg": 0 },
+    { "name": "inside the engine shed", "position_m": [-27, 1.7, -14.5], "yaw_deg": 75, "pitch_deg": 6 },
+    { "name": "the goods platform", "position_m": [50, 2.9, 6.5], "yaw_deg": 90, "pitch_deg": -4 },
+    { "name": "from the signal box", "position_m": [-44, 4.9, 15.8], "yaw_deg": -15, "pitch_deg": -10 },
+    { "name": "the coal stage", "position_m": [36, 1.7, -32], "yaw_deg": -90, "pitch_deg": 2 }
+  ],
+  // Objectives (rules.jsonc "objectives"). Retrieve: the case starts at one of these spots; it goes out through the
+  // south gate, the east breach or the west gap. Hold: one of these rooms each round.
+  "objectives": {
+    "caseSpots_m": [
+      [-60, 0, -14.5],   // the far end of the engine shed
+      [-46, 4.5, -29.4], // up on the shed's gantry
+      [-42, 3.2, 15.6],  // the signal box, upstairs
+      [40, 1.2, 7.2],    // the goods platform
+      [-4, 0, 24.6],     // the foreman's room in the yard office
+      [59.4, 0, 23.6]    // the lamp hut
+    ],
+    "exits": [
+      { "name": "the south gate", "at_m": [-20, 0, 43] },
+      { "name": "the east breach", "at_m": [79, 0, 28] },
+      { "name": "the west gap", "at_m": [-79, 0, 8] }
+    ],
+    "holdRooms": ["signal box, upstairs", "the goods platform", "yard office", "the gantry"]
+  }
+}

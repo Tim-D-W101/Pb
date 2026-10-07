@@ -57,5 +57,38 @@
   // spawns one by one, picking the next at random from the huntChoices nearest they haven't visited
   // (1 = always the nearest), and look around for huntLookAround_s at each.
   "huntChoices": 3,
-  "huntLookAround_s": 2
+  "huntLookAround_s": 2,
+
+  // Teamwork: a bot that spots someone shouts where they are, and teammates within calloutRange_m (half that
+  // through walls) get it as a lead, give or take contactError_m; while it keeps them in sight it calls it again
+  // every shareInterval_s. A call is worth acting on for contactMemory_s, even if they've heard something of the
+  // enemy themselves since. Flankers go round to the side on a call; everyone else comes to help.
+  "calloutRange_m": 35,
+  "contactError_m": 2.5,
+  "shareInterval_s": 3,
+  "contactMemory_s": 4,
+
+  // Marksmen moving on go at least relocateDistance_m from the spot they leave. A flanker's spot is at least
+  // flankMinAngle_deg off the line between the enemy and the teammate who called them out; holding its fire on the
+  // way there, it opens up once the enemy faces within noticedAngle_deg of it. At the spot it looks out from it for
+  // flankLook_s (that's what the spot was picked for) before it starts searching (0 = searches straight away).
+  "relocateDistance_m": 8,
+  "flankMinAngle_deg": 50,
+  "noticedAngle_deg": 57,
+  "flankLook_s": 2.5,
+
+  // Objectives (rules.jsonc "objectives"): bots on your side fetch the case, carry it to the nearest way out or keep
+  // within escort_m of whoever carries it, or take a spot in the room to hold. Defenders sent to guard a spot (the way
+  // out nearest the case, guarded from exitGuardInset_m inside it, or the case where it fell) stand guardSpacing_m apart.
+  "escort_m": 5,
+  "guardSpacing_m": 2.5,
+  "exitGuardInset_m": 6,
+
+  // Vantage (marksmen): each cover point is scored by how far you'd see from it, vantageRays rays of up to
+  // vantageRange_m across vantageArc_deg of the side the cover faces, plus vantageHeightBonus_perM for every metre
+  // above the ground (0.05 a metre: a 4 m mezzanine adds a fifth of a wide-open view).
+  "vantageRays": 12,
+  "vantageRange_m": 60,
+  "vantageArc_deg": 140,
+  "vantageHeightBonus_perM": 0.05
 }

@@ -2,6 +2,7 @@ using System.Numerics;
 using Pb.Sim.Ballistics;
 using Pb.Sim.Collision;
 using Pb.Sim.Core;
+using Pb.Sim.Data;
 using Pb.Sim.Events;
 using Pb.Sim.Gear;
 using Pb.Sim.Level;
@@ -74,6 +75,9 @@ public sealed class SimWorld
 
     public PickupSet Pickups { get; } = new();
 
+    /// <summary>The level's door leaves (none on the range).</summary>
+    public DoorSet Doors { get; } = new();
+
     /// <summary>Players may move and fire: always without a match, and only while it's live with one.</summary>
     public bool IsLive => Match is null || Match.Phase == MatchPhase.Live;
 
@@ -125,6 +129,7 @@ public sealed class SimWorld
         Range = null;
         Stress = null;
         level.BuildCollision(Collision);
+        Doors.Load(level.Doors, Collision, MatchSeed, Config.Rules.Doors);
         Targets.Load(Array.Empty<TargetSpec>());
         Ballistics.Bounds = level.Bounds;
     }
@@ -136,6 +141,7 @@ public sealed class SimWorld
         PlayerHits.Enabled = false;
         Pickups.Load(Array.Empty<PickupSpec>());
         range.BuildCollision(Collision);
+        Doors.Load(Array.Empty<DoorSpec>(), Collision, MatchSeed, Config.Rules.Doors);
         Targets.Load(range.Targets);
         Targets.Update(Time);
         Ballistics.Bounds = range.Bounds;
@@ -161,13 +167,31 @@ public sealed class SimWorld
     /// <summary>
     /// Starts a round with everyone already added, each on their team (in free-for-all, a team each):
     /// gear by the tier (full loaders and tanks, the tier's pods), pickups out or not, stats from zero.
-    /// Every mode is won by the last team standing. The round waits in the briefing until <see cref="GoLive"/>.
+    /// Every mode is won by the last team standing; an objective (the hero's side attacking it) is another way to win.
+    /// The round waits in the briefing until <see cref="GoLive"/>.
     /// </summary>
     public MatchState StartMatch(MatchSetup setup)
     {
-        Match = new MatchState(setup, Config.Rules, LastTeamStandingMode.Instance);
+        ObjectiveKind kind = setup.Mode == MatchModeKind.FreeForAll ? ObjectiveKind.Eliminate : setup.Objective;
+        ObjectiveState? objective = null;
+        IMatchMode mode = LastTeamStandingMode.Instance;
+        if (kind != ObjectiveKind.Eliminate)
+        {
+            LevelObjectives places = Level?.Objectives ?? LevelObjectives.None;
+            if (!places.Offers(kind))
+            {
+                throw new InvalidOperationException($"{Level?.Id ?? "the range"} has no places for {kind.ToString().ToLowerInvariant()}");
+            }
+
+            byte attackers = FindPlayer(setup.HeroId)?.Team ?? 0;
+            objective = new ObjectiveState(kind, attackers, places, Config.Rules.Objectives, MatchSeed);
+            mode = kind == ObjectiveKind.Retrieve ? RetrieveMode.Instance : HoldMode.Instance;
+        }
+
+        Match = new MatchState(setup, Config.Rules, mode, objective);
         foreach (PlayerState p in _players)
         {
+            p.SprintBlocked = false;
             p.Marker.ResetGear();
             p.Marker.Paint.FillWith(p.Id == setup.HeroId ? setup.StartPods : setup.BotPods);
             Match.AddPlayer(p.Id);
@@ -211,9 +235,12 @@ public sealed class SimWorld
                 {
                     FireShot(player, _shots[k]);
                 }
+
+                Doors.Interact(this, player, live && player.Alive && cmd.Has(InputButtons.Interact), dt);
             }
         }
 
+        Doors.Step(this, dt);
         if (IsLive)
         {
             Pickups.Update(this, Config.Rules);

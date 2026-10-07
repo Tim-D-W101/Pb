@@ -11,6 +11,9 @@ namespace Pb.Sim.AI;
 /// </summary>
 public sealed class NavGridMover
 {
+    /// <summary>How close to a door leaf a body's middle may come (headless; less than the body's radius, so a bot slips past an open leaf).</summary>
+    private const float LeafClearance = 0.1f;
+
     private readonly NavGrid _grid;
     private readonly SimWorld _sim;
 
@@ -59,6 +62,12 @@ public sealed class NavGridMover
     {
         int there = _grid.SpanAt(to);
         if (there < 0 || (here >= 0 && !_grid.AreLinked(here, there)))
+        {
+            return false;
+        }
+
+        // A door leaf stops you as a wall would (the grid knows doorways only as open).
+        if (_sim.Doors.Count > 0 && _sim.Doors.Blocks(state.Position, to with { Y = state.Position.Y }, LeafClearance))
         {
             return false;
         }

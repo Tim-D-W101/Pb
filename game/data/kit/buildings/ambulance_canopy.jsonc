@@ -1,0 +1,27 @@
+// Ambulance canopy: a flat roof 4.2 m up on six steel columns over a concrete apron, 16 × 8 m, open on every side.
+{
+  "id": "ambulance_canopy",
+  "displayName": "Ambulance canopy",
+  "storeys_m": [4.2],
+  "slabThickness_m": 0.2,
+  "footprint_m": [0, 0, 16, 8],
+  "floorMaterial": "concrete_floor",
+  "gutters": "steel_painted",
+  "markings": {
+    "color": "#e8e4d8",
+    "lineWidth_m": 0.12,
+    "lines_m": [[0.5, 0.5, 15.5, 0.5], [0.5, 7.5, 15.5, 7.5], [5.3, 0.5, 5.3, 7.5], [10.7, 0.5, 10.7, 7.5]],
+    "stencils": [ { "text": "AMBULANCES ONLY", "at_m": [8, 0, 6.6], "size_m": 0.45 } ]
+  },
+  "walls": [],
+  "roof": { "rect_m": [-0.5, -0.5, 16.5, 8.5], "material": "roof_felt", "ceilingMaterial": "steel_painted" },
+  "columns": [
+    { "at_m": [0.2, 0.2], "size_m": [0.3, 0.3], "height_m": 4.2, "material": "steel_painted" },
+    { "at_m": [8.0, 0.2], "size_m": [0.3, 0.3], "height_m": 4.2, "material": "steel_painted" },
+    { "at_m": [15.8, 0.2], "size_m": [0.3, 0.3], "height_m": 4.2, "material": "steel_painted" },
+    { "at_m": [0.2, 7.8], "size_m": [0.3, 0.3], "height_m": 4.2, "material": "steel_painted" },
+    { "at_m": [8.0, 7.8], "size_m": [0.3, 0.3], "height_m": 4.2, "material": "steel_painted" },
+    { "at_m": [15.8, 7.8], "size_m": [0.3, 0.3], "height_m": 4.2, "material": "steel_painted" }
+  ],
+  "areas": [ { "name": "the ambulance bay", "rect_m": [0, 0, 16, 8], "maxY_m": 4.2, "light": 0.75 } ]
+}

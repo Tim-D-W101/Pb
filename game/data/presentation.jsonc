@@ -5,6 +5,15 @@
   // teams use the first two (orange vs blue, a colourblind-safe pair); in free-for-all every player is a
   // team of their own with their own paint colour, so a ten-player round needs ten.
   "teamColors": ["#ff6a1a", "#2f8cff", "#3fd14a", "#e83fd0", "#ffd21a", "#19d3c5", "#e6332a", "#9d6bff", "#ff8fc8", "#f2f2ea"],
+  // Other sets the settings offer (Accessibility), as many colours as teamColors, in the same order of use: for
+  // red–green colour blindness (deuteranopia, protanopia: Okabe and Ito's palette, the first two orange and deep blue),
+  // and for blue–yellow (tritanopia: Paul Tol's "bright", the first two red and blue). They apply from the next round.
+  "teamColorSets": [
+    { "id": "redGreen", "name": "Red–green safe",
+      "colors": ["#e69f00", "#0072b2", "#56b4e9", "#f0e442", "#009e73", "#cc79a7", "#d55e00", "#f2f2ea", "#7a5195", "#a0a0a0"] },
+    { "id": "blueYellow", "name": "Blue–yellow safe",
+      "colors": ["#ee6677", "#4477aa", "#ccbb44", "#66ccee", "#228833", "#aa3377", "#f2f2ea", "#bbbbbb", "#ff9e4a", "#6d4c9f"] }
+  ],
 
   "ball": {
     // A 17.3 mm ball is under 1 px beyond ~17 m at 1080p / 90° FOV. Balls are drawn at least this
@@ -504,9 +513,16 @@
   // back over period_s (vertical fov_deg), with the menu's wash darkest (shade) on the left where the
   // panels sit. Built at the saved graphics preset; nothing moves in it but the camera and the weeds.
   "menuBackdrop": {
-    "level": "oxbarrow_works",
-    "from": { "position_m": [9, 2.6, 24], "yaw_deg": 12, "pitch_deg": -4 },
-    "to": { "position_m": [1, 2.3, 25], "yaw_deg": -2, "pitch_deg": -3 },
+    // A drift for each level: the menu shows the newest level you've opened that has one here (else the first).
+    "shots": [
+      { "level": "oxbarrow_works", "from": { "position_m": [9, 2.6, 24], "yaw_deg": 12, "pitch_deg": -4 }, "to": { "position_m": [1, 2.3, 25], "yaw_deg": -2, "pitch_deg": -3 } },
+      // Down the lane between the rakes of wagons towards the footbridge.
+      { "level": "rail_yard", "from": { "position_m": [30, 2.4, -20.5], "yaw_deg": 96, "pitch_deg": -2 }, "to": { "position_m": [20, 2.2, -20.8], "yaw_deg": 86, "pitch_deg": -1 } },
+      // The dock face, the trailers backed onto it and the store behind.
+      { "level": "cold_store", "from": { "position_m": [3, 2.4, 26], "yaw_deg": 16, "pitch_deg": 1 }, "to": { "position_m": [-5, 2.2, 25], "yaw_deg": 4, "pitch_deg": 2 } },
+      // Across the overgrown courtyard to the two wings.
+      { "level": "hospital_wing", "from": { "position_m": [2, 2.4, 17], "yaw_deg": 40, "pitch_deg": 4 }, "to": { "position_m": [-4, 2.2, 13], "yaw_deg": 28, "pitch_deg": 5 } }
+    ],
     "period_s": 80,
     "fov_deg": 55,
     "shade": 0.82
@@ -910,23 +926,153 @@
     "lowPaint": 0.2,
     // Opponents' callsigns, dealt in a shuffled order each round (invented names only).
     "callsigns": ["Rook", "Magpie", "Tinker", "Moth", "Ferret", "Badger", "Sparrow", "Flint", "Gannet", "Wren", "Otter", "Lark"],
-    // What bots shout; one line is picked per call.
+    // What bots shout; one line is picked per call. Each line is also a voice file per voice in the cast ("audio" →
+    // "cast"), named by its words, so no two lines may share their words.
     "callouts": {
       "spotted": ["Contact!", "There!", "Eyes on one!", "Over here!"],
       "lost": ["Lost them.", "Where'd they go?", "Anyone see them?"],
       "underFire": ["Taking fire!", "Incoming!", "I'm pinned!"],
       "refill": ["Reloading!", "Changing pods!"],
-      "hit": ["Hit!", "I'm hit!", "Hit, hit!"]
+      "hit": ["Hit!", "I'm hit!", "Hit, hit!"],
+      "flanking": ["Going round!", "Flanking!", "I'll take the side!"],
+      "pushing": ["Pushing up!", "Moving in!", "Going in!"],
+      "moving": ["Moving!", "Changing spots!", "Relocating!"],
+      "manDown": ["Man down!", "They got one of us!", "We lost one!"],
+      "caseTaken": ["Got the case!", "I've got it, cover me!", "Case is mine, heading out!"],
+      "caseDown": ["Case is down!", "We lost the case, grab it!", "Someone get the case!"],
+      "caseAlarm": ["They've got the case!", "The case is moving, stop them!", "Cut them off!"],
+      "roomAlarm": ["They're in the room!", "Take the room back!", "They're holding it, go!"]
+    },
+    // What the referee calls (subtitles, and the referee's voice): at the breakout, a minute and thirty seconds from
+    // time, at time, when you're out, and how the round went (won: cleared or traded; lastStanding: free-for-all
+    // won; caseOut and roomHeld: the objective done), and in a hold, when your side has the room alone or it's
+    // contested.
+    "referee": {
+      "start": ["Game on!", "Go, go, go!"],
+      "oneMinute": ["One minute left!"],
+      "thirtySeconds": ["Thirty seconds!"],
+      "timeUp": ["Time! That's the round."],
+      "youreOut": ["You're hit! Off the field.", "Hit! You're out."],
+      "won": ["That's the round to you!", "Round over. Well played!"],
+      "lost": ["That's the round to them.", "Round over. They take it."],
+      "lastStanding": ["Last one standing!"],
+      "caseOut": ["The case is out! Round over."],
+      "roomHeld": ["Room held! Round over."],
+      "roomTaken": ["Room taken. Hold it!"],
+      "roomContested": ["The room is contested!"]
     }
   },
 
+  // Objectives (rules.jsonc "objectives"), looks only: the colour of the HUD's objective marker, the ways out and the
+  // room's outline; the case (a hard case, this size and colour, with a small blinking light while it lies about); the
+  // ways out (a beam of light this tall and wide, seen while the round is a retrieve); the room to hold, outlined on its
+  // floor; and how near you have to have seen the case for the HUD to mark the case itself rather than its building.
+  "objectives": {
+    "color": "#f2c14e",
+    "caseSize_m": [0.56, 0.42, 0.17],
+    "caseColor": "#33372f",
+    "caseLightColor": "#ffb347",
+    "caseLightRange_m": 2.5,
+    "caseLightBlink_s": 1.2,
+    "beamHeight_m": 14,
+    "beamRadius_m": 0.45,
+    "beamAlpha": 0.22,
+    "roomOutlineWidth_m": 0.1,
+    "seenWithin_m": 30,
+    "markerSize_px": 16
+  },
+
+  // Sound (game/audio). Every effect is synthesised when the game starts (game/audio/SoundBank.cs), `variations` of
+  // each one-shot; world sounds play where they happen through a pool of `voices` 3D players, at most
+  // `maxSoundsPerFrame` new ones a frame, each at full volume within unitSize_m and falling off with distance out to
+  // maxDistance_m (most kinds carry less far: see AudioDirector).
   "audio": {
-    "voices": 24,
-    "maxSoundsPerFrame": 6,
+    "voices": 32,
+    "maxSoundsPerFrame": 10,
+    "variations": 4,
     "volume_db": -6,
-    // The shot sound's pitch follows tank pressure (spec §8): empty tank → low, full → high.
+    // The shot sound's pitch follows tank pressure (spec §8): empty tank → low, full → high; its body thins as the
+    // pressure drops (three synthesised reports, full, half and low).
     "shotPitchEmpty": 0.82,
     "shotPitchFull": 1.05,
-    "maxDistance_m": 140
+    "maxDistance_m": 140,
+    "unitSize_m": 4,
+    // Air absorption: a distant sound loses its highs (Godot's attenuation filter): above cutoff_hz, down by up to db.
+    "airAbsorption": { "cutoff_hz": 5500, "db": -20 },
+    // Something the paint can't pass (a wall, a shut door) between you and a sound: this much quieter, and dull above
+    // cutoff_hz.
+    "occlusion": { "volume_db": -10, "cutoff_hz": 900 },
+    // The buses' volumes (0..1) until you change them in settings: master, effects, voices, ambience and menus.
+    "buses": { "master": 0.8, "effects": 1.0, "voices": 1.0, "ambience": 0.8, "menus": 0.7 },
+    // How loud each kind of sound plays (dB, on top of volume_db): your shots and others', your loader feeding, gear
+    // (dry fire, fire mode, refills), balls breaking and bouncing, footsteps (others', yours), slides and landings,
+    // doors, pickups, being hit, the hit marker, the objectives' cues, the case's beep while it lies about, the
+    // breakout horn and the referee's whistle, callouts, the referee's voice and the menus' clicks.
+    "mix": {
+      "shot": -2, "remoteShot": -3, "loader": -20, "gear": -10, "break": -3, "bounce": -12, "footstep": -9,
+      "ownFootstep": -19, "slide": -8, "land": -8, "door": -4, "pickup": -8, "hitTaken": -1, "hitMarker": -8,
+      "objective": -6, "caseBeep": -18, "horn": -6, "whistle": -8, "callout": 0, "referee": -2, "menu": -14
+    },
+    // A footstep heard out to this radius (movement.jsonc: the pace's radius times the floor's loudness) plays at the
+    // mix's footstep level; 20 dB louder for each tenfold further it carries.
+    "stepReferenceRadius_m": 10,
+    // What each surface (break_model.jsonc) sounds like, under a ball and under foot: stone, metal, wood, glass,
+    // ground, gravel, grass, tarp, inflatable, rubber or player. A foot in a puddle splashes whatever's under it.
+    "surfaces": {
+      "turf": "grass", "inflatable": "inflatable", "player": "player", "wood": "wood", "panel": "wood",
+      "concrete": "stone", "brick": "stone", "plaster": "stone", "metal": "metal", "glass": "glass",
+      "asphalt": "stone", "gravel": "gravel", "dirt": "ground", "tarp": "tarp", "rubber": "rubber"
+    },
+    // Reverb on everything in the world (not the ambience or the menus), by where you are, blended over blend_s:
+    // outdoors; indoors from a small room (smallRoom_m3 and less) to a large hall (largeRoom_m3 and more), by the
+    // area you're in. Godot's reverb: room size, damping and wet level, each 0..1.
+    "reverb": {
+      "blend_s": 0.8,
+      "outdoor": { "roomSize": 0.2, "damping": 0.7, "wet": 0.04 },
+      "smallRoom_m3": 60,
+      "small": { "roomSize": 0.35, "damping": 0.55, "wet": 0.14 },
+      "largeRoom_m3": 6000,
+      "large": { "roomSize": 0.85, "damping": 0.35, "wet": 0.28 }
+    },
+    // The sound of the place (game/audio/Ambience.cs). Wind outdoors swells with the gusts the weeds sway in, from
+    // windLull_db to windGust_db; indoors it's windIndoor_db quieter and dull above indoorCutoff_hz, like everything
+    // outside. Distant traffic hums at traffic_db. Each indoor area has a tone, at its level here (levels' areas
+    // "tone"; without one, rooms under hallFrom_m3 sound like a room and bigger ones like a hall), crossfaded over
+    // fade_s as you move between them. Crows call now and then (every crowEvery_s, least and most) from the birds in
+    // the air, and a train passes far off (every trainEvery_s, trainDistance_m away).
+    "ambience": {
+      "windLull_db": -30,
+      "windGust_db": -16,
+      "windIndoor_db": -10,
+      "indoorCutoff_hz": 700,
+      "traffic_db": -34,
+      "tones": { "room": -26, "hall": -20, "drip": -20, "pigeons": -20, "draught": -20, "cold": -24, "hum": -24 },
+      "hallFrom_m3": 900,
+      "fade_s": 1.5,
+      "crowEvery_s": [7, 22],
+      "crow_db": -12,
+      "trainEvery_s": [120, 300],
+      "trainDistance_m": 420,
+      "train_db": 0
+    },
+    // Voices (Higgsfield text-to-speech, imported with tools/art/import.sh voice; provenance in assets.jsonc): two for
+    // each character model (characters.models, by index), dealt to the bots wearing that model, and the referee. Each
+    // speaks every line of hud.callouts (the referee hud.referee), one file per line:
+    // res://art/voices/<id>_<the line's words in lower case, joined by dashes>.ogg. A line without its file is only
+    // a subtitle. A callout plays from the caller, at full volume within calloutUnitSize_m, out to calloutRange_m.
+    // Generated with Higgsfield's seed_audio from these preset voices (median pitch in brackets), the script from
+    // tools/art/voice-script.py: a1 Knox (113 Hz), a2 Reid (154 Hz); b1 Brooks (95 Hz), b2 Gideon (73 Hz), for the
+    // stocky one; c1 Petra (167 Hz), c2 Maeve (200 Hz); the referee Alistair (78 Hz).
+    "cast": [
+      { "id": "callout_a1", "model": 0 },
+      { "id": "callout_a2", "model": 0 },
+      { "id": "callout_b1", "model": 1 },
+      { "id": "callout_b2", "model": 1 },
+      { "id": "callout_c1", "model": 2 },
+      { "id": "callout_c2", "model": 2 }
+    ],
+    "refereeVoice": "referee",
+    "calloutUnitSize_m": 6,
+    "calloutRange_m": 70
   }
 }

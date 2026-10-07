@@ -35,6 +35,9 @@ public sealed class AreaSpec
     /// <summary>0 = dark, 1 = daylight.</summary>
     public required float Light { get; init; }
 
+    /// <summary>What it sounds like inside (presentation only; empty for the default by size).</summary>
+    public string Tone { get; init; } = "";
+
     public float Volume => (Box.Max.X - Box.Min.X) * (Box.Max.Y - Box.Min.Y) * (Box.Max.Z - Box.Min.Z);
 }
 
@@ -101,6 +104,18 @@ public sealed class LevelLayout
     /// <summary>Windows, doors, gaps and roof holes, in world space.</summary>
     public required IReadOnlyList<Aperture> Apertures { get; init; }
 
+    /// <summary>The door leaves hung in its doorways (the sim's <see cref="DoorSet"/> moves them).</summary>
+    public IReadOnlyList<DoorSpec> Doors { get; init; } = Array.Empty<DoorSpec>();
+
+    private HashSet<int>? _hung;
+
+    /// <summary>Whether a door leaf hangs in the aperture at <paramref name="aperture"/> (light and cobwebs leave those alone).</summary>
+    public bool IsHung(int aperture)
+    {
+        _hung ??= Doors.Select(d => d.Aperture).ToHashSet();
+        return _hung.Contains(aperture);
+    }
+
     public required IReadOnlyList<PropInstance> Props { get; init; }
 
     /// <summary>The buildings, each with its template and where it stands (presentation dresses them from their templates).</summary>
@@ -139,6 +154,12 @@ public sealed class LevelLayout
     public required IReadOnlyList<PickupSpec> Pickups { get; init; }
 
     public required IReadOnlyList<Viewpoint> Viewpoints { get; init; }
+
+    /// <summary>Where the objectives are played (none: the level offers only eliminate).</summary>
+    public LevelObjectives Objectives { get; init; } = LevelObjectives.None;
+
+    /// <summary>Railway tracks (their rails are among the primitives; the game draws them and their sleepers).</summary>
+    public IReadOnlyList<TrackSpec> Tracks { get; init; } = Array.Empty<TrackSpec>();
 
     /// <summary>Adds the ground plane and every paint primitive to <paramref name="world"/>.</summary>
     public void BuildCollision(CollisionWorld world)

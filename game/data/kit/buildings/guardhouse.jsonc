@@ -23,7 +23,7 @@
       "storey": 0, "points_m": [[0, 0], [6, 0], [6, 5], [0, 5]], "closed": true,
       "thickness_m": 0.25, "material": "brick_painted",
       "openings": [
-        { "segment": 1, "at_m": 2.5, "width_m": 0.9, "height_m": 2.1, "kind": "door" },
+        { "segment": 1, "at_m": 2.5, "width_m": 0.9, "height_m": 2.1, "kind": "door", "leaf": { "door": "panel", "hinge": "start", "swing": "right" } },
         { "segment": 0, "at_m": 3.0, "width_m": 1.6, "sill_m": 0.9, "height_m": 1.1, "kind": "window" },
         { "segment": 2, "at_m": 3.0, "width_m": 1.6, "sill_m": 0.9, "height_m": 1.1, "kind": "window" },
         { "segment": 3, "at_m": 2.5, "width_m": 1.0, "sill_m": 1.0, "height_m": 0.9, "kind": "window" }

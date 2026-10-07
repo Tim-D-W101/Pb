@@ -1,0 +1,88 @@
+// Engine shed: 44 × 18 m of soot-dark brick, 8 m to the eaves. Two tracks run in through its east end (the level lays
+// the tracks; the doorways are where they come in, at z 6 and 13). A steel gantry 4.5 m up runs the length of the north
+// wall, with stairs up at the west end and, alongside it, at the east end; the roof has three skylights, their glass
+// long gone.
+// Wall segments: 0 north (x 0→44), 1 east (z 0→18), 2 south (x 44→0, at_m = 44 − x), 3 west (z 18→0, at_m = 18 − z).
+{
+  "id": "engine_shed",
+  "displayName": "Engine shed",
+  "storeys_m": [8.0],
+  "slabThickness_m": 0.15,
+  "footprint_m": [0, 0, 44, 18],
+  "floorMaterial": "concrete_floor",
+  "frames": "steel_painted",
+  "gutters": "steel_rust",
+  "fittings": "steel_painted",
+  "trusses": { "material": "steel_rust", "spacing_m": 5.5, "depth_m": 1.0, "lampsPerTruss": 2 },
+  "markings": {
+    "color": "#d4aa2c",
+    "lineWidth_m": 0.1,
+    // Worn yellow lines along the gantry's edge and round the foot of the stairs; the shed's number by the doors.
+    "lines_m": [[3.4, 2.15, 36.6, 2.15], [1.6, 8.7, 3.2, 8.7], [36.6, 2.15, 36.6, 3.4]],
+    "stencils": [ { "text": "SHED 2", "at_m": [44.21, 6.4, 9.5], "size_m": 0.9, "yaw_deg": 90, "wall": true, "color": "#e4e0d4" } ]
+  },
+  "walls": [
+    {
+      "storey": 0, "points_m": [[0, 0], [44, 0], [44, 18], [0, 18]], "closed": true,
+      "thickness_m": 0.4, "material": "brick_sooty",
+      "openings": [
+        // The tracks in, through the east end.
+        { "segment": 1, "at_m": 6, "width_m": 4.6, "height_m": 5.6, "kind": "door" },
+        { "segment": 1, "at_m": 13, "width_m": 4.6, "height_m": 5.6, "kind": "door" },
+        // A door at the west end and one in the south wall.
+        { "segment": 3, "at_m": 9, "width_m": 1.1, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "start", "swing": "left" } },
+        { "segment": 2, "at_m": 30, "width_m": 1.1, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "end", "swing": "left", "start": "random" } },
+        // Windows along the north wall at the gantry's chest height, and along the south wall above head height.
+        { "segment": 0, "at_m": 6, "width_m": 1.8, "sill_m": 5.4, "height_m": 1.8, "kind": "window" },
+        { "segment": 0, "at_m": 14, "width_m": 1.8, "sill_m": 5.4, "height_m": 1.8, "kind": "window" },
+        { "segment": 0, "at_m": 22, "width_m": 1.8, "sill_m": 5.4, "height_m": 1.8, "kind": "window" },
+        { "segment": 0, "at_m": 30, "width_m": 1.8, "sill_m": 5.4, "height_m": 1.8, "kind": "window" },
+        { "segment": 0, "at_m": 38, "width_m": 1.8, "sill_m": 5.4, "height_m": 1.8, "kind": "window" },
+        { "segment": 2, "at_m": 6, "width_m": 1.8, "sill_m": 2.6, "height_m": 2.6, "kind": "window" },
+        { "segment": 2, "at_m": 14, "width_m": 1.8, "sill_m": 2.6, "height_m": 2.6, "kind": "window" },
+        { "segment": 2, "at_m": 22, "width_m": 1.8, "sill_m": 2.6, "height_m": 2.6, "kind": "window" },
+        { "segment": 2, "at_m": 38, "width_m": 1.8, "sill_m": 2.6, "height_m": 2.6, "kind": "window" },
+        { "segment": 3, "at_m": 4, "width_m": 1.6, "sill_m": 2.6, "height_m": 2.4, "kind": "window" },
+        { "segment": 3, "at_m": 14, "width_m": 1.6, "sill_m": 2.6, "height_m": 2.4, "kind": "window" }
+      ]
+    },
+    // The gantry's railing along its edge (open), with a gap where the west stairs come up; it stops short of the east
+    // wall where the east stairs, rising alongside it, come up.
+    {
+      "storey": 0, "baseElevation_m": 4.5, "height_m": 1.1, "style": "railing",
+      "points_m": [[0.4, 2.0], [42.2, 2.0]], "thickness_m": 0.05, "material": "steel_painted",
+      "openings": [ { "segment": 0, "at_m": 2.0, "width_m": 1.4, "kind": "gap" } ]
+    }
+  ],
+  "floors": [ { "elevation_m": 4.5, "rect_m": [0, 0, 44, 2.0], "material": "steel_painted" } ],
+  "roof": { "rect_m": [-0.3, -0.3, 44.3, 18.3], "holes_m": [[6, 6, 10, 12], [18, 6, 22, 12], [30, 6, 34, 12]], "material": "corrugated_rust" },
+  "stairs": [
+    { "start_m": [2.4, 8.5], "yaw_deg": 0, "width_m": 1.2, "run_m": 6.5, "rise_m": 4.5, "steps": 25, "material": "steel_painted" },
+    { "start_m": [37.0, 2.7], "yaw_deg": -90, "width_m": 1.2, "run_m": 6.5, "rise_m": 4.5, "steps": 25, "material": "steel_painted" }
+  ],
+  "columns": [
+    { "at_m": [11, 1.9], "size_m": [0.25, 0.25], "height_m": 4.35, "material": "steel_painted" },
+    { "at_m": [22, 1.9], "size_m": [0.25, 0.25], "height_m": 4.35, "material": "steel_painted" },
+    { "at_m": [33, 1.9], "size_m": [0.25, 0.25], "height_m": 4.35, "material": "steel_painted" }
+  ],
+  "props": [
+    { "prop": "desk", "position_m": [1.0, 0, 15.5], "yaw_deg": 90 },
+    { "prop": "filing_cabinet", "position_m": [0.5, 0, 12.5], "yaw_deg": 90 },
+    { "prop": "generator", "position_m": [3.5, 0, 16.6] },
+    { "prop": "sleeper_stack", "position_m": [16, 0, 9.5], "yaw_deg": 90 },
+    { "prop": "oil_drum", "position_m": [40.5, 0, 16.8] },
+    { "prop": "oil_drum_rust", "position_m": [41.2, 0, 16.6] },
+    { "prop": "oil_drum_tipped", "position_m": [39.8, 0, 16.2], "yaw_deg": 30 },
+    { "prop": "crate_large", "position_m": [28, 0, 16.8] },
+    { "prop": "crate_small", "position_m": [29.3, 0, 16.9] },
+    { "prop": "pallet_stack", "position_m": [24, 0, 9.5] },
+    // On the gantry, against the wall so there's room to pass.
+    { "prop": "crate_small", "position_m": [14, 4.5, 0.65] },
+    { "prop": "crate_small", "position_m": [30, 4.5, 0.65], "yaw_deg": 15 },
+    { "prop": "filing_cabinet", "position_m": [38, 4.5, 0.53] }
+  ],
+  "areas": [
+    { "name": "engine shed", "rect_m": [0, 0, 44, 18], "maxY_m": 4.3, "indoor": true, "light": 0.45, "tone": "pigeons" },
+    { "name": "the gantry", "rect_m": [0, 0, 44, 2.0], "minY_m": 4.3, "maxY_m": 8.0, "indoor": true, "light": 0.55, "tone": "pigeons" }
+  ]
+}

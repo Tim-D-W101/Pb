@@ -93,6 +93,7 @@ public static class Atmosphere
         env.GlowIntensity = 0.35f;
         env.GlowBloom = 0.04f;
 
+        sun.ShadowEnabled = p.Shadows;
         sun.DirectionalShadowMaxDistance = p.ShadowDistance_m;
         RenderingServer.DirectionalShadowAtlasSetSize(p.ShadowSize, true);
         viewport.Msaa3D = p.Msaa switch

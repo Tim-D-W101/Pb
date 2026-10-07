@@ -18,8 +18,8 @@
       "storey": 0, "points_m": [[0, 0], [8, 0], [8, 6], [0, 6]], "closed": true,
       "thickness_m": 0.3, "material": "concrete_block",
       "openings": [
-        { "segment": 2, "at_m": 6.0, "width_m": 1.2, "height_m": 2.2, "kind": "door" },
-        { "segment": 3, "at_m": 3.0, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 2, "at_m": 6.0, "width_m": 1.2, "height_m": 2.2, "kind": "door", "leaf": { "door": "steel", "hinge": "end", "swing": "left" } },
+        { "segment": 3, "at_m": 3.0, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "start", "swing": "left" } },
         { "segment": 0, "at_m": 2.0, "width_m": 1.2, "sill_m": 1.6, "height_m": 0.8, "kind": "window" },
         { "segment": 0, "at_m": 6.0, "width_m": 1.2, "sill_m": 1.6, "height_m": 0.8, "kind": "window" },
         { "segment": 1, "at_m": 3.0, "width_m": 1.4, "sill_m": 1.4, "height_m": 1.0, "kind": "window" }
@@ -33,5 +33,5 @@
     { "prop": "oil_drum_rust", "position_m": [7.3, 0, 5.3] },
     { "prop": "oil_drum", "position_m": [6.7, 0, 5.4] }
   ],
-  "areas": [ { "name": "pump house", "rect_m": [0, 0, 8, 6], "maxY_m": 3.5, "indoor": true, "light": 0.45 } ]
+  "areas": [ { "name": "pump house", "rect_m": [0, 0, 8, 6], "maxY_m": 3.5, "indoor": true, "light": 0.45, "tone": "drip" } ]
 }

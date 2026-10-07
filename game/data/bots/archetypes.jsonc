@@ -13,6 +13,18 @@
 //   engageRange_m   distance they like to fight from: cover is picked around it
 //   searchTime_s    how long they hunt around a last known position before giving up
 //   moveGait        how they move when it matters: "walk" or "run" (patrols are always walked)
+// Optional (Phase 3):
+//   idle "overwatch" takes the best vantage (a high, open view: brain.jsonc "vantage…") within overwatchReach_m
+//                   of the spawn and watches from it
+//   vantage         how much a high, open view counts when picking cover to fight from (0 = not at all)
+//   steadyShots     beyond closeRange_m it only fires once its aim has settled on a still target
+//   pullScale       scales the tier's time between trigger pulls (careful shooters above 1)
+//   relocateAfterShots  after this many shots from one spot it moves to another 8 m or more away (0 = never);
+//   relocateWhenShotAt  ... or as soon as balls land round it
+//   flankOnContact  a teammate's call sends it round to the side, out of the enemy's sight, instead of straight at them
+//   holdFireWhileFlanking  it doesn't shoot on the way to a flanking spot unless the enemy turns its way, comes within
+//                   closeRange_m or shoots at it
+//   stealthWithin_m it crouch-walks the last this-many metres to a flanking spot
 {
   "archetypes": [
     {
@@ -36,6 +48,25 @@
       "peekTime_s": 1.2, "hideTime_s": 1.0,
       "flankChance": 0.3, "pushChance": 0.35,
       "fireOnMove": false, "engageRange_m": 20, "searchTime_s": 12, "moveGait": "run"
+    },
+    {
+      // Takes high ground with long views and shoots carefully from range, moving after a few shots.
+      "id": "marksman",
+      "idle": "overwatch", "leash_m": 10, "useCover": true,
+      "peekTime_s": 2.0, "hideTime_s": 1.6,
+      "flankChance": 0.0, "pushChance": 0.0,
+      "fireOnMove": false, "engageRange_m": 40, "searchTime_s": 6, "moveGait": "run",
+      "overwatchReach_m": 35, "vantage": 1.0, "steadyShots": true, "closeRange_m": 12, "pullScale": 1.8,
+      "relocateAfterShots": 6, "relocateWhenShotAt": true
+    },
+    {
+      // Works round out of sight to come at you from the side once a teammate has called you out.
+      "id": "flanker",
+      "idle": "patrol", "leash_m": 70, "useCover": true,
+      "peekTime_s": 1.0, "hideTime_s": 0.9,
+      "flankChance": 0.85, "pushChance": 0.1,
+      "fireOnMove": false, "engageRange_m": 16, "searchTime_s": 14, "moveGait": "run",
+      "flankOnContact": true, "holdFireWhileFlanking": true, "stealthWithin_m": 8, "closeRange_m": 9
     },
     {
       "id": "rusher",

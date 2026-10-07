@@ -12,6 +12,7 @@ using Xunit.Abstractions;
 namespace Pb.Sim.Tests;
 
 /// <summary>Bots in the compound, run headless: senses, aim, behaviours, difficulty, determinism.</summary>
+[Collection(BotArenaCollection.Name)]
 public class BotTests
 {
     private const int Second = 120;

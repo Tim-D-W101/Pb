@@ -11,7 +11,8 @@ namespace Pb.Game.Ballistics;
 /// <param name="Node">The node the splat moves with.</param>
 /// <param name="Reach">0 when the receiver is drawn as its hitboxes. A model posed to match them has its surface somewhere
 /// near the hit point instead: inside the box, or outside it where the model bulges past it.</param>
-public readonly record struct SplatAnchor(Node3D Node, float Reach = 0f);
+/// <param name="CullMask">The render layers the splat paints (0: everything but the viewmodel and the doors).</param>
+public readonly record struct SplatAnchor(Node3D Node, float Reach = 0f, uint CullMask = 0);
 
 /// <summary>
 /// Team-coloured paint splats (spec §1.3): a pool of Decal nodes with a cap. Once full, the
@@ -25,6 +26,7 @@ public partial class SplatSystem : Node3D, ISimEventListener
     private ImageTexture[] _textures = Array.Empty<ImageTexture>();
     private Color[] _teamColors = Array.Empty<Color>();
     private Func<int, int, Vector3, SplatAnchor?>? _receiverNode;
+    private Func<int, SplatAnchor?>? _colliderNode;
     private SplatDef _def = null!;
     private int _next;
 
@@ -32,10 +34,15 @@ public partial class SplatSystem : Node3D, ISimEventListener
 
     public int Capacity => _def?.Cap ?? 0;
 
+    /// <summary>What world splats paint: everything but your marker and the doors (a splat on a door moves with it).</summary>
+    public const uint WorldMask = 0xFFFFF & ~ViewModel.RenderLayer & ~World.DoorViews.RenderLayer;
+
     /// <param name="receiverNode">What a splat on (receiver id, hitbox part, hit point) should stick to, or null for the world.</param>
-    public void Initialize(PresentationDef view, Func<int, int, Vector3, SplatAnchor?> receiverNode)
+    /// <param name="colliderNode">What a splat on a moving paint collider (a door) should stick to, or null for the world.</param>
+    public void Initialize(PresentationDef view, Func<int, int, Vector3, SplatAnchor?> receiverNode, Func<int, SplatAnchor?>? colliderNode = null)
     {
         _receiverNode = receiverNode;
+        _colliderNode = colliderNode;
         _rng.Seed = 1234;
         _textures = SplatTextures.Create(variants: 6, size: 128, seed: 777);
         ApplyView(view);
@@ -64,7 +71,8 @@ public partial class SplatSystem : Node3D, ISimEventListener
         if (e.Type == SimEventType.BallBroke && _def.Cap > 0)
         {
             Vector3 position = e.Position.ToGodot();
-            SplatAnchor anchor = (e.TargetId >= 0 ? _receiverNode?.Invoke(e.TargetId, e.Extra, position) : null) ?? new SplatAnchor(this);
+            SplatAnchor anchor = (e.TargetId >= 0 ? _receiverNode?.Invoke(e.TargetId, e.Extra, position)
+                : e.ColliderId >= 0 ? _colliderNode?.Invoke(e.ColliderId) : null) ?? new SplatAnchor(this);
             Spawn(position, e.Normal.ToGodot(), _teamColors[e.Team % _teamColors.Length], anchor);
         }
     }
@@ -88,7 +96,7 @@ public partial class SplatSystem : Node3D, ISimEventListener
         {
             decal = new Decal
             {
-                CullMask = 0xFFFFF & ~ViewModel.RenderLayer,
+                CullMask = WorldMask,
                 NormalFade = _def.NormalFade,
                 UpperFade = 0.3f,
                 LowerFade = 0.3f,
@@ -111,6 +119,7 @@ public partial class SplatSystem : Node3D, ISimEventListener
 
         // The box straddles the hit point, deeper by the anchor's reach each way; normal fade keeps
         // the paint off the far side.
+        decal.CullMask = anchor.CullMask != 0 ? anchor.CullMask : WorldMask;
         float size = _rng.RandfRange(_def.SizeMin_m, _def.SizeMax_m);
         decal.Size = new Vector3(size, _def.Depth_m + 2f * anchor.Reach, size);
         decal.TextureAlbedo = _textures[_rng.RandiRange(0, _textures.Length - 1)];

@@ -38,6 +38,9 @@ public sealed class PlayerState
     /// <summary>On the field at all: an eliminated player is present until they've walked off.</summary>
     public bool Present { get; set; } = true;
 
+    /// <summary>Can't sprint (carrying the case, when the rules say a carrier can't).</summary>
+    public bool SprintBlocked { get; set; }
+
     /// <summary>Who eliminated this player (−1 = nobody yet), when, and where the ball broke.</summary>
     public int EliminatedBy { get; set; } = -1;
 
@@ -111,6 +114,13 @@ public sealed class PlayerState
     internal bool LastGrounded { get; set; } = true;
 
     internal Stance LastStance { get; set; }
+
+    /// <summary>The door being worked with the interact button (−1: none), and for how long it's been held.</summary>
+    public int InteractDoor { get; internal set; } = -1;
+
+    internal float InteractHeld { get; set; }
+
+    internal bool InteractDown { get; set; }
 
     /// <summary>The marker is up and settled: not mid-swap and not recovering from a sprint.</summary>
     public bool MarkerReady => SprintRecovery <= 0f && MathF.Abs(Shoulder) >= 1f;

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Pb.Game.Core;
 using Pb.Sim.Data;
@@ -8,11 +9,13 @@ using Pb.Sim.Match;
 
 namespace Pb.Game.Ui;
 
-/// <summary>What a round is: the level, its difficulty tier, the mode and the size.</summary>
-public sealed record RoundInfo(LevelLayout Level, LadderTierDef Tier, GameMode Mode, int Size)
+/// <summary>What a round is: the level, its difficulty tier, the mode, the size and the objective.</summary>
+public sealed record RoundInfo(LevelLayout Level, LadderTierDef Tier, GameMode Mode, int Size, ObjectiveChoice Objective)
 {
-    /// <summary>"Free-for-all · 8 players · Normal".</summary>
-    public string Line => $"{Mode.DisplayName} · {ModeText.Size(Mode, Size)} · {Tier.DisplayName}";
+    /// <summary>"Free-for-all · 8 players · Normal", "Teams · 3 v 3 · Retrieve · Hard".</summary>
+    public string Line => Objective.Kind == ObjectiveKind.Eliminate
+        ? $"{Mode.DisplayName} · {ModeText.Size(Mode, Size)} · {Tier.DisplayName}"
+        : $"{Mode.DisplayName} · {ModeText.Size(Mode, Size)} · {Objective.DisplayName} · {Tier.DisplayName}";
 }
 
 /// <summary>How the round stands for the summary, worked out by the level from the sim.</summary>
@@ -40,17 +43,26 @@ public sealed record SummaryFacts
     public int Players { get; init; }
 
     public string? Winner { get; init; }
+
+    /// <summary>The level this round opened up the ladder, if it opened one.</summary>
+    public string? Opened { get; init; }
+
+    /// <summary>How the objective went, in a sentence (for the headline's line), if the round had one.</summary>
+    public string? ObjectiveLine { get; init; }
+
+    /// <summary>The objective's row in the numbers: "Case" or "Held", and how it ended.</summary>
+    public (string Name, string Value)? ObjectiveRow { get; init; }
 }
 
 /// <summary>Builds the round's overlays: the briefing card before it starts and the summary after it ends.</summary>
 public static class RoundScreens
 {
     /// <summary>
-    /// The briefing card (the sim waits in its briefing phase meanwhile): level, mode, size, difficulty,
+    /// The briefing card (the sim waits in its briefing phase meanwhile): level, mode, size, objective, difficulty,
     /// what to do, and Start (Enter, Space or a click begins the round) or Back to level select; with a
     /// plan of the level beside it if one is given.
     /// </summary>
-    public static Control Briefing(RoundInfo round, Action start, Action back, Control? map = null)
+    public static Control Briefing(RoundInfo round, Action start, Action back, Control? map = null, ObjectiveState? objective = null)
     {
         LadderTierDef tier = round.Tier;
         VBoxContainer column = UiKit.Column(12);
@@ -61,7 +73,7 @@ public static class RoundScreens
         description.CustomMinimumSize = new Vector2(720, 0);
         column.AddChild(description);
         column.AddChild(new HSeparator());
-        var lines = new List<string>(Goal(round.Mode))
+        var lines = new List<string>(objective is null ? Goal(round.Mode) : Goal(round.Mode, objective))
         {
             "One hit and you're out, them too. A bounce doesn't count.",
             $"You start with a full loader and {tier.StartPods} pod{(tier.StartPods == 1 ? "" : "s")}. " +
@@ -114,6 +126,30 @@ public static class RoundScreens
         _ => new[] { "Clear the compound: eliminate every opponent before the time runs out." },
     };
 
+    /// <summary>What to do in a round with an objective, with where it is.</summary>
+    private static string[] Goal(GameMode mode, ObjectiveState objective)
+    {
+        string team = mode.Kind == MatchModeKind.Teams
+            ? " Your teammates start beside you in your colour, and a teammate's paint puts you out too."
+            : "";
+        if (objective.Kind == ObjectiveKind.Retrieve)
+        {
+            string ways = string.Join(", ", objective.Level.Exits.Select(e => e.Name));
+            return new[]
+            {
+                $"The case is somewhere in {ModeText.The(objective.Spot.Area)} (marked on your screen). Walk over it to pick it up and carry it out: {ways}.",
+                "Whoever carries it can't sprint, and if they're hit it falls where they were, for a teammate to pick up.",
+                "Its holders guard it, and once it's gone they know where it is. Putting them all out wins too." + team,
+            };
+        }
+
+        return new[]
+        {
+            $"Take {ModeText.The(objective.Room!.Name)} (marked) and hold it for {Clock(objective.HoldRules.HoldTime)} in all. The clock runs only while your side is in it and theirs isn't, and never runs back.",
+            "They start in and round it, and come for it once you're in. Putting them all out wins too." + team,
+        };
+    }
+
     /// <summary>The summary: how the round went from your side, your numbers, and what next.</summary>
     public static Control Summary(RoundInfo round, MatchState match, PlayerStats you, SummaryFacts facts, Action retry, Action levelSelect,
         Action mainMenu)
@@ -126,6 +162,13 @@ public static class RoundScreens
         Label said = UiKit.Body(line, 20, UiKit.Text, wrap: true);
         said.CustomMinimumSize = new Vector2(580, 0);
         column.AddChild(said);
+        if (facts.Opened is { } opened)
+        {
+            Label unlocked = UiKit.Body($"New level open: {opened}", 24, UiKit.Accent);
+            unlocked.Name = "Unlocked";
+            column.AddChild(unlocked);
+        }
+
         column.AddChild(new HSeparator());
 
         var grid = new GridContainer { Columns = 2 };
@@ -138,6 +181,11 @@ public static class RoundScreens
         }
 
         rows.Add(("Time", Clock(match.Elapsed)));
+        if (facts.ObjectiveRow is { } objectiveRow)
+        {
+            rows.Add(objectiveRow);
+        }
+
         rows.Add(("Eliminations", $"{you.Eliminations} of {facts.Opponents}"));
         rows.Add(("Shots", you.Shots.ToString()));
         rows.Add(("Hits", you.Hits.ToString()));
@@ -172,6 +220,21 @@ public static class RoundScreens
             return mode.Kind == MatchModeKind.FreeForAll
                 ? ("ELIMINATED", UiKit.Bad, $"You placed {ModeText.Ordinal(f.Placing)} of {f.Players}; {f.OthersLeft} still in.{hit}")
                 : ("YOU'RE OUT", UiKit.Bad, $"Your team fights on: {f.OursLeft} of yours against {f.OthersLeft}.{hit}");
+        }
+
+        if (outcome == RoundOutcome.Extracted)
+        {
+            return ("CASE RETRIEVED", UiKit.Good, f.ObjectiveLine ?? "The case is out.");
+        }
+
+        if (outcome == RoundOutcome.Held)
+        {
+            return ("ROOM HELD", UiKit.Good, f.ObjectiveLine ?? "The room is yours.");
+        }
+
+        if (outcome == RoundOutcome.TimeUp && f.ObjectiveLine is { } how)
+        {
+            return ("TIME UP", UiKit.Bad, how);
         }
 
         return (mode.Kind, outcome) switch

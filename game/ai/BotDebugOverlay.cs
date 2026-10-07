@@ -30,6 +30,9 @@ public partial class BotDebugOverlay : Node3D
     private ImmediateMesh _lines = null!;
     private StandardMaterial3D _material = null!;
 
+    /// <summary>A player whose label isn't drawn (a scripted camera looking over their shoulder), or -1.</summary>
+    public int Unlabelled { get; set; } = -1;
+
     public void Initialize(BotSquad squad)
     {
         _squad = squad;
@@ -71,7 +74,7 @@ public partial class BotDebugOverlay : Node3D
         {
             BotBrain bot = _squad.Bots[i];
             Label3D label = _labels[i];
-            label.Visible = bot.Self.Present;
+            label.Visible = bot.Self.Present && bot.Self.Id != Unlabelled;
             if (!bot.Self.Present)
             {
                 continue;

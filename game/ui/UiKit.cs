@@ -48,7 +48,10 @@ public static class UiKit
             Disabled = !enabled,
             FocusMode = Control.FocusModeEnum.All,
         };
+        bool back = text.StartsWith("Back", StringComparison.Ordinal) || text.StartsWith("Cancel", StringComparison.Ordinal);
+        button.Pressed += back ? Pb.Game.Audio.UiSounds.Back : Pb.Game.Audio.UiSounds.Click;
         button.Pressed += pressed;
+        button.MouseEntered += Pb.Game.Audio.UiSounds.Hover;
         return button;
     }
 
@@ -108,6 +111,7 @@ public static class UiKit
         {
             shown.Text = format(v);
             changed(v);
+            Pb.Game.Audio.UiSounds.Tick();
         };
         row.AddChild(label);
         row.AddChild(slider);
@@ -127,7 +131,11 @@ public static class UiKit
         }
 
         picker.Selected = selected;
-        picker.ItemSelected += i => changed((int)i);
+        picker.ItemSelected += i =>
+        {
+            Pb.Game.Audio.UiSounds.Click();
+            changed((int)i);
+        };
         row.AddChild(label);
         row.AddChild(picker);
         return row;
@@ -162,9 +170,11 @@ public static class UiKit
             {
                 if (on)
                 {
+                    Pb.Game.Audio.UiSounds.Click();
                     changed(index);
                 }
             };
+            button.MouseEntered += Pb.Game.Audio.UiSounds.Hover;
             row.AddChild(button);
         }
 
@@ -185,6 +195,7 @@ public static class UiKit
         toggle.Toggled += on =>
         {
             toggle.Text = on ? "On" : "Off";
+            Pb.Game.Audio.UiSounds.Toggle();
             changed(on);
         };
         row.AddChild(label);

@@ -35,9 +35,12 @@ public partial class Cobwebs : Node3D
 
         var random = new Random(LevelBuilder.StableHash(level.Id) ^ 0xC0B3B);
         var cards = new List<(Transform3D Transform, int Variant, float Opacity)>();
-        foreach (Aperture a in level.Apertures)
+        for (int i = 0; i < level.Apertures.Count; i++)
         {
-            if (a.Kind is not (ApertureKind.Door or ApertureKind.Window) || level.Owners[a.Owner].StartsWith("wall", StringComparison.Ordinal))
+            Aperture a = level.Apertures[i];
+            // Not in a doorway with a door hung in it: the door would sweep them away.
+            if (a.Kind is not (ApertureKind.Door or ApertureKind.Window) || level.Owners[a.Owner].StartsWith("wall", StringComparison.Ordinal) ||
+                level.IsHung(i))
             {
                 continue;
             }

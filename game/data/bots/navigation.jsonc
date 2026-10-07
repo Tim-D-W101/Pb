@@ -31,5 +31,11 @@
 
   // How eagerly a search heads for the goal. 1 finds the shortest path but explores widely; higher
   // values search far less, for paths a little longer (straightening hides most of the difference).
-  "heuristicWeight": 1.6
+  "heuristicWeight": 1.6,
+
+  // Places spread over the grid whose walking distance to everywhere is worked out when the level loads.
+  // Searches use them to know how far a place really is when the way there goes round (up the stairs at the
+  // far end, through the one door): they head for the stairs instead of searching the floor below. More is
+  // faster searching but slower loading, and 4 bytes per place each. 0 turns it off.
+  "landmarks": 8
 }

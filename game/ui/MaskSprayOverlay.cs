@@ -19,11 +19,14 @@ public partial class MaskSprayOverlay : CanvasLayer, ISimEventListener
     private Color[] _teamColors = System.Array.Empty<Color>();
     private MaskSprayViewDef _def = null!;
     private int _playerId;
+    private GameSettings? _settings;
 
-    public void Initialize(PresentationDef view, int playerId)
+    /// <param name="settings">For how much paint on the mask covers the view (the settings' mask spray strength).</param>
+    public void Initialize(PresentationDef view, int playerId, GameSettings? settings = null)
     {
         _def = view.MaskSpray;
         _playerId = playerId;
+        _settings = settings;
         Layer = 5;
         _textures = SplatTextures.Create(variants: 4, size: 256, seed: 913);
         _teamColors = new Color[view.TeamColors.Length];
@@ -35,13 +38,14 @@ public partial class MaskSprayOverlay : CanvasLayer, ISimEventListener
 
     public void OnSimEvent(in SimEvent e)
     {
-        if (e.Type != SimEventType.MaskSprayed || e.TargetId != _playerId || _def is null)
+        float strength = _settings?.MaskSpray ?? 1f;
+        if (e.Type != SimEventType.MaskSprayed || e.TargetId != _playerId || _def is null || strength <= 0f)
         {
             return;
         }
 
         Vector2 screen = GetViewport().GetVisibleRect().Size;
-        int count = Mathf.Max(1, Mathf.RoundToInt(_def.Drops * e.Value));
+        int count = Mathf.Max(1, Mathf.RoundToInt(_def.Drops * e.Value * strength));
         Color colour = _teamColors[e.Team % _teamColors.Length];
         for (int i = 0; i < count; i++)
         {
@@ -58,7 +62,8 @@ public partial class MaskSprayOverlay : CanvasLayer, ISimEventListener
                 MouseFilter = Control.MouseFilterEnum.Ignore,
             };
             AddChild(rect);
-            _drops.Add(new Drop(rect, colour, _def.MaxOpacity * Mathf.Clamp(0.4f + e.Value, 0f, 1f), _def.Duration_s * (0.7f + 0.3f * _rng.Randf())));
+            _drops.Add(new Drop(rect, colour, _def.MaxOpacity * Mathf.Clamp(0.4f + e.Value, 0f, 1f) * Mathf.Lerp(0.35f, 1f, strength),
+                _def.Duration_s * (0.7f + 0.3f * _rng.Randf())));
         }
     }
 

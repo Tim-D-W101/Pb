@@ -33,6 +33,9 @@ public sealed class PropColliderTemplate
     public required MaterialRef Material { get; init; }
 
     public required bool Walk { get; init; }
+
+    /// <summary>Paint and sight meet it (false: it only blocks walking).</summary>
+    public bool Paint { get; init; } = true;
 }
 
 public sealed class PropType
@@ -69,17 +72,21 @@ public sealed class KitCatalog
     private readonly Dictionary<string, KitMaterial> _materialsById;
 
     private KitCatalog(IReadOnlyList<KitMaterial> materials, IReadOnlyDictionary<string, PropType> props,
-        IReadOnlyDictionary<string, BuildingTemplate> buildings)
+        IReadOnlyDictionary<string, BuildingTemplate> buildings, IReadOnlyDictionary<string, DoorKind> doors)
     {
         Materials = materials;
         _materialsById = materials.ToDictionary(m => m.Id, StringComparer.Ordinal);
         Props = props;
         Buildings = buildings;
+        Doors = doors;
     }
 
     public IReadOnlyList<KitMaterial> Materials { get; }
 
     public IReadOnlyDictionary<string, PropType> Props { get; }
+
+    /// <summary>The kinds of door leaf a door opening can carry.</summary>
+    public IReadOnlyDictionary<string, DoorKind> Doors { get; }
 
     public IReadOnlyDictionary<string, BuildingTemplate> Buildings { get; }
 
@@ -129,6 +136,7 @@ public sealed class KitCatalog
                         : Validator.ToVector3(cd.Size_m) * 0.5f,
                     Material = material,
                     Walk = cd.Walk,
+                    Paint = cd.Paint,
                 });
             }
 
@@ -137,12 +145,31 @@ public sealed class KitCatalog
 
         propErrors.ThrowIfErrors();
 
+        var doors = new Dictionary<string, DoorKind>(StringComparer.Ordinal);
+        if (index.Doors is { } doorsFile)
+        {
+            DoorsDef doorsDef = Jsonc.Load<DoorsDef>(source, doorsFile);
+            var doorErrors = new Validator(doorsFile);
+            for (int i = 0; i < doorsDef.Doors.Length; i++)
+            {
+                DoorKindDef d = doorsDef.Doors[i];
+                MaterialRef material = ResolveMaterial(byId, doorErrors.Item(nameof(DoorsDef.Doors), i), nameof(DoorKindDef.Material), d.Material);
+                doors[d.Id] = new DoorKind
+                {
+                    Id = d.Id, Material = material, Thickness = d.Thickness_m, OpenTime = d.OpenTime_s, CloseTime = d.CloseTime_s,
+                    Swing = d.Swing_deg * Units.DegreesToRadians, Noise = d.Noise_m, Style = d.Style,
+                };
+            }
+
+            doorErrors.ThrowIfErrors();
+        }
+
         var buildings = new Dictionary<string, BuildingTemplate>(StringComparer.Ordinal);
         foreach (string file in index.Buildings)
         {
             BuildingDef b = Jsonc.Load<BuildingDef>(source, file);
             var errors = new Validator(file);
-            CheckBuilding(b, byId, props, errors);
+            CheckBuilding(b, byId, props, doors, errors);
             errors.ThrowIfErrors();
             if (!buildings.TryAdd(b.Id, new BuildingTemplate { Id = b.Id, File = file, Def = b }))
             {
@@ -150,7 +177,20 @@ public sealed class KitCatalog
             }
         }
 
-        return new KitCatalog(materials, props, buildings);
+        return new KitCatalog(materials, props, buildings, doors);
+    }
+
+    /// <summary>Every door leaf on <paramref name="wall"/> names a kind of door the kit has.</summary>
+    internal static void CheckLeaves(WallDef wall, IReadOnlyDictionary<string, DoorKind> doors, Validator v)
+    {
+        for (int i = 0; wall.Openings is not null && i < wall.Openings.Length; i++)
+        {
+            if (wall.Openings[i].Leaf is { } leaf && !doors.ContainsKey(leaf.Door))
+            {
+                v.Item(nameof(WallDef.Openings), i).Scope(nameof(OpeningDef.Leaf)).Error(nameof(DoorLeafDef.Door),
+                    $"unknown door '{leaf.Door}' (known: {string.Join(", ", doors.Keys)})");
+            }
+        }
     }
 
     /// <summary>[about X, about Y, about Z] in degrees, applied Z, then X, then Y (Godot's default YXZ order).</summary>
@@ -176,7 +216,8 @@ public sealed class KitCatalog
         return default;
     }
 
-    private static void CheckBuilding(BuildingDef b, Dictionary<string, KitMaterial> materials, Dictionary<string, PropType> props, Validator v)
+    private static void CheckBuilding(BuildingDef b, Dictionary<string, KitMaterial> materials, Dictionary<string, PropType> props,
+        IReadOnlyDictionary<string, DoorKind> doors, Validator v)
     {
         ResolveMaterial(materials, v, nameof(BuildingDef.FloorMaterial), b.FloorMaterial);
         if (b.Frames is not null)
@@ -215,6 +256,7 @@ public sealed class KitCatalog
             ResolveMaterial(materials, item, nameof(WallDef.Material), w.Material);
             float height = float.IsNaN(w.Height_m) && w.Storey >= 0 && w.Storey < b.Storeys_m.Length ? b.Storeys_m[w.Storey] : w.Height_m;
             KitGeometry.CheckWall(w, height, item);
+            CheckLeaves(w, doors, item);
         }
 
         for (int i = 0; b.Floors is not null && i < b.Floors.Length; i++)

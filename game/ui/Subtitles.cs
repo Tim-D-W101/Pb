@@ -21,7 +21,8 @@ public partial class Subtitles : VBoxContainer
         Alignment = AlignmentMode.End;
     }
 
-    public void Show(string speaker, Color colour, string line)
+    /// <param name="size">Their size, as a share of the usual (the settings').</param>
+    public void Show(string speaker, Color colour, string line, float size = 1f)
     {
         var label = new RichTextLabel
         {
@@ -33,7 +34,7 @@ public partial class Subtitles : VBoxContainer
             CustomMinimumSize = new Vector2(900, 0),
             Text = $"[center][color=#{colour.ToHtml(false)}]{speaker}[/color]: {line}[/center]",
         };
-        label.AddThemeFontSizeOverride("normal_font_size", 24);
+        label.AddThemeFontSizeOverride("normal_font_size", Mathf.RoundToInt(24 * size));
         label.AddThemeConstantOverride("outline_size", 6);
         label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
         label.SetMeta(Expires, _now + _time);

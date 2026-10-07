@@ -43,12 +43,17 @@ const int RUBBER = 13;
 const int GLASS = 14;
 const int GRASS = 15;
 
+// A piece that moves (a door leaf) draws its pattern and stains in its own frame, placed where it hangs shut
+// (local_origin), so they stay on it as it swings instead of sliding across it.
+instance uniform bool local_pattern = false;
+instance uniform vec3 local_origin = vec3(0.0);
+
 varying vec3 world_pos;
 varying vec3 world_normal;
 
 void vertex() {
-	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	world_pos = local_pattern ? VERTEX + local_origin : (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	world_normal = local_pattern ? NORMAL : normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 
 vec3 srgb(vec3 c) {

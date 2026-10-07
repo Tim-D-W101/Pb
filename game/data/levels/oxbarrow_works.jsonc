@@ -193,5 +193,23 @@
     { "id": "pod_containers", "kind": "pod", "position_m": [-8, 0, 0.5] },
     { "id": "pod_car", "kind": "pod", "position_m": [23, 0, 21] },
     { "id": "air_pump_house", "kind": "air", "position_m": [31, 0, -29.5] }
-  ]
+  ],
+  // Objectives (rules.jsonc "objectives"). Retrieve: the case starts at one of these spots each round (the HUD marks
+  // the building round it), and goes out through the main gate, the west breach or the north-east collapse. Hold: one
+  // of these rooms each round.
+  "objectives": {
+    "caseSpots_m": [
+      [-28, 0, -28],    // the warehouse floor, under the north mezzanine
+      [-10, 4.0, -34],  // up on the warehouse mezzanine
+      [-42, 0, 13],     // the office block's ground floor, west end
+      [-26, 3.2, 19],   // the office block upstairs, by the stairwell
+      [33, 0, -31]      // the pump house
+    ],
+    "exits": [
+      { "name": "the main gate", "at_m": [8, 0, 43] },
+      { "name": "the west breach", "at_m": [-58, 0, -20] },
+      { "name": "the north-east collapse", "at_m": [42, 0, -43] }
+    ],
+    "holdRooms": ["office, upstairs", "pump house", "warehouse mezzanine"]
+  }
 }

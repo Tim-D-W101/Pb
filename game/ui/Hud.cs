@@ -24,8 +24,8 @@ public partial class Hud : CanvasLayer, ISimEventListener
         "CONTROLS\n" +
         "WASD move · Mouse look · LMB fire · Shift sprint · Ctrl/C crouch · Alt walk · Space jump\n" +
         "Q/E lean · X or MMB swap shoulder · V slide (or crouch while sprinting)\n" +
-        "R refill from pod · B semi/ramping · Esc pause menu (settings, restart, quit)\n" +
-        "Gamepad: sticks · RT fire · L3 sprint · B crouch · A jump · LB/RB lean · R3 swap · X refill · Y fire mode\n\n" +
+        "R refill from pod · F open/shut a door (hold to ease it open) · B semi/ramping · Esc pause menu (settings, restart, quit)\n" +
+        "Gamepad: sticks · RT fire · L3 sprint · B crouch · A jump · LB/RB lean · R3 swap · X refill (a door, facing one) · Y fire mode\n\n" +
         "DEBUG\n" +
         "F1 help · F2 arc preview · F3 stress mode (range) / bot debug (compound) · F4 perf overlay\n" +
         "F5 head-bob · F6 reset gear (range) · F7 crosshair · F8 vsync\n" +
@@ -141,13 +141,79 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _subtitles.GrowVertical = Control.GrowDirection.Begin;
     }
 
-    /// <summary>A subtitle for something a player shouted.</summary>
-    public void Subtitle(string speaker, int team, string line) =>
-        _subtitles?.Show(speaker, _teams.Length > 0 ? _teams[team % _teams.Length] : Colors.White, line);
+    /// <summary>The objective's marker and status line, once the round (with an objective) has started.</summary>
+    public void InitializeObjective(ObjectivesViewDef view)
+    {
+        if (_sim.Match?.Objective is not { } objective)
+        {
+            return;
+        }
+
+        var hud = new ObjectiveHud { Name = "Objective" };
+        GetNode<Control>("Root").AddChild(hud);
+        hud.Initialize(_sim, _player, objective, view);
+    }
+
+    /// <summary>A subtitle for something a player shouted (unless subtitles are off).</summary>
+    public void Subtitle(string speaker, int team, string line)
+    {
+        if (_settings?.Subtitles != false)
+        {
+            _subtitles?.Show(speaker, _teams.Length > 0 ? _teams[team % _teams.Length] : Colors.White, line, _settings?.SubtitleSize ?? 1f);
+        }
+    }
+
+    /// <summary>A subtitle for what the referee called (unless subtitles are off).</summary>
+    public void RefereeSubtitle(string line)
+    {
+        if (_settings?.Subtitles != false)
+        {
+            _subtitles?.Show("Referee", Colors.White, line, _settings?.SubtitleSize ?? 1f);
+        }
+    }
 
     public void ApplyView(PresentationDef view)
     {
-        _crosshair.Configure(view.Crosshair.Size_px, view.Crosshair.Gap_px, view.Crosshair.Thickness_px, Color.FromHtml(view.Crosshair.Color));
+        _crosshairDef = view.Crosshair;
+        ApplySettings();
+    }
+
+    /// <summary>
+    /// What the settings change in the HUD: the crosshair's style, colour and size, and the HUD's own size (it's laid
+    /// out at that scale across the whole screen, so the corners stay in the corners).
+    /// </summary>
+    public void ApplySettings()
+    {
+        if (_crosshairDef is { } c && _settings is { } s)
+        {
+            Color colour = Color.FromHtml(s.CrosshairColor.Length > 0 ? s.CrosshairColor : c.Color);
+            _crosshair.Configure(c.Size_px * s.CrosshairSize, c.Gap_px * s.CrosshairSize, c.Thickness_px * Mathf.Sqrt(s.CrosshairSize), colour, s.CrosshairStyle);
+        }
+
+        _scaled = -1f;
+    }
+
+    private CrosshairDef? _crosshairDef;
+    private float _scaled = -1f;
+    private Vector2 _scaledFor;
+
+    /// <summary>Lays the HUD out at the settings' scale whenever it or the window's size changes.</summary>
+    private void ApplyScale()
+    {
+        float scale = _settings?.HudScale ?? 1f;
+        Vector2 screen = GetViewport().GetVisibleRect().Size;
+        if (Mathf.IsEqualApprox(scale, _scaled) && screen == _scaledFor)
+        {
+            return;
+        }
+
+        _scaled = scale;
+        _scaledFor = screen;
+        var root = GetNode<Control>("Root");
+        root.SetAnchorsPreset(Control.LayoutPreset.TopLeft);
+        root.Position = Vector2.Zero;
+        root.Scale = new Vector2(scale, scale);
+        root.Size = screen / scale;
     }
 
     /// <summary>Full-screen message shown instead of the game when data can't be loaded.</summary>
@@ -170,6 +236,12 @@ public partial class Hud : CanvasLayer, ISimEventListener
         if (e.Type == SimEventType.PlayerEliminated && _feed is not null)
         {
             Eliminated(e);
+        }
+
+        if (e.Type is SimEventType.CaseTaken or SimEventType.CaseDropped or SimEventType.CaseExtracted or SimEventType.HoldChanged)
+        {
+            ObjectiveToast(e);
+            return;
         }
 
         if (e.PlayerId != _player?.Id)
@@ -197,6 +269,32 @@ public partial class Hud : CanvasLayer, ISimEventListener
         }
     }
 
+    /// <summary>What just happened to the objective, from your side's point of view.</summary>
+    private void ObjectiveToast(in SimEvent e)
+    {
+        string who = _sim.FindPlayer(e.PlayerId)?.Name ?? "Someone";
+        string place = _sim.Match?.Objective?.Room?.Name ?? "room";
+        string room = ModeText.The(place);
+        string? line = e.Type switch
+        {
+            SimEventType.CaseTaken => e.PlayerId == _player.Id ? "You have the case: get it to a way out (you can't sprint with it)" : $"{who} has the case",
+            SimEventType.CaseDropped => e.PlayerId == _player.Id ? "You're out: the case is down" : $"{who} is out: the case is down",
+            SimEventType.CaseExtracted => e.PlayerId == _player.Id ? "You got the case out!" : $"{who} got the case out!",
+            SimEventType.HoldChanged => (Pb.Sim.Match.HoldStatus)e.Extra switch
+            {
+                Pb.Sim.Match.HoldStatus.Ours => $"You hold {room}",
+                Pb.Sim.Match.HoldStatus.Contested => $"{ModeText.TheCapital(place)} is contested",
+                Pb.Sim.Match.HoldStatus.Theirs => $"They're in {room}",
+                _ => null,
+            },
+            _ => null,
+        };
+        if (line is not null)
+        {
+            Toast(line, 3.0);
+        }
+    }
+
     /// <summary>A kill feed line, and the hit marker if it was your ball.</summary>
     private void Eliminated(in SimEvent e)
     {
@@ -211,7 +309,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         string distance = shooter is null ? "" : $" · {System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition):0} m";
         Color Of(PlayerState p) => _teams[p.Team % _teams.Length];
         _feed!.Add(shooter?.Name ?? "Stray ball", shooter is null ? Colors.White : Of(shooter), victim.Name, Of(victim), part + distance);
-        if (shooter == _player)
+        if (shooter == _player && _settings.HitMarker)
         {
             _crosshair.Flash(_hudDef!.HitMarkerTime_s, Color.FromHtml(_hudDef.HitMarkerColor));
         }
@@ -225,6 +323,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         }
 
         _crosshair.Visible = _settings.Crosshair;
+        ApplyScale();
         UpdatePrompt();
         if (_toastTimer > 0 && (_toastTimer -= delta) <= 0)
         {
@@ -291,11 +390,31 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _perf.Text = _text.ToString();
     }
 
-    /// <summary>The nearest pickup within reach, under the crosshair: what it is, how far, and whether you've room for it.</summary>
+    /// <summary>
+    /// The door you're facing within reach (what interact would do to it), else the nearest pickup within reach: what
+    /// it is, how far, and whether you've room for it.
+    /// </summary>
     private void UpdatePrompt()
     {
         Pb.Sim.Match.PickupSet pickups = _sim.Pickups;
-        if (_hudDef is null || !pickups.Active || !_player.Alive)
+        if (_hudDef is null || !_player.Alive || !_sim.IsLive)
+        {
+            _prompt.Visible = false;
+            return;
+        }
+
+        int door = _player.InteractDoor >= 0 ? _player.InteractDoor
+            : _sim.Doors.FindTarget(_player.EyePosition, Pb.Sim.Core.ViewAngles.Forward(_player.Yaw, _player.Pitch));
+        if (door >= 0)
+        {
+            bool shut = _sim.Doors.Target(door) < 0.5f;
+            _prompt.Visible = true;
+            _prompt.Text = $"{InputSetup.KeyName("interact")} · {(shut ? "open the door (hold to ease it open)" : "shut the door")}";
+            _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
+            return;
+        }
+
+        if (!pickups.Active)
         {
             _prompt.Visible = false;
             return;

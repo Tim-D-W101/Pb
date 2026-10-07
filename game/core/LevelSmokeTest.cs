@@ -19,8 +19,9 @@ namespace Pb.Game.Core;
 /// the real scene, walking collision and presentation code:
 /// <list type="number">
 /// <item>the autopilot walks in through the main gate, sweeping its aim and firing;</item>
-/// <item>it climbs every flight of stairs in the level, starting at the foot of each;</item>
+/// <item>it climbs every flight of stairs and every ramp in the level, starting at the foot of each;</item>
 /// <item>back at the spawn, it sprints, slides into a crouch, stands and jumps;</item>
+/// <item>in front of a shut door it shoots the door (the ball must break on it), opens it with interact and walks through;</item>
 /// <item>it shoots a passive bot, who must go out and walk off;</item>
 /// <item>it stands in front of a sentry, now hostile, until it's eliminated and spectating, and the round ends as eliminated.</item>
 /// </list>
@@ -44,11 +45,18 @@ public sealed class LevelSmokeTest
     private const int GetShotTicks = 1440;
     private const int RoundEndTicks = 360;
 
+    // The door: fire at it, tap interact, then walk through once it's open.
+    private const int DoorFireAt = 20;
+    private const int DoorTapAt = 90;
+    private const int DoorWalkAt = 260;
+    private const int DoorTicks = 600;
+
     private enum Phase
     {
         Walk,
         Climb,
         Moves,
+        Door,
         Shoot,
         GetShot,
     }
@@ -88,6 +96,11 @@ public sealed class LevelSmokeTest
     private bool _gotShot;
     private int _gotShotAt = -1;
     private RoundOutcome _outcome;
+    private int _door = -1;
+    private bool _doorStopped;
+    private bool _doorOpened;
+    private bool _doorWalked;
+    private string _doorNote = "no door found";
 
     public LevelSmokeTest(LevelMain host, SimWorld sim, SimDriver driver, PlayerController player, LevelBuilder world, int ticks,
         IReadOnlyList<OpponentPawn> opponents, IReadOnlyList<BotBrain> bots)
@@ -119,6 +132,7 @@ public sealed class LevelSmokeTest
                 break;
             case SimEventType.BallBroke:
                 _breaks++;
+                _doorStopped |= _door >= 0 && e.ColliderId == _sim.Doors.ColliderOf(_door);
                 break;
             case SimEventType.BallBounced:
                 _bounces++;
@@ -175,6 +189,26 @@ public sealed class LevelSmokeTest
 
                 if (t >= MovesTicks)
                 {
+                    StartDoor();
+                }
+
+                break;
+
+            case Phase.Door:
+                if (_door >= 0)
+                {
+                    DoorSpec d = _sim.Doors[_door];
+                    _doorOpened |= t >= DoorWalkAt - 20 && _sim.Doors.Open(_door) >= 0.95f;
+                    _doorWalked |= SVector3.Dot(p - d.ShutCenter, d.Side) > 0.8f;
+                }
+
+                if (_door < 0 || t >= DoorTicks)
+                {
+                    if (_door >= 0)
+                    {
+                        _doorNote = $"{_sim.Level!.Owners[_sim.Doors[_door].Owner]} door: stopped a ball={_doorStopped}, opened={_doorOpened}, walked through={_doorWalked}";
+                    }
+
                     StartShoot();
                 }
 
@@ -254,6 +288,48 @@ public sealed class LevelSmokeTest
         };
     }
 
+    /// <summary>
+    /// In front of a ground-floor door, shut, on the side it doesn't open into: a shot at it, a tap on interact, and once
+    /// it's open a walk straight through.
+    /// </summary>
+    private void StartDoor()
+    {
+        _phase = Phase.Door;
+        _phaseStart = _elapsed;
+        SVector3 up = new(0f, 1.2f, 0f);
+        for (int i = 0; i < _sim.Doors.Count && _door < 0; i++)
+        {
+            DoorSpec d = _sim.Doors[i];
+            SVector3 stand = d.ShutCenter - d.Side * 1.3f;
+            SVector3 beyond = d.ShutCenter + d.Side * 1.6f;
+            if (d.Hinge.Y > 0.2f || d.Partner >= 0 ||
+                _sim.Collision.SweepSphere(stand + up, d.ShutCenter + up - d.Side * 0.1f, 0.3f, out _, includeDynamic: false) ||
+                _sim.Collision.SweepSphere(d.ShutCenter + up + d.Side * 0.1f, beyond + up, 0.3f, out _, includeDynamic: false))
+            {
+                continue;
+            }
+
+            _door = i;
+            _sim.Doors.SetOpen(i, 0f);
+            _player.Teleport(stand, ScenePositions.Facing(stand, d.ShutCenter));
+        }
+
+        _pilot.Script = (_, me) =>
+        {
+            if (_door < 0)
+            {
+                return default;
+            }
+
+            int t = _elapsed - _phaseStart;
+            DoorSpec d = _sim.Doors[_door];
+            (float yaw, float pitch) = ViewAngles.FromDirection(d.ShutCenter + new SVector3(0f, 1.1f, 0f) - me.EyePosition);
+            InputButtons buttons = t == DoorFireAt ? InputButtons.Fire : t == DoorTapAt ? InputButtons.Interact : InputButtons.None;
+            var move = t >= DoorWalkAt ? new System.Numerics.Vector2(0f, 1f) : System.Numerics.Vector2.Zero;
+            return new InputCommand { Yaw = t >= DoorWalkAt ? me.Yaw : yaw, Pitch = t >= DoorWalkAt ? 0f : pitch, Buttons = buttons, Move = move };
+        };
+    }
+
     /// <summary>Stands a few metres in front of a passive bot and shoots them in the chest.</summary>
     private void StartShoot()
     {
@@ -297,14 +373,18 @@ public sealed class LevelSmokeTest
             bot.Passive = false;
         }
 
-        for (int i = 0; i < _opponents.Count; i++)
+        // In front of them, where they're looking: a sentry keeps watch the way it faces. Indoors a sentry may face a wall
+        // close by, so failing that, anyone with room in front of them will do.
+        foreach (bool sentriesOnly in new[] { true, false })
         {
-            PlayerState o = _opponents[i].State;
-            if (IsSentry(_bots[i]) && o.Alive && ScenePositions.FindSpot(_sim, o, 9f, out SVector3 spot))
+            for (int i = 0; i < _opponents.Count && _shotNote == "no sentry found"; i++)
             {
-                _shotNote = $"facing {o.Name}";
-                _player.Teleport(spot, ScenePositions.Facing(spot, o.Position));
-                break;
+                PlayerState o = _opponents[i].State;
+                if ((IsSentry(_bots[i]) || !sentriesOnly) && o.Alive && ScenePositions.FindSpot(_sim, o, 9f, out SVector3 spot, maxTurn: 0.9f))
+                {
+                    _shotNote = $"facing {o.Name} ({_bots[i].Archetype.Id}) at {o.Position} from {spot}";
+                    _player.Teleport(spot, ScenePositions.Facing(spot, o.Position));
+                }
             }
         }
 
@@ -322,9 +402,25 @@ public sealed class LevelSmokeTest
                  $"jump {(jumpOk ? "ok" : "FAILED")} (height {_jumpHeight:0.00} m)");
         bool shotOk = _gotShot && _outcome == RoundOutcome.Eliminated;
         GD.Print($"SMOKE duel: shoot {(shootOk ? "ok" : "FAILED")} ({_shootNote}); get shot {(shotOk ? "ok" : "FAILED")} ({_shotNote})");
+        // A level without doors has nothing to check here.
+        bool doorOk = _sim.Doors.Count == 0 || (_doorStopped && _doorOpened && _doorWalked);
+        GD.Print($"SMOKE door: {(doorOk ? "ok" : "FAILED")} ({_doorNote})");
+
+        // Sound: the bank rendered whole, every kind of event made its sound (headless, through the dummy driver), and the
+        // referee called the round.
+        Pb.Game.Audio.AudioDirector audio = _host.Audio;
+        Pb.Game.Audio.SoundBank? bank = audio.Bank;
+        bool audioOk = bank is { Problems.Count: 0 } && audio.Shots > 0 && audio.Breaks > 0 && audio.Steps > 0 &&
+                       (_sim.Doors.Count == 0 || audio.Doors > 0) && _host.Referee.Called.Count > 0;
+        GD.Print($"SMOKE audio: {(audioOk ? "ok" : "FAILED")} (" +
+                 (bank is null ? "no sound bank" : $"{bank.SoundCount} sounds in {bank.VariationCount} variations, rendered in {bank.RenderMilliseconds:0} ms") +
+                 $"; shots {audio.Shots}, breaks {audio.Breaks}, bounces {audio.Bounces}, steps {audio.Steps}, doors {audio.Doors}, cues {audio.Cues}: " +
+                 $"{audio.Played} played from where they happened ({audio.Muffled} through walls), {audio.Skipped} out of earshot or over the budget; " +
+                 $"callouts {audio.Spoken} voiced, {audio.Unvoiced} subtitles only; ambience {audio.Ambience?.Where} (tone '{audio.Ambience?.Tone}', " +
+                 $"{audio.Ambience?.Crows} crows); referee: {string.Join(" / ", _host.Referee.Called)})");
 
         bool ok = _travelled > 15f && _lowestY > -0.5f && _shots > 0 && _breaks > 0 && _climbsFailed == 0 && slideOk && jumpOk &&
-                  shootOk && shotOk && _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
+                  doorOk && shootOk && shotOk && audioOk && _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: ticks={_elapsed} travelled={_travelled:0.0}m lowestY={_lowestY:0.00} " +
                  $"shots={_shots} breaks={_breaks} bounces={_bounces} climbs={_climbs.Count - _climbsFailed}/{_climbs.Count} " +
                  $"meshes={_world.MeshCount} walkColliders={_world.ColliderCount} simErrors={_driver.ErrorCount} " +
@@ -333,17 +429,20 @@ public sealed class LevelSmokeTest
     }
 
     /// <summary>
-    /// Every sloped stair ramp (the walking surface the kit lays over the steps) becomes a climb:
-    /// start half a metre before the bottom step, facing up the flight.
+    /// Every sloped stair ramp (the walking surface the kit lays over the steps) and every sloped walking surface of a
+    /// prop (a trailer's loading ramp) becomes a climb: start half a metre before the bottom, facing up the slope.
     /// </summary>
     private static List<Climb> FindClimbs(LevelLayout level)
     {
         var climbs = new List<Climb>();
         foreach (LevelPrimitive p in level.Primitives)
         {
-            if (p.Role != PrimitiveRole.Ramp || p.HalfExtents.Z < 0.5f)
+            bool stairs = p.Role == PrimitiveRole.Ramp && p.HalfExtents.Z >= 0.5f; // not the flat landing pieces
+            float tilt = System.MathF.Acos(System.Math.Clamp(SVector3.Transform(SVector3.UnitY, p.Rotation).Y, -1f, 1f));
+            bool propRamp = p.Role == PrimitiveRole.Prop && p.Kind == PrimitiveKind.Box && p.Has(PrimitiveFlags.Walk) && tilt is > 0.15f and < 0.8f;
+            if (!stairs && !propRamp)
             {
-                continue; // the flat landing pieces
+                continue;
             }
 
             SVector3 uphill = SVector3.Transform(-SVector3.UnitZ, p.Rotation);
@@ -351,6 +450,11 @@ public sealed class LevelSmokeTest
             SVector3 surface = p.Center + normal * p.HalfExtents.Y;
             SVector3 bottom = surface - uphill * p.HalfExtents.Z;
             SVector3 top = surface + uphill * p.HalfExtents.Z;
+            if (propRamp && top.Y - bottom.Y < 0.5f)
+            {
+                continue; // a tilted piece of a heap, not a way up
+            }
+
             SVector3 flat = SVector3.Normalize(new SVector3(uphill.X, 0f, uphill.Z));
             SVector3 start = new SVector3(bottom.X, bottom.Y + 0.05f, bottom.Z) - flat * 0.5f;
             float yaw = System.MathF.Atan2(-flat.X, -flat.Z);

@@ -37,6 +37,7 @@ namespace Pb.Game.Core;
 ///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
 ///   --duel-distance=M     how far from the bot the duel starts (default 6 m; 2 for a close-up)
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
+///   --role-demo=ROLE      a Marksman ("marksman") or a Flanker ("flanker") at work, with the bot overlay
 ///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
 ///   --gait-demo           an opponent walks, runs, sprints, strafes, backs off and walks crouched, seen from the side
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
@@ -45,6 +46,11 @@ namespace Pb.Game.Core;
 ///   --seed=N              deals round N's starts and randomness (rounds normally get a new random seed; scripted
 ///                         runs use the data's seed and, in solo, the level's roster, so they play out the same every time)
 ///   --random-spawns       deals random starts in a scripted solo run too (CI's bot match; other modes always do)
+///   --record              the bot match goes in your records as a round of yours (CI, to exercise the profile)
+///   --fast                no cap on sim ticks a frame, so a low --fixed-fps runs the round in few frames (to film a
+///                         whole bot match with --write-movie: --fixed-fps 1 is a second of the round a frame)
+///   --show-summary        the bot match ends on its summary, up for three seconds (for a screenshot)
+///   --unlock-all          every level of the ladder open, whatever the profile says
 /// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
 /// them. In solo, bots play their spawn's behaviour; in free-for-all and teams, one dealt from the
 /// mode's chances. All play at the tier's difficulty; F3 shows what they're thinking.
@@ -59,6 +65,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private LadderTierDef _tier = null!;
     private GameMode _mode = null!;
     private int _size;
+    private ObjectiveChoice _objective = null!;
     private RoundInfo _round = null!;
     private MatchState _match = null!;
     private PauseMenu _pause = null!;
@@ -90,12 +97,21 @@ public partial class LevelMain : Node3D, ISimEventListener
     private Footprints _prints = null!;
     private PaintDrips _drips = null!;
     private Birds _birds = null!;
+    private AudioDirector _audio = null!;
+    private RefereeCalls _referee = null!;
+
+    /// <summary>The sound (for the smoke test's report).</summary>
+    public AudioDirector Audio => _audio;
+
+    /// <summary>The referee (for the smoke test's report).</summary>
+    public RefereeCalls Referee => _referee;
     private GroundDetail _groundDetail = null!;
     private FloorDebris _floorDebris = null!;
     private OldPaint _oldPaint = null!;
     private ContactShadows _contact = null!;
     private Creepers _creepers = null!;
     private LightShafts _shafts = null!;
+    private DoorViews _doors = null!;
     private string? _hitBy;
     private bool _scripted;
     private bool _botMatch;
@@ -105,6 +121,10 @@ public partial class LevelMain : Node3D, ISimEventListener
     private bool _summaryShown;
     private bool _summaryEarly;
     private bool _ready;
+    /// <summary>A real round (not a scripted run or a tour): it goes in your records when it ends.</summary>
+    private bool _counts;
+    /// <summary>The level this round opened, if it opened one (for the summary).</summary>
+    private string? _opened;
 
     /// <summary>True once you've been eliminated and the spectator view is showing.</summary>
     public bool Spectating => _spectator is not null;
@@ -127,15 +147,16 @@ public partial class LevelMain : Node3D, ISimEventListener
             _data = GameData.Load(source);
             _view = Jsonc.Load<PresentationDef>(source, PresentationDef.File);
             InputSetup.Apply(Jsonc.Load<InputDef>(source, InputDef.File));
-            (_entry, _tier, _mode, _size) = PickRound(_data);
+            (_entry, _tier, _mode, _size, _objective) = PickRound(_data);
             _level = _data.Levels[_entry.Id];
-            _round = new RoundInfo(_level, _tier, _mode, _size);
+            _round = new RoundInfo(_level, _tier, _mode, _size, _objective);
         }
         catch (Exception ex) when (ex is DataException or InvalidOperationException)
         {
             GD.PushError(ex.Message);
             _hud.ShowFatal(ex.Message);
-            if (Args.Has("--smoke-test"))
+            // Headless, nobody can read the message and leave, so the run would wait for ever.
+            if (Args.Has("--smoke-test") || DisplayServer.GetName() == "headless")
             {
                 GetTree().Quit(1);
             }
@@ -144,16 +165,22 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _settings = GameSettings.Load(_view);
+        InputSetup.Apply(_settings.Bindings);
+        _view.UseTeamColors(_settings.TeamColors);
+        Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
+        Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
         _settings.ApplyVolume();
-        DisplayServer.WindowSetVsyncMode(_settings.Vsync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
+        _settings.ApplyWindow();
 
         // Quiet opponents for the screenshot tours; the smoke test turns them hostile when it's ready.
         bool botDemo = Args.Has("--bot-demo");
+        string? roleDemo = Args.Value("--role-demo");
         bool gaitDemo = Args.Has("--gait-demo");
         _botMatch = Args.Has("--bot-match");
         _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    gaitDemo || _botMatch;
+                    roleDemo is not null || gaitDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
+        _counts = !_scripted && !roundTour;
 
         // Every round deals a new seed and random starts, so you can't learn where everyone is. Scripted
         // runs keep the data's seed and, in solo, the level's roster, so they play out the same every time.
@@ -163,12 +190,17 @@ public partial class LevelMain : Node3D, ISimEventListener
             : (ulong)System.Random.Shared.NextInt64();
         _sim = new SimWorld(_data.Config, seed);
         _sim.LoadLevel(_level);
+        // Everything built once from the level as it stands (cover, starts, weeds, old paint, light) leaves the doors
+        // out: they'll move. The flag comes off once the level is built.
+        _sim.Collision.SkipDynamic = true;
         var navWatch = Stopwatch.StartNew();
         _squad = BotSquad.ForLevel(_sim, _data.Bots, _level);
         double navMs = navWatch.Elapsed.TotalMilliseconds;
-        _starts = !repeatable || Args.Has("--random-spawns") || _mode.Kind != MatchModeKind.Solo
+        // With an objective the opponents gather round it, so the starts are always dealt.
+        ObjectiveFocus? focus = ObjectiveFocus.For(_objective.Kind, _level.Objectives, _data.Config.Rules.Objectives, seed);
+        _starts = !repeatable || Args.Has("--random-spawns") || _mode.Kind != MatchModeKind.Solo || focus is not null
             ? SpawnPlanner.Plan(_level, _squad.Cover, _sim.Collision, _data.Config.Rules.Spawning, _data.Bots,
-                RoundShape.Of(_mode, _size), _data.Config.Movement.StandEyeHeight, seed)
+                RoundShape.Of(_mode, _size, focus), _data.Config.Movement.StandEyeHeight, seed)
             : null;
         SpawnPoint start = _starts?.You ?? _level.PlayerSpawns[0];
         _start = start;
@@ -190,8 +222,14 @@ public partial class LevelMain : Node3D, ISimEventListener
         Color teamColor = TeamColor(state.Team);
         _teamColor = teamColor;
 
-        GraphicsPresetDef preset = _view.Graphics.Find(Args.Value("--preset") ?? _settings.GraphicsPreset);
+        GraphicsPresetDef preset = _view.Graphics.Effective(Args.Value("--preset") ?? _settings.GraphicsPreset, _settings.Graphics);
         _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, _view.Woods);
+        _doors = new DoorViews { Name = "Doors" };
+        AddChild(_doors);
+        _doors.Build(_sim, _world.Materials);
+        var tracks = new TrackViews { Name = "Tracks" };
+        AddChild(tracks);
+        tracks.Build(_level, _world.Materials);
         var dressWatch = Stopwatch.StartNew();
         // The worn paths first: the weeds keep off them.
         var paths = new WornPaths { Name = "WornPaths" };
@@ -264,12 +302,12 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _player.Initialize(_sim, state, _view, _settings, teamColor);
         _player.BuildBody(_view.Characters, teamColor, look: 0);
-        SpawnBots(hostile: botDemo || _botMatch || (!_scripted && !roundTour));
+        SpawnBots(hostile: botDemo || roleDemo is not null || _botMatch || (!_scripted && !roundTour));
         _botDebug = new BotDebugOverlay { Name = "BotDebug" };
         AddChild(_botDebug);
         _botDebug.Initialize(_squad);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
-        _splats.Initialize(_view, SplatParent);
+        _splats.Initialize(_view, SplatParent, _doors.AnchorOf);
         var fx = GetNode<ImpactFx>("ImpactFx");
         fx.Initialize(_view);
         _dust = new FootDust { Name = "FootDust" };
@@ -282,7 +320,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _roofDrips = new RoofDrips { Name = "RoofDrips", Visible = _groundDetail.Visible };
         AddChild(_roofDrips);
         _roofDrips.Build(_level, _sim.Collision, _ripples, _view.RoofDrips, _sim.Config.Projectile.Gravity);
-        _drips = new PaintDrips { Name = "PaintDrips" };
+        _drips = new PaintDrips { Name = "PaintDrips", Moving = id => _sim.Doors.LeafOfCollider(id) >= 0 };
         AddChild(_drips);
         _drips.Initialize(_view);
         _prints = new Footprints { Name = "Footprints" };
@@ -291,26 +329,28 @@ public partial class LevelMain : Node3D, ISimEventListener
         _arc.Initialize(_sim, state, _view);
         _arc.Enabled = _view.ArcPreview.EnabledOnStart;
 
-        bool headless = DisplayServer.GetName() == "headless";
-        var audio = GetNode<AudioDirector>("Audio");
-        if (!headless)
-        {
-            audio.Initialize(state, _view);
-        }
+        // Headless runs (CI) play through Godot's dummy driver: nothing is heard, but every sound is made and counted.
+        _audio = GetNode<AudioDirector>("Audio");
+        _audio.Initialize(_sim, state, _view, _level, _ripples.InWater, _birds);
 
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
         _hud.InitializeMatch(_view, MatchClock);
         _hud.ShowHelp = false;
-        MatchSetup setup = MatchSetup.From(_tier, state.Id, _mode.Kind);
+        MatchSetup setup = MatchSetup.From(_tier, state.Id, _mode.Kind, _objective.Kind);
         if (float.TryParse(Args.Value("--time-limit"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float limit))
         {
             setup = new MatchSetup
             {
                 HeroId = setup.HeroId, Mode = setup.Mode, TimeLimit = limit, StartPods = setup.StartPods, BotPods = setup.BotPods, Pickups = setup.Pickups,
+                Objective = setup.Objective,
             };
         }
 
         _match = _sim.StartMatch(setup);
+        _hud.InitializeObjective(_view.Objectives);
+        var objectiveViews = new ObjectiveViews { Name = "Objective" };
+        AddChild(objectiveViews);
+        objectiveViews.Build(_sim, _view.Objectives);
         _pickups = new PickupVisuals { Name = "Pickups" };
         AddChild(_pickups);
         _pickups.Build(_sim.Pickups);
@@ -318,14 +358,20 @@ public partial class LevelMain : Node3D, ISimEventListener
         AddChild(_overlays);
         _pause = new PauseMenu { Name = "Pause" };
         AddChild(_pause);
-        _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Find(s.GraphicsPreset)),
-            restart: () => GetTree().ReloadCurrentScene());
+        _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Effective(s.GraphicsPreset, s.Graphics)),
+            restart: () => GetTree().ReloadCurrentScene(), hudChanged: _ => _hud.ApplySettings());
 
         var maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
         AddChild(maskSpray);
-        maskSpray.Initialize(_view, state.Id);
+        maskSpray.Initialize(_view, state.Id, _settings);
 
+        _sim.Collision.SkipDynamic = false;
         _driver.Initialize(_sim);
+        _driver.Ticked += _ =>
+        {
+            _doors.Capture();
+            objectiveViews.Capture();
+        };
         _driver.AddDriver(_player);
         foreach (OpponentPawn pawn in _pawns)
         {
@@ -342,11 +388,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.AddListener(_prints);
         _driver.AddListener(_drips);
         _driver.AddListener(_birds);
-        if (!headless)
-        {
-            _driver.AddListener(audio);
-        }
-
+        _driver.AddListener(_audio);
+        _referee = new RefereeCalls { Name = "Referee" };
+        AddChild(_referee);
+        _referee.Initialize(_sim, state, _view.Hud.Referee, _hud, _audio);
+        _driver.AddListener(_referee);
         _driver.AddListener(_hud);
         _driver.AddListener(this);
 
@@ -364,6 +410,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             _player.Teleport(PostureDemo.Position, PostureDemo.Yaw);
             _player.AutoPilot = new PostureDemo(this, _sim);
+            _hud.ShowHelp = false;
+            _hud.ShowPerf = false;
+        }
+        else if (Args.Has("--objective-demo"))
+        {
+            _player.AutoPilot = new ObjectiveDemo(this, _sim, _player, _squad.Grid);
             _hud.ShowHelp = false;
             _hud.ShowPerf = false;
         }
@@ -387,7 +439,27 @@ public partial class LevelMain : Node3D, ISimEventListener
             BotBrain brain = _squad.Add(state, _data.Bots.Archetypes["hunter"], _data.Bots.Difficulty[_tier.Bots], you);
             _player.AutoPilot = new BotPilot(brain);
             _hud.ShowPerf = false;
+            if (Args.Has("--fast"))
+            {
+                // The tick rate must stay as it is (walking moves by Godot's physics step), so a faster round is more
+                // ticks a frame: a low --fixed-fps asks for them, and this lifts Godot's usual cap of eight.
+                Engine.MaxPhysicsStepsPerFrame = 1024;
+            }
+
             GD.Print($"BOT MATCH a hunter bot plays your slot in {_round.Line} with {_bots.Count} {_tier.Bots} bots, {setup.TimeLimit:0} s on the clock");
+            // Every 10 s of the round: where your bot is, what it's doing, and how the objective stands (for CI's log).
+            int every = (int)(10f * _sim.Config.TickRate);
+            _driver.Ticked += tick =>
+            {
+                if (_match.Phase == MatchPhase.Live && tick % every == 0)
+                {
+                    ObjectiveState? o = _match.Objective;
+                    string objective = o is null ? "" : o.Kind == ObjectiveKind.Hold ? $"; {o.Room!.Name} {o.Status}, held {o.Held:0} s"
+                        : $"; case {(o.Carrier >= 0 ? "carried by " + _sim.FindPlayer(o.Carrier)?.Name : o.CaseMoved ? "dropped" : "untouched")} at {o.CasePosition}";
+                    GD.Print($"BOT MATCH {_match.Elapsed:0} s: you at {state.Position} ({brain.Label}){objective}; " +
+                             $"{_sim.Players.Count(p => p.Alive && p.Team == state.Team)} of yours and {_sim.Players.Count(p => p.Alive && p.Team != state.Team)} of theirs in");
+                }
+            };
         }
         else if (gaitDemo)
         {
@@ -401,9 +473,15 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(demo);
             demo.Start(_sim, _player, _pawns, _botDebug, _hud, _view.Camera.FarClip_m);
         }
+        else if (roleDemo is not null)
+        {
+            var demo = new RoleDemo { Name = "RoleDemo" };
+            AddChild(demo);
+            demo.Start(roleDemo, _sim, _squad, _player, _pawns, _botDebug, _hud, _view.Camera.FarClip_m);
+        }
         else if (roundTour)
         {
-            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap()));
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective));
             _hud.ShowPerf = false;
             var tour = new RoundTour { Name = "RoundTour" };
             AddChild(tour);
@@ -417,12 +495,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else
         {
-            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap()));
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective));
         }
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
                  $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.FramedOpenings} framed openings and {_world.DressedBuildings} buildings with gutters or trusses, {_world.DressedWalls} dressed walls, {_world.SkirtedFaces} skirted wall faces, {_world.SceneryCount} pylons and poles beyond, {_world.ShapeTriangles} triangles), " +
-                 $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, " +
+                 $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, {_doors.Count} door leaves, " +
                  $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");
         _ready = true;
@@ -643,6 +721,11 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
+        if (_counts)
+        {
+            RecordRound();
+        }
+
         // Skipped ahead to the summary: it shows the final result now.
         if (_summaryEarly)
         {
@@ -658,16 +741,45 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
     }
 
+    /// <summary>Adds the round to your records and saves them; a win may open the next level up the ladder.</summary>
+    private void RecordRound()
+    {
+        LadderProgress progress = Profile.Load(_data.Ladder, _settings);
+        PlayerStats you = _match.StatsFor(_player.State.Id)!;
+        string? opened = progress.Add(new RoundResult(_entry.Id, _mode.Id, _tier.Id, _match.Outcome, _match.Elapsed, you.Shots, you.Hits,
+            you.Eliminations, LadderProgress.IdOf(_match.Setup.Objective)));
+        Profile.Save(progress);
+        if (opened is not null)
+        {
+            _opened = _data.Ladder.Levels.First(l => l.Id == opened).DisplayName;
+            GD.Print($"Ladder: {_opened} is open");
+        }
+    }
+
     /// <summary>The bot match is over: report how it went, pass if nothing went wrong on the way.</summary>
     private void FinishBotMatch()
     {
+        if (Args.Has("--record"))
+        {
+            // CI: the round goes in the profile as if you'd played it, so saving it is exercised too.
+            RecordRound();
+        }
+
         PlayerStats you = _match.StatsFor(_player.State.Id)!;
         int errors = _driver.ErrorCount;
         bool ok = errors == 0 && _match.Outcome != RoundOutcome.None;
         int botOnBot = _sim.Players.Count(p => !p.Alive && p != _player.State && p.EliminatedBy > 0);
-        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome} after {_match.Elapsed:0} s: you put out " +
+        string objective = ObjectiveLine() is { } line ? $" ({line})" : "";
+        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +
                  $"{you.Eliminations} of {_sim.Players.Count(p => p.Team != _player.State.Team)}, {you.Shots} shots, {you.Hits} hits, " +
                  $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
+        if (Args.Has("--show-summary"))
+        {
+            ShowSummary();
+            GetTree().CreateTimer(3.0).Timeout += () => GetTree().Quit(ok ? 0 : 1);
+            return;
+        }
+
         GetTree().Quit(ok ? 0 : 1);
     }
 
@@ -701,11 +813,48 @@ public partial class LevelMain : Node3D, ISimEventListener
             Placing = _match.Placing(you.Id),
             Players = players.Count,
             Winner = winner?.Name,
+            Opened = _opened,
+            ObjectiveLine = ObjectiveLine(),
+            ObjectiveRow = ObjectiveRow(),
         };
         ShowOverlay(RoundScreens.Summary(_round, _match, _match.StatsFor(you.Id)!, facts,
             retry: () => GetTree().ReloadCurrentScene(),
             levelSelect: BackToLevelSelect,
             mainMenu: () => GetTree().ChangeSceneToFile(GameSession.MainScene)));
+    }
+
+    /// <summary>How the objective went, in a sentence, for the summary's headline.</summary>
+    private string? ObjectiveLine()
+    {
+        if (_match.Objective is not { } o)
+        {
+            return null;
+        }
+
+        if (o.Kind == ObjectiveKind.Hold)
+        {
+            return o.Done
+                ? $"Your side held {ModeText.The(o.Room!.Name)} for {RoundScreens.Clock(o.HoldRules.HoldTime)}."
+                : $"You held {ModeText.The(o.Room!.Name)} for {o.Held:0} of {o.HoldRules.HoldTime:0} s.";
+        }
+
+        string carrier = o.Carrier == _player.State.Id ? "You" : _sim.FindPlayer(o.Carrier)?.Name ?? "Your side";
+        return o.Done ? $"{carrier} got it out through {o.Level.Exits[o.ExitUsed].Name} at {RoundScreens.Clock(_match.Elapsed)}."
+            : o.Carrier >= 0 ? $"{carrier} still had the case."
+            : o.CaseMoved ? "The case was lying where its last carrier fell."
+            : $"Nobody found the case in {ModeText.The(o.Spot.Area)}.";
+    }
+
+    private (string, string)? ObjectiveRow()
+    {
+        if (_match.Objective is not { } o)
+        {
+            return null;
+        }
+
+        return o.Kind == ObjectiveKind.Hold
+            ? ("Held", $"{o.Held:0} of {o.HoldRules.HoldTime:0} s")
+            : ("Case", o.Done ? $"out through {o.Level.Exits[o.ExitUsed].Name}" : o.Carrier >= 0 ? "carried, not out" : o.CaseMoved ? "dropped" : "not found");
     }
 
     private void BackToLevelSelect()
@@ -732,7 +881,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private string MatchClock() =>
         RoundScreens.Clock(_match.Phase == MatchPhase.Briefing ? _match.Setup.TimeLimit : _match.TimeLeft);
 
-    /// <summary>Shows what the bots shout as subtitles, when you're close enough to hear it.</summary>
+    /// <summary>Plays what the bots shout in their voices, and shows it as subtitles when you're close enough to hear it.</summary>
     public override void _Process(double delta)
     {
         if (!_ready)
@@ -751,10 +900,18 @@ public partial class LevelMain : Node3D, ISimEventListener
 
             _calloutsSeen[i] = bot.CalloutTick;
             string[] lines = hud.Callouts.For(bot.Callout);
-            float distance = System.Numerics.Vector3.Distance(bot.Self.Position, _player.State.Position);
-            if (lines.Length > 0 && distance <= hud.SubtitleRange_m)
+            if (lines.Length == 0)
             {
-                _hud.Subtitle(bot.Self.Name, bot.Self.Team, lines[(bot.Self.Id * 31 + bot.CalloutTick) % lines.Length]);
+                continue;
+            }
+
+            // Heard in the caller's voice from where they stand (when it's been recorded), and read as a subtitle when close.
+            string line = lines[(bot.Self.Id * 31 + bot.CalloutTick) % lines.Length];
+            _audio.Callout(bot.Self, i, line);
+            float distance = System.Numerics.Vector3.Distance(bot.Self.Position, _player.State.Position);
+            if (distance <= hud.SubtitleRange_m)
+            {
+                _hud.Subtitle(bot.Self.Name, bot.Self.Team, line);
             }
         }
     }
@@ -818,7 +975,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         else if (e.IsActionPressed("toggle_vsync"))
         {
             _settings.Vsync = !_settings.Vsync;
-            DisplayServer.WindowSetVsyncMode(_settings.Vsync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
+            _settings.ApplyWindow();
             SaveAndToast(_settings.Vsync ? "V-sync on" : "V-sync off");
         }
         else if (e.IsActionPressed("cycle_graphics"))
@@ -827,7 +984,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             int index = Array.FindIndex(presets, p => p.Name == _settings.GraphicsPreset);
             GraphicsPresetDef next = presets[(index + 1) % presets.Length];
             _settings.GraphicsPreset = next.Name;
-            ApplyGraphics(next);
+            ApplyGraphics(_view.Graphics.Effective(next.Name, _settings.Graphics));
             SaveAndToast($"Graphics: {next.Name}");
         }
         else if (e.IsActionPressed("toggle_invert_y"))
@@ -837,8 +994,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (e.IsActionPressed("toggle_fullscreen"))
         {
-            bool full = DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen;
-            DisplayServer.WindowSetMode(full ? DisplayServer.WindowMode.Windowed : DisplayServer.WindowMode.Fullscreen);
+            _settings.WindowMode = _settings.WindowMode == "windowed" ? "borderless" : "windowed";
+            _settings.ApplyWindow();
+            SaveAndToast(_settings.WindowMode == "windowed" ? "Windowed" : "Full screen");
         }
         else if (e.IsActionPressed("fov_down") || e.IsActionPressed("fov_up"))
         {
@@ -893,6 +1051,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         map.Configure(_level, new Vector2(380f, 320f), (_start.Position.ToGodot(), _start.Yaw), team, _teamColor);
+        if (_match.Objective is { } objective)
+        {
+            map.MarkObjective(objective, Color.FromHtml(_view.Objectives.Color));
+        }
+
         return map;
     }
 
@@ -914,7 +1077,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     /// The menus' choice, else --level, --mode, --size and --tier, else the first playable level, the first
     /// mode at its default size, on "normal" (or the level's first tier).
     /// </summary>
-    private static (LadderLevelDef Entry, LadderTierDef Tier, GameMode Mode, int Size) PickRound(GameData data)
+    private static (LadderLevelDef Entry, LadderTierDef Tier, GameMode Mode, int Size, ObjectiveChoice Objective) PickRound(GameData data)
     {
         string? levelId = GameSession.LevelId ?? Args.Value("--level");
         LadderLevelDef? entry = levelId is not null
@@ -940,8 +1103,22 @@ public partial class LevelMain : Node3D, ISimEventListener
             throw new InvalidOperationException($"{mode.DisplayName} can't be played at size {size} (at most {rules.MaxPlayers} people in a round)");
         }
 
+        // The objective: the menu's, or --objective; free-for-all is always eliminate.
+        ObjectiveRules objectives = rules.Objectives;
+        string objectiveId = (GameSession.LevelId is not null ? GameSession.ObjectiveId : null) ?? Args.Value("--objective") ?? LadderProgress.Eliminate;
+        ObjectiveChoice objective = objectives.Kinds.FirstOrDefault(k => LadderProgress.IdOf(k.Kind) == objectiveId)
+            ?? throw new InvalidOperationException($"No objective '{objectiveId}' (known: {string.Join(", ", objectives.Kinds.Select(k => LadderProgress.IdOf(k.Kind)))})");
+        if (mode.Kind == MatchModeKind.FreeForAll)
+        {
+            objective = objectives.Find(ObjectiveKind.Eliminate)!;
+        }
+        else if (!data.Levels[entry.Id].Objectives.Offers(objective.Kind))
+        {
+            throw new InvalidOperationException($"{entry.DisplayName} has no places for {objective.DisplayName}");
+        }
+
         LadderTierDef[] tiers = entry.Tiers!;
         string tierId = GameSession.TierId ?? Args.Value("--tier") ?? "normal";
-        return (entry, tiers.FirstOrDefault(t => t.Id == tierId) ?? tiers[0], mode, size);
+        return (entry, tiers.FirstOrDefault(t => t.Id == tierId) ?? tiers[0], mode, size, objective);
     }
 }

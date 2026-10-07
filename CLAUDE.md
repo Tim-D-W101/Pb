@@ -37,6 +37,7 @@ dotnet run -c Release --project tools/Pb.Bench        # ballistics report + tick
 tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end check
 tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in art/*.pck
 tools/package/godot-project.sh                        # self-contained project zip for Godot's Import
+python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate the hospital wings (edit the script, not the files)
 ```
 
 The Windows build needs the export templates: `tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe
@@ -44,6 +45,9 @@ windows_release_x86_64_console.exe` pulls just those from the 1.2 GB release arc
 start on the main menu; `-- --level=ID` (with the level's other options) skips it once. The game's own pack leaves
 `art/` out: `tools/package/art-packs.sh` exports it as one pack per asset (`art/Pb-art-<id>.pck`), which `ArtFiles`
 mounts in exported builds, and the release lists every game file's SHA-256 so `Play.bat` downloads only what changed.
+The Windows build runs headless under Wine (`apt-get install wine`), the way to catch faults only the Windows .NET
+runtime has: `WINEDLLOVERRIDES=dinput8=d wine Pb.exe --headless -- --level=ID --bot-match --no-art` (Wine's DirectInput
+crashes Godot; exported builds take no scene path, and the menu's `--smoke-test` comes first).
 
 Godot 4.7.2 .NET is expected on PATH as `godot` (CI installs it with `tools/ci/install-godot.sh`).
 Build `game/Pb.csproj` before running Godot headless.
@@ -56,12 +60,16 @@ Art is generated with Higgsfield, then the finished result is imported:
 tools/art/import.sh texture <material-id> <job-id> <generator> <url> "<prompt>"   # tiling albedo + normal + roughness maps
 tools/art/import.sh model <prop-id> <job-id> <generator> <url> "<prompt>"         # GLB; prints its measured size
 tools/art/import.sh clip <clip-id> <job-id> <generator> <url> "<prompt>"          # a rigged GLB's movement clip, cut down to rig + animation
+tools/art/import.sh voice <voice-id> <job-id> <generator> <url> "<script>"        # one TTS take of a voice's lines, cut into a file per line (ffmpeg)
 ```
 
 Each import records its provenance (job, generator, prompt, URL, files) in `game/data/assets.jsonc`, and a
 sim test fails if the kit or the characters use a texture or model without a record. Then point the
 material's `albedo`, `normal` and `roughnessMap` (`kit/materials.jsonc`), the prop's `model`
-(`kit/props.jsonc`) or a character model or movement clip (`presentation.jsonc` → `characters`, `characters.clips`) at the files. Characters
+(`kit/props.jsonc`) or a character model or movement clip (`presentation.jsonc` → `characters`, `characters.clips`) at the files.
+A voice's script is the exact lines of `presentation.jsonc` `hud.callouts` (or `hud.referee` for the referee), one per line:
+`tools/art/voice-script.py callouts` (or `referee`) prints it, for the generator and for the import's last argument. Its
+files are found by their words, so nothing needs pointing at them. Characters
 must use the generator's biped rig (the bone names `CharacterPoser` binds). One generation can hold four
 materials (a 2 × 2 sheet): cut each with `--region=x,y,w,h`. Cut a regular pattern (bricks, planks,
 corrugations) to whole repeats and pass `--repeats=across,down` (and `--stretch` for a cut that isn't
@@ -69,6 +77,12 @@ square), so its seams blend in step with it; set `tile_m` to the cut's real size
 regular pattern `"breakUpRepeat": true`, so their repeat doesn't show over a yard. The game loads art through
 `ArtFiles`: anything missing falls back to the procedural look, greybox or hitbox boxes, and
 `-- --no-art` ignores all of it (CI's bot match), so the game and CI never depend on art.
+
+## Sound
+
+Every effect is synthesised in code when the game starts (`game/audio/SoundBank.cs`); there are no recorded sounds
+but the voices. To listen to them outside the game: `godot --headless --path game res://tools/ArtImport.tscn --
+--sounds=/tmp/sounds` writes every variation as a WAV file. Headless runs build and count every sound but start none.
 
 ## Verifying visuals without a GPU
 
@@ -92,9 +106,14 @@ for close-ups of anything in the level. On `Level.tscn`, through the player's ow
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
-sprinting, strafing, backing off and walking crouched, seen from the side (movement clips, or the steps without them). `-- --bot-match` (CI) has a bot play your slot until
-the round ends. `--mode=solo|ffa|teams` and `--size=N` pick the mode and size (the menu's choices; the
-modes are in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`. `-- --menu-tour` on the
+sprinting, strafing, backing off and walking crouched, seen from the side (movement clips, or the steps without them).
+`-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
+Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
+fewer frames. `-- --bot-match` (CI) has a bot play your slot until
+the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N` and `--objective=eliminate|retrieve|hold` pick the mode, size and
+objective (the menu's choices; they're in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`, and
+`-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
+the room, the ways out. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's
 hardware can confirm the 60 fps target.
 
@@ -105,3 +124,5 @@ hardware can confirm the 60 fps target.
 - Hot paths (anything per ball or per tick) must not allocate. A test enforces this for `SimWorld.Step`.
 - The sim uses System.Numerics. Convert with `Pb.Game.Core.Conv` (`ToGodot()` / `ToSim()`).
 - Coordinates match Godot: Y up, yaw 0 faces −Z, positive yaw turns left, positive pitch looks up.
+- `game/Pb.csproj` keeps tiered PGO and quick JIT for loops off. With them on, the .NET 8 JIT on Windows x64 crashes
+  the game, and Linux runs never show it (architecture §14.7, Shipping).

@@ -1,0 +1,246 @@
+// The cold store: 56 × 36 m of white cladding on a concrete plinth, its whole floor raised 1.2 m to the height of a
+// lorry's bed. Inside, insulated walls 6.2 m high: four chambers along the north side; the aisle (z 12–16) the length
+// of the building; to its south two more chambers, a cross aisle through to the dock hall, and two blast freezers;
+// and the dock hall along the front (z 26–36) behind four dock doors. Each chamber has a heavy insulated door (sliding
+// or swinging, shut, open or ajar by chance each round); the chambers in each pair are joined by a small door, and the
+// fifth and sixth also open onto the dock hall. No windows but a few high in the dock hall: it's dark in there.
+// Outside: a ramp up to the first dock door, steps up to the side doors, and a forklift ramp at the aisle's east end.
+// Outer wall segments: 0 north (x 0→56), 1 east (z 0→36), 2 south (x 56→0, at_m = 56 − x), 3 west (z 36→0, at_m = 36 − z).
+{
+  "id": "cold_store",
+  "displayName": "Cold store",
+  "storeys_m": [7.4],
+  "slabThickness_m": 0.2,
+  "footprint_m": [0, 0, 56, 36],
+  "floorMaterial": "concrete_floor",
+  "frames": "steel_painted",
+  "gutters": "steel_painted",
+  "fittings": "steel_painted",
+  "ceilingLights": "enamel_white",
+  "markings": {
+    "color": "#d4aa2c",
+    "lineWidth_m": 0.1,
+    // Worn yellow lanes in the dock hall and hatched aprons inside the dock doors; the chambers' numbers over their
+    // doors and the docks' numbers outside; the firm's name along the front.
+    "lines_m": [[0.6, 27.2, 55.4, 27.2], [0.6, 32.6, 55.4, 32.6], [24.1, 16.4, 24.1, 26.0], [29.9, 16.4, 29.9, 26.0]],
+    "hatches_m": [[10.2, 33.4, 12.8, 35.8], [20.7, 33.4, 23.3, 35.8], [32.7, 33.4, 35.3, 35.8], [44.7, 33.4, 47.3, 35.8]],
+    "stencils": [
+      { "text": "1", "at_m": [7, 4.8, 12.11], "size_m": 0.7, "wall": true, "color": "#3a3d40" },
+      { "text": "2", "at_m": [21, 4.8, 12.11], "size_m": 0.7, "wall": true, "color": "#3a3d40" },
+      { "text": "3", "at_m": [35, 4.8, 12.11], "size_m": 0.7, "wall": true, "color": "#3a3d40" },
+      { "text": "4", "at_m": [49, 4.8, 12.11], "size_m": 0.7, "wall": true, "color": "#3a3d40" },
+      { "text": "5", "at_m": [6, 4.8, 15.89], "size_m": 0.7, "yaw_deg": 180, "wall": true, "color": "#3a3d40" },
+      { "text": "6", "at_m": [18, 4.8, 15.89], "size_m": 0.7, "yaw_deg": 180, "wall": true, "color": "#3a3d40" },
+      { "text": "FREEZER", "at_m": [36.5, 4.6, 15.89], "size_m": 0.4, "yaw_deg": 180, "wall": true, "color": "#3a3d40" },
+      { "text": "FREEZER", "at_m": [49.5, 4.6, 15.89], "size_m": 0.4, "yaw_deg": 180, "wall": true, "color": "#3a3d40" },
+      { "text": "DOCK 1", "at_m": [11.5, 5.4, 36.16], "size_m": 0.6, "wall": true, "color": "#3a3d40" },
+      { "text": "DOCK 2", "at_m": [22, 5.4, 36.16], "size_m": 0.6, "wall": true, "color": "#3a3d40" },
+      { "text": "DOCK 3", "at_m": [34, 5.4, 36.16], "size_m": 0.6, "wall": true, "color": "#3a3d40" },
+      { "text": "DOCK 4", "at_m": [46, 5.4, 36.16], "size_m": 0.6, "wall": true, "color": "#3a3d40" },
+      { "text": "KELDMOOR COLD STORE", "at_m": [28, 6.6, 36.16], "size_m": 0.7, "wall": true, "color": "#5b6f8a" }
+    ]
+  },
+  "walls": [
+    // The plinth: concrete from the ground to the floor, all round.
+    {
+      "storey": 0, "baseElevation_m": 0, "height_m": 1.2,
+      "points_m": [[0, 0], [56, 0], [56, 36], [0, 36]], "closed": true,
+      "thickness_m": 0.4, "material": "concrete_wall"
+    },
+    // The cladding above it, with the dock doors, the side doors and a few high windows.
+    {
+      "storey": 0, "baseElevation_m": 1.2, "height_m": 6.2,
+      "points_m": [[0, 0], [56, 0], [56, 36], [0, 36]], "closed": true,
+      "thickness_m": 0.3, "material": "cladding_white",
+      "openings": [
+        { "segment": 1, "at_m": 14, "width_m": 2.4, "height_m": 3.0, "kind": "door", "leaf": { "door": "cold_room", "hinge": "start", "swing": "left", "sliding": true, "start": "random" } },
+        { "segment": 1, "at_m": 31, "width_m": 2.4, "sill_m": 3.2, "height_m": 1.0, "kind": "window" },
+        { "segment": 2, "at_m": 2.5, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "end", "swing": "left", "start": "random" } },
+        { "segment": 2, "at_m": 10, "width_m": 3.0, "height_m": 3.2, "kind": "door" },
+        { "segment": 2, "at_m": 22, "width_m": 3.0, "height_m": 3.2, "kind": "door" },
+        { "segment": 2, "at_m": 34, "width_m": 3.0, "height_m": 3.2, "kind": "door" },
+        { "segment": 2, "at_m": 44.5, "width_m": 3.0, "height_m": 3.2, "kind": "door" },
+        { "segment": 3, "at_m": 5, "width_m": 2.4, "sill_m": 3.2, "height_m": 1.0, "kind": "window" },
+        { "segment": 3, "at_m": 22, "width_m": 1.2, "height_m": 2.2, "kind": "door", "leaf": { "door": "steel", "hinge": "start", "swing": "left" } }
+      ]
+    },
+    // The aisle's north side: the four chambers' doors.
+    {
+      "storey": 0, "baseElevation_m": 1.2, "height_m": 6.2,
+      "points_m": [[0.15, 12], [55.85, 12]], "thickness_m": 0.2, "material": "panel_white",
+      "openings": [
+        { "segment": 0, "at_m": 6.85, "width_m": 2.2, "height_m": 2.8, "kind": "door", "leaf": { "door": "cold_room", "hinge": "start", "swing": "right", "sliding": true, "start": "random" } },
+        { "segment": 0, "at_m": 20.85, "width_m": 2.2, "height_m": 2.8, "kind": "door", "leaf": { "door": "cold_room", "hinge": "end", "swing": "left", "start": "random" } },
+        { "segment": 0, "at_m": 34.85, "width_m": 2.2, "height_m": 2.8, "kind": "door", "leaf": { "door": "cold_room", "hinge": "end", "swing": "right", "sliding": true, "start": "random" } },
+        { "segment": 0, "at_m": 48.85, "width_m": 2.2, "height_m": 2.8, "kind": "door", "leaf": { "door": "cold_room", "hinge": "start", "swing": "left", "start": "random" } }
+      ]
+    },
+    // Between the north chambers: small doors joining the first and second, and the third and fourth.
+    {
+      "storey": 0, "baseElevation_m": 1.2, "height_m": 6.2,
+      "points_m": [[14, 0.15], [14, 11.9]], "thickness_m": 0.2, "material": "panel_white",
+      "openings": [ { "segment": 0, "at_m": 5.85, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "start", "swing": "left", "start": "random" } } ]
+    },
+    { "storey": 0, "baseElevation_m": 1.2, "height_m": 6.2, "points_m": [[28, 0.15], [28, 11.9]], "thickness_m": 0.2, "material": "panel_white" },
+    {
+      "storey": 0, "baseElevation_m": 1.2, "height_m": 6.2,
+      "points_m": [[42, 0.15], [42, 11.9]], "thickness_m": 0.2, "material": "panel_white",
+      "openings": [ { "segment": 0, "at_m": 5.85, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "end", "swing": "right", "start": "random" } } ]
+    },
+    // The fifth and sixth chambers: doors onto the aisle (segment 0) and onto the dock hall (segment 2).
+    {
+      "storey": 0, "baseElevation_m": 1.2, "height_m": 6.2,
+      "points_m": [[0.15, 16], [24, 16], [24, 26], [0.15, 26]], "thickness_m": 0.2, "material": "panel_white",
+      "openings": [
+        { "segment": 0, "at_m": 5.85, "width_m": 2.2, "height_m": 2.8, "kind": "door", "leaf": { "door": "cold_room", "hinge": "start", "swing": "right", "start": "random" } },
+        { "segment": 0, "at_m": 17.85, "width_m": 2.2, "height_m": 2.8, "kind": "door", "leaf": { "door": "cold_room", "hinge": "end", "swing": "right", "start": "random" } },
+        { "segment": 2, "at_m": 18, "width_m": 2.0, "height_m": 2.8, "kind": "door", "leaf": { "door": "cold_room", "hinge": "end", "swing": "right", "start": "random" } },
+        { "segment": 2, "at_m": 6, "width_m": 2.0, "height_m": 2.8, "kind": "door", "leaf": { "door": "cold_room", "hinge": "start", "swing": "right", "start": "random" } }
+      ]
+    },
+    {
+      "storey": 0, "baseElevation_m": 1.2, "height_m": 6.2,
+      "points_m": [[12, 16.1], [12, 25.9]], "thickness_m": 0.2, "material": "panel_white",
+      "openings": [ { "segment": 0, "at_m": 4.9, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "start", "swing": "left", "start": "random" } } ]
+    },
+    // The blast freezers: one heavy door each onto the aisle, and a small door between them.
+    {
+      "storey": 0, "baseElevation_m": 1.2, "height_m": 6.2,
+      "points_m": [[55.85, 16], [30, 16], [30, 26], [55.85, 26]], "thickness_m": 0.2, "material": "panel_white",
+      "openings": [
+        { "segment": 0, "at_m": 6.35, "width_m": 1.6, "height_m": 2.6, "kind": "door", "leaf": { "door": "cold_room", "hinge": "end", "swing": "left", "start": "random" } },
+        { "segment": 0, "at_m": 19.35, "width_m": 1.6, "height_m": 2.6, "kind": "door", "leaf": { "door": "cold_room", "hinge": "start", "swing": "left", "start": "random" } }
+      ]
+    },
+    {
+      "storey": 0, "baseElevation_m": 1.2, "height_m": 6.2,
+      "points_m": [[43, 16.1], [43, 25.9]], "thickness_m": 0.2, "material": "panel_white",
+      "openings": [ { "segment": 0, "at_m": 4.9, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "end", "swing": "left", "start": "random" } } ]
+    },
+    // Railings round the apron at the top of the ramp.
+    {
+      "storey": 0, "baseElevation_m": 1.2, "height_m": 1.0, "style": "railing",
+      "points_m": [[9.0, 39.2], [14.5, 39.2], [14.5, 36.25]], "thickness_m": 0.05, "material": "steel_yellow"
+    }
+  ],
+  "floors": [
+    // The raised floor, solid down to the ground; outside, the apron at the top of the ramp and the landings at the doors.
+    { "elevation_m": 1.2, "rect_m": [0.15, 0.15, 55.85, 35.85], "thickness_m": 1.2, "material": "floor_painted" },
+    { "elevation_m": 1.2, "rect_m": [9.0, 36.2, 14.5, 39.25], "thickness_m": 1.2, "material": "concrete_floor" },
+    { "elevation_m": 1.2, "rect_m": [52.6, 36.2, 54.4, 37.6], "thickness_m": 1.2, "material": "concrete_floor" },
+    { "elevation_m": 1.2, "rect_m": [-1.6, 12.6, -0.2, 15.0], "thickness_m": 1.2, "material": "concrete_floor" },
+    { "elevation_m": 1.2, "rect_m": [56.2, 11.6, 58.9, 15.6], "thickness_m": 1.2, "material": "concrete_floor" }
+  ],
+  "roof": {
+    "rect_m": [-0.3, -0.3, 56.3, 36.3], "holes_m": [[45, 28, 48, 31.5]],
+    "material": "roof_felt", "ceilingMaterial": "panel_white"
+  },
+  "stairs": [
+    // The ramp up to dock 1, along the front; steps up to the side door at the east end of the front and to the aisle's
+    // west door; the forklift ramp down from the aisle's east door.
+    { "start_m": [0.6, 37.75], "yaw_deg": -90, "width_m": 3.0, "run_m": 8.4, "rise_m": 1.2, "steps": 28, "material": "concrete_floor" },
+    { "start_m": [53.5, 39.6], "yaw_deg": 0, "width_m": 1.2, "run_m": 2.0, "rise_m": 1.2, "steps": 7, "material": "concrete_floor" },
+    { "start_m": [-0.9, 17.2], "yaw_deg": 0, "width_m": 1.2, "run_m": 2.2, "rise_m": 1.2, "steps": 7, "material": "concrete_floor" },
+    { "start_m": [57.6, 20.6], "yaw_deg": 0, "width_m": 2.6, "run_m": 5.0, "rise_m": 1.2, "steps": 20, "material": "concrete_floor" }
+  ],
+  "columns": [
+    { "at_m": [14, 31], "size_m": [0.4, 0.4], "baseElevation_m": 1.2, "height_m": 6.2, "material": "steel_painted" },
+    { "at_m": [28, 31], "size_m": [0.4, 0.4], "baseElevation_m": 1.2, "height_m": 6.2, "material": "steel_painted" },
+    { "at_m": [42, 31], "size_m": [0.4, 0.4], "baseElevation_m": 1.2, "height_m": 6.2, "material": "steel_painted" }
+  ],
+  "props": [
+    // Dock 4's roller door, jammed half open: crouch under it to the dock's edge (no trailer there: it's a drop).
+    { "prop": "roller_door_half", "position_m": [46, 1.2, 36] },
+
+    // The north chambers: two rows of racking each, running back from the door, with aisles between and round them.
+    { "prop": "pallet_racking", "position_m": [3.2, 1.2, 2.35], "yaw_deg": 90 },
+    { "prop": "pallet_racking_full", "position_m": [3.2, 1.2, 5.05], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [3.2, 1.2, 7.75], "yaw_deg": 90 },
+    { "prop": "pallet_racking_full", "position_m": [10.8, 1.2, 2.35], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [10.8, 1.2, 5.05], "yaw_deg": 90 },
+    { "prop": "pallet_racking_full", "position_m": [10.8, 1.2, 7.75], "yaw_deg": 90 },
+    { "prop": "roll_cage", "position_m": [7.0, 1.2, 4.2], "yaw_deg": 20 },
+
+    { "prop": "pallet_racking_full", "position_m": [17.2, 1.2, 2.35], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [17.2, 1.2, 5.05], "yaw_deg": 90 },
+    { "prop": "pallet_racking_full", "position_m": [17.2, 1.2, 7.75], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [24.8, 1.2, 2.35], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [24.8, 1.2, 7.75], "yaw_deg": 90 },
+    // (The middle bay of this row came down: its load lies on the floor.)
+    { "prop": "pallet_stack", "position_m": [24.4, 1.2, 5.2], "yaw_deg": 35 },
+    { "prop": "crate_small", "position_m": [23.2, 1.2, 4.6], "yaw_deg": 10 },
+
+    { "prop": "pallet_racking", "position_m": [31.2, 1.2, 2.35], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [31.2, 1.2, 5.05], "yaw_deg": 90 },
+    { "prop": "pallet_racking_full", "position_m": [31.2, 1.2, 7.75], "yaw_deg": 90 },
+    { "prop": "pallet_racking_full", "position_m": [38.8, 1.2, 2.35], "yaw_deg": 90 },
+    { "prop": "pallet_racking_full", "position_m": [38.8, 1.2, 5.05], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [38.8, 1.2, 7.75], "yaw_deg": 90 },
+    { "prop": "forklift", "position_m": [35.0, 1.2, 6.5], "yaw_deg": 175 },
+
+    { "prop": "pallet_racking", "position_m": [45.2, 1.2, 2.35], "yaw_deg": 90 },
+    { "prop": "pallet_racking_full", "position_m": [45.2, 1.2, 5.05], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [45.2, 1.2, 7.75], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [52.8, 1.2, 2.35], "yaw_deg": 90 },
+    { "prop": "pallet_racking_full", "position_m": [52.8, 1.2, 5.05], "yaw_deg": 90 },
+    { "prop": "pallet_racking", "position_m": [52.8, 1.2, 7.75], "yaw_deg": 90 },
+    { "prop": "roll_cage", "position_m": [49.0, 1.2, 8.4], "yaw_deg": -15 },
+    { "prop": "roll_cage", "position_m": [49.9, 1.2, 8.6], "yaw_deg": 5 },
+
+    // The fifth and sixth chambers: one row of racking across each, between its two doors.
+    { "prop": "pallet_racking_full", "position_m": [2.95, 1.2, 21.0] },
+    { "prop": "pallet_racking", "position_m": [5.65, 1.2, 21.0] },
+    { "prop": "pallet_racking_full", "position_m": [8.35, 1.2, 21.0] },
+    { "prop": "pallet_racking", "position_m": [15.65, 1.2, 21.0] },
+    { "prop": "pallet_racking_full", "position_m": [18.35, 1.2, 21.0] },
+    { "prop": "pallet_racking", "position_m": [21.05, 1.2, 21.0] },
+
+    // The blast freezers: roll cages and pallets left where they stood.
+    { "prop": "roll_cage", "position_m": [33.0, 1.2, 19.0], "yaw_deg": 10 },
+    { "prop": "roll_cage", "position_m": [33.9, 1.2, 19.2], "yaw_deg": 4 },
+    { "prop": "roll_cage", "position_m": [38.2, 1.2, 23.4], "yaw_deg": 80 },
+    { "prop": "roll_cage", "position_m": [40.8, 1.2, 18.6], "yaw_deg": -30 },
+    { "prop": "pallet_stack", "position_m": [36.0, 1.2, 24.6] },
+    { "prop": "roll_cage", "position_m": [46.2, 1.2, 18.6], "yaw_deg": 15 },
+    { "prop": "roll_cage", "position_m": [52.2, 1.2, 23.6], "yaw_deg": 95 },
+    { "prop": "pallet_stack_tall", "position_m": [50.0, 1.2, 18.8], "yaw_deg": 3 },
+    { "prop": "crate_large", "position_m": [54.4, 1.2, 21.2] },
+
+    // The aisle: a few things left in it, so it isn't one 56 m sightline.
+    { "prop": "roll_cage", "position_m": [10.5, 1.2, 14.7], "yaw_deg": 80 },
+    { "prop": "pallet_stack", "position_m": [27.0, 1.2, 13.4], "yaw_deg": 4 },
+    { "prop": "roll_cage", "position_m": [41.0, 1.2, 13.2], "yaw_deg": 95 },
+    { "prop": "roll_cage", "position_m": [41.8, 1.2, 13.3], "yaw_deg": 88 },
+
+    // The cross aisle: a forklift stopped halfway through.
+    { "prop": "forklift", "position_m": [27.0, 1.2, 20.5], "yaw_deg": 8 },
+
+    // The dock hall: loads waiting to go out, between the lanes to the docks.
+    { "prop": "pallet_stack", "position_m": [4.6, 1.2, 30.0] },
+    { "prop": "pallet_stack_tall", "position_m": [5.9, 1.2, 30.1], "yaw_deg": 4 },
+    { "prop": "roll_cage", "position_m": [16.8, 1.2, 29.2], "yaw_deg": 10 },
+    { "prop": "roll_cage", "position_m": [17.7, 1.2, 29.4], "yaw_deg": 2 },
+    { "prop": "roll_cage", "position_m": [17.2, 1.2, 30.4], "yaw_deg": -20 },
+    { "prop": "crate_large", "position_m": [28.0, 1.2, 33.8] },
+    { "prop": "crate_small", "position_m": [29.3, 1.2, 34.0], "yaw_deg": 15 },
+    { "prop": "pallet_stack_tall", "position_m": [38.6, 1.2, 28.6] },
+    { "prop": "pallet_stack", "position_m": [39.9, 1.2, 28.7], "yaw_deg": -6 },
+    { "prop": "roll_cage", "position_m": [50.6, 1.2, 30.2], "yaw_deg": 70 },
+    { "prop": "roll_cage", "position_m": [51.6, 1.2, 30.0], "yaw_deg": 85 },
+    { "prop": "oil_drum", "position_m": [54.8, 1.2, 28.4] },
+    { "prop": "oil_drum_tipped", "position_m": [53.9, 1.2, 28.9], "yaw_deg": 40 }
+  ],
+  "areas": [
+    { "name": "the first chamber", "rect_m": [0, 0, 14, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the second chamber", "rect_m": [14, 0, 28, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the third chamber", "rect_m": [28, 0, 42, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the fourth chamber", "rect_m": [42, 0, 56, 12], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the aisle", "rect_m": [0, 12, 56, 16], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.22, "tone": "cold" },
+    { "name": "the fifth chamber", "rect_m": [0, 16, 12, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the sixth chamber", "rect_m": [12, 16, 24, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.12, "tone": "cold" },
+    { "name": "the cross aisle", "rect_m": [24, 16, 30, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.25, "tone": "cold" },
+    { "name": "the west freezer", "rect_m": [30, 16, 43, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.08, "tone": "cold" },
+    { "name": "the east freezer", "rect_m": [43, 16, 56, 26], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.08, "tone": "cold" },
+    { "name": "the dock hall", "rect_m": [0, 26, 56, 36], "minY_m": 1.0, "maxY_m": 7.4, "indoor": true, "light": 0.4 }
+  ]
+}

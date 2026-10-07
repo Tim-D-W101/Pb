@@ -4,16 +4,28 @@ An original first-person tactical paintball game: physically simulated paintball
 eliminations, played through abandoned industrial compounds you explore and clear, with up to
 ten players a round. Built with Godot 4.7 (.NET / C#).
 
-**Status: Phase 2 built ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)); waiting on
-your play-test.** Phase 1 built the ballistics sandbox, a range with real paintball ballistics,
-break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
+**Status: Phase 3 is built ([report](docs/reports/phase-3.md), [plan](docs/phase-3.md)): the level ladder, three more
+compounds, doors, objectives, new opponents, sound, full settings; the voices and the new levels' generated art follow
+over the next days.** Phase 2 is built
+([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
+range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
 walkable derelict works yard with a warehouse, offices, pump house and guardhouse, built from a data
 kit. You pick it, a mode, how many play and a difficulty from the menu, read the briefing, and play:
 **solo** (clear the compound of a squad against the clock), **free-for-all** (up to ten players,
 everyone against everyone) or **teams** (you and bot teammates against a bot team, up to 5 v 5),
-picking up paint and air on the way. The bots hold posts, patrol, hunt and rush, notice you by sight
-and sound, and fight from cover; in free-for-all and teams they fight each other too. The match HUD
+picking up paint and air on the way. In solo and teams you can also play for an objective (Phase 3): **retrieve** (find
+the case in the marked building and carry it out) or **hold** (keep the marked room for a minute in all). Win a round
+there and the second level opens, **the Rail Yard**: a goods yard left to rust, rakes of dead wagons on four tracks (you
+can shoot under them, not crawl), an engine shed with a gantry, a goods shed with its platform, a signal box and a
+footbridge over the lot, with Marksmen watching from the high places. Then **the Cold Store**: a refrigerated depot gone
+dark, its floor a lorry's height above the yard, chambers of racking behind heavy doors off a long aisle, and trailers
+backed onto the docks that you run through to get in. Last and hardest, **the Hospital Wing**: three storeys of wards
+and corridors in two wings round an overgrown courtyard that every window looks down on, an operating theatre, a lift
+shaft open through every floor and the end of one wing fallen in. The bots hold posts, patrol, hunt and rush, notice you by sight
+and sound, and fight from cover; in free-for-all and teams they fight each other too. They shout where you are, so
+their teammates know; Marksmen shoot carefully from far off and move after a few shots, and Flankers work round to
+your side when a teammate calls you out. The match HUD
 is in, and so is the art pass: photographic textures on every surface; every prop modelled (built in
 code from its colliders, with generated models replacing them as they arrive: so far the oil drum
 and the burnt-out car); framed windows with broken glass; gutters, roof trusses, lamps and fittings
@@ -27,6 +39,20 @@ three rigged opponents who walk and run with generated movement clips, flinch wh
 and refill from their pods in plain sight; the compound itself behind the main menu; and the
 training ground dressed to match, with netting, a timber backstop, inflatable bunkers and masked
 dummies covered in old paint. Generated models for four more props and a crouched-walk clip follow.
+
+Every sound is synthesised in code: the marker's report thinning as the tank empties, paint breaking and
+bouncing off metal, glass, wood, brick, tarp and bodies, footsteps on each floor (splashing in puddles),
+doors by kind, refills, the hit marker, the breakout horn and the referee's whistle, all heard from where
+they happen, muffled through walls and echoing in the halls; wind that rises with the gusts, crows,
+distant traffic and trains outside, and each room's own sound inside (dripping water, pigeons in the
+rafters, a draught through broken windows, the dead quiet of a cold store). The bots' callouts and the
+referee's calls are subtitled, and voiced once their recordings are made.
+
+The settings (in the main menu and the pause menu) come in five tabs: Controls, where every action can be bound to
+two keys or mouse buttons and a pad button or stick, with clashes shown and swappable, and crouch and walk can be
+toggles; Video (window mode, v-sync, frame cap, the graphics preset and each of its parts, render scale, field of
+view); Audio (five volumes, subtitles); Gameplay (crosshair style, colour and size, hit marker, head-bob, camera jolt,
+paint on your mask); and Accessibility (two colourblind-safe team colour sets, HUD size).
 
 ## Run it
 
@@ -45,8 +71,8 @@ To run it from Godot:
 1. Install **Godot 4.7.2 – .NET** (the ".NET" download, not the standard one) and the
    **.NET 8 SDK** (or newer).
 2. Open `game/project.godot` in Godot. The first open imports the project and builds the C# code.
-3. Press **F5** (Run Project) for the main menu. **Play**, then for Oxbarrow Works pick a mode, how
-   many play and a difficulty, **Start**, and **Start** again on the briefing card. **Training
+3. Press **F5** (Run Project) for the main menu. **Play**, then pick a level (each opens once you've won a round on the
+   one before), a mode, how many play and a difficulty, **Start**, and **Start** again on the briefing card. **Training
    ground** is the Phase 1 range.
 
 Only want to play it? `tools/package/godot-project.sh` packs the game as one self-contained
@@ -71,6 +97,7 @@ The export presets already include the data files. The editor's F5 run uses a De
 | Swap shoulder (the muzzle moves to the other side) | X or middle mouse | R3 |
 | Slide (from a run; ends crouched) | V, or crouch while sprinting | B while sprinting |
 | Refill loader from a pod (2.5 s) | R | X / Square |
+| Open or shut the door you're facing (hold to ease it open) | F | X / Square, facing a door |
 | Semi ↔ ramping | B | Y / Triangle |
 | Pause menu (settings, restart, quit) | Esc | Start / Options |
 
@@ -133,7 +160,8 @@ same generated one you hold), one hand off it while they refill. Each
 wears an armband in their team colour and a slightly different tint, and flinches when a ball hits.
 Paint splats stick where the ball hit and move with them.
 
-Settings changed in game are saved to `user://settings.json`.
+Settings changed in game are saved to `user://settings.json`, your key bindings as changes over the defaults in
+[`game/data/input.jsonc`](game/data/input.jsonc); an older file loads with the new settings at their defaults.
 
 ## Tune it
 

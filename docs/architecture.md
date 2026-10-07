@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **Status: approved (defaults accepted 2026-09-30); Phase 1 implemented.** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
+> **Status: approved (defaults accepted 2026-09-30); Phases 1 and 2 built.** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-the-level-ladder) with [phase-3.md](phase-3.md) on 2026-10-05. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
@@ -369,7 +369,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     - They follow the kit shader's mesh contract (UV in metres, UV2 for the weathering ramp) and are merged per 24 m chunk and material.
     - Shapes are presentation only: the colliders stay the gameplay shape, and the sim drops a prop's greybox flag when it has either a model or a shape.
 - **Cover points** are generated from the same data at load: wall ends, opening edges and prop sides, tagged with peek side and cover height (standing or crouched).
-- **Named areas** (boxes in the level file) carry a callout name, an indoor flag and a light level, which bots use for callouts, searching and sight.
+- **Named areas** (boxes in the level file) carry a callout name, an indoor flag and a light level, which bots use for callouts, searching and sight, and optionally a tone (what the place sounds like inside: presentation only, for the ambience).
 - **Broadphase.** The XZ grid stays as it is. Multi-storey columns simply hold more candidates. If the benchmark shows a cost, the grid gains Y bands.
 - **The Phase 1 range** stays as the training level, with its own loader unchanged.
 
@@ -485,7 +485,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 - **Brain.** The state machine, target selection, aim and difficulty are plain C# in `Pb.Sim/AI` (`BotBrain`). A brain emits `InputCommand`s, exactly like a human, and its body is the same `PawnBody` the player uses.
 - **Squad.** `BotSquad` holds what the bots share: the navigation grid, the cover points (with claims, so two bots don't take one spot), the last step's events, and a budget of path searches per tick. The host feeds it each step's events after stepping.
-- **Navigation (as built).** `NavGrid` is built in `Pb.Sim` at level load from the walkable primitives (plus stair steps): columns of 0.25 m, a "span" wherever a bot can stand with headroom and clear of walls by the agent radius, joined to neighbours within a step. A* (weighted) finds paths, which are then straightened. It replaced the planned Godot `NavigationRegion3D`: an engine-free grid is deterministic and lets CI check paths on the real level and run whole fights in sim tests. `IBotNavigation` is the interface the brain uses.
+- **Navigation (as built).** `NavGrid` is built in `Pb.Sim` at level load from the walkable primitives (plus stair steps): columns of 0.25 m, a "span" wherever a bot can stand with headroom and clear of walls by the agent radius, joined to neighbours within a step. A* (weighted) finds paths, which are then straightened. Since M3.5 the search's estimate of the distance left also uses landmarks (`navigation.jsonc` → `landmarks`): walking distances from a few spans spread over the grid, worked out on load, so a search for a place upstairs heads for the stairs instead of searching the floor below; a goal in another connected piece of the grid fails without a search. It replaced the planned Godot `NavigationRegion3D`: an engine-free grid is deterministic and lets CI check paths on the real level and run whole fights in sim tests. `IBotNavigation` is the interface the brain uses.
 - **Cover.** `CoverSet` generates points behind cover-flagged primitives (wall ends, door and window frames, props), full height if they hide a standing head and half if they hide a crouched one, each with the edge to peek round.
 - **Sight.** Rays run from the eyes to the head, chest and hips of each enemy. A detection meter fills according to distance, the area's light level, the target's stance and speed, where in the view they are, and difficulty.
 - **Hearing.** Shots, breaks and footsteps are heard within data ranges, halved when a wall is in the way.
@@ -516,6 +516,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     - **Mounting.** The pack is mounted without replacing files, so its own copies of the project settings and the UID list don't override the game's. `ArtFiles` then registers each art file's UID, read from its `.import` file, so models find their textures by UID.
     - **Reuse.** A fresh import doesn't produce byte-identical files (the textures come out the same, but the imported models don't), and CI imports from scratch on every run. So the manifest records a stamp for each pack (a hash of its files with their import settings, the project settings and the Godot version), and while a pack's stamp matches the published release, the build reuses the published pack byte for byte, after checking it against the published SHA-256. CI also deletes release assets that no build publishes any more.
   - **Per-file updates.** The release carries each game file under its own name, the whole game as `Pb-windows.zip`, and `manifest.txt`: version, date, an engine stamp, and each game file's SHA-256 and size. `Play.bat` runs `update.ps1`, which downloads the files whose hash differs from the local copy, checks each against its hash, then swaps them in; a new engine stamp means the whole game. CI uploads the manifest last, so a launcher never reads a manifest whose files aren't up yet. `Pb-update.zip` (all the game's own files) keeps launchers from before per-file updates working: it brings the new launcher with it.
+  - **The runtime's JIT switches.** `game/Pb.csproj` turns off tiered PGO and quick JIT for loops, and the export writes both into `Pb.runtimeconfig.json`. With both on, the .NET 8 JIT on Windows x64 miscompiles big methods with loops whose local functions capture locals: a garbage collection in the middle of such a method loses track of the captured objects. That crashed the menu's backdrop (`Cracks.Build`) on the owner's laptop, and it never happens on Linux, so CI can't catch it. It was reproduced with a copy of the crack builder on the Windows runtime under Wine, collecting every 64 KB, and either switch stops it; the Windows build itself, run the same way (with `WINEDLLOVERRIDES=dinput8=d`, as Wine's DirectInput crashes Godot), failed 1 level load in 5 before the switches and none in 24 after. The switches cost the sim about 12% (0.34 ms a tick with ten players, against 0.31). `windows-build.sh` fails if an export loses the switches, and the game logs them at start (`.NET 8.0.31: TieredPGO=false, QuickJitForLoops=false`).
 - **Storage.** Binaries go in Git LFS, using the patterns already in `.gitattributes`. CI checks out without LFS, to spare the bandwidth quota, and so it exercises the greybox fallback every run.
   - **As built:** the imported art (71 MB by 2026-10-05) is committed as plain files marked binary. The container has no Git LFS, and CI tests the fallback with `--no-art` instead.
 - **Original IP.** Prompts never name real brands, products, fields or games. Generated images are checked for logos and legible text before use.
@@ -529,3 +530,173 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 | 4 Multiplayer | `Pb.Net`, dedicated and listen server, lobby, lag compensation, co-op vs bots and PvP for up to 10 players |
 | 5 Locker and extras | Gear locker, fictional brands, gear models, splat shaders; speedball field, CTF and Arcade as optional modes |
 | 6 Progression (optional) | As before |
+
+## 15. Phase 3: the level ladder
+
+> **Status: approved 2026-10-05 with the [Phase 3 plan](phase-3.md) (defaults taken).** This section is the technical
+> design; each part gains "as built" notes as its milestone lands.
+
+### 15.1 Profile and unlocks
+
+- **The profile** (`game/core/Profile.cs`, `user://profile.json`) is presentation-side state, like the settings: the
+  sim never reads it. It holds the levels opened, per level × mode × difficulty the rounds played and won with the best
+  clear time, accuracy and eliminations, and the last menu choices.
+- **The rule is data** (`levels/ladder.jsonc` → `unlock`) and engine-free (`Pb.Sim/Match/Ladder.cs`), so it's unit-tested:
+  a level opens when a round on the level before it is won at the rule's lowest difficulty or above. The first level is
+  always open; `-- --unlock-all` and the settings switch open them all without writing it into the profile.
+- **As built (M3.1).** `LadderProgress` holds the rules and the records; `ProfileData` is the file (System.Text.Json,
+  camelCase). A level is open if it's first, listed in `opened` (a win wrote it there), or the records show a win that
+  counts on the level before it, so a profile from before a rule change keeps what it had. `LevelMain` adds each real
+  round when it ends (not scripted runs or tours) and the summary names a level it opened. Level select is rebuilt each
+  time it's shown, since what's open can change.
+
+### 15.2 Doors
+
+- **Data.** A door opening may carry a `leaf`: hinged (hinge at the opening's start or end, swinging left, right or
+  both ways) or sliding, single or double, a material and a start state (shut, open, ajar, random by the match seed).
+- **Sim.** `DoorSet` (`Pb.Sim/Level`) holds each leaf's pose and target, steps them every tick (`SimWorld.Step`, before
+  the balls fly), and resolves `Interact` presses: the nearest leaf whose box the eye's reach ray meets, or whose
+  doorway it crosses. A tap toggles; holding eases the leaf open. A leaf stops short of a player's capsule rather than
+  pushing through. Opening and closing emit `DoorMoved` events (bots hear them like footsteps; the audio plays them).
+- **Collision.** Each leaf is a `DoorShape` in the paint `CollisionWorld`: its grid bounds cover the whole swing, so
+  the broadphase stays static and only nearby leaves are tested; its box follows the leaf's pose. Sight and aim use the
+  same world, so shut doors block both. Splats on a leaf are parented to its node.
+- **Navigation.** The grid is built with doorways open; a bot whose next path segment crosses a shut leaf's doorway
+  stops, faces it and presses `Interact`, then goes on once it's open enough.
+- **Game.** Each leaf is an `AnimatableBody3D` (walking) and a mesh built in code (`DoorShapes`), posed from the sim.
+- **As built (M3.2).** `DoorSet` keeps each leaf's openness (0 shut to 1), target and rate; `Interact` starts a leaf
+  moving at the ease rate on the press and, if the press is let go within the hold time, carries it on at full speed
+  (a tap), else stops it where it's let go. A leaf steps only if it doesn't cut deeper into anyone's capsule. Swing
+  doors open away from whoever pushes them; a pair opens together. The paint `CollisionWorld` gained dynamic colliders
+  and `SkipDynamic`, which `LevelMain` sets while it builds what's made once from the level (cover, starts, weeds, old
+  paint, light), so nothing sticks to a door that will move; light shafts and cobwebs leave hung doorways alone.
+  `NavGridMover` (headless) stops at leaves as Godot's collision does in the game. Door meshes sit on render layer 5:
+  world splats leave them out, door splats paint only them (`SplatAnchor.CullMask`), and `weathered.gdshader` draws
+  their pattern in their own frame (`local_pattern`, `local_origin` instance uniforms), so it doesn't slide as they
+  swing.
+
+### 15.3 Marksman, Flanker and shared contacts
+
+- **Shared contacts.** A bot's `Spotted` callout carries the target's position; teammates whose ears it reaches
+  (`brain.jsonc` → `calloutRange_m`, muffled by walls) get it as a lead with a little error, through the same path as a
+  heard shot.
+- **Vantage points** (`Pb.Sim/AI/VantageSet.cs`): computed once per level from the cover points and spawns: rays at
+  eye height round each candidate measure how far it sees and over what arc, plus a bonus for height.
+- **Marksman**: idles at the best vantage within reach of its start (`idle: "overwatch"`), engages beyond its
+  preferred range only with its aim settled, and relocates to another vantage after `relocateAfterShots` or when shot
+  at. **Flanker**: on a teammate's contact or when it loses you, scores a few flank spots round your last known
+  position by the share of the path to each that you could see, takes the least exposed, and approaches quietly.
+- **As built (M3.3).** `BotSquad.Share` queues a `Contact` (who called, from where, about whom, where they are); it
+  reaches teammates the next tick through `ContactsFor`, like sounds. `BotSenses` hears it within `calloutRange_m`
+  (muffled through walls), and `Awareness.SinceContact` keeps `FromContact` true for `contactMemory_s`, so a sound or a
+  glimpse that follows doesn't cancel the call. `VantageSet` scores cover points only (spawns aren't scored: a bot
+  watches from cover), clips its rays at the level's bounds (open ground outside the play area isn't a view), and keeps
+  each point's most open direction (the middle of the best three neighbouring rays), which overwatch sweeps round,
+  never past the cover's own arc. The Flanker judges a route by the straight line to each candidate spot (six samples
+  in the enemy's sight or not), a cheap stand-in for the path; the test checks the real path is still less exposed.
+  The relocation distance and the flanking and "noticed" angles are `brain.jsonc` keys; the new archetype keys are
+  optional, so older behaviours read as before.
+- **Changed in M3.11.** At its spot a Flanker looks out from it (the cover's peek, for `flankLook_s`) before it
+  searches, since the spot was picked for its view of where you were: a flank that worked now ends in a shot from the
+  side rather than a walk towards you. The spot search is a public query, `BotBrain.FlankSpot(enemy, caller)`, which the
+  role demo uses to find where to stand; asked from outside it leaves out the random tie-break, so it doesn't touch the
+  brain's random numbers.
+
+### 15.4 Objectives
+
+- **Data.** A level's `objectives`: case spots (each with the area it's in), ways out (boxes, by default round the
+  player spawns) and rooms to hold (named areas). `rules.jsonc` → `objectives` holds the timings.
+- **Sim.** `ObjectiveState` (`Pb.Sim/Match`) is part of the round: where the case is or who carries it, the hold
+  clock. Two `IMatchMode`s, `RetrieveMode` and `HoldMode`, decide the outcome, each also won by the last team standing.
+  New events: `CaseTaken`, `CaseDropped`, `CaseExtracted`, `HoldChanged`.
+- **Bots.** The squad knows the objective. Defenders start near it (`SpawnPlanner`), hold it while nothing's going on,
+  and get an alarm (the carrier's position every few seconds, or the room being entered) that sends them after it.
+  Attackers (your teammates) head for it, carry, escort and hold from cover.
+- **As built (M3.4).** Case spots are points (the factory finds the biggest indoor area round each: its building or that
+  storey, which the HUD marks); ways out are points with the rules' radius (default: the player spawns). The case spot
+  or room is dealt from the match seed (`ObjectiveState.PickIndex`), and `ObjectiveFocus.For` works it out before
+  anyone starts, so `SpawnPlanner` gathers the defenders round it (their guards play `objectives.guardRole`) and picks
+  your entry clear of it (`spawning.objectiveClearance_m`). `ObjectiveState.Update` runs in `MatchState.Update` after the
+  balls have flown, so a carrier hit this tick drops the case this tick; it sets `PlayerState.SprintBlocked`, which
+  `MovementModel` honours. The time limit doesn't end a round whose objective was done on its last tick. Bots: the squad
+  runs the alarms once a tick from its sync (`BotBrain.Alarm` gives a lead through `BotSenses.Alarm`, like a teammate's
+  call; `BotBrain.Guard` gives an objective post that replaces post, patrol and hunt); attackers play the objective from
+  `ActIdle` and go back to it after a fight, and a carrier or someone in the room (`OnTask`) drops everything short of
+  an enemy in sight. Records gained an `objective` key (old records read as eliminate). `NavGrid.Blocked` lets path
+  searches walk round moving things: the squad points it at `DoorSet.OpenLeafAt`, which says where a leaf standing
+  at least `doors.botRouteRound` open is. Game: `ObjectiveViews` (world), `ObjectiveHud` (marker, status line, hold
+  bar), `LevelMap.MarkObjective` (briefing), `ObjectiveDemo` (`-- --objective-demo` for screenshots).
+
+### 15.5 New kit
+
+- **Tracks**: a level's `tracks` (plan polylines) become rails (paint only; feet step over them) and sleepers drawn on
+  the ground (presentation).
+- **Props and buildings** follow the existing rules (§14.2): colliders are the gameplay shape, detail models built in
+  code from them, generated models where they arrive.
+- **As built (M3.5).** `LevelFactory` lays each track segment's two rails as `PrimitiveRole.Rail` boxes (paint only) at
+  the track's gauge; `TrackViews` draws the rails and the sleepers under them. A prop collider can be `"paint": false`
+  (it blocks walking, not paint): a wagon's underframe is a walking-only box with its wheelsets as paint-only
+  cylinders, so you can't crawl under a wagon but you can shoot under it, between the wheels, at someone's legs. The
+  wagons, shunter, buffer stops and stacks are recipes in `PropShapes.Railway.cs`. The Rail Yard
+  (`levels/rail_yard.jsonc`) is built from six new buildings (engine shed with its gantry, goods shed with its platform
+  and canopy, signal box, yard office, footbridge, lamp hut), five tracks (one outside the wall, for the scenery) and
+  rakes of wagons. Its first search tests showed a gap in the navigation: a goal up on the gantry, reached by stairs at
+  the far end of the shed, took up to 166,000 expanded spans (60 ms and more), and an unreachable one cost the whole
+  search budget every time a bot asked. Landmarks and the connected-piece check (above) bring those to under a
+  thousand, and the straightening now looks ahead in doubling strides from each corner instead of testing every span,
+  which had made long straight paths cost milliseconds (the sim tests, with fourteen more of them, went from 54 s to
+  40 s). `LadderLevelTests` holds every playable level to the same checks: the grid reaches every
+  spawn, patrol, pickup, case spot, way out and room from every way in; every mode and objective deals starts at every
+  size; and bot rounds in each mode and objective play out.
+- **As built (M3.6).** Prop colliders can be tilted boxes that feet walk on (`rotation_deg` on a box): a trailer's
+  loading ramp. The Cold Store's raised floor is a building slab 1.2 m thick (slabs take up to 2 m), its interior walls
+  stand on it (`baseElevation_m` 1.2), and its outer wall is two runs: a concrete plinth to the floor and cladding
+  above with the doors at floor level. Indoor areas' light (0.08 to 0.4 here) drives both the bots' sight and the
+  interior ambient light (`LevelBuilder.BuildAmbientProbes`), so the chambers are dark to both. New props and their
+  detail models (`PropShapes.ColdStore.cs`): `lorry_trailer`, `pallet_racking` and `pallet_racking_full`,
+  `roll_cage`, `compressor`, `ammonia_tank`, `lorry_cab`; materials tinted from the existing photos until M3.10.
+- **As built (M3.7).** The Hospital Wing's two three-storey wings come from a generator, `tools/levels/hospital_wings.py`,
+  which writes their building files (stair flights side by side, one per storey, the slab holes over each and the
+  railings round them, the doors and windows of every floor, the beds and curtains). A building with no walls is
+  allowed (the ambulance canopy is columns and a roof); a wing whose end has fallen in is just shorter slabs and roof
+  than walls, and open wall runs upstairs. A prop collider with `"walk": false` and paint on is a curtain: it stops
+  balls and sight but nobody's feet. New props (`PropShapes.Hospital.cs`): `hospital_bed`, `curtain_screen`,
+  `locker_bank`, `medical_trolley`, `wheelchair`, `bench`, `operating_table`, `ambulance_wreck`, `fountain`, `boiler`,
+  `chimney`.
+
+### 15.6 Audio
+
+- **Buses**: Master → Effects, Voices, Ambience, Menus (volumes in settings). Effects and Voices pass through a reverb
+  whose mix follows the listener's area (indoor, size).
+- **Sound bank** (`game/audio/SoundBank.cs`): every effect synthesised at load from a recipe, several variations each,
+  by surface and kind; the `AudioDirector` maps sim events to them with 3D players (air absorption by distance, a
+  low-pass when the sim's collision says a wall is in the way).
+- **Voices**: generated lines imported as art (`tools/art/import.sh voice`, provenance in `assets.jsonc`), cast per
+  character model in `presentation.jsonc`; a callout plays the caller's voice from its position. Missing lines fall back
+  to subtitles.
+
+- **As built (M3.8).** `SoundBank` renders 87 recipes (225 variations) on worker threads when the first scene starts
+  and keeps their samples for the whole run; each scene's `SoundSet` turns them into Godot streams as they're first played
+  and frees them on exit. `AudioDirector` maps sim events to sounds (families of surfaces from `presentation.jsonc`
+  "audio" → "surfaces"), keeps a per-frame budget, culls by each kind's range, and casts one ray through the sim's
+  collision per 3D sound for occlusion. `Ambience` finds the smallest area round the listener each frame, crossfades its
+  tone, eases the Outside bus's low-pass and the World reverb, follows the weeds' gust formula for the wind, and calls
+  crows from `Birds.TryFlying` (and wings where `Birds.Flushed` says birds were put up). `RefereeCalls` queues the
+  referee's lines so they don't talk over each other. Voice files are `art/voices/<voice>_<slug>.ogg` (named for their
+  voice so `tools/package/art-packs.sh` packs them per voice); `tools/art/import.sh voice` cuts one take into its lines
+  with `VoiceSplitter` (dynamic programming over the take's pauses against the lines' expected lengths) and encodes them
+  with ffmpeg. Under Godot's dummy driver (headless) nothing is started, so CI exercises everything but the mixer.
+
+### 15.7 Settings and bindings
+
+- **Bindings**: `input.jsonc` stays the defaults; the player's changes are overrides (per action: its keyboard/mouse
+  and pad events) saved with the settings and applied over the defaults by `InputSetup`.
+- **Settings menu** (`game/ui/SettingsMenu.cs`): tabs built from the shared `UiKit`, the same in the main and pause menus.
+- **As built (M3.9).** Bindings are text (`key:W`, `mouse:Left`, `pad:A`, `axis:TriggerRight+`); `BindingSet` holds
+  each action's two keyboard-and-mouse slots and pad slot, the defaults' shared bindings (allowed) and clashes, and
+  saves only the differences. `GameSettings` is split: `GameSettings.cs` (the values, migration from older files and
+  clamping, no engine) and `GameSettings.Godot.cs` (the file, the defaults from `presentation.jsonc`, the window). The
+  test project compiles both engine-free files. Startup order in every scene: `InputSetup.Apply(inputDef)` (checks and
+  applies the defaults, records the actions), `GameSettings.Load`, `InputSetup.Apply(settings.Bindings)`,
+  `view.UseTeamColors(settings.TeamColors)`, then the rest. `GraphicsDef.Effective(preset, parts)` lays the settings'
+  graphics parts over a preset for every `ApplyGraphics`.

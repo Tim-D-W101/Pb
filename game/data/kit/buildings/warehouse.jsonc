@@ -48,11 +48,11 @@
         { "segment": 2, "at_m": 32, "width_m": 4.0, "kind": "gap" },
         { "segment": 2, "at_m": 22, "width_m": 4.0, "kind": "gap" },
         { "segment": 2, "at_m": 12, "width_m": 4.0, "kind": "gap" },
-        { "segment": 2, "at_m": 5, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
+        { "segment": 2, "at_m": 5, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "start", "swing": "left" } },
         { "segment": 1, "at_m": 6, "width_m": 4.0, "kind": "gap" },
-        { "segment": 1, "at_m": 18, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
-        { "segment": 3, "at_m": 4, "width_m": 1.0, "height_m": 2.1, "kind": "door" },
-        { "segment": 0, "at_m": 30, "width_m": 1.0, "height_m": 2.1, "kind": "door" }
+        { "segment": 1, "at_m": 18, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "end", "swing": "left" } },
+        { "segment": 3, "at_m": 4, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "start", "swing": "left" } },
+        { "segment": 0, "at_m": 30, "width_m": 1.0, "height_m": 2.1, "kind": "door", "leaf": { "door": "steel", "hinge": "end", "swing": "left", "start": "open" } }
       ]
     },
     {
@@ -152,10 +152,10 @@
     { "prop": "crate_large", "position_m": [2.2, 4.0, 12.0] }
   ],
   "areas": [
-    { "name": "warehouse floor", "rect_m": [0, 0, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.55 },
-    { "name": "warehouse mezzanine", "rect_m": [0, 0, 40, 4.5], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5 },
-    { "name": "warehouse mezzanine", "rect_m": [0, 4.5, 4.5, 24], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5 },
-    { "name": "loading bays", "rect_m": [0, 19, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.7 },
-    { "name": "under the fallen roof", "rect_m": [14, 6, 26, 16], "maxY_m": 8.0, "indoor": true, "light": 0.95 }
+    { "name": "warehouse floor", "rect_m": [0, 0, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.55, "tone": "pigeons" },
+    { "name": "warehouse mezzanine", "rect_m": [0, 0, 40, 4.5], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5, "tone": "pigeons" },
+    { "name": "warehouse mezzanine", "rect_m": [0, 4.5, 4.5, 24], "minY_m": 3.8, "maxY_m": 8.0, "indoor": true, "light": 0.5, "tone": "pigeons" },
+    { "name": "loading bays", "rect_m": [0, 19, 40, 24], "maxY_m": 3.8, "indoor": true, "light": 0.7, "tone": "hall" },
+    { "name": "under the fallen roof", "rect_m": [14, 6, 26, 16], "maxY_m": 8.0, "indoor": true, "light": 0.95, "tone": "draught" }
   ]
 }

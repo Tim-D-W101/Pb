@@ -117,10 +117,51 @@ public sealed class GameData
                     TeammatesWithin = rules.Spawning.TeammatesWithin_m,
                     TeammateSpacing = rules.Spawning.TeammateSpacing_m,
                     TeamSpread = rules.Spawning.TeamSpread_m,
+                    ObjectiveClearance = rules.Spawning.ObjectiveClearance_m,
+                },
+                Doors = new DoorRules
+                {
+                    Reach = rules.Doors.Reach_m,
+                    ConeCos = MathF.Cos(rules.Doors.Cone_deg * Units.DegreesToRadians),
+                    HoldTime = rules.Doors.HoldTime_s,
+                    EaseRate = rules.Doors.EaseRate,
+                    Ajar = rules.Doors.Ajar,
+                    RandomStart = rules.Doors.RandomStart.Select(c => (c.Start, c.Weight)).ToArray(),
+                    BotPassOpen = rules.Doors.BotPassOpen,
+                    BotRouteRound = rules.Doors.BotRouteRound,
+                },
+                Objectives = new ObjectiveRules
+                {
+                    Kinds = rules.Objectives.Kinds.Select(k => new ObjectiveChoice(k.Id, k.DisplayName, k.Description)).ToArray(),
+                    GuardRole = rules.Objectives.GuardRole,
+                    Retrieve = new RetrieveRules
+                    {
+                        PickupRadius = rules.Objectives.Retrieve.PickupRadius_m,
+                        CarrierCanSprint = rules.Objectives.Retrieve.CarrierCanSprint,
+                        ExitRadius = rules.Objectives.Retrieve.ExitRadius_m,
+                        Guards = rules.Objectives.Retrieve.Guards,
+                        NearShare = rules.Objectives.Retrieve.NearShare,
+                        Near = rules.Objectives.Retrieve.Near_m,
+                        AlarmInterval = rules.Objectives.Retrieve.AlarmInterval_s,
+                        Chasers = rules.Objectives.Retrieve.Chasers,
+                    },
+                    Hold = new HoldRules
+                    {
+                        HoldTime = rules.Objectives.Hold.HoldTime_s,
+                        Guards = rules.Objectives.Hold.Guards,
+                        NearShare = rules.Objectives.Hold.NearShare,
+                        Near = rules.Objectives.Hold.Near_m,
+                        AlarmInterval = rules.Objectives.Hold.AlarmInterval_s,
+                    },
                 },
             },
         };
         CheckRoles(rules.Spawning.CoverRoles, "spawning.coverRoles", files.Rules, bots);
+        if (!bots.Archetypes.ContainsKey(rules.Objectives.GuardRole))
+        {
+            throw new DataException(files.Rules, $"objectives.guardRole: '{rules.Objectives.GuardRole}' is not a bot behaviour");
+        }
+
         for (int i = 0; i < rules.Modes.Length; i++)
         {
             CheckRoles(rules.Modes[i].Roles, $"modes[{i}].roles", files.Rules, bots);

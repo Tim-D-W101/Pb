@@ -12,7 +12,8 @@
   //                 players a side (teams); defaultSize is picked first
   //   roles         behaviours the bots are dealt, with their relative chances (bots/archetypes.jsonc).
   //                 Solo has none: its bots take their spawn's roles (or "spawning.coverRoles").
-  //                 Hunters roam the level looking for a fight, which is what the open modes need.
+  //                 Hunters roam the level looking for a fight, which is what the open modes need; flankers
+  //                 work round to your side once a teammate calls you out, marksmen watch from high ground.
   //   restlessAfter_s  a bot that has had nothing to go on for this long starts hunting, so a round
   //                 doesn't stall with everyone holding a corner (0 = never)
   "modes": [
@@ -28,6 +29,8 @@
       "roles": [
         { "role": "hunter", "weight": 6 },
         { "role": "rusher", "weight": 2 },
+        { "role": "flanker", "weight": 1 },
+        { "role": "marksman", "weight": 1 },
         { "role": "sentry", "weight": 1 },
         { "role": "patroller", "weight": 1 }
       ],
@@ -39,8 +42,10 @@
       "sizes": [2, 3, 4, 5], "defaultSize": 3,
       "roles": [
         { "role": "hunter", "weight": 5 },
+        { "role": "flanker", "weight": 2 },
         { "role": "sentry", "weight": 2 },
         { "role": "rusher", "weight": 2 },
+        { "role": "marksman", "weight": 1 },
         { "role": "patroller", "weight": 1 }
       ],
       "restlessAfter_s": 40
@@ -81,6 +86,9 @@
     "teammatesWithin_m": 12,
     "teammateSpacing_m": 3,
     "teamSpread_m": 25,
+    // With an objective you come in at one of the level's player spawns at least minDistanceFromYou_m plus this from
+    // it (the farthest if none is), so its guards can start by it out of your way.
+    "objectiveClearance_m": 10,
     // Share of opponents placed at cover points rather than the level's opponent spawns.
     "coverShare": 0.5,
     // Behaviour of an opponent placed at a cover point, by chance (opponent spawns pick one of their
@@ -92,5 +100,74 @@
       { "role": "rusher", "weight": 2 }
     ],
     "patrolReach_m": 25
+  },
+
+  // Doors (kit/doors.jsonc says how each kind of leaf moves and sounds). Interact works the door you're facing:
+  // within reach_m of its nearest point and cone_deg of where you look, with no wall in between. A tap swings it all
+  // the way open or shut; a press held longer than holdTime_s eases it at easeRate (share of the full swing a second)
+  // and leaves it where you let go, for a peek through the gap.
+  "doors": {
+    "reach_m": 1.7,
+    "cone_deg": 40,
+    "holdTime_s": 0.25,
+    "easeRate": 0.35,
+    // How far an ajar door stands open (share of the full swing).
+    "ajar": 0.22,
+    // Doors marked "random" in the level start shut, open or ajar by these chances, dealt from the round's seed.
+    "randomStart": [
+      { "start": "shut", "weight": 4 },
+      { "start": "open", "weight": 3 },
+      { "start": "ajar", "weight": 3 }
+    ],
+    // Bots walk through once a leaf is this far open; less, and they open it first. A leaf standing at least
+    // botRouteRound open is out beside its doorway, and bots plan their way round it.
+    "botPassOpen": 0.6,
+    "botRouteRound": 0.9
+  },
+
+  // Objectives, for solo and teams (free-for-all is always last one standing). Your side plays for the objective and
+  // the others defend it; every objective can also be won by putting the other side out, and is lost when your side is
+  // out or the clock runs down. The menu offers these in this order, where the level has places for them (its file's
+  // "objectives": case spots, ways out, rooms to hold).
+  "objectives": {
+    "kinds": [
+      { "id": "eliminate", "displayName": "Eliminate", "description": "Put every opponent out before the time runs out." },
+      {
+        "id": "retrieve", "displayName": "Retrieve",
+        "description": "Find the case in the marked building, pick it up and carry it out of the compound. Its holders guard it, and once it's gone they know where it is."
+      },
+      {
+        "id": "hold", "displayName": "Hold",
+        "description": "Take the marked room and hold it for a minute in all. The clock only runs while your side is in it and theirs isn't."
+      }
+    ],
+    // The guards who start right at the objective play this behaviour (bots/archetypes.jsonc): they hold their post.
+    "guardRole": "sentry",
+    "retrieve": {
+      // Your side picks the case up by walking within pickupRadius_m of it. Whoever carries it can't sprint, and if
+      // they're hit it falls where they were, for a teammate to pick up.
+      "pickupRadius_m": 1.0,
+      "carrierCanSprint": false,
+      // Carried within exitRadius_m of a way out, the case is out and your side wins.
+      "exitRadius_m": 4,
+      // Its holders: this many guards start right by it, and nearShare of the rest within near_m of it.
+      "guards": 2,
+      "nearShare": 0.5,
+      "near_m": 30,
+      // Once it's been picked up they learn where it is every alarmInterval_s: the chasers nearest it go after it,
+      // the rest make for the way out nearest it and wait there.
+      "alarmInterval_s": 5,
+      "chasers": 2
+    },
+    "hold": {
+      // Held this long in all (only while your side is in the room and theirs isn't), the room is yours: you win.
+      "holdTime_s": 60,
+      // Defenders: this many start in the room, and nearShare of the rest within near_m of it.
+      "guards": 2,
+      "nearShare": 0.5,
+      "near_m": 25,
+      // While your side is in the room, the defenders learn where you are every alarmInterval_s and come for it.
+      "alarmInterval_s": 4
+    }
   }
 }

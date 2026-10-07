@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Godot;
 using Pb.Game.Core;
+using Pb.Sim.Data;
 
 namespace Pb.Game.Tools;
 
@@ -18,7 +19,9 @@ namespace Pb.Game.Tools;
 /// <item><c>--texture</c>: a picture becomes a tiling material (albedo plus normal and roughness maps derived from it) in <c>art/textures/</c>.</item>
 /// <item><c>--clip</c>: a GLB holding a movement clip is cut down to its rig and animation and goes into <c>art/models/</c>.</item>
 /// <item><c>--model</c>: a GLB is tidied (smaller JPEG textures, no baked glow) and goes into <c>art/models/</c>, optionally scaled to a real height; its measured size is printed so the prop's colliders can be fitted to it.</item>
-/// <item><c>--selftest</c>: runs the texture steps on a generated picture and checks the result (CI).</item>
+/// <item><c>--voice</c>: a generated take of a voice's script is cut into its lines and each goes into <c>art/voices/</c> as OGG Vorbis.</item>
+/// <item><c>--sounds=DIR</c>: writes every synthesised sound into a folder as WAV files, to listen to.</item>
+/// <item><c>--selftest</c>: runs the texture steps on a generated picture, splits a made-up voice take and renders the sound bank, and checks the results (CI).</item>
 /// </list>
 /// Every import records the job, prompt, generator and download URL in <c>data/assets.jsonc</c>: the
 /// provenance record that the art is original.
@@ -38,9 +41,9 @@ public partial class ArtImport : Node
         try
         {
             code = Args.Has("--selftest") ? SelfTest() : Args.Has("--texture") ? ImportTexture() : Args.Has("--model") ? ImportModel()
-                : Args.Has("--clip") ? ImportClip() : Usage();
+                : Args.Has("--clip") ? ImportClip() : Args.Has("--voice") ? ImportVoice() : Args.Value("--sounds") is not null ? DumpSounds() : Usage();
         }
-        catch (Exception ex) when (ex is IOException or ArgumentException or FormatException or InvalidOperationException or JsonException)
+        catch (Exception ex) when (ex is IOException or ArgumentException or FormatException or InvalidOperationException or JsonException or DataException)
         {
             GD.PushError($"ART {ex.Message}");
             code = 1;
@@ -49,9 +52,173 @@ public partial class ArtImport : Node
         GetTree().Quit(code);
     }
 
+    /// <summary>
+    /// A generated take of a voice's script (<c>--prompt</c>, one line of text per line spoken), cut into its lines at
+    /// its pauses (<see cref="VoiceSplitter"/>), each levelled to the same peak, faded at its ends and written as OGG Vorbis
+    /// to <c>art/voices/&lt;voice&gt;_&lt;words&gt;.ogg</c>, where <see cref="Audio.VoiceBank"/> finds it. Needs ffmpeg.
+    /// </summary>
+    private static int ImportVoice()
+    {
+        string id = Required("--id");
+        var check = new Validator("--id");
+        AudioDef.VoiceId(check, "id", id);
+        check.ThrowIfErrors();
+        string[] lines = Required("--prompt").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        string temp = Path.Combine(Path.GetTempPath(), $"pb-voice-{id}-{System.Environment.ProcessId}");
+        Directory.CreateDirectory(temp);
+        try
+        {
+            string take = Path.Combine(temp, "take.wav");
+            Ffmpeg("-i", Required("--source"), "-ac", "1", "-ar", "24000", "-c:a", "pcm_s16le", take);
+            (float[] samples, int rate) = ReadWav(take);
+            List<VoiceSplitter.Line> cut = VoiceSplitter.Split(samples, rate, lines);
+
+            const string folder = "res://art/voices";
+            DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(folder));
+            var files = new List<string>();
+            var notes = new List<string>();
+            for (int k = 0; k < lines.Length; k++)
+            {
+                string path = Audio.VoiceBank.PathOf(id, lines[k]);
+                float start = cut[k].Start / (float)rate, length = (cut[k].End - cut[k].Start) / (float)rate;
+                float peak = 1e-6f;
+                for (int i = cut[k].Start; i <= cut[k].End; i++)
+                {
+                    peak = MathF.Max(peak, MathF.Abs(samples[i]));
+                }
+
+                // Every line to the same peak (−1 dB), with its ends faded.
+                float gain = -1f - 20f * MathF.Log10(peak);
+                string filters = string.Create(CultureInfo.InvariantCulture,
+                    $"volume={gain:0.00}dB,afade=t=in:d=0.01,afade=t=out:st={MathF.Max(0f, length - 0.04f):0.000}:d=0.04");
+                Ffmpeg("-ss", F(start), "-t", F(length), "-i", take, "-af", filters, "-c:a", "libvorbis", "-q:a", "5", ProjectSettings.GlobalizePath(path));
+                File.WriteAllText(ProjectSettings.GlobalizePath(path) + ".import",
+                    "[remap]\n\nimporter=\"oggvorbisstr\"\ntype=\"AudioStreamOggVorbis\"\n\n[params]\n\nloop=false\nloop_offset=0\nbpm=0\nbeat_count=0\nbar_beats=4\n");
+                files.Add(path);
+                notes.Add(string.Create(CultureInfo.InvariantCulture, $"\"{lines[k]}\" {length:0.00} s"));
+                GD.Print(string.Create(CultureInfo.InvariantCulture,
+                    $"ART {path}: {length:0.00} s (after a {cut[k].PauseBefore:0.00} s pause), {gain:+0.0;-0.0} dB to peak"));
+            }
+
+            Record("voice", id, files, $"{lines.Length} lines cut from one take at its pauses, each to −1 dB peak: {string.Join(", ", notes)}");
+            GD.Print($"ART imported voice {id}: {lines.Length} lines into {folder}");
+            return 0;
+        }
+        finally
+        {
+            Directory.Delete(temp, recursive: true);
+        }
+    }
+
+    private static string F(float seconds) => seconds.ToString("0.000", CultureInfo.InvariantCulture);
+
+    /// <summary>Runs ffmpeg (quiet, overwriting); throws with its complaint if it fails.</summary>
+    private static void Ffmpeg(params string[] arguments)
+    {
+        var start = new System.Diagnostics.ProcessStartInfo("ffmpeg") { RedirectStandardError = true, UseShellExecute = false };
+        foreach (string argument in new[] { "-y", "-loglevel", "error" }.Concat(arguments))
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        System.Diagnostics.Process process;
+        try
+        {
+            process = System.Diagnostics.Process.Start(start) ?? throw new IOException("ffmpeg didn't start");
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            throw new IOException("voice imports need ffmpeg on PATH");
+        }
+
+        string error = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        if (process.ExitCode != 0)
+        {
+            throw new IOException($"ffmpeg failed: {error.Trim()}");
+        }
+    }
+
+    /// <summary>A 16-bit PCM WAV file's samples (its first channel) and rate.</summary>
+    private static (float[] Samples, int Rate) ReadWav(string path)
+    {
+        byte[] bytes = File.ReadAllBytes(path);
+        if (bytes.Length < 44 || System.Text.Encoding.ASCII.GetString(bytes, 0, 4) != "RIFF" || System.Text.Encoding.ASCII.GetString(bytes, 8, 4) != "WAVE")
+        {
+            throw new FormatException($"{path} isn't a WAV file");
+        }
+
+        int rate = 0, channels = 1, bits = 16;
+        for (int at = 12; at + 8 <= bytes.Length;)
+        {
+            string chunk = System.Text.Encoding.ASCII.GetString(bytes, at, 4);
+            int size = BitConverter.ToInt32(bytes, at + 4);
+            if (chunk == "fmt ")
+            {
+                channels = BitConverter.ToInt16(bytes, at + 10);
+                rate = BitConverter.ToInt32(bytes, at + 12);
+                bits = BitConverter.ToInt16(bytes, at + 22);
+            }
+            else if (chunk == "data")
+            {
+                if (bits != 16 || rate == 0)
+                {
+                    throw new FormatException($"{path}: only 16-bit PCM is read");
+                }
+
+                int count = Math.Min(size, bytes.Length - at - 8) / 2 / channels;
+                var samples = new float[count];
+                for (int i = 0; i < count; i++)
+                {
+                    samples[i] = BitConverter.ToInt16(bytes, at + 8 + i * 2 * channels) / 32768f;
+                }
+
+                return (samples, rate);
+            }
+
+            at += 8 + size + (size & 1);
+        }
+
+        throw new FormatException($"{path} has no sound in it");
+    }
+
+    /// <summary>
+    /// Writes every synthesised sound (each variation) into a folder as WAV files, to listen to outside the game:
+    /// <c>--sounds=DIR [--variations=4]</c>.
+    /// </summary>
+    private static int DumpSounds()
+    {
+        string folder = Args.Value("--sounds")!;
+        Directory.CreateDirectory(folder);
+        Pb.Game.Audio.SoundBank bank = Pb.Game.Audio.SoundBank.Render(Number("--variations", 4));
+        var set = new Pb.Game.Audio.SoundSet(bank);
+        foreach (Pb.Game.Audio.Sfx sfx in Enum.GetValues<Pb.Game.Audio.Sfx>())
+        {
+            AudioStreamWav[] streams = set.Streams(sfx);
+            for (int v = 0; v < streams.Length; v++)
+            {
+                Error error = streams[v].SaveToWav(Path.Combine(folder, $"{sfx}_{v}.wav"));
+                if (error != Error.Ok)
+                {
+                    throw new IOException($"can't write {sfx}_{v}.wav ({error})");
+                }
+            }
+        }
+
+        foreach (string problem in bank.Problems)
+        {
+            GD.PushError($"ART sound bank: {problem}");
+        }
+
+        GD.Print(string.Create(CultureInfo.InvariantCulture,
+            $"SOUNDS {bank.SoundCount} sounds, {bank.VariationCount} variations, {bank.Seconds:0} s of sound, rendered in {bank.RenderMilliseconds:0} ms, into {folder}"));
+        set.Release();
+        return bank.Problems.Count == 0 ? 0 : 1;
+    }
+
     private static int Usage()
     {
-        GD.PushError("ART usage: --texture|--model|--clip|--selftest --id=… --source=FILE --job=… --generator=… --prompt=… --url=… " +
+        GD.PushError("ART usage: --texture|--model|--clip|--voice|--selftest|--sounds=DIR --id=… --source=FILE --job=… --generator=… --prompt=… --url=… " +
                      "[texture: --size=1024 --region=x,y,w,h --stretch --repeats=across,down --flatten=0.8 --band=0.12 --normal-strength=2 --roughness=0.9 --roughness-variation=0.15] " +
                      "[model: --max-texture=1024 --roughness=R --height=M]");
         return 2;
@@ -297,11 +464,42 @@ public partial class ArtImport : Node
         float halfShift = Change(pattern, TextureMaker.MakeTileable(pattern, 0.12f));
         bool repeatsOk = inStep < 0.01f && halfShift > 0.1f;
 
-        bool ok = before > 1.5f && after < 1.25f && rampAfter < rampBefore * 0.35f && normalError < 1e-3f && roughnessError < 1e-3f && bumpOk && repeatsOk;
+        // Voices: a made-up take of six lines, with pauses within them, splits back into its lines, each kept whole
+        // with no more than a little silence either side.
+        const int rate = 24000, takes = 12, linesPerTake = 8;
+        int goodTakes = 0;
+        for (int seed = 1; seed <= takes; seed++)
+        {
+            (float[] take, List<(int Start, int End)> truth, string[] script) = VoiceSplitter.FakeTake(rate, linesPerTake, seed);
+            List<VoiceSplitter.Line> split = VoiceSplitter.Split(take, rate, script);
+            bool good = split.Count == truth.Count;
+            for (int k = 0; good && k < truth.Count; k++)
+            {
+                good = split[k].Start <= truth[k].Start + rate / 100 && truth[k].Start - split[k].Start < rate * 6 / 100 &&
+                       split[k].End >= truth[k].End - rate / 100 && split[k].End - truth[k].End < rate * 12 / 100;
+            }
+
+            goodTakes += good ? 1 : 0;
+        }
+
+        bool voiceOk = goodTakes == takes;
+
+        // Sounds: the bank renders, every variation of every sound in it sounding.
+        Audio.SoundBank bank = Audio.SoundBank.Render(2);
+        bool soundsOk = bank.Problems.Count == 0;
+        foreach (string problem in bank.Problems)
+        {
+            GD.PushError($"ART sound bank: {problem}");
+        }
+
+        bool ok = before > 1.5f && after < 1.25f && rampAfter < rampBefore * 0.35f && normalError < 1e-3f && roughnessError < 1e-3f && bumpOk && repeatsOk &&
+                  voiceOk && soundsOk;
         GD.Print(string.Create(CultureInfo.InvariantCulture,
             $"SMOKE {(ok ? "PASS" : "FAIL")}: art pipeline seam ratio {before:0.00} → {after:0.00}, ramp {rampBefore:0.000} → {rampAfter:0.000}, flat normal error {normalError:0.0000}, " +
             $"roughness error {roughnessError:0.0000}, bump normals {(bumpOk ? "lean outwards" : "WRONG")}, " +
-            $"repeating pattern changed by {inStep:0.000} in step with its repeats ({halfShift:0.000} by a half shift)"));
+            $"repeating pattern changed by {inStep:0.000} in step with its repeats ({halfShift:0.000} by a half shift); " +
+            $"{goodTakes} of {takes} made-up takes of {linesPerTake} lines split into them; " +
+            $"{bank.SoundCount} sounds in {bank.VariationCount} variations ({bank.Seconds:0} s) rendered in {bank.RenderMilliseconds:0} ms, {bank.Problems.Count} silent"));
         return ok ? 0 : 1;
     }
 

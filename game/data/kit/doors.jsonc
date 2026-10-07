@@ -1,0 +1,23 @@
+// Door leaves: what a door opening can carry, by its "leaf" (kit/buildings/*.jsonc, levels/*.jsonc):
+//   { "door": "panel", "hinge": "start", "swing": "left", "start": "random" }
+// hinge: the opening's edge nearer the wall segment's start or end; swing: the side it opens into, looking along the
+// segment from start to end ("both" for a swing door, which opens away from whoever pushes it); "sliding": true slides
+// it along the wall towards its hinge edge on its swing side; "double": true hangs a pair, opened together; start:
+// shut, open, ajar or random (rules.jsonc "doors").
+//   material     its look, and what paint does on it (kit/materials.jsonc)
+//   thickness_m  the leaf's thickness
+//   openTime_s   a full swing open at a tap, and closeTime_s shut
+//   swing_deg    how far a hinged leaf opens (90 = square to the wall)
+//   noise_m      how far opening or shutting it carries: bots hear it within this, halved through walls
+//   style        how the game draws it (looks only): panel (four sunk panels), flush (plain, with a kick plate),
+//                steel (a steel door with a wired-glass vision panel), cold_room (thick insulated leaf, big handle)
+//                or swing (a swing door with a round vision panel and push plates)
+{
+  "doors": [
+    { "id": "panel", "material": "door_wood", "thickness_m": 0.045, "openTime_s": 0.7, "closeTime_s": 0.55, "swing_deg": 100, "noise_m": 9, "style": "panel" },
+    { "id": "flush", "material": "door_wood", "thickness_m": 0.045, "openTime_s": 0.65, "closeTime_s": 0.5, "swing_deg": 100, "noise_m": 8, "style": "flush" },
+    { "id": "steel", "material": "door_steel", "thickness_m": 0.05, "openTime_s": 0.9, "closeTime_s": 0.6, "swing_deg": 95, "noise_m": 16, "style": "steel" },
+    { "id": "swing", "material": "door_wood", "thickness_m": 0.045, "openTime_s": 0.45, "closeTime_s": 0.45, "swing_deg": 90, "noise_m": 7, "style": "swing" },
+    { "id": "cold_room", "material": "door_steel", "thickness_m": 0.1, "openTime_s": 1.4, "closeTime_s": 1.0, "swing_deg": 95, "noise_m": 18, "style": "cold_room" }
+  ]
+}

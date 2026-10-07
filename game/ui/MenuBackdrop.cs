@@ -19,6 +19,7 @@ public partial class MenuBackdrop : Node3D
 {
     private Camera3D? _camera;
     private MenuBackdropDef _def = null!;
+    private BackdropShotDef _shot = null!;
     private Action[] _steps = Array.Empty<Action>();
     private int _step = -2;
     private double _time;
@@ -26,17 +27,21 @@ public partial class MenuBackdrop : Node3D
     /// <summary>Called once the whole level is built and the camera is on it.</summary>
     public event Action? Shown;
 
-    /// <summary>Queues the build; it starts a couple of frames later, one piece a frame.</summary>
-    public void Build(GameData data, PresentationDef view, GameSettings settings)
+    /// <summary>
+    /// Queues the build of <paramref name="levelId"/>'s shot (or the first shot if it has none); it starts a couple of
+    /// frames later, one piece a frame.
+    /// </summary>
+    public void Build(GameData data, PresentationDef view, GameSettings settings, string? levelId)
     {
         _def = view.MenuBackdrop;
-        if (!data.Levels.TryGetValue(_def.Level, out LevelLayout? level))
+        _shot = _def.ShotFor(levelId);
+        if (!data.Levels.TryGetValue(_shot.Level, out LevelLayout? level))
         {
-            GD.PushWarning($"presentation.jsonc menuBackdrop: no level '{_def.Level}'; the menu has no backdrop");
+            GD.PushWarning($"presentation.jsonc menuBackdrop: no level '{_shot.Level}'; the menu has no backdrop");
             return;
         }
 
-        GraphicsPresetDef preset = view.Graphics.Find(settings.GraphicsPreset);
+        GraphicsPresetDef preset = view.Graphics.Effective(settings.GraphicsPreset, settings.Graphics);
         var environment = new WorldEnvironment { Name = "WorldEnvironment", Environment = new Godot.Environment() };
         var sun = new DirectionalLight3D { Name = "Sun", ShadowEnabled = true };
         var collision = new CollisionWorld();
@@ -136,12 +141,14 @@ public partial class MenuBackdrop : Node3D
         // Let the menu draw first, then a piece of the level a frame.
         if (_step < _steps.Length)
         {
-            if (_step >= 0)
+            // On to the next piece first: one that throws (Godot logs it) is left out, not built again
+            // every frame on top of what it had already added.
+            int step = _step++;
+            if (step >= 0)
             {
-                _steps[_step]();
+                _steps[step]();
             }
 
-            _step++;
             return;
         }
 
@@ -157,7 +164,7 @@ public partial class MenuBackdrop : Node3D
 
     private void Place(float t)
     {
-        CameraPointDef a = _def.From, b = _def.To;
+        CameraPointDef a = _shot.From, b = _shot.To;
         Vector3 position = Validator.ToVector3(a.Position_m).ToGodot().Lerp(Validator.ToVector3(b.Position_m).ToGodot(), t);
         float yaw = Mathf.DegToRad(Mathf.Lerp(a.Yaw_deg, b.Yaw_deg, t));
         float pitch = Mathf.DegToRad(Mathf.Lerp(a.Pitch_deg, b.Pitch_deg, t));

@@ -14,6 +14,10 @@ public sealed class KitIndexDef : IValidatable
 
     public string Props { get; set; } = "";
 
+    /// <summary>The door leaves that door openings can carry (kit/doors.jsonc).</summary>
+    [Optional]
+    public string? Doors { get; set; }
+
     public string[] Buildings { get; set; } = Array.Empty<string>();
 
     public void Validate(Validator v)
@@ -222,10 +226,19 @@ public sealed class ColliderDef : IValidatable
     [Optional]
     public bool Walk { get; set; } = true;
 
+    /// <summary>Whether paint (and sight) meets it; false for a walking block only (the gap under a wagon, say).</summary>
+    [Optional]
+    public bool Paint { get; set; } = true;
+
     public void Validate(Validator v)
     {
         v.Vector(nameof(Center_m), Center_m);
         v.NotEmpty(nameof(Material), Material);
+        if (!Walk && !Paint)
+        {
+            v.Error(nameof(Paint), "a collider must block walking, paint or both");
+        }
+
         if (Rotation_deg is not null)
         {
             v.Vector(nameof(Rotation_deg), Rotation_deg);
@@ -565,6 +578,10 @@ public sealed class OpeningDef : IValidatable
     [Optional]
     public float Height_m { get; set; } = float.NaN;
 
+    /// <summary>Door openings only: the door hung in it (omit for an empty doorway).</summary>
+    [Optional]
+    public DoorLeafDef? Leaf { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(At_m), At_m, 0, 1000);
@@ -574,6 +591,144 @@ public sealed class OpeningDef : IValidatable
         {
             v.InRange(nameof(Height_m), Height_m, 0.2, 100);
         }
+
+        if (Leaf is not null)
+        {
+            Leaf.Validate(v.Scope(nameof(Leaf)));
+            if (Kind != OpeningKind.Door)
+            {
+                v.Error(nameof(Leaf), "only door openings take a leaf");
+            }
+
+            if (float.IsNaN(Height_m))
+            {
+                v.Error(nameof(Leaf), "a door with a leaf needs height_m");
+            }
+
+            if (Width_m / (Leaf.Double ? 2f : 1f) < 0.3f)
+            {
+                v.Error(nameof(Leaf), "each leaf must be at least 0.3 m wide");
+            }
+        }
+    }
+}
+
+public enum DoorHinge
+{
+    /// <summary>On the edge of the opening nearer the segment's start point.</summary>
+    Start,
+
+    /// <summary>On the edge nearer the segment's end point.</summary>
+    End,
+}
+
+public enum DoorSwing
+{
+    /// <summary>Into the side on your left, looking along the segment from its start to its end.</summary>
+    Left,
+
+    Right,
+
+    /// <summary>Either way: away from whoever opens it (a swing door).</summary>
+    Both,
+}
+
+public enum DoorStart
+{
+    /// <summary>Shut, open or ajar by chance each round (rules.jsonc "doors.randomStart").</summary>
+    Random,
+
+    Shut,
+
+    Open,
+
+    /// <summary>Partly open (rules.jsonc "doors.ajar").</summary>
+    Ajar,
+}
+
+/// <summary>
+/// A door hung in a door opening: which kind of leaf (kit/doors.jsonc), its hinge edge and the side it swings to (or,
+/// sliding, the edge it slides towards and the face it slides on), one leaf or a pair, and how it starts the round.
+/// </summary>
+public sealed class DoorLeafDef : IValidatable
+{
+    public string Door { get; set; } = "";
+
+    [Optional]
+    public DoorHinge Hinge { get; set; }
+
+    [Optional]
+    public DoorSwing Swing { get; set; }
+
+    /// <summary>Slides along the wall instead of swinging (towards its hinge edge, on its swing side).</summary>
+    [Optional]
+    public bool Sliding { get; set; }
+
+    /// <summary>Two leaves, hinged at both edges and opened together.</summary>
+    [Optional]
+    public bool Double { get; set; }
+
+    [Optional]
+    public DoorStart Start { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Door), Door);
+        if (Sliding && Swing == DoorSwing.Both)
+        {
+            v.Error(nameof(Swing), "a sliding door slides on one face: left or right, not both");
+        }
+
+        if (Sliding && Double)
+        {
+            v.Error(nameof(Double), "sliding doors are single leaves");
+        }
+    }
+}
+
+/// <summary>kit/doors.jsonc: the kinds of door leaf.</summary>
+public sealed class DoorsDef : IValidatable
+{
+    public DoorKindDef[] Doors { get; set; } = Array.Empty<DoorKindDef>();
+
+    public void Validate(Validator v)
+    {
+        LevelDefChecks.UniqueIds(v, nameof(Doors), Doors, d => d.Id);
+        LevelDefChecks.Items(v, nameof(Doors), Doors);
+    }
+}
+
+/// <summary>One kind of door leaf: what it's made of, how thick, how fast it moves, how far it swings and how loud it is.</summary>
+public sealed class DoorKindDef : IValidatable
+{
+    public string Id { get; set; } = "";
+
+    public string Material { get; set; } = "";
+
+    public float Thickness_m { get; set; }
+
+    public float OpenTime_s { get; set; }
+
+    public float CloseTime_s { get; set; }
+
+    public float Swing_deg { get; set; }
+
+    /// <summary>How far opening or shutting it carries (bots hear it within this, halved through walls).</summary>
+    public float Noise_m { get; set; }
+
+    /// <summary>How the game draws it (presentation only): panel, flush, steel, cold_room or swing.</summary>
+    public string Style { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Id), Id);
+        v.NotEmpty(nameof(Material), Material);
+        v.NotEmpty(nameof(Style), Style);
+        v.InRange(nameof(Thickness_m), Thickness_m, 0.01, 0.4);
+        v.InRange(nameof(OpenTime_s), OpenTime_s, 0.1, 10);
+        v.InRange(nameof(CloseTime_s), CloseTime_s, 0.1, 10);
+        v.InRange(nameof(Swing_deg), Swing_deg, 30, 180);
+        v.InRange(nameof(Noise_m), Noise_m, 0, 100);
     }
 }
 
@@ -851,12 +1006,23 @@ public sealed class AreaDef : IValidatable
     [Optional]
     public float Light { get; set; } = 1f;
 
+    /// <summary>
+    /// What the place sounds like inside (presentation only: one of the tones in presentation.jsonc "audio" →
+    /// "ambience" → "tones"); empty for the default by size.
+    /// </summary>
+    [Optional]
+    public string Tone { get; set; } = "";
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Name), Name);
         LevelDefChecks.Rect(v, nameof(Rect_m), Rect_m);
         v.InRange(nameof(MaxY_m), MaxY_m, MinY_m, 500);
         v.InRange(nameof(Light), Light, 0, 1);
+        if (Tone.Length > 0 && !Tone.All(c => c is >= 'a' and <= 'z'))
+        {
+            v.Error(nameof(Tone), $"'{Tone}' isn't a tone name (lower-case letters)");
+        }
     }
 }
 
@@ -971,10 +1137,20 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public MarkingsDef? Markings { get; set; }
 
+    /// <summary>Where the objectives are played: the case's starting spots, the ways out and the rooms to hold.</summary>
+    [Optional]
+    public LevelObjectivesDef? Objectives { get; set; }
+
+    /// <summary>Railway tracks: rails paint hits and feet step over, with sleepers drawn under them.</summary>
+    [Optional]
+    public TrackDef[]? Tracks { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
+        Objectives?.Validate(v.Scope(nameof(Objectives)));
+        LevelDefChecks.Items(v, nameof(Tracks), Tracks);
         LevelDefChecks.Items(v, nameof(Viewpoints), Viewpoints);
         Scenery?.Validate(v.Scope(nameof(Scenery)));
         Markings?.Validate(v.Scope(nameof(Markings)));
@@ -1170,10 +1346,109 @@ public sealed class PickupDef : IValidatable
     }
 }
 
+/// <summary>
+/// A level's objectives: where the case may start (Retrieve: one at random each round, each spot inside a named indoor
+/// area, its building), the ways out with it (without any, round each player spawn) and the rooms to hold (Hold: area
+/// names, every area of that name making up the room). A level offers each objective it has places for.
+/// </summary>
+public sealed class LevelObjectivesDef : IValidatable
+{
+    [Optional]
+    public float[][] CaseSpots_m { get; set; } = Array.Empty<float[]>();
+
+    [Optional]
+    public ExitDef[]? Exits { get; set; }
+
+    [Optional]
+    public string[] HoldRooms { get; set; } = Array.Empty<string>();
+
+    public void Validate(Validator v)
+    {
+        for (int i = 0; i < CaseSpots_m.Length; i++)
+        {
+            v.Vector($"{nameof(CaseSpots_m)}[{i}]", CaseSpots_m[i]);
+        }
+
+        LevelDefChecks.Items(v, nameof(Exits), Exits);
+        if (HoldRooms.Distinct(StringComparer.Ordinal).Count() != HoldRooms.Length)
+        {
+            v.Error(nameof(HoldRooms), "lists a room twice");
+        }
+    }
+}
+
+/// <summary>
+/// A railway track along a polyline in plan ([x, z] points, at <see cref="Elevation_m"/>): two rails of the given profile
+/// <see cref="Gauge_m"/> apart (inside faces), which paint and sight meet but walking steps over, and sleepers under them
+/// (drawn by the game, looks only) in the sleeper material.
+/// </summary>
+public sealed class TrackDef : IValidatable
+{
+    public float[][] Points_m { get; set; } = Array.Empty<float[]>();
+
+    [Optional]
+    public float Elevation_m { get; set; }
+
+    /// <summary>Between the rails' inside faces (standard gauge by default).</summary>
+    [Optional]
+    public float Gauge_m { get; set; } = 1.435f;
+
+    [Optional]
+    public float RailHeight_m { get; set; } = 0.15f;
+
+    [Optional]
+    public float RailWidth_m { get; set; } = 0.07f;
+
+    public string RailMaterial { get; set; } = "";
+
+    public string SleeperMaterial { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        if (Points_m.Length < 2)
+        {
+            v.Error(nameof(Points_m), "needs at least two points");
+        }
+
+        for (int i = 0; i < Points_m.Length; i++)
+        {
+            v.Vector($"{nameof(Points_m)}[{i}]", Points_m[i], 2);
+        }
+
+        v.InRange(nameof(Gauge_m), Gauge_m, 0.3, 3);
+        v.InRange(nameof(RailHeight_m), RailHeight_m, 0.02, 0.5);
+        v.InRange(nameof(RailWidth_m), RailWidth_m, 0.01, 0.3);
+        v.NotEmpty(nameof(RailMaterial), RailMaterial);
+        v.NotEmpty(nameof(SleeperMaterial), SleeperMaterial);
+    }
+}
+
+/// <summary>A way out with the case: carried within the rules' exit radius of it, the case is out.</summary>
+public sealed class ExitDef : IValidatable
+{
+    public string Name { get; set; } = "";
+
+    public float[] At_m { get; set; } = Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Name), Name);
+        v.Vector(nameof(At_m), At_m);
+    }
+}
+
 /// <summary>levels/ladder.jsonc: the levels in play order. Locked entries are announced but not playable yet.</summary>
 public sealed class LadderDef : IValidatable
 {
     public LadderLevelDef[] Levels { get; set; } = Array.Empty<LadderLevelDef>();
+
+    /// <summary>How later levels open (the first is always open).</summary>
+    [Optional]
+    public UnlockDef Unlock { get; set; } = new();
+
+    /// <summary>What level select's records count.</summary>
+    [Optional]
+    public RecordsDef Records { get; set; } = new();
 
     public void Validate(Validator v)
     {
@@ -1183,7 +1458,41 @@ public sealed class LadderDef : IValidatable
         }
 
         LevelDefChecks.UniqueIds(v, nameof(Levels), Levels, l => l.Id);
+        Unlock.Validate(v.Scope(nameof(Unlock)));
+        Records.Validate(v.Scope(nameof(Records)));
+        for (int i = 0; i < Levels.Length && Unlock.MinTier.Length > 0; i++)
+        {
+            LadderLevelDef level = Levels[i];
+            if (level.Tiers is { Length: > 0 } tiers && Array.FindIndex(tiers, t => t.Id == Unlock.MinTier) < 0)
+            {
+                v.Scope(nameof(Unlock)).Error(nameof(UnlockDef.MinTier),
+                    $"'{Unlock.MinTier}' is not one of {level.Id}'s difficulty tiers ({string.Join(", ", tiers.Select(t => t.Id))})");
+            }
+        }
     }
+}
+
+/// <summary>
+/// How the ladder opens: each level after the first opens when a round on the level before it is won (in any
+/// mode) on <see cref="MinTier"/> or a harder tier (later in that level's list). Empty: any tier counts.
+/// </summary>
+public sealed class UnlockDef : IValidatable
+{
+    [Optional]
+    public string MinTier { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+    }
+}
+
+/// <summary>What level select's records count: accuracy only from rounds with at least <see cref="AccuracyMinShots"/> shots.</summary>
+public sealed class RecordsDef : IValidatable
+{
+    [Optional]
+    public int AccuracyMinShots { get; set; } = 10;
+
+    public void Validate(Validator v) => v.InRange(nameof(AccuracyMinShots), AccuracyMinShots, 1, 1000);
 }
 
 public sealed class LadderLevelDef : IValidatable

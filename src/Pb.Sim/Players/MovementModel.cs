@@ -230,7 +230,8 @@ public static class MovementModel
             }
 
             // Eliminated players can only walk (off the field, marker raised).
-            sprinting = alive && cmd.Has(InputButtons.Sprint) && stance == Stance.Standing && move.Y >= p.SprintMinForwardInput;
+            sprinting = alive && cmd.Has(InputButtons.Sprint) && stance == Stance.Standing && move.Y >= p.SprintMinForwardInput &&
+                        !state.SprintBlocked;
             float target = !alive ? p.WalkSpeed
                 : stance == Stance.Crouching ? p.CrouchSpeed
                 : sprinting ? p.SprintSpeed

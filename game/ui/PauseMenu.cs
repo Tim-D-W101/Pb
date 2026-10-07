@@ -13,11 +13,14 @@ public partial class PauseMenu : CanvasLayer
     private Control _root = null!;
     private Control _main = null!;
     private Control _settings = null!;
+    private SettingsMenu _menu = null!;
     private Action? _restart;
 
     public bool Open => _root.Visible;
 
-    public void Build(GameSettings settings, PresentationDef view, Action<GameSettings> graphicsChanged, Action? restart)
+    /// <param name="graphicsChanged">Applies a change to the graphics (preset, its parts, render scale).</param>
+    /// <param name="hudChanged">Applies a change to the HUD (crosshair, its size).</param>
+    public void Build(GameSettings settings, PresentationDef view, Action<GameSettings> graphicsChanged, Action? restart, Action<GameSettings>? hudChanged = null)
     {
         Layer = 10;
         ProcessMode = ProcessModeEnum.Always;
@@ -44,9 +47,9 @@ public partial class PauseMenu : CanvasLayer
         _main = main;
 
         VBoxContainer settingsColumn = UiKit.Column(14);
-        var panel = new SettingsPanel();
-        panel.Build(settings, view, graphicsChanged);
-        settingsColumn.AddChild(panel);
+        _menu = new SettingsMenu { Name = "SettingsMenu" };
+        _menu.Build(settings, view, graphicsChanged, hudChanged);
+        settingsColumn.AddChild(_menu);
         settingsColumn.AddChild(UiKit.Button("Back", () => ShowSettings(false), 200));
         _settings = settingsColumn;
 
@@ -84,7 +87,7 @@ public partial class PauseMenu : CanvasLayer
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (Open && e.IsActionPressed("pause"))
+        if (Open && e.IsActionPressed("pause") && !_menu.Capturing)
         {
             Close();
             GetViewport().SetInputAsHandled();

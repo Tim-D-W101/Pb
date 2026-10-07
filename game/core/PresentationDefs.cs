@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Pb.Sim.Data;
@@ -13,6 +14,21 @@ public sealed class PresentationDef : IValidatable
     public const string File = "presentation.jsonc";
 
     public string[] TeamColors { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Other team colour sets the settings offer (colourblind-safe ones); "standard" is <see cref="TeamColors"/>.</summary>
+    public TeamColorSetDef[] TeamColorSets { get; set; } = System.Array.Empty<TeamColorSetDef>();
+
+    private string[]? _standardColors;
+
+    /// <summary>The usual team colours (teamColors), whichever set is in use.</summary>
+    public string[] StandardTeamColors => _standardColors ?? TeamColors;
+
+    /// <summary>Uses a team colour set from now on (anything built after takes its colours); "standard" or an unknown id is the usual set.</summary>
+    public void UseTeamColors(string id)
+    {
+        _standardColors ??= TeamColors;
+        TeamColors = TeamColorSets.FirstOrDefault(s => s.Id == id)?.Colors ?? _standardColors;
+    }
 
     public BallViewDef Ball { get; set; } = new();
 
@@ -117,11 +133,28 @@ public sealed class PresentationDef : IValidatable
 
     public HudDef Hud { get; set; } = new();
 
+    public ObjectivesViewDef Objectives { get; set; } = new();
+
     public void Validate(Validator v)
     {
+        Objectives.Validate(v.Scope(nameof(Objectives)));
         if (TeamColors.Length < 2)
         {
             v.Error(nameof(TeamColors), "needs at least two colours");
+        }
+
+        for (int i = 0; i < TeamColorSets.Length; i++)
+        {
+            TeamColorSets[i].Validate(v.Item(nameof(TeamColorSets), i));
+            if (TeamColorSets[i].Colors.Length != TeamColors.Length)
+            {
+                v.Item(nameof(TeamColorSets), i).Error(nameof(TeamColorSetDef.Colors), $"needs as many colours as teamColors ({TeamColors.Length})");
+            }
+        }
+
+        if (TeamColorSets.Select(t => t.Id).Append("standard").Distinct().Count() != TeamColorSets.Length + 1)
+        {
+            v.Error(nameof(TeamColorSets), "each set needs its own id (and not \"standard\", which is teamColors)");
         }
 
         foreach (string c in TeamColors)
@@ -184,6 +217,36 @@ public sealed class PresentationDef : IValidatable
         MaskSpray.Validate(v.Scope(nameof(MaskSpray)));
         Spectator.Validate(v.Scope(nameof(Spectator)));
         Hud.Validate(v.Scope(nameof(Hud)));
+        for (int i = 0; i < Audio.Cast.Length; i++)
+        {
+            if (Audio.Cast[i].Model >= Characters.Models.Length)
+            {
+                v.Scope(nameof(Audio)).Item(nameof(AudioDef.Cast), i).Error(nameof(CastVoiceDef.Model), $"there are only {Characters.Models.Length} character models");
+            }
+        }
+    }
+}
+
+/// <summary>A set of team colours for the settings to offer: its id, its name in the menu and its colours, by team.</summary>
+public sealed class TeamColorSetDef : IValidatable
+{
+    public string Id { get; set; } = "";
+
+    public string Name { get; set; } = "";
+
+    public string[] Colors { get; set; } = System.Array.Empty<string>();
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Id), Id);
+        v.NotEmpty(nameof(Name), Name);
+        foreach (string c in Colors)
+        {
+            if (!Godot.Color.HtmlIsValid(c))
+            {
+                v.Error(nameof(Colors), $"'{c}' is not a valid colour");
+            }
+        }
     }
 }
 
@@ -452,9 +515,16 @@ public sealed class ArcPreviewDef : IValidatable
 
 public sealed class AudioDef : IValidatable
 {
+    /// <summary>The sound families a surface can sound like (under a ball and under foot).</summary>
+    public static readonly string[] Families = { "stone", "metal", "wood", "glass", "ground", "gravel", "grass", "tarp", "inflatable", "rubber", "player" };
+
+    /// <summary>How many pooled 3D players play world sounds.</summary>
     public int Voices { get; set; }
 
     public int MaxSoundsPerFrame { get; set; }
+
+    /// <summary>How many variations of each one-shot effect are synthesised.</summary>
+    public int Variations { get; set; }
 
     public float Volume_db { get; set; }
 
@@ -465,14 +535,318 @@ public sealed class AudioDef : IValidatable
 
     public float MaxDistance_m { get; set; }
 
+    /// <summary>A sound is at full volume this close; beyond, it falls off with distance.</summary>
+    public float UnitSize_m { get; set; }
+
+    public FilterDef AirAbsorption { get; set; } = new();
+
+    public OcclusionDef Occlusion { get; set; } = new();
+
+    public BusVolumesDef Buses { get; set; } = new();
+
+    public MixDef Mix { get; set; } = new();
+
+    /// <summary>A footstep heard out to this radius plays at the mix's footstep level; 20 dB more for each tenfold.</summary>
+    public float StepReferenceRadius_m { get; set; }
+
+    /// <summary>What each surface (break_model.jsonc) sounds like: one of <see cref="Families"/>.</summary>
+    public Dictionary<string, string> Surfaces { get; set; } = new();
+
+    public ReverbDef Reverb { get; set; } = new();
+
+    public AmbienceDef Ambience { get; set; } = new();
+
+    /// <summary>The voices bots speak in, by character model.</summary>
+    public CastVoiceDef[] Cast { get; set; } = System.Array.Empty<CastVoiceDef>();
+
+    public string RefereeVoice { get; set; } = "";
+
+    /// <summary>A callout is at full volume this close.</summary>
+    public float CalloutUnitSize_m { get; set; }
+
+    /// <summary>How far a callout carries.</summary>
+    public float CalloutRange_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(Voices), Voices, 1, 128);
         v.InRange(nameof(MaxSoundsPerFrame), MaxSoundsPerFrame, 1, 128);
+        v.InRange(nameof(Variations), Variations, 1, 16);
         v.InRange(nameof(Volume_db), Volume_db, -60, 12);
         v.InRange(nameof(ShotPitchEmpty), ShotPitchEmpty, 0.25, 4);
         v.InRange(nameof(ShotPitchFull), ShotPitchFull, 0.25, 4);
         v.InRange(nameof(MaxDistance_m), MaxDistance_m, 1, 1000);
+        v.InRange(nameof(UnitSize_m), UnitSize_m, 0.1, 100);
+        AirAbsorption.Validate(v.Scope(nameof(AirAbsorption)));
+        Occlusion.Validate(v.Scope(nameof(Occlusion)));
+        Buses.Validate(v.Scope(nameof(Buses)));
+        Mix.Validate(v.Scope(nameof(Mix)));
+        v.InRange(nameof(StepReferenceRadius_m), StepReferenceRadius_m, 0.5, 100);
+        foreach ((string surface, string family) in Surfaces)
+        {
+            if (!Families.Contains(family))
+            {
+                v.Error(nameof(Surfaces), $"{surface}: '{family}' is not one of {string.Join(", ", Families)}");
+            }
+        }
+
+        Reverb.Validate(v.Scope(nameof(Reverb)));
+        Ambience.Validate(v.Scope(nameof(Ambience)));
+        for (int i = 0; i < Cast.Length; i++)
+        {
+            Cast[i].Validate(v.Item(nameof(Cast), i));
+        }
+
+        if (Cast.Select(c => c.Id).Append(RefereeVoice).Distinct().Count() != Cast.Length + 1)
+        {
+            v.Error(nameof(Cast), "every voice (and the referee's) needs its own id");
+        }
+
+        VoiceId(v, nameof(RefereeVoice), RefereeVoice);
+        v.InRange(nameof(CalloutUnitSize_m), CalloutUnitSize_m, 0.1, 100);
+        v.InRange(nameof(CalloutRange_m), CalloutRange_m, 1, 1000);
+    }
+
+    /// <summary>A voice id names a folder under art/voices: lower-case letters, digits and underscores.</summary>
+    public static void VoiceId(Validator v, string property, string id)
+    {
+        if (id.Length == 0 || !id.All(c => c is >= 'a' and <= 'z' or >= '0' and <= '9' or '_'))
+        {
+            v.Error(property, $"'{id}' isn't a voice id (lower-case letters, digits and underscores)");
+        }
+    }
+}
+
+/// <summary>A low-pass on distant or muffled sound: above <see cref="Cutoff_hz"/>, down by up to <see cref="Db"/>.</summary>
+public sealed class FilterDef : IValidatable
+{
+    public float Cutoff_hz { get; set; }
+
+    public float Db { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Cutoff_hz), Cutoff_hz, 100, 20500);
+        v.InRange(nameof(Db), Db, -80, 0);
+    }
+}
+
+/// <summary>A wall between you and a sound: this much quieter, and duller above <see cref="Cutoff_hz"/>.</summary>
+public sealed class OcclusionDef : IValidatable
+{
+    public float Volume_db { get; set; }
+
+    public float Cutoff_hz { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Volume_db), Volume_db, -60, 0);
+        v.InRange(nameof(Cutoff_hz), Cutoff_hz, 100, 20500);
+    }
+}
+
+/// <summary>The buses' default volumes, 0..1 (the settings start from these).</summary>
+public sealed class BusVolumesDef : IValidatable
+{
+    public float Master { get; set; }
+
+    public float Effects { get; set; }
+
+    public float Voices { get; set; }
+
+    public float Ambience { get; set; }
+
+    public float Menus { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Master), Master, 0, 1);
+        v.InRange(nameof(Effects), Effects, 0, 1);
+        v.InRange(nameof(Voices), Voices, 0, 1);
+        v.InRange(nameof(Ambience), Ambience, 0, 1);
+        v.InRange(nameof(Menus), Menus, 0, 1);
+    }
+}
+
+/// <summary>How loud each kind of sound plays (dB, added to the audio's volume).</summary>
+public sealed class MixDef : IValidatable
+{
+    public float Shot { get; set; }
+
+    public float RemoteShot { get; set; }
+
+    public float Loader { get; set; }
+
+    public float Gear { get; set; }
+
+    public float Break { get; set; }
+
+    public float Bounce { get; set; }
+
+    public float Footstep { get; set; }
+
+    public float OwnFootstep { get; set; }
+
+    public float Slide { get; set; }
+
+    public float Land { get; set; }
+
+    public float Door { get; set; }
+
+    public float Pickup { get; set; }
+
+    public float HitTaken { get; set; }
+
+    public float HitMarker { get; set; }
+
+    public float Objective { get; set; }
+
+    public float CaseBeep { get; set; }
+
+    public float Horn { get; set; }
+
+    public float Whistle { get; set; }
+
+    public float Callout { get; set; }
+
+    public float Referee { get; set; }
+
+    public float Menu { get; set; }
+
+    public void Validate(Validator v)
+    {
+        foreach (System.Reflection.PropertyInfo p in typeof(MixDef).GetProperties())
+        {
+            v.InRange(p.Name, (float)p.GetValue(this)!, -60, 12);
+        }
+    }
+}
+
+/// <summary>Reverb by where you are (Godot's reverb): outdoors, and indoors from a small room to a large hall.</summary>
+public sealed class ReverbDef : IValidatable
+{
+    public float Blend_s { get; set; }
+
+    public ReverbSettingDef Outdoor { get; set; } = new();
+
+    public float SmallRoom_m3 { get; set; }
+
+    public ReverbSettingDef Small { get; set; } = new();
+
+    public float LargeRoom_m3 { get; set; }
+
+    public ReverbSettingDef Large { get; set; } = new();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Blend_s), Blend_s, 0.01, 10);
+        Outdoor.Validate(v.Scope(nameof(Outdoor)));
+        v.InRange(nameof(SmallRoom_m3), SmallRoom_m3, 1, 1e6);
+        Small.Validate(v.Scope(nameof(Small)));
+        v.InRange(nameof(LargeRoom_m3), LargeRoom_m3, SmallRoom_m3 + 1, 1e7);
+        Large.Validate(v.Scope(nameof(Large)));
+    }
+}
+
+public sealed class ReverbSettingDef : IValidatable
+{
+    public float RoomSize { get; set; }
+
+    public float Damping { get; set; }
+
+    public float Wet { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(RoomSize), RoomSize, 0, 1);
+        v.InRange(nameof(Damping), Damping, 0, 1);
+        v.InRange(nameof(Wet), Wet, 0, 1);
+    }
+}
+
+/// <summary>The sound of the place: wind, traffic, each indoor area's tone, crows and trains (game/audio/Ambience.cs).</summary>
+public sealed class AmbienceDef : IValidatable
+{
+    /// <summary>The tones an area can have (levels' areas "tone"), by name, and how loud each plays (dB).</summary>
+    public static readonly string[] ToneNames = { "room", "hall", "drip", "pigeons", "draught", "cold", "hum" };
+
+    public float WindLull_db { get; set; }
+
+    public float WindGust_db { get; set; }
+
+    public float WindIndoor_db { get; set; }
+
+    public float IndoorCutoff_hz { get; set; }
+
+    public float Traffic_db { get; set; }
+
+    public Dictionary<string, float> Tones { get; set; } = new();
+
+    public float HallFrom_m3 { get; set; }
+
+    public float Fade_s { get; set; }
+
+    public float[] CrowEvery_s { get; set; } = System.Array.Empty<float>();
+
+    public float Crow_db { get; set; }
+
+    public float[] TrainEvery_s { get; set; } = System.Array.Empty<float>();
+
+    public float TrainDistance_m { get; set; }
+
+    public float Train_db { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(WindLull_db), WindLull_db, -80, 12);
+        v.InRange(nameof(WindGust_db), WindGust_db, WindLull_db, 12);
+        v.InRange(nameof(WindIndoor_db), WindIndoor_db, -80, 0);
+        v.InRange(nameof(IndoorCutoff_hz), IndoorCutoff_hz, 100, 20500);
+        v.InRange(nameof(Traffic_db), Traffic_db, -80, 12);
+        foreach ((string name, float db) in Tones)
+        {
+            if (!ToneNames.Contains(name))
+            {
+                v.Error(nameof(Tones), $"'{name}' is not one of {string.Join(", ", ToneNames)}");
+            }
+
+            v.InRange($"{nameof(Tones)}.{name}", db, -80, 12);
+        }
+
+        foreach (string name in ToneNames.Where(n => !Tones.ContainsKey(n)))
+        {
+            v.Error(nameof(Tones), $"needs a level for '{name}'");
+        }
+
+        v.InRange(nameof(HallFrom_m3), HallFrom_m3, 1, 1e6);
+        v.InRange(nameof(Fade_s), Fade_s, 0.05, 10);
+        Pair(v, nameof(CrowEvery_s), CrowEvery_s);
+        v.InRange(nameof(Crow_db), Crow_db, -80, 12);
+        Pair(v, nameof(TrainEvery_s), TrainEvery_s);
+        v.InRange(nameof(TrainDistance_m), TrainDistance_m, 10, 5000);
+        v.InRange(nameof(Train_db), Train_db, -80, 12);
+    }
+
+    private static void Pair(Validator v, string property, float[] value)
+    {
+        if (value.Length != 2 || value[0] <= 0 || value[1] < value[0])
+        {
+            v.Error(property, "needs [least, most] in seconds");
+        }
+    }
+}
+
+/// <summary>A voice bots can speak in: for which character model (presentation.jsonc characters.models, by index).</summary>
+public sealed class CastVoiceDef : IValidatable
+{
+    public string Id { get; set; } = "";
+
+    public int Model { get; set; }
+
+    public void Validate(Validator v)
+    {
+        AudioDef.VoiceId(v, nameof(Id), Id);
+        v.InRange(nameof(Model), Model, 0, 31);
     }
 }
 
@@ -510,6 +884,53 @@ public sealed class GraphicsDef : IValidatable
         }
 
         return Presets[0];
+    }
+
+    /// <summary>
+    /// The preset with the parts the settings change on their own laid over it: shadows (off, or another preset's
+    /// size and distance), ambient occlusion, glow, how thick the weeds grow, the sunbeams and the ground detail.
+    /// </summary>
+    public GraphicsPresetDef Effective(string name, GraphicsParts parts)
+    {
+        GraphicsPresetDef p = Find(name).Copy();
+        if (parts.Shadows is { } shadows)
+        {
+            p.Shadows = shadows != "off";
+            if (shadows != "off" && Presets.FirstOrDefault(other => other.Name == shadows) is { } quality)
+            {
+                p.ShadowSize = quality.ShadowSize;
+                p.ShadowDistance_m = quality.ShadowDistance_m;
+            }
+        }
+
+        if (parts.AmbientOcclusion is { } ao)
+        {
+            p.Ssao = ao;
+        }
+
+        if (parts.Glow is { } glow)
+        {
+            p.Glow = glow;
+        }
+
+        if (parts.Weeds is { } weeds)
+        {
+            p.WeedDensity = weeds;
+        }
+
+        if (parts.Sunbeams is { } beams)
+        {
+            // On: as strong as the strongest preset's (the preset itself may have none).
+            p.LightShafts = beams ? Math.Max(p.LightShafts, Presets.Max(other => other.LightShafts)) : 0f;
+            p.Dust &= beams;
+        }
+
+        if (parts.GroundDetail is { } ground)
+        {
+            p.GroundDetail = ground;
+        }
+
+        return p;
     }
 
     public void Validate(Validator v)
@@ -604,6 +1025,12 @@ public sealed class GraphicsPresetDef : IValidatable
 
     /// <summary>Unshadowed fill lights inside windows and doors, and warm bounce light where sun patches hit the floor.</summary>
     public bool WindowLights { get; set; }
+
+    /// <summary>Whether the sun casts shadows (on unless the settings turn them off).</summary>
+    [Optional]
+    public bool Shadows { get; set; } = true;
+
+    public GraphicsPresetDef Copy() => (GraphicsPresetDef)MemberwiseClone();
 
     public void Validate(Validator v)
     {
@@ -1121,6 +1548,16 @@ public sealed class InputActionDef : IValidatable
 {
     public string Name { get; set; } = "";
 
+    /// <summary>What the settings call it ("Move forward"); without one, its name with spaces.</summary>
+    [Optional]
+    public string Label { get; set; } = "";
+
+    /// <summary>Which list the settings show it in: "movement", "combat" or "shortcuts".</summary>
+    [Optional]
+    public string Group { get; set; } = "shortcuts";
+
+    public string Display => Label.Length > 0 ? Label : char.ToUpperInvariant(Name[0]) + Name[1..].Replace('_', ' ');
+
     /// <summary>Godot key names (physical, layout-independent), e.g. "W", "Shift", "F1".</summary>
     [Optional]
     public string[]? Keys { get; set; }
@@ -1144,7 +1581,30 @@ public sealed class InputActionDef : IValidatable
     {
         v.NotEmpty(nameof(Name), Name);
         v.InRange(nameof(Deadzone), Deadzone, 0, 0.95);
+        if (Group is not ("movement" or "combat" or "shortcuts"))
+        {
+            v.Error(nameof(Group), $"'{Group}' is not movement, combat or shortcuts");
+        }
+
+        // The settings show two keyboard-and-mouse bindings and one pad binding for each action.
+        if ((Keys?.Length ?? 0) + (Mouse?.Length ?? 0) > 2)
+        {
+            v.Error(nameof(Keys), "more than two keyboard and mouse bindings (the settings have room for two)");
+        }
+
+        if ((Buttons?.Length ?? 0) + (Axes?.Length ?? 0) > 1)
+        {
+            v.Error(nameof(Buttons), "more than one pad binding (the settings have room for one)");
+        }
     }
+
+    /// <summary>Its bindings as text (<see cref="Binding"/>): keys, then mouse buttons, then the pad's button or axis.</summary>
+    public IReadOnlyList<string> Bindings =>
+        (Keys ?? System.Array.Empty<string>()).Select(k => "key:" + k)
+        .Concat((Mouse ?? System.Array.Empty<string>()).Select(m => "mouse:" + m))
+        .Concat((Buttons ?? System.Array.Empty<string>()).Select(b => "pad:" + b))
+        .Concat((Axes ?? System.Array.Empty<string>()).Select(a => "axis:" + a))
+        .ToArray();
 }
 
 #pragma warning restore CA1707
@@ -1316,6 +1776,56 @@ public sealed class MaskSprayViewDef : IValidatable
 }
 
 /// <summary>The match HUD: top bar, kill feed, subtitles, pickup prompts, hit marker, callsigns and callouts.</summary>
+/// <summary>How the objectives look (presentation.jsonc "objectives"): the marker colour, the case, the ways out and the room.</summary>
+public sealed class ObjectivesViewDef : IValidatable
+{
+    public string Color { get; set; } = "";
+
+    public float[] CaseSize_m { get; set; } = System.Array.Empty<float>();
+
+    public string CaseColor { get; set; } = "";
+
+    public string CaseLightColor { get; set; } = "";
+
+    public float CaseLightRange_m { get; set; }
+
+    public float CaseLightBlink_s { get; set; }
+
+    public float BeamHeight_m { get; set; }
+
+    public float BeamRadius_m { get; set; }
+
+    public float BeamAlpha { get; set; }
+
+    public float RoomOutlineWidth_m { get; set; }
+
+    /// <summary>The HUD marks the case itself once you've seen it from within this; until then, its building.</summary>
+    public float SeenWithin_m { get; set; }
+
+    public float MarkerSize_px { get; set; }
+
+    public void Validate(Validator v)
+    {
+        foreach ((string key, string value) in new[] { (nameof(Color), Color), (nameof(CaseColor), CaseColor), (nameof(CaseLightColor), CaseLightColor) })
+        {
+            if (!Godot.Color.HtmlIsValid(value))
+            {
+                v.Error(key, $"'{value}' is not a valid colour");
+            }
+        }
+
+        v.Vector(nameof(CaseSize_m), CaseSize_m);
+        v.InRange(nameof(CaseLightRange_m), CaseLightRange_m, 0, 20);
+        v.InRange(nameof(CaseLightBlink_s), CaseLightBlink_s, 0.1, 10);
+        v.InRange(nameof(BeamHeight_m), BeamHeight_m, 1, 100);
+        v.InRange(nameof(BeamRadius_m), BeamRadius_m, 0.05, 5);
+        v.InRange(nameof(BeamAlpha), BeamAlpha, 0, 1);
+        v.InRange(nameof(RoomOutlineWidth_m), RoomOutlineWidth_m, 0.01, 1);
+        v.InRange(nameof(SeenWithin_m), SeenWithin_m, 1, 200);
+        v.InRange(nameof(MarkerSize_px), MarkerSize_px, 4, 64);
+    }
+}
+
 public sealed class HudDef : IValidatable
 {
     public float IconSize_px { get; set; }
@@ -1341,6 +1851,8 @@ public sealed class HudDef : IValidatable
 
     public CalloutsDef Callouts { get; set; } = new();
 
+    public RefereeDef Referee { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(IconSize_px), IconSize_px, 6, 64);
@@ -1362,6 +1874,60 @@ public sealed class HudDef : IValidatable
         }
 
         Callouts.Validate(v.Scope(nameof(Callouts)));
+        Referee.Validate(v.Scope(nameof(Referee)));
+        string[] lines = Callouts.All.Concat(Referee.All).ToArray();
+        foreach (IGrouping<string, string> clash in lines.GroupBy(Pb.Game.Audio.VoiceBank.Slug).Where(g => g.Distinct().Count() > 1))
+        {
+            v.Error(nameof(Callouts), $"lines {string.Join(" and ", clash.Distinct().Select(l => $"'{l}'"))} would share a voice file ({clash.Key})");
+        }
+
+        foreach (string line in lines.Where(l => Pb.Game.Audio.VoiceBank.Slug(l).Length == 0))
+        {
+            v.Error(nameof(Callouts), $"'{line}' has no words to name its voice file by");
+        }
+    }
+}
+
+/// <summary>What the referee calls, by occasion (one line is picked per call): subtitles, and the referee's voice.</summary>
+public sealed class RefereeDef : IValidatable
+{
+    public string[] Start { get; set; } = System.Array.Empty<string>();
+
+    public string[] OneMinute { get; set; } = System.Array.Empty<string>();
+
+    public string[] ThirtySeconds { get; set; } = System.Array.Empty<string>();
+
+    public string[] TimeUp { get; set; } = System.Array.Empty<string>();
+
+    public string[] YoureOut { get; set; } = System.Array.Empty<string>();
+
+    public string[] Won { get; set; } = System.Array.Empty<string>();
+
+    public string[] Lost { get; set; } = System.Array.Empty<string>();
+
+    public string[] LastStanding { get; set; } = System.Array.Empty<string>();
+
+    public string[] CaseOut { get; set; } = System.Array.Empty<string>();
+
+    public string[] RoomHeld { get; set; } = System.Array.Empty<string>();
+
+    public string[] RoomTaken { get; set; } = System.Array.Empty<string>();
+
+    public string[] RoomContested { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Every line, in order (the referee's script).</summary>
+    public IEnumerable<string> All => Start.Concat(OneMinute).Concat(ThirtySeconds).Concat(TimeUp).Concat(YoureOut).Concat(Won).Concat(Lost)
+        .Concat(LastStanding).Concat(CaseOut).Concat(RoomHeld).Concat(RoomTaken).Concat(RoomContested);
+
+    public void Validate(Validator v)
+    {
+        foreach (System.Reflection.PropertyInfo p in typeof(RefereeDef).GetProperties().Where(p => p.PropertyType == typeof(string[])))
+        {
+            if (((string[])p.GetValue(this)!).Length == 0)
+            {
+                v.Error(p.Name, "needs at least one line");
+            }
+        }
     }
 }
 
@@ -1378,6 +1944,26 @@ public sealed class CalloutsDef : IValidatable
 
     public string[] Hit { get; set; } = System.Array.Empty<string>();
 
+    public string[] Flanking { get; set; } = System.Array.Empty<string>();
+
+    public string[] Pushing { get; set; } = System.Array.Empty<string>();
+
+    public string[] Moving { get; set; } = System.Array.Empty<string>();
+
+    public string[] ManDown { get; set; } = System.Array.Empty<string>();
+
+    public string[] CaseTaken { get; set; } = System.Array.Empty<string>();
+
+    public string[] CaseDown { get; set; } = System.Array.Empty<string>();
+
+    public string[] CaseAlarm { get; set; } = System.Array.Empty<string>();
+
+    public string[] RoomAlarm { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Every line, in order (the bots' script).</summary>
+    public IEnumerable<string> All => Spotted.Concat(Lost).Concat(UnderFire).Concat(Refill).Concat(Hit).Concat(Flanking).Concat(Pushing)
+        .Concat(Moving).Concat(ManDown).Concat(CaseTaken).Concat(CaseDown).Concat(CaseAlarm).Concat(RoomAlarm);
+
     public string[] For(Pb.Sim.AI.CalloutKind kind) => kind switch
     {
         Pb.Sim.AI.CalloutKind.Spotted => Spotted,
@@ -1385,12 +1971,22 @@ public sealed class CalloutsDef : IValidatable
         Pb.Sim.AI.CalloutKind.UnderFire => UnderFire,
         Pb.Sim.AI.CalloutKind.Refill => Refill,
         Pb.Sim.AI.CalloutKind.Hit => Hit,
+        Pb.Sim.AI.CalloutKind.Flanking => Flanking,
+        Pb.Sim.AI.CalloutKind.Pushing => Pushing,
+        Pb.Sim.AI.CalloutKind.Moving => Moving,
+        Pb.Sim.AI.CalloutKind.ManDown => ManDown,
+        Pb.Sim.AI.CalloutKind.CaseTaken => CaseTaken,
+        Pb.Sim.AI.CalloutKind.CaseDown => CaseDown,
+        Pb.Sim.AI.CalloutKind.CaseAlarm => CaseAlarm,
+        Pb.Sim.AI.CalloutKind.RoomAlarm => RoomAlarm,
         _ => System.Array.Empty<string>(),
     };
 
     public void Validate(Validator v)
     {
-        foreach ((string name, string[] lines) in new[] { (nameof(Spotted), Spotted), (nameof(Lost), Lost), (nameof(UnderFire), UnderFire), (nameof(Refill), Refill), (nameof(Hit), Hit) })
+        foreach ((string name, string[] lines) in new[] { (nameof(Spotted), Spotted), (nameof(Lost), Lost), (nameof(UnderFire), UnderFire), (nameof(Refill), Refill), (nameof(Hit), Hit),
+                     (nameof(Flanking), Flanking), (nameof(Pushing), Pushing), (nameof(Moving), Moving), (nameof(ManDown), ManDown),
+                     (nameof(CaseTaken), CaseTaken), (nameof(CaseDown), CaseDown), (nameof(CaseAlarm), CaseAlarm), (nameof(RoomAlarm), RoomAlarm) })
         {
             if (lines.Length == 0)
             {
@@ -2717,11 +3313,8 @@ public sealed class CreepersDef : IValidatable
 /// </summary>
 public sealed class MenuBackdropDef : IValidatable
 {
-    public string Level { get; set; } = "";
-
-    public CameraPointDef From { get; set; } = new();
-
-    public CameraPointDef To { get; set; } = new();
+    /// <summary>A camera drift per level; the menu shows the newest level you've opened that has one (else the first).</summary>
+    public BackdropShotDef[] Shots { get; set; } = System.Array.Empty<BackdropShotDef>();
 
     public float Period_s { get; set; }
 
@@ -2729,14 +3322,41 @@ public sealed class MenuBackdropDef : IValidatable
 
     public float Shade { get; set; }
 
+    /// <summary>The shot for <paramref name="level"/>, else the first.</summary>
+    public BackdropShotDef ShotFor(string? level) => System.Array.Find(Shots, s => s.Level == level) ?? Shots[0];
+
+    public void Validate(Validator v)
+    {
+        if (Shots.Length == 0)
+        {
+            v.Error(nameof(Shots), "needs at least one shot");
+        }
+
+        for (int i = 0; i < Shots.Length; i++)
+        {
+            Shots[i].Validate(v.Item(nameof(Shots), i));
+        }
+
+        v.InRange(nameof(Period_s), Period_s, 5, 600);
+        v.InRange(nameof(Fov_deg), Fov_deg, 20, 120);
+        v.InRange(nameof(Shade), Shade, 0, 1);
+    }
+}
+
+/// <summary>Behind the menu: a level, and the camera drifting from one point to another and back.</summary>
+public sealed class BackdropShotDef : IValidatable
+{
+    public string Level { get; set; } = "";
+
+    public CameraPointDef From { get; set; } = new();
+
+    public CameraPointDef To { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Level), Level);
         From.Validate(v.Scope(nameof(From)));
         To.Validate(v.Scope(nameof(To)));
-        v.InRange(nameof(Period_s), Period_s, 5, 600);
-        v.InRange(nameof(Fov_deg), Fov_deg, 20, 120);
-        v.InRange(nameof(Shade), Shade, 0, 1);
     }
 }
 

@@ -1,0 +1,223 @@
+// Level 3: The Cold Store (working name), a refrigerated depot gone dark.
+// World frame: metres, x east, z south (north is −Z), y up. A concrete panel fence encloses x −50…50, z −40…40; you come
+// in at the gate in the south side, the breach in the east side or the hole in the west side.
+// Most of the fighting is inside the cold store (x −40…16, z −36…0), whose floor is 1.2 m up: two lorry trailers stand
+// backed onto its second and third dock doors, tunnels up from the yard; the first has a ramp; the fourth is a drop.
+// Outside: the lorry park, the plant room and the ammonia tanks in their compound (north-east), the depot office
+// (south-east), the gatehouse and the weighbridge (south-west).
+// Fence segments: 0 north (x −50→50, at_m = x + 50), 1 east (z −40→40, at_m = z + 40),
+// 2 south (x 50→−50, at_m = 50 − x), 3 west (z 40→−40, at_m = 40 − z).
+// The cold store's local frame is world + (40, 0, 36): its dock face is at world z 0.
+{
+  "id": "cold_store",
+  "displayName": "The Cold Store",
+  "description": "A refrigerated depot gone dark: chambers of racking off a long aisle behind heavy doors, a dock hall a lorry's height above the yard with trailers backed onto it that you can run through, and a plant room of dead compressors.",
+  "boundsMin_m": [-62, -2, -52],
+  "boundsMax_m": [62, 30, 52],
+  "groundMaterial": "asphalt_cracked",
+  "groundPatches": [
+    // Scrub outside the fence, and the strips behind and beside the store.
+    { "rect_m": [-62, -52, 62, -40.2], "material": "grass_dry" },
+    { "rect_m": [-62, 40.2, -31, 52], "material": "grass_dry" },
+    { "rect_m": [-21, 40.2, 62, 52], "material": "grass_dry" },
+    { "rect_m": [-62, -40.2, -50.2, 40.2], "material": "grass_dry" },
+    { "rect_m": [50.2, -40.2, 62, 40.2], "material": "grass_dry" },
+    { "rect_m": [-49.8, -39.8, 20, -36.4], "material": "gravel" },
+    { "rect_m": [-49.8, -36.4, -40.4, 0], "material": "gravel" },
+    // The tank compound's gravel, the dirt round the gatehouse, and the weighbridge's steel plate.
+    { "rect_m": [37, -37, 49, -21], "material": "gravel" },
+    { "rect_m": [-49.8, 26, -31, 39.8], "material": "dirt" },
+    { "rect_m": [-27.6, 14, -24.4, 30], "material": "steel_painted" }
+  ],
+  "playerSpawns": [
+    { "position_m": [-26, 0, 47], "yaw_deg": 0 },
+    { "position_m": [57, 0, 28], "yaw_deg": 90 },
+    { "position_m": [-57, 0, -18], "yaw_deg": -90 }
+  ],
+  "spawnArea": "the lorry park",
+  "deadZone_m": [-14, 0, 47],
+  "scenery": {
+    "powerLines": [ { "points_m": [[-480, 160], [-90, 150], [480, 175]], "spacing_m": 240, "height_m": 28, "material": "steel_galvanised", "wire": "steel_painted" } ],
+    "poleLines": [
+      { "points_m": [[-300, 50.5], [300, 50.5]], "spacing_m": 45, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" },
+      { "points_m": [[-26, 56], [-20, 200], [5, 420]], "spacing_m": 42, "height_m": 8.5, "material": "wood_planks", "wire": "steel_painted" }
+    ]
+  },
+  "markings": {
+    "color": "#dedbd0",
+    "lineWidth_m": 0.12,
+    // Lorry bays along the east side of the yard, the lines of the gate road and the weighbridge's ends.
+    "lines_m": [
+      [20, 28, 46, 28], [20, 28, 20, 38], [26.5, 28, 26.5, 38], [33, 28, 33, 38], [39.5, 28, 39.5, 38], [46, 28, 46, 38],
+      [-30, 36, -30, 39.5], [-22, 36, -22, 39.5], [-27.6, 13.8, -24.4, 13.8], [-27.6, 30.2, -24.4, 30.2]
+    ],
+    "stencils": [
+      { "text": "SLOW", "at_m": [-26, 0, 34], "size_m": 1.0 },
+      { "text": "WEIGH", "at_m": [-26, 0, 12.6], "size_m": 0.6 },
+      { "text": "NO IDLING", "at_m": [-2, 0, 20], "size_m": 0.6 }
+    ]
+  },
+  "buildings": [
+    { "building": "cold_store", "position_m": [-40, 0, -36] },
+    { "building": "plant_room", "position_m": [24, 0, -34] },
+    { "building": "depot_office", "position_m": [24, 0, 14] },
+    { "building": "gatehouse", "position_m": [-38, 0, 30] },
+    { "building": "weighbridge_hut", "position_m": [-22, 0, 21] }
+  ],
+  "walls": [
+    {
+      "baseElevation_m": 0, "height_m": 2.6,
+      "points_m": [[-50, -40], [50, -40], [50, 40], [-50, 40]], "closed": true,
+      "thickness_m": 0.2, "material": "concrete_wall",
+      // Concrete posts every panel, barbed wire leaning out, broken panels at the breaks (looks only).
+      "dressing": { "pierSpacing_m": 2.5, "pierSize_m": 0.3, "wire": "steel_rust", "rubble": true },
+      "openings": [
+        // The gate, the breach in the east side and the hole in the west side.
+        { "segment": 2, "at_m": 76, "width_m": 8.0, "kind": "gap" },
+        { "segment": 1, "at_m": 68, "width_m": 3.5, "kind": "gap" },
+        { "segment": 3, "at_m": 58, "width_m": 3.0, "kind": "gap" }
+      ]
+    },
+    // The tank compound's bund: a low wall round the ammonia tanks, open to the south.
+    {
+      "baseElevation_m": 0, "height_m": 0.9,
+      "points_m": [[39, -22], [38, -22], [38, -36], [48.5, -36], [48.5, -22], [44, -22]],
+      "thickness_m": 0.25, "material": "concrete_block"
+    }
+  ],
+  "props": [
+    // Trailers backed onto docks 2 and 3 (tunnels up into the dock hall), one parked in the yard, one by the gatehouse.
+    { "prop": "lorry_trailer", "position_m": [-18, 0, 7.05] },
+    { "prop": "lorry_trailer", "position_m": [-6, 0, 7.05] },
+    { "prop": "lorry_trailer", "position_m": [30, 0, 2], "yaw_deg": 90 },
+    { "prop": "lorry_trailer", "position_m": [-43, 0, 16], "yaw_deg": 4 },
+    // A cab left on the weighbridge, and another parked up by the bays.
+    { "prop": "lorry_cab", "position_m": [-26, 0, 23], "yaw_deg": 180 },
+    { "prop": "lorry_cab", "position_m": [43, 0, 33], "yaw_deg": 10 },
+
+    // The tank compound and the plant room's surroundings.
+    { "prop": "ammonia_tank", "position_m": [43.2, 0, -32.2], "yaw_deg": 90 },
+    { "prop": "ammonia_tank", "position_m": [43.2, 0, -27.6], "yaw_deg": 90 },
+    { "prop": "oil_drum_rust", "position_m": [39.4, 0, -24] },
+    { "prop": "cable_reel", "position_m": [21, 0, -27], "yaw_deg": 15 },
+    { "prop": "generator", "position_m": [37, 0, -20] },
+    { "prop": "skip_bin", "position_m": [21, 0, -10], "yaw_deg": 90 },
+
+    // Behind the store and down its west side.
+    { "prop": "pallet_stack", "position_m": [-30, 0, -38.3] },
+    { "prop": "pallet_stack_tall", "position_m": [-28.7, 0, -38.2], "yaw_deg": 6 },
+    { "prop": "roll_cage", "position_m": [-5, 0, -38.2], "yaw_deg": 80 },
+    { "prop": "roll_cage", "position_m": [-4.1, 0, -38.4], "yaw_deg": 95 },
+    { "prop": "container_blue", "position_m": [-45, 0, -30], "yaw_deg": 90 },
+    { "prop": "oil_drum", "position_m": [-43, 0, -6] },
+    { "prop": "oil_drum_tipped", "position_m": [-43.7, 0, -5.2], "yaw_deg": 70 },
+
+    // The lorry park.
+    { "prop": "container_red", "position_m": [6, 0, 28], "yaw_deg": 90 },
+    { "prop": "container_green", "position_m": [10, 0, 28.4], "yaw_deg": 92 },
+    { "prop": "concrete_barrier", "position_m": [-12, 0, 32], "yaw_deg": 90 },
+    { "prop": "concrete_barrier", "position_m": [-12, 0, 35.2], "yaw_deg": 90 },
+    { "prop": "skip_bin", "position_m": [14, 0, 10], "yaw_deg": 5 },
+    { "prop": "pallet_stack", "position_m": [2, 0, 12] },
+    { "prop": "pallet_stack_tall", "position_m": [3.3, 0, 12.2], "yaw_deg": 8 },
+    { "prop": "roll_cage", "position_m": [-12, 0, 8], "yaw_deg": 30 },
+    { "prop": "roll_cage", "position_m": [-11.1, 0, 8.6], "yaw_deg": 12 },
+    { "prop": "forklift", "position_m": [-31, 0, 9], "yaw_deg": 120 },
+    { "prop": "car_wreck", "position_m": [16, 0, 36], "yaw_deg": 80 },
+    { "prop": "tyre_stack", "position_m": [-2, 0, 36] },
+    { "prop": "tyre_stack", "position_m": [-1.2, 0, 36.6] },
+    { "prop": "crate_large", "position_m": [-8, 0, 22] },
+    { "prop": "crate_small", "position_m": [-6.7, 0, 22.3], "yaw_deg": 20 },
+    { "prop": "cable_reel", "position_m": [44, 0, 14], "yaw_deg": 40 },
+    // Cover between the east breach and the docks, so coming in there isn't a walk into the dock hall's sights.
+    { "prop": "container_red", "position_m": [45, 0, 6] },
+    { "prop": "concrete_barrier", "position_m": [40.5, 0, 11], "yaw_deg": 20 },
+    { "prop": "concrete_barrier", "position_m": [38.6, 0, 9.8], "yaw_deg": 35 },
+    { "prop": "pallet_stack", "position_m": [48.4, 0, 14.6] },
+    { "prop": "pallet_stack_tall", "position_m": [48.4, 0, 15.8], "yaw_deg": 90 },
+    { "prop": "scrap_pile", "position_m": [46, 0, 22], "yaw_deg": -20 },
+    { "prop": "sandbag_wall", "position_m": [-44, 0, 34], "yaw_deg": 90 },
+
+    // Outside the fence.
+    { "prop": "car_wreck", "position_m": [-38, 0, 46], "yaw_deg": 100 },
+    { "prop": "rubble_pile", "position_m": [55, 0, 20], "yaw_deg": 10 },
+    { "prop": "tyre_stack", "position_m": [-56, 0, -24] }
+  ],
+  "areas": [
+    { "name": "outside the fence", "rect_m": [-62, -52, 62, 52] },
+    { "name": "the lorry park", "rect_m": [-50, 0, 50, 40] },
+    { "name": "the docks", "rect_m": [-40, 0, 16, 17] },
+    { "name": "behind the cold store", "rect_m": [-50, -40, 22, -36] },
+    { "name": "the west side", "rect_m": [-50, -36, -40, 0] },
+    { "name": "the east side", "rect_m": [16, -36, 50, 0] },
+    { "name": "the tank compound", "rect_m": [38, -36, 48.5, -22] },
+    { "name": "the weighbridge", "rect_m": [-29, 13, -17, 31] },
+    { "name": "the lorry bays", "rect_m": [20, 28, 46, 38] }
+  ],
+  "opponentSpawns": [
+    { "id": "office_up", "position_m": [27.5, 3.2, 18.5], "yaw_deg": 60, "roles": ["marksman", "sentry"] },
+    { "id": "second_chamber", "position_m": [-19, 1.2, -30.5], "yaw_deg": 180, "roles": ["sentry", "flanker"] },
+    { "id": "fourth_chamber", "position_m": [9, 1.2, -32], "yaw_deg": 180, "roles": ["sentry"] },
+    { "id": "east_freezer", "position_m": [9, 1.2, -14.5], "yaw_deg": 0, "roles": ["sentry", "flanker"] },
+    { "id": "aisle", "position_m": [-10, 1.2, -22], "yaw_deg": 90, "roles": ["patroller", "flanker"], "patrol": "aisle" },
+    { "id": "dock_hall", "position_m": [-20, 1.2, -5], "yaw_deg": -90, "roles": ["patroller", "rusher"], "patrol": "dock_hall" },
+    { "id": "trailer", "position_m": [-18, 1.2, 4], "yaw_deg": 180, "roles": ["sentry", "rusher"] },
+    { "id": "plant_room", "position_m": [30, 0, -27], "yaw_deg": 180, "roles": ["sentry", "flanker"] },
+    { "id": "tanks", "position_m": [43, 0, -24], "yaw_deg": 0, "roles": ["patroller", "sentry"], "patrol": "east_side" },
+    { "id": "gatehouse", "position_m": [-35, 0, 32], "yaw_deg": 90, "roles": ["sentry"] },
+    { "id": "weighbridge", "position_m": [-20.5, 0, 26], "yaw_deg": 0, "roles": ["rusher", "sentry"] },
+    { "id": "lorry_park", "position_m": [0, 0, 22], "yaw_deg": 0, "roles": ["flanker", "rusher"] },
+    { "id": "behind_store", "position_m": [-20, 0, -38], "yaw_deg": 90, "roles": ["patroller", "flanker"], "patrol": "north_side" },
+    { "id": "parked_trailer", "position_m": [30, 1.2, 2], "yaw_deg": -90, "roles": ["flanker", "sentry"] },
+    { "id": "dock_ramp", "position_m": [-28, 1.2, 1.8], "yaw_deg": 180, "roles": ["sentry"] }
+  ],
+  // Routes keep 20 m and more from the ways in, so nobody walks past a gap just as you come through it.
+  "patrols": [
+    { "id": "aisle", "points_m": [[-34, 1.2, -22], [14, 1.2, -22]], "loop": false, "pause_s": 3 },
+    { "id": "dock_hall", "points_m": [[-37, 1.2, -4.5], [13, 1.2, -4.5]], "loop": false, "pause_s": 3 },
+    { "id": "north_side", "points_m": [[-44, 0, -38.2], [18, 0, -38.2]], "loop": false, "pause_s": 2 },
+    { "id": "east_side", "points_m": [[22, 0, -20], [36, 0, -20], [36, 0, 8], [22, 0, 8]], "pause_s": 2 },
+    { "id": "yard_loop", "points_m": [[-10, 0, 18], [16, 0, 18], [16, 0, 30], [-10, 0, 30]], "pause_s": 2 }
+  ],
+  "pickups": [
+    { "id": "pod_dock_hall", "kind": "pod", "position_m": [-36, 1.2, -2] },
+    { "id": "pod_plant_room", "kind": "pod", "position_m": [33, 0, -31] },
+    { "id": "pod_office", "kind": "pod", "position_m": [33, 3.2, 16] },
+    { "id": "pod_freezer", "kind": "pod", "position_m": [13, 1.2, -13] },
+    { "id": "pod_gatehouse", "kind": "pod", "position_m": [-33, 0, 33] },
+    { "id": "pod_trailer", "kind": "pod", "position_m": [-6, 1.2, 3] },
+    { "id": "air_weighbridge", "kind": "air", "position_m": [-17.5, 0, 22] },
+    { "id": "air_aisle", "kind": "air", "position_m": [-2, 1.2, -23.5] }
+  ],
+  // Camera positions for the briefing fly-over and screenshots (yaw 0 = north, positive turns left).
+  "viewpoints": [
+    { "name": "the gate", "position_m": [-26, 1.7, 45], "yaw_deg": 0, "pitch_deg": -2 },
+    { "name": "over the yard", "position_m": [40, 22, 36], "yaw_deg": 47, "pitch_deg": -18 },
+    { "name": "the docks", "position_m": [-1, 1.7, 23], "yaw_deg": 10, "pitch_deg": 4 },
+    { "name": "through a trailer", "position_m": [-6, 2.9, 13.0], "yaw_deg": 0, "pitch_deg": -3 },
+    { "name": "the dock hall", "position_m": [13, 2.9, -2.5], "yaw_deg": 95, "pitch_deg": 0 },
+    { "name": "down the aisle", "position_m": [14, 2.9, -22], "yaw_deg": 90, "pitch_deg": 0 },
+    { "name": "in a chamber", "position_m": [-5, 2.9, -25.5], "yaw_deg": 0, "pitch_deg": 6 },
+    { "name": "the plant room", "position_m": [25, 1.7, -25.5], "yaw_deg": -58, "pitch_deg": -3 },
+    { "name": "the tank compound", "position_m": [43, 1.7, -17], "yaw_deg": 0, "pitch_deg": 2 },
+    { "name": "from the office upstairs", "position_m": [27, 4.9, 19.6], "yaw_deg": 80, "pitch_deg": -6 }
+  ],
+  // Objectives (rules.jsonc "objectives"). Retrieve: the case starts at one of these spots; it goes out through the
+  // gate, the east breach or the west hole. Hold: one of these rooms each round.
+  "objectives": {
+    "caseSpots_m": [
+      [-39, 1.2, -25],   // the first chamber, by the door
+      [15, 1.2, -35],    // the fourth chamber, at the back
+      [15, 1.2, -11],    // the east freezer
+      [35, 0, -25.3],    // the plant room
+      [36.8, 3.2, 14.8], // the depot office, upstairs
+      [-37, 0, 33.2]     // the gatehouse
+    ],
+    "exits": [
+      { "name": "the gate", "at_m": [-26, 0, 44] },
+      { "name": "the east breach", "at_m": [55, 0, 28] },
+      { "name": "the west fence", "at_m": [-55, 0, -18] }
+    ],
+    "holdRooms": ["the second chamber", "the sixth chamber", "the plant room", "the depot office, upstairs"]
+  }
+}

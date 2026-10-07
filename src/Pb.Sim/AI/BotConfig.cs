@@ -23,6 +23,8 @@ public sealed class NavParams
     public required int MaxSearchNodes { get; init; }
 
     public required float HeuristicWeight { get; init; }
+
+    public required int Landmarks { get; init; }
 }
 
 /// <summary>How every bot thinks and acts (SI, angles in radians), from bots/brain.jsonc.</summary>
@@ -73,6 +75,44 @@ public sealed class BrainParams
 
     /// <summary>Hunting, how long they look around at each spot.</summary>
     public required float HuntLookAround { get; init; }
+
+    /// <summary>How far a contact shout carries to teammates (halved through walls).</summary>
+    public required float CalloutRange { get; init; }
+
+    public required float ContactError { get; init; }
+
+    public required float ShareInterval { get; init; }
+
+    /// <summary>How long a teammate's call is worth acting on.</summary>
+    public required float ContactMemory { get; init; }
+
+    /// <summary>Relocating means a spot at least this far from the one it leaves.</summary>
+    public required float RelocateDistance { get; init; }
+
+    /// <summary>A flanking spot is at least this far off the line between the enemy and the teammate who called them (rad).</summary>
+    public required float FlankMinAngle { get; init; }
+
+    /// <summary>An enemy facing within this of a flanker has noticed it (rad).</summary>
+    public required float NoticedAngle { get; init; }
+
+    /// <summary>A flanker at its spot looks out from it this long before it starts searching.</summary>
+    public required float FlankLook { get; init; }
+
+    /// <summary>Objectives: an escort keeps within this of the case's carrier.</summary>
+    public required float Escort { get; init; }
+
+    public required float GuardSpacing { get; init; }
+
+    public required float ExitGuardInset { get; init; }
+
+    public required int VantageRays { get; init; }
+
+    public required float VantageRange { get; init; }
+
+    /// <summary>The arc vantage rays cover (rad).</summary>
+    public required float VantageArc { get; init; }
+
+    public required float VantageHeightBonus { get; init; }
 }
 
 /// <summary>Sight, hearing and memory (SI, angles in radians), from bots/senses.jsonc.</summary>
@@ -141,6 +181,26 @@ public sealed class ArchetypeParams
     public required float SearchTime { get; init; }
 
     public required BotGait MoveGait { get; init; }
+
+    public float Vantage { get; init; }
+
+    public float OverwatchReach { get; init; } = 30f;
+
+    public bool SteadyShots { get; init; }
+
+    public float CloseRange { get; init; } = 10f;
+
+    public float PullScale { get; init; } = 1f;
+
+    public int RelocateAfterShots { get; init; }
+
+    public bool RelocateWhenShotAt { get; init; }
+
+    public bool FlankOnContact { get; init; }
+
+    public bool HoldFireWhileFlanking { get; init; }
+
+    public float StealthWithin { get; init; }
 }
 
 /// <summary>One difficulty tier (SI, angles in radians), from bots/difficulty.jsonc.</summary>
@@ -222,6 +282,21 @@ public sealed class BotConfig
             CalloutCooldown = brain.CalloutCooldown_s,
             HuntChoices = brain.HuntChoices,
             HuntLookAround = brain.HuntLookAround_s,
+            CalloutRange = brain.CalloutRange_m,
+            ContactError = brain.ContactError_m,
+            ShareInterval = brain.ShareInterval_s,
+            ContactMemory = brain.ContactMemory_s,
+            RelocateDistance = brain.RelocateDistance_m,
+            FlankMinAngle = brain.FlankMinAngle_deg * Units.DegreesToRadians,
+            NoticedAngle = brain.NoticedAngle_deg * Units.DegreesToRadians,
+            FlankLook = brain.FlankLook_s,
+            Escort = brain.Escort_m,
+            GuardSpacing = brain.GuardSpacing_m,
+            ExitGuardInset = brain.ExitGuardInset_m,
+            VantageRays = brain.VantageRays,
+            VantageRange = brain.VantageRange_m,
+            VantageArc = brain.VantageArc_deg * Units.DegreesToRadians,
+            VantageHeightBonus = brain.VantageHeightBonus_perM,
         },
         Navigation = new NavParams
         {
@@ -234,6 +309,7 @@ public sealed class BotConfig
             SearchesPerTick = nav.SearchesPerTick,
             MaxSearchNodes = nav.MaxSearchNodes,
             HeuristicWeight = nav.HeuristicWeight,
+            Landmarks = nav.Landmarks,
         },
         Senses = new SenseParams
         {
@@ -269,6 +345,16 @@ public sealed class BotConfig
             EngageRange = a.EngageRange_m,
             SearchTime = a.SearchTime_s,
             MoveGait = a.MoveGait,
+            Vantage = a.Vantage,
+            OverwatchReach = a.OverwatchReach_m,
+            SteadyShots = a.SteadyShots,
+            CloseRange = a.CloseRange_m,
+            PullScale = a.PullScale,
+            RelocateAfterShots = a.RelocateAfterShots,
+            RelocateWhenShotAt = a.RelocateWhenShotAt,
+            FlankOnContact = a.FlankOnContact,
+            HoldFireWhileFlanking = a.HoldFireWhileFlanking,
+            StealthWithin = a.StealthWithin_m,
         }, StringComparer.Ordinal),
         Difficulty = difficulty.Tiers.ToDictionary(t => t.Id, t => new DifficultyParams
         {

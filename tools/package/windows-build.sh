@@ -29,6 +29,15 @@ if [ ! -f "$out/Pb/Pb.exe" ] || [ ! -f "$out/Pb/Pb.pck" ] || grep -qE "^(SCRIPT 
   exit 1
 fi
 
+# game/Pb.csproj turns off two JIT features that crash the game on Windows x64; the export must carry that.
+runtimeconfig="$out/Pb/data_Pb_windows_x86_64/Pb.runtimeconfig.json"
+for key in System.Runtime.TieredPGO System.Runtime.TieredCompilation.QuickJitForLoops; do
+  if ! grep -qE "\"$key\": *false" "$runtimeconfig"; then
+    echo "::error::$runtimeconfig doesn't turn off $key (see game/Pb.csproj)"
+    exit 1
+  fi
+done
+
 # The game's own pack leaves the art out (export_presets.cfg excludes art/*): no imported art file in it.
 # (Its data files do name art paths, so look for the imported files themselves. grep -c reads it all:
 # grep -q would stop at the first match and, with pipefail, hide it.)

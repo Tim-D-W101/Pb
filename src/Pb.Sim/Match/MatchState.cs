@@ -24,6 +24,16 @@ public enum RoundOutcome : byte
     /// <summary>The last ones standing went out together (see <see cref="MatchRules.TradeCountsAsClear"/>).</summary>
     Traded,
     TimeUp,
+    /// <summary>Retrieve: your side carried the case out.</summary>
+    Extracted,
+    /// <summary>Hold: your side held the room for the hold time.</summary>
+    Held,
+}
+
+public static class RoundOutcomes
+{
+    /// <summary>The round was won from your side: the last one standing, or the objective done.</summary>
+    public static bool IsWin(this RoundOutcome outcome) => outcome is RoundOutcome.Cleared or RoundOutcome.Extracted or RoundOutcome.Held;
 }
 
 /// <summary>Round rules (SI), from rules.jsonc.</summary>
@@ -45,6 +55,12 @@ public sealed class MatchRules
     public required float AirPickupBelow { get; init; }
 
     public required SpawnRules Spawning { get; init; }
+
+    /// <summary>How doors are worked.</summary>
+    public required Level.DoorRules Doors { get; init; }
+
+    /// <summary>The objectives the menu offers and how each is played.</summary>
+    public required ObjectiveRules Objectives { get; init; }
 
     /// <summary>The mode with this id, or null.</summary>
     public GameMode? FindMode(string id)
@@ -119,6 +135,9 @@ public sealed class SpawnRules
 
     /// <summary>Teams: the other team starts within this distance of a spot on the far side from you.</summary>
     public required float TeamSpread { get; init; }
+
+    /// <summary>With an objective, you come in at least <see cref="MinDistanceFromYou"/> plus this from it.</summary>
+    public required float ObjectiveClearance { get; init; }
 }
 
 /// <summary>One round's settings: who the hero is and the mode, plus a difficulty tier from the ladder.</summary>
@@ -138,7 +157,11 @@ public sealed class MatchSetup
 
     public required bool Pickups { get; init; }
 
-    public static MatchSetup From(LadderTierDef tier, int heroId, MatchModeKind mode = MatchModeKind.Solo) => new()
+    /// <summary>How the round is won besides being the last team standing; your side attacks it, the others defend.</summary>
+    public ObjectiveKind Objective { get; init; } = ObjectiveKind.Eliminate;
+
+    public static MatchSetup From(LadderTierDef tier, int heroId, MatchModeKind mode = MatchModeKind.Solo,
+        ObjectiveKind objective = ObjectiveKind.Eliminate) => new()
     {
         HeroId = heroId,
         Mode = mode,
@@ -146,6 +169,7 @@ public sealed class MatchSetup
         StartPods = tier.StartPods,
         BotPods = tier.BotPods,
         Pickups = tier.Pickups,
+        Objective = mode == MatchModeKind.FreeForAll ? ObjectiveKind.Eliminate : objective,
     };
 }
 
@@ -246,11 +270,12 @@ public sealed class MatchState
     private readonly List<PlayerStats> _stats = new();
     private int _settleFrom = -1;
 
-    internal MatchState(MatchSetup setup, MatchRules rules, IMatchMode mode)
+    internal MatchState(MatchSetup setup, MatchRules rules, IMatchMode mode, ObjectiveState? objective = null)
     {
         Setup = setup;
         Rules = rules;
         Mode = mode;
+        Objective = objective;
     }
 
     public MatchSetup Setup { get; }
@@ -258,6 +283,9 @@ public sealed class MatchState
     public MatchRules Rules { get; }
 
     public IMatchMode Mode { get; }
+
+    /// <summary>The case or the room, when the round has an objective (null for eliminate).</summary>
+    public ObjectiveState? Objective { get; }
 
     public MatchPhase Phase { get; private set; } = MatchPhase.Briefing;
 
@@ -354,7 +382,8 @@ public sealed class MatchState
             }
         }
 
-        if (Elapsed >= Setup.TimeLimit)
+        Objective?.Update(sim, dt);
+        if (Elapsed >= Setup.TimeLimit && Objective is not { Done: true })
         {
             End(sim, RoundOutcome.TimeUp);
             return;
