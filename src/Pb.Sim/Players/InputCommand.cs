@@ -35,6 +35,12 @@ public struct InputCommand
 
     public float Pitch;
 
+    /// <summary>
+    /// Where the head looks, turned from <see cref="Yaw"/> (rad, positive to the left, at most movement's
+    /// maxHeadTurn): bots glance round and look ahead of a turn with it. A person's view is the aim, so theirs is 0.
+    /// </summary>
+    public float HeadYaw;
+
     public InputButtons Buttons;
 
     public readonly bool Has(InputButtons button) => (Buttons & button) != 0;

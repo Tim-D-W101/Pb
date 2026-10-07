@@ -1,5 +1,5 @@
-// How good the bots are (M2.5). Each tier of the level ladder (levels/ladder.jsonc) names one of
-// these with its "bots" key.
+// How good the bots are (M2.5). Each area's difficulty tiers (levels/areas.jsonc) name one of these
+// with their "bots" key.
 //   reactionTime_s      from spotting you to the first trigger pull
 //   aimError_deg        how far their aim wanders off the solution (a bounded random walk); it
 //                       settles to a third of this while they keep a still target in their sights

@@ -257,6 +257,7 @@ public class BotTests
         arena.PlaceHero(new Vector3(60f, 0f, 45f), new Vector3(60f, 0f, 40f)); // far out of the way
         IReadOnlyList<Vector3> route = bot.Route!.Points;
         var reached = new bool[route.Count];
+        float fastest = 0f;
         arena.Run(40 * Second, () =>
         {
             for (int i = 0; i < route.Count; i++)
@@ -264,11 +265,15 @@ public class BotTests
                 reached[i] |= Vector3.Distance(bot.Self.Position with { Y = 0f }, route[i] with { Y = 0f }) < 1.2f;
             }
 
+            fastest = MathF.Max(fastest, bot.Self.HorizontalSpeed);
             return false;
         });
-        _out.WriteLine($"reached {reached.Count(r => r)} of {route.Count} patrol points");
+        _out.WriteLine($"reached {reached.Count(r => r)} of {route.Count} patrol points, at up to {fastest:0.00} m/s");
         Assert.True(reached.Count(r => r) >= 2, "didn't get round its patrol");
         Assert.Equal(BotMode.Idle, bot.Mode);
+        // Patrols are a calm walk, not the brisk walking speed.
+        float stroll = TestData.Data.Bots.Brain.StrollPace * TestData.Config.Movement.WalkSpeed;
+        Assert.InRange(fastest, stroll * 0.8f, stroll + 0.05f);
     }
 
     [Fact]
@@ -391,7 +396,7 @@ public class BotTests
     public void A_bot_in_your_slot_plays_a_whole_round_to_the_end()
     {
         BotArena arena = BotArena.Create("normal");
-        string[] roster = TestData.Data.Ladder.Levels.First(l => l.Id == "oxbarrow_works").Roster!.Take(6).ToArray();
+        string[] roster = TestData.Data.Areas.Areas.First(l => l.Id == "oxbarrow_works").Roster.Take(6).ToArray();
         foreach (string spawn in roster)
         {
             arena.AddBot(spawn);
@@ -539,16 +544,14 @@ public class BotTests
         arena.Start();
         arena.PlaceHero(new Vector3(60f, 0f, 45f), new Vector3(60f, 0f, 40f));
         arena.Run(8 * Second); // warm up: paths planned, lists at size, JIT done
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        arena.Run(4 * Second);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.During(() => arena.Run(4 * Second));
         Assert.True(allocated == 0, $"{allocated} bytes allocated by 9 bots over 4 s");
     }
 
     [Fact]
     public void Tiers_must_name_a_bot_difficulty_and_spawns_a_behaviour()
     {
-        var badTier = new EditedDataSource(TestData.Source).Edit("levels/ladder.jsonc", t => t.Replace("\"bots\": \"easy\"", "\"bots\": \"brutal\""));
+        var badTier = new EditedDataSource(TestData.Source).Edit("levels/areas.jsonc", t => t.Replace("\"bots\": \"easy\"", "\"bots\": \"brutal\""));
         DataException tier = Assert.Throws<DataException>(() => GameData.Load(badTier));
         Assert.Contains("brutal", tier.Message);
 

@@ -56,7 +56,28 @@ public sealed class BrainParams
 
     public required float ScanPeriod { get; init; }
 
+    /// <summary>Sweeping a post, each look is held between these (s).</summary>
+    public required float ScanHoldMin { get; init; }
+
+    public required float ScanHoldMax { get; init; }
+
     public required float LookTurnSpeed { get; init; }
+
+    /// <summary>The head turns this fast (rad/s), ahead of the body.</summary>
+    public required float HeadTurnSpeed { get; init; }
+
+    /// <summary>With nothing going on, a glance round every so often (s), so far off the aim (rad), held so long (s).</summary>
+    public required float GlanceEveryMin { get; init; }
+
+    public required float GlanceEveryMax { get; init; }
+
+    public required float GlanceAngleMin { get; init; }
+
+    public required float GlanceAngleMax { get; init; }
+
+    public required float GlanceHoldMin { get; init; }
+
+    public required float GlanceHoldMax { get; init; }
 
     public required float RefillBelow { get; init; }
 
@@ -67,6 +88,9 @@ public sealed class BrainParams
     public required float AimTolerance { get; init; }
 
     public required float WalkOffTime { get; init; }
+
+    /// <summary>A stroll's share of the walking speed (patrols, going back to a post, walking off).</summary>
+    public required float StrollPace { get; init; }
 
     public required float CalloutCooldown { get; init; }
 
@@ -273,12 +297,22 @@ public sealed class BotConfig
             SearchHops = brain.SearchHops,
             ScanAngle = brain.ScanAngle_deg * Units.DegreesToRadians,
             ScanPeriod = brain.ScanPeriod_s,
+            ScanHoldMin = brain.ScanHoldMin_s,
+            ScanHoldMax = brain.ScanHoldMax_s,
             LookTurnSpeed = brain.LookTurnSpeed_degps * Units.DegreesToRadians,
+            HeadTurnSpeed = brain.HeadTurnSpeed_degps * Units.DegreesToRadians,
+            GlanceEveryMin = brain.GlanceEveryMin_s,
+            GlanceEveryMax = brain.GlanceEveryMax_s,
+            GlanceAngleMin = brain.GlanceAngleMin_deg * Units.DegreesToRadians,
+            GlanceAngleMax = brain.GlanceAngleMax_deg * Units.DegreesToRadians,
+            GlanceHoldMin = brain.GlanceHoldMin_s,
+            GlanceHoldMax = brain.GlanceHoldMax_s,
             RefillBelow = brain.RefillBelow,
             TeammateClearance = brain.TeammateClearance_m,
             AimSettleTime = brain.AimSettleTime_s,
             AimTolerance = brain.AimTolerance_deg * Units.DegreesToRadians,
             WalkOffTime = brain.WalkOffTime_s,
+            StrollPace = brain.StrollPace,
             CalloutCooldown = brain.CalloutCooldown_s,
             HuntChoices = brain.HuntChoices,
             HuntLookAround = brain.HuntLookAround_s,

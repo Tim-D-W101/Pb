@@ -20,7 +20,7 @@ public sealed class GameData
 {
     public const string DefaultSimFile = "sim.jsonc";
 
-    private GameData(SimConfig config, RangeLayout range, StressSettings stress, KitCatalog kit, LadderDef ladder,
+    private GameData(SimConfig config, RangeLayout range, StressSettings stress, KitCatalog kit, AreaListDef areas,
         IReadOnlyDictionary<string, LevelLayout> levels, BotConfig bots)
     {
         Config = config;
@@ -28,7 +28,7 @@ public sealed class GameData
         Range = range;
         Stress = stress;
         Kit = kit;
-        Ladder = ladder;
+        Areas = areas;
         Levels = levels;
     }
 
@@ -43,9 +43,10 @@ public sealed class GameData
 
     public KitCatalog Kit { get; }
 
-    public LadderDef Ladder { get; }
+    /// <summary>The areas to play in, every one open, in menu order.</summary>
+    public AreaListDef Areas { get; }
 
-    /// <summary>Every playable level in the ladder, built and validated at load (keyed by level id).</summary>
+    /// <summary>Every area's level, built and validated at load (keyed by level id), the whole of it; <see cref="LevelLayout.ForPlace"/> gives a round in one of its places.</summary>
     public IReadOnlyDictionary<string, LevelLayout> Levels { get; }
 
     public static GameData Load(IDataSource source, string simFile = DefaultSimFile)
@@ -168,27 +169,22 @@ public sealed class GameData
         }
 
         KitCatalog kit = KitCatalog.Load(source, files.Kit, surfaces);
-        LadderDef ladder = Jsonc.Load<LadderDef>(source, files.Ladder);
+        AreaListDef areas = Jsonc.Load<AreaListDef>(source, files.Areas);
         var levels = new Dictionary<string, LevelLayout>(StringComparer.Ordinal);
-        foreach (LadderLevelDef entry in ladder.Levels)
+        foreach (AreaEntryDef entry in areas.Areas)
         {
-            if (string.IsNullOrWhiteSpace(entry.File))
-            {
-                continue; // announced but not built yet
-            }
-
             LevelDef level = Jsonc.Load<LevelDef>(source, entry.File);
             if (level.Id != entry.Id)
             {
-                throw new DataException(files.Ladder, $"levels: entry '{entry.Id}' points at {entry.File}, whose id is '{level.Id}'");
+                throw new DataException(files.Areas, $"areas: entry '{entry.Id}' points at {entry.File}, whose id is '{level.Id}'");
             }
 
             LevelLayout built = LevelFactory.Build(level, entry.File, kit);
-            CheckTiers(entry, built, files.Ladder, bots);
+            CheckTiers(entry, built, files.Areas, bots);
             levels[entry.Id] = built;
         }
 
-        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, ladder, levels, bots);
+        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, areas, levels, bots);
     }
 
     public static ProjectileParams ToProjectile(ProjectileDef d) => new()
@@ -270,6 +266,7 @@ public sealed class GameData
         LeanInTime = d.LeanInTime_s,
         LeanReturnTime = d.LeanReturnTime_s,
         HeadRadius = d.HeadRadius_m,
+        MaxHeadTurn = d.MaxHeadTurn_deg * Units.DegreesToRadians,
         ShoulderSwapTime = d.ShoulderSwapTime_s,
         SlideMinSpeed = d.SlideMinSpeed_mps,
         SlideBoost = d.SlideBoost_mps,
@@ -303,7 +300,7 @@ public sealed class GameData
     /// Every role of every opponent spawn must name a bot behaviour, every spawn the level's roster lists
     /// must exist, and each tier's bot difficulty must exist.
     /// </summary>
-    private static void CheckTiers(LadderLevelDef entry, LevelLayout level, string ladderFile, BotConfig bots)
+    private static void CheckTiers(AreaEntryDef entry, LevelLayout level, string areasFile, BotConfig bots)
     {
         var spawns = level.OpponentSpawns.ToDictionary(s => s.Id, StringComparer.Ordinal);
 
@@ -314,27 +311,27 @@ public sealed class GameData
             {
                 if (!bots.Archetypes.ContainsKey(role))
                 {
-                    throw new DataException(entry.File!,
+                    throw new DataException(entry.File,
                         $"opponentSpawns.{spawn.Id}.roles: '{role}' is not a bot behaviour (known: {string.Join(", ", bots.Archetypes.Keys)})");
                 }
             }
         }
 
-        foreach (string id in entry.Roster ?? Array.Empty<string>())
+        foreach (string id in entry.Roster)
         {
             if (!spawns.ContainsKey(id))
             {
-                throw new DataException(ladderFile,
-                    $"levels.{entry.Id}.roster: '{id}' is not an opponent spawn in {entry.File} (known: {string.Join(", ", spawns.Keys)})");
+                throw new DataException(areasFile,
+                    $"areas.{entry.Id}.roster: '{id}' is not an opponent spawn in {entry.File} (known: {string.Join(", ", spawns.Keys)})");
             }
         }
 
-        foreach (LadderTierDef tier in entry.Tiers ?? Array.Empty<LadderTierDef>())
+        foreach (TierDef tier in entry.Tiers)
         {
             if (!bots.Difficulty.ContainsKey(tier.Bots))
             {
-                throw new DataException(ladderFile,
-                    $"levels.{entry.Id}.tiers.{tier.Id}.bots: unknown bot difficulty '{tier.Bots}' (known: {string.Join(", ", bots.Difficulty.Keys)})");
+                throw new DataException(areasFile,
+                    $"areas.{entry.Id}.tiers.{tier.Id}.bots: unknown bot difficulty '{tier.Bots}' (known: {string.Join(", ", bots.Difficulty.Keys)})");
             }
         }
     }
@@ -370,6 +367,10 @@ public sealed class GameData
             Tank = Box(d.Tank),
             EliminatedRaise = d.EliminatedRaise_m,
             EliminatedPitch = d.EliminatedPitch_deg * Units.DegreesToRadians,
+            TuckMax = d.TuckMax_deg * Units.DegreesToRadians,
+            TuckRate = d.TuckRate_degps * Units.DegreesToRadians,
+            TuckStep = d.TuckStep_deg * Units.DegreesToRadians,
+            TuckBarrelRadius = d.TuckBarrelRadius_m,
             LethalParts = lethal,
             BallsInFlightCount = d.BallsInFlightCount,
             MaskSprayRadius = d.MaskSprayRadius_m,

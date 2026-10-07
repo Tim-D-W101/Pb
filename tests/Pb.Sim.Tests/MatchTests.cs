@@ -188,7 +188,7 @@ public class MatchTests
     [Fact]
     public void Tiers_set_the_gear_and_the_roster_must_name_real_spawns()
     {
-        LadderTierDef hard = TestData.Data.Ladder.Levels.First(l => l.Id == "oxbarrow_works").Tiers!.First(t => t.Id == "hard");
+        TierDef hard = TestData.Data.Areas.Areas.First(l => l.Id == "oxbarrow_works").Tiers.First(t => t.Id == "hard");
         MatchSetup setup = MatchSetup.From(hard, heroId: 0);
         Assert.Equal(hard.TimeLimit_s, setup.TimeLimit);
 
@@ -198,10 +198,10 @@ public class MatchTests
         Assert.Equal(hard.BotPods * hero.Marker.Paint.Params.PodCapacity, opponents[0].Marker.Paint.PodsRemaining);
         Assert.Equal(hero.Marker.Paint.Params.Capacity, hero.Marker.Paint.Loader);
 
-        var edited = new EditedDataSource(TestData.Source).Edit("levels/ladder.jsonc", s => s.Replace("\"pump_house\", \"east_scrap\"", "\"pump_house\", \"nowhere\""));
+        var edited = new EditedDataSource(TestData.Source).Edit("levels/areas.jsonc", s => s.Replace("\"pump_house\", \"east_scrap\"", "\"pump_house\", \"nowhere\""));
         var ex = Assert.Throws<DataException>(() => GameData.Load(edited));
-        Assert.Contains("levels/ladder.jsonc", ex.Message);
-        Assert.Contains("levels.oxbarrow_works.roster", ex.Message);
+        Assert.Contains("levels/areas.jsonc", ex.Message);
+        Assert.Contains("areas.oxbarrow_works.roster", ex.Message);
         Assert.Contains("nowhere", ex.Message);
     }
 
@@ -355,9 +355,7 @@ public class MatchTests
         }
 
         StepTicks(0, 240);
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        StepTicks(240, 240);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, Allocations.During(() => StepTicks(240, 240)));
         Assert.Equal(MatchPhase.Live, sim.Match!.Phase);
     }
 
@@ -382,12 +380,9 @@ public class MatchTests
         }
 
         StepTicks(0, 240); // warm up
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        StepTicks(240, 240);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        Assert.Equal(20, sim.Match!.StatsFor(hero.Id)!.Shots); // 10 a second, under the marker's rate cap
 
-        Assert.Equal(0, allocated);
-        Assert.Equal(MatchPhase.Live, sim.Match!.Phase);
-        Assert.Equal(40, sim.Match.StatsFor(hero.Id)!.Shots); // 10 a second, under the marker's rate cap
+        Assert.Equal(0, Allocations.During(() => StepTicks(240, 240)));
+        Assert.Equal(MatchPhase.Live, sim.Match.Phase);
     }
 }

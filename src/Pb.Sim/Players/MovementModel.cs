@@ -53,6 +53,9 @@ public sealed class MovementParams
     /// <summary>Radius of the head sphere for the lean's wall check.</summary>
     public required float HeadRadius { get; init; }
 
+    /// <summary>The furthest the head turns either way from the aim (rad).</summary>
+    public required float MaxHeadTurn { get; init; }
+
     public required float ShoulderSwapTime { get; init; }
 
     public required float SlideMinSpeed { get; init; }

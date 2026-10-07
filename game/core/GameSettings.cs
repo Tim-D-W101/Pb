@@ -132,9 +132,6 @@ public sealed partial class GameSettings
     /// <summary>The HUD's size, as a share of the usual.</summary>
     public float HudScale { get; set; } = 1f;
 
-    /// <summary>Every level of the ladder shown open, whatever you've won (for testing; wins still open them for real).</summary>
-    public bool OpenAllLevels { get; set; }
-
     /// <summary>Which defaults these settings have caught up with (<see cref="CurrentVersion"/>).</summary>
     public int Version { get; set; }
 

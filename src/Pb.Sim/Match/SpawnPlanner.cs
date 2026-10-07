@@ -77,8 +77,10 @@ public static class SpawnPlanner
         RoundShape shape, float eyeHeight, ulong seed)
     {
         var rng = new Pcg32(SeedHash.Combine(seed, 0x5DA75));
-        SpawnPoint you = YourStart(level, rules, shape.Objective, ref rng);
-        var planner = new Planner(level, cover, world, rules, bots, shape, eyeHeight, you, rng);
+        // A part of the level (a place) starts everyone closer together, as its data says.
+        SpawnRules scaled = rules.Scaled(level.Place?.SpawnScale ?? 1f);
+        SpawnPoint you = YourStart(level, scaled, shape.Objective, ref rng);
+        var planner = new Planner(level, cover, world, scaled, bots, shape, eyeHeight, you, rng);
         return planner.Run();
     }
 
@@ -172,7 +174,8 @@ public static class SpawnPlanner
                     break;
             }
 
-            // A level too small to start everyone fairly still starts everyone.
+            // A level (or a place in one) too small to start everyone fairly still starts everyone: at the
+            // spawns, then at cover inside the spawn area, as far from you as can be.
             if (_opponents.Count < _shape.Opponents)
             {
                 var all = new List<Candidate>();
@@ -182,6 +185,17 @@ public static class SpawnPlanner
                 }
 
                 Fill(_opponents, _shape.Opponents, Shuffled(all), 0f, apartFromSight: false);
+                var cover = new List<Candidate>();
+                for (int i = 0; i < _cover.Points.Count; i++)
+                {
+                    if (Inside(_level.SpawnArea, _cover.Points[i].Position) && Vector3.Distance(_cover.Points[i].Position, _you.Position) >= _rules.TeammateSpacing)
+                    {
+                        cover.Add(new Candidate(_cover.Points[i].Position, null, i));
+                    }
+                }
+
+                cover.Sort((a, b) => Vector3.Distance(b.Position, _you.Position).CompareTo(Vector3.Distance(a.Position, _you.Position)));
+                Fill(_opponents, _shape.Opponents, cover, _rules.MinSpacing, apartFromSight: false);
             }
 
             if (_opponents.Count < _shape.Opponents || _teammates.Count < _shape.Teammates)

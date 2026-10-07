@@ -24,8 +24,9 @@ namespace Pb.Game.Core;
 /// presentation system to them, and runs the round (briefing card → live → summary). The level, mode,
 /// size and difficulty come from the menus (<see cref="GameSession"/>) or, run directly, from user args
 /// after "--":
-///   --level=ID            which level to load (default: the first playable one in the ladder); given to
-///                         the main scene, it skips the menu once (exported builds always start there)
+///   --level=ID            which area to load (default: the first in levels/areas.jsonc); given to the
+///                         main scene, it skips the menu once (exported builds always start there)
+///   --place=ID            where in it (its level's "places"; default: the first, the whole area)
 ///   --mode=ID             which mode (rules.jsonc "modes": solo, ffa, teams; default: the first)
 ///   --size=N              how many: opponents (solo), players (free-for-all) or players a side (teams);
 ///                         default: the mode's default size
@@ -39,10 +40,15 @@ namespace Pb.Game.Core;
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
 ///   --role-demo=ROLE      a Marksman ("marksman") or a Flanker ("flanker") at work, with the bot overlay
 ///   --bot-demo            bots fighting you from cover, seen from above with the F3 overlay, then through your eyes
-///   --gait-demo           an opponent walks, runs, sprints, strafes, backs off and walks crouched, seen from the side
+///   --gait-demo           an opponent walks, runs, sprints, pulls up, strafes, backs off, walks crouched and looks round
+///   --gait-only=NAME      with --gait-demo, only the moves whose names start with NAME (e.g. "look", "sprint")
+///   --cover-demo          an opponent tucks in behind low cover, stands to shoot over it and tucks in again, from the side
+///   --cover-at=X,Z        with --cover-demo, the low cover nearest that point (else the nearest out in the open)
+///   --place-stills=DIR    takes the menu's picture of each of the level's places into DIR (res://ui/places), then quits
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
 ///   --preset=NAME         uses that graphics preset instead of the saved one (for comparing their cost)
+///   --render-scale=S      draws the 3D view at this share of the screen's resolution instead of the saved one
 ///   --seed=N              deals round N's starts and randomness (rounds normally get a new random seed; scripted
 ///                         runs use the data's seed and, in solo, the level's roster, so they play out the same every time)
 ///   --random-spawns       deals random starts in a scripted solo run too (CI's bot match; other modes always do)
@@ -50,7 +56,6 @@ namespace Pb.Game.Core;
 ///   --fast                no cap on sim ticks a frame, so a low --fixed-fps runs the round in few frames (to film a
 ///                         whole bot match with --write-movie: --fixed-fps 1 is a second of the round a frame)
 ///   --show-summary        the bot match ends on its summary, up for three seconds (for a screenshot)
-///   --unlock-all          every level of the ladder open, whatever the profile says
 /// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
 /// them. In solo, bots play their spawn's behaviour; in free-for-all and teams, one dealt from the
 /// mode's chances. All play at the tier's difficulty; F3 shows what they're thinking.
@@ -61,8 +66,8 @@ public partial class LevelMain : Node3D, ISimEventListener
     private PresentationDef _view = null!;
     private GameSettings _settings = null!;
     private LevelLayout _level = null!;
-    private LadderLevelDef _entry = null!;
-    private LadderTierDef _tier = null!;
+    private AreaEntryDef _entry = null!;
+    private TierDef _tier = null!;
     private GameMode _mode = null!;
     private int _size;
     private ObjectiveChoice _objective = null!;
@@ -123,8 +128,6 @@ public partial class LevelMain : Node3D, ISimEventListener
     private bool _ready;
     /// <summary>A real round (not a scripted run or a tour): it goes in your records when it ends.</summary>
     private bool _counts;
-    /// <summary>The level this round opened, if it opened one (for the summary).</summary>
-    private string? _opened;
 
     /// <summary>True once you've been eliminated and the spectator view is showing.</summary>
     public bool Spectating => _spectator is not null;
@@ -148,7 +151,20 @@ public partial class LevelMain : Node3D, ISimEventListener
             _view = Jsonc.Load<PresentationDef>(source, PresentationDef.File);
             InputSetup.Apply(Jsonc.Load<InputDef>(source, InputDef.File));
             (_entry, _tier, _mode, _size, _objective) = PickRound(_data);
-            _level = _data.Levels[_entry.Id];
+            // The whole area, or the part of it chosen: walled in, with its own entries, starts, pickups and objectives.
+            LevelLayout area = _data.Levels[_entry.Id];
+            string? placeId = GameSession.LevelId is not null ? GameSession.PlaceId : Args.Value("--place");
+            if (placeId is not null && area.Places.All(p => p.Id != placeId))
+            {
+                throw new InvalidOperationException($"{area.DisplayName} has no place '{placeId}' (known: {string.Join(", ", area.Places.Select(p => p.Id))})");
+            }
+
+            _level = area.ForPlace(area.PlaceOf(placeId));
+            if (!_level.Objectives.Offers(_objective.Kind))
+            {
+                throw new InvalidOperationException($"{area.DisplayName}: {_level.Place?.DisplayName} has no places for {_objective.DisplayName}");
+            }
+
             _round = new RoundInfo(_level, _tier, _mode, _size, _objective);
         }
         catch (Exception ex) when (ex is DataException or InvalidOperationException)
@@ -176,9 +192,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool botDemo = Args.Has("--bot-demo");
         string? roleDemo = Args.Value("--role-demo");
         bool gaitDemo = Args.Has("--gait-demo");
+        bool coverDemo = Args.Has("--cover-demo");
         _botMatch = Args.Has("--bot-match");
-        _scripted = Args.Has("--shots") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    roleDemo is not null || gaitDemo || _botMatch || Args.Has("--objective-demo");
+        _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
+                    roleDemo is not null || gaitDemo || coverDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
         _counts = !_scripted && !roundTour;
 
@@ -196,9 +213,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         var navWatch = Stopwatch.StartNew();
         _squad = BotSquad.ForLevel(_sim, _data.Bots, _level);
         double navMs = navWatch.Elapsed.TotalMilliseconds;
-        // With an objective the opponents gather round it, so the starts are always dealt.
+        // With an objective the opponents gather round it, so the starts are always dealt; so they are in part of an area.
         ObjectiveFocus? focus = ObjectiveFocus.For(_objective.Kind, _level.Objectives, _data.Config.Rules.Objectives, seed);
-        _starts = !repeatable || Args.Has("--random-spawns") || _mode.Kind != MatchModeKind.Solo || focus is not null
+        _starts = !repeatable || Args.Has("--random-spawns") || _mode.Kind != MatchModeKind.Solo || focus is not null || _level.Place is { Whole: false }
             ? SpawnPlanner.Plan(_level, _squad.Cover, _sim.Collision, _data.Config.Rules.Spawning, _data.Bots,
                 RoundShape.Of(_mode, _size, focus), _data.Config.Movement.StandEyeHeight, seed)
             : null;
@@ -282,6 +299,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         var bags = new SnaggedBags { Name = "SnaggedBags" };
         AddChild(bags);
         bags.Build(_level, _world.Strands, _view.SnaggedBags, _view.GroundWind);
+        // Round a part of the area: tape wherever a walk could cross its edge.
+        var boundary = new PlaceBoundary { Name = "PlaceBoundary" };
+        AddChild(boundary);
+        boundary.Build(_level, _view.PlaceBoundary, _view.GroundWind);
         var tatters = new RoofTatters { Name = "RoofTatters" };
         AddChild(tatters);
         tatters.Build(_level, _view.RoofTatters, _view.GroundWind);
@@ -295,7 +316,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
-        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {paths.Count} worn paths ({paths.Length_m:0} m), {cracks.Count} cracks ({cracks.Length_m:0} m), {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {fittings.Count} manholes and drains, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {hangings.Count} things on the walls, {damp.Count} damp patches, {graffiti.Count} graffiti, {bags.Count} bags on the wire, {litter.Count} bits of litter blowing about, {tatters.Count} tatters under the roof holes, {_birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
+        GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {paths.Count} worn paths ({paths.Length_m:0} m), {cracks.Count} cracks ({cracks.Length_m:0} m), {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {fittings.Count} manholes and drains, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {hangings.Count} things on the walls, {damp.Count} damp patches, {graffiti.Count} graffiti, {bags.Count} bags on the wire, {boundary.Length_m:0} m of tape on {boundary.PostCount} posts round the place, {litter.Count} bits of litter blowing about, {tatters.Count} tatters under the roof holes, {_birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
                  $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);
@@ -427,6 +448,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             _hud.ShowHelp = false;
             _hud.ShowPerf = false;
         }
+        else if (Args.Value("--place-stills") is { Length: > 0 } stills)
+        {
+            var take = new PlaceStills { Name = "PlaceStills" };
+            AddChild(take);
+            take.Start(_data.Levels[_entry.Id], stills, _hud, _player.ViewModel, _pawns.Select(p => (Node3D)p), _view.Camera.FarClip_m);
+        }
         else if (Args.Has("--shots"))
         {
             var tour = new ViewpointTour { Name = "ViewpointTour" };
@@ -465,7 +492,15 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             var demo = new GaitDemo { Name = "GaitDemo" };
             AddChild(demo);
-            demo.Start(_sim, _pawns, _hud, _view.Camera.FarClip_m);
+            float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
+            demo.Start(_sim, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
+        }
+        else if (coverDemo)
+        {
+            var demo = new CoverDemo { Name = "CoverDemo" };
+            AddChild(demo);
+            float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
+            demo.Start(_sim, _squad, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
         }
         else if (botDemo)
         {
@@ -561,7 +596,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         var starts = new List<(OpponentSpawn Spawn, byte Team)>();
         if (_starts is null)
         {
-            string[] roster = _entry.Roster ?? Array.Empty<string>();
+            string[] roster = _entry.Roster;
             if (roster.Length < _size)
             {
                 throw new InvalidOperationException($"{_entry.Id}'s roster lists {roster.Length} spawns, not {_size}");
@@ -741,19 +776,14 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
     }
 
-    /// <summary>Adds the round to your records and saves them; a win may open the next level up the ladder.</summary>
+    /// <summary>Adds the round to your records (for where in the area it was played) and saves them.</summary>
     private void RecordRound()
     {
-        LadderProgress progress = Profile.Load(_data.Ladder, _settings);
+        RecordBook records = Profile.Load(_data.Areas);
         PlayerStats you = _match.StatsFor(_player.State.Id)!;
-        string? opened = progress.Add(new RoundResult(_entry.Id, _mode.Id, _tier.Id, _match.Outcome, _match.Elapsed, you.Shots, you.Hits,
-            you.Eliminations, LadderProgress.IdOf(_match.Setup.Objective)));
-        Profile.Save(progress);
-        if (opened is not null)
-        {
-            _opened = _data.Ladder.Levels.First(l => l.Id == opened).DisplayName;
-            GD.Print($"Ladder: {_opened} is open");
-        }
+        records.Add(new RoundResult(_entry.Id, _mode.Id, _tier.Id, _match.Outcome, _match.Elapsed, you.Shots, you.Hits,
+            you.Eliminations, RecordBook.IdOf(_match.Setup.Objective), _level.Place?.Id ?? RecordBook.WholeArea));
+        Profile.Save(records);
     }
 
     /// <summary>The bot match is over: report how it went, pass if nothing went wrong on the way.</summary>
@@ -813,7 +843,6 @@ public partial class LevelMain : Node3D, ISimEventListener
             Placing = _match.Placing(you.Id),
             Players = players.Count,
             Winner = winner?.Name,
-            Opened = _opened,
             ObjectiveLine = ObjectiveLine(),
             ObjectiveRow = ObjectiveRow(),
         };
@@ -1020,7 +1049,9 @@ public partial class LevelMain : Node3D, ISimEventListener
     private void ApplyGraphics(GraphicsPresetDef preset)
     {
         Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), preset);
-        Atmosphere.ApplyRenderScale(GetViewport(), _settings.RenderScale, _view.Graphics);
+        float scale = float.TryParse(Args.Value("--render-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
+            out float given) ? given : _settings.RenderScale;
+        Atmosphere.ApplyRenderScale(GetViewport(), scale, _view.Graphics);
         _weeds.ApplyPreset(preset);
         _groundDetail.Visible = preset.GroundDetail;
         if (_ripples is not null)
@@ -1074,20 +1105,20 @@ public partial class LevelMain : Node3D, ISimEventListener
     }
 
     /// <summary>
-    /// The menus' choice, else --level, --mode, --size and --tier, else the first playable level, the first
-    /// mode at its default size, on "normal" (or the level's first tier).
+    /// The menus' choice, else --level, --mode, --size and --tier, else the first area, the first mode at its
+    /// default size, on "normal" (or the area's first tier). The place in the area is picked separately.
     /// </summary>
-    private static (LadderLevelDef Entry, LadderTierDef Tier, GameMode Mode, int Size, ObjectiveChoice Objective) PickRound(GameData data)
+    private static (AreaEntryDef Entry, TierDef Tier, GameMode Mode, int Size, ObjectiveChoice Objective) PickRound(GameData data)
     {
         string? levelId = GameSession.LevelId ?? Args.Value("--level");
-        LadderLevelDef? entry = levelId is not null
-            ? data.Ladder.Levels.FirstOrDefault(l => l.Id == levelId && data.Levels.ContainsKey(l.Id))
-            : data.Ladder.Levels.FirstOrDefault(l => data.Levels.ContainsKey(l.Id));
+        AreaEntryDef? entry = levelId is not null
+            ? data.Areas.Areas.FirstOrDefault(l => l.Id == levelId)
+            : data.Areas.Areas.FirstOrDefault();
         if (entry is null)
         {
             throw new InvalidOperationException(levelId is null
-                ? "The ladder has no playable level."
-                : $"No playable level '{levelId}' (known: {string.Join(", ", data.Levels.Keys)})");
+                ? "No areas to play in."
+                : $"No area '{levelId}' (known: {string.Join(", ", data.Levels.Keys)})");
         }
 
         MatchRules rules = data.Config.Rules;
@@ -1105,9 +1136,9 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         // The objective: the menu's, or --objective; free-for-all is always eliminate.
         ObjectiveRules objectives = rules.Objectives;
-        string objectiveId = (GameSession.LevelId is not null ? GameSession.ObjectiveId : null) ?? Args.Value("--objective") ?? LadderProgress.Eliminate;
-        ObjectiveChoice objective = objectives.Kinds.FirstOrDefault(k => LadderProgress.IdOf(k.Kind) == objectiveId)
-            ?? throw new InvalidOperationException($"No objective '{objectiveId}' (known: {string.Join(", ", objectives.Kinds.Select(k => LadderProgress.IdOf(k.Kind)))})");
+        string objectiveId = (GameSession.LevelId is not null ? GameSession.ObjectiveId : null) ?? Args.Value("--objective") ?? RecordBook.Eliminate;
+        ObjectiveChoice objective = objectives.Kinds.FirstOrDefault(k => RecordBook.IdOf(k.Kind) == objectiveId)
+            ?? throw new InvalidOperationException($"No objective '{objectiveId}' (known: {string.Join(", ", objectives.Kinds.Select(k => RecordBook.IdOf(k.Kind)))})");
         if (mode.Kind == MatchModeKind.FreeForAll)
         {
             objective = objectives.Find(ObjectiveKind.Eliminate)!;
@@ -1117,7 +1148,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             throw new InvalidOperationException($"{entry.DisplayName} has no places for {objective.DisplayName}");
         }
 
-        LadderTierDef[] tiers = entry.Tiers!;
+        TierDef[] tiers = entry.Tiers;
         string tierId = GameSession.TierId ?? Args.Value("--tier") ?? "normal";
         return (entry, tiers.FirstOrDefault(t => t.Id == tierId) ?? tiers[0], mode, size, objective);
     }

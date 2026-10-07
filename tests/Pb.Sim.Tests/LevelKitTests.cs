@@ -198,6 +198,51 @@ public class LevelKitTests
     }
 
     [Fact]
+    public void NobodyWalksUnderOrIntoAFlightButItsRampStaysClear()
+    {
+        var sink = new PrimitiveSink();
+        KitGeometry.Stairs(sink, PlanFrame.Identity, new Vector2(0f, 0f), 0f, 1.2f, 4.8f, 3.2f, 16, 0f, Concrete, 0);
+        var walk = new CollisionWorld();
+        foreach (LevelPrimitive p in sink.Items.Where(p => p.Has(PrimitiveFlags.Walk)))
+        {
+            walk.Add(p.CreateShape(), default, "walk");
+        }
+
+        walk.Build();
+
+        // Under the top half of the flight there's headroom below the ramp, but the drawn steps are
+        // solid there: anywhere a body would stand on the floor under the flight is solid for walking.
+        foreach (float z in new[] { -2.5f, -3.5f, -4.4f })
+        {
+            foreach (float y in new[] { 0.3f, 0.9f, 1.5f })
+            {
+                Assert.True(walk.SweepSphere(new Vector3(0.4f, y, z), new Vector3(0.4f, y, z), 0f, out _), $"open under the flight at y = {y}, z = {z}");
+            }
+        }
+
+        // The ramp's surface stays clear: the solid under it stays just below, so it never catches a foot.
+        LevelPrimitive ramp = sink.Items.Where(p => p.Role == PrimitiveRole.Ramp).OrderByDescending(p => p.HalfExtents.Z).First();
+        Vector3 up = Vector3.Transform(Vector3.UnitY, ramp.Rotation);
+        Vector3 along = Vector3.Transform(-Vector3.UnitZ, ramp.Rotation);
+        Vector3 surface = ramp.Center + up * ramp.HalfExtents.Y;
+        var under = new CollisionWorld();
+        foreach (LevelPrimitive p in sink.Items.Where(p => p.Has(PrimitiveFlags.Walk) && p.Role == PrimitiveRole.Ramp && p.HalfExtents.Z < ramp.HalfExtents.Z))
+        {
+            under.Add(p.CreateShape(), default, "under");
+        }
+
+        under.Build();
+        for (float s = -ramp.HalfExtents.Z; s <= ramp.HalfExtents.Z; s += 0.05f)
+        {
+            foreach (float x in new[] { -0.55f, 0f, 0.55f })
+            {
+                Vector3 foot = surface + along * s + new Vector3(x, 0f, 0f) + up * 0.005f;
+                Assert.False(under.SweepSphere(foot, foot, 0f, out _), $"the solid under the flight pokes through the ramp {s:0.00} m along it");
+            }
+        }
+    }
+
+    [Fact]
     public void LevelOneBuildsWithEverySystemFed()
     {
         LevelLayout level = Level;

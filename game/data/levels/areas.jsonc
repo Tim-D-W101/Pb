@@ -1,0 +1,67 @@
+// The areas to play in, in menu order. Every area is open, and so is every place to play in it (its
+// level file's "places": the whole area, or one part of it with the round kept inside): nothing is
+// unlocked by playing another, so pick any area, any place, any mode, size and difficulty.
+// Each area has difficulty tiers. A tier sets how good the bots are and what everyone carries; never
+// how many there are (the mode and size are picked separately, see rules.jsonc "modes"):
+//   bots         how good every bot is, teammates and opponents alike (a tier in bots/difficulty.jsonc)
+//   timeLimit_s  how long the round lasts
+//   startPods    full pods you start with (the loader starts full); botPods the same for every bot
+//   pickups      whether the place's paint and air pickups are out
+// roster: the opponent spawns scripted solo runs over the whole area (smoke tests, demos) fill, in this
+// order, so they play out the same every time. Real rounds deal random starts (rules.jsonc "spawning").
+{
+  // The menu keeps your best result in each area, place, mode, objective and difficulty (records only:
+  // they unlock nothing). Accuracy only counts from rounds with at least this many shots.
+  "records": { "accuracyMinShots": 10 },
+
+  "areas": [
+    {
+      "id": "oxbarrow_works", "displayName": "Oxbarrow Works", "file": "levels/oxbarrow_works.jsonc",
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 900, "startPods": 3, "botPods": 1, "pickups": true },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 900, "startPods": 2, "botPods": 2, "pickups": true },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 720, "startPods": 1, "botPods": 3, "pickups": true }
+      ],
+      "roster": [
+        "guardhouse", "yard_containers", "yard_east", "office_corridor", "warehouse_floor", "warehouse_mezz_north",
+        "office_up_south", "warehouse_bays", "pump_house", "east_scrap"
+      ]
+    },
+    {
+      "id": "rail_yard", "displayName": "The Rail Yard", "file": "levels/rail_yard.jsonc",
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 840, "startPods": 2, "botPods": 1, "pickups": true },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 780, "startPods": 2, "botPods": 2, "pickups": true },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 660, "startPods": 1, "botPods": 3, "pickups": true }
+      ],
+      "roster": [
+        "yard_office", "north_lane", "signal_box_up", "goods_track", "shed_floor", "south_lane", "footbridge_deck",
+        "lamp_hut", "coal_stage", "west_end"
+      ]
+    },
+    {
+      "id": "cold_store", "displayName": "The Cold Store", "file": "levels/cold_store.jsonc",
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 780, "startPods": 2, "botPods": 1, "pickups": true },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 720, "startPods": 1, "botPods": 2, "pickups": true },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 600, "startPods": 1, "botPods": 3, "pickups": true }
+      ],
+      "roster": [
+        "dock_hall", "second_chamber", "office_up", "trailer", "aisle", "plant_room", "east_freezer", "gatehouse",
+        "fourth_chamber", "lorry_park"
+      ]
+    },
+    {
+      "id": "hospital_wing", "displayName": "The Hospital Wing", "file": "levels/hospital_wing.jsonc",
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 720, "startPods": 2, "botPods": 2, "pickups": true },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 660, "startPods": 1, "botPods": 2, "pickups": true },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 540, "startPods": 1, "botPods": 3, "pickups": true }
+      ],
+      "roster": [
+        "outpatients", "theatre", "womens_ward", "courtyard", "main_entrance", "east_stairs", "pharmacy", "sun_ward",
+        "boiler_house", "fallen_end"
+      ]
+    }
+  ]
+}

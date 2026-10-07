@@ -36,9 +36,7 @@ public partial class SettingsMenu : VBoxContainer
 
     /// <param name="graphicsChanged">Applies a change of preset, its parts or the render scale.</param>
     /// <param name="hudChanged">Applies a change to the crosshair or the HUD's size.</param>
-    /// <param name="extra">Adds anything more to the Accessibility tab (the main menu's "open every level").</param>
-    public void Build(GameSettings settings, PresentationDef view, Action<GameSettings>? graphicsChanged = null, Action<GameSettings>? hudChanged = null,
-        Action<VBoxContainer>? extra = null)
+    public void Build(GameSettings settings, PresentationDef view, Action<GameSettings>? graphicsChanged = null, Action<GameSettings>? hudChanged = null)
     {
         _settings = settings;
         _view = view;
@@ -52,11 +50,7 @@ public partial class SettingsMenu : VBoxContainer
         Tabs.AddChild(Page("Video", Video));
         Tabs.AddChild(Page("Audio", Audio));
         Tabs.AddChild(Page("Gameplay", Gameplay));
-        Tabs.AddChild(Page("Accessibility", page =>
-        {
-            Accessibility(page);
-            extra?.Invoke(page);
-        }));
+        Tabs.AddChild(Page("Accessibility", Accessibility));
     }
 
     private void Controls(VBoxContainer page)

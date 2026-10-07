@@ -76,6 +76,54 @@ public class HitboxTests
     }
 
     [Fact]
+    public void Up_against_a_wall_the_marker_comes_up_off_it_instead_of_poking_through()
+    {
+        (SimWorld sim, PlayerState player) = OnePlayer();
+        var open = new SimWorld(Config);
+        PlayerState alone = open.AddPlayer(1, 1, Vector3.Zero, 0f);
+
+        // A wall 0.37 m in front of the eye (where bots stand to take cover), facing it.
+        var wall = new BoxShape(new Vector3(0f, 1.5f, -0.37f - 0.15f), Quaternion.Identity, new Vector3(2f, 1.5f, 0.15f));
+        sim.Collision.Add(wall, Config.Surfaces.Get("concrete"), "wall");
+        sim.Collision.Build();
+
+        Vector3 Muzzle(SimWorld world, PlayerState p)
+        {
+            Span<PosedBox> parts = stackalloc PosedBox[HitboxRig.PartCount];
+            world.PlayerHits.PoseNow(p, parts);
+            foreach (PosedBox box in parts)
+            {
+                if (box.Part == HitboxPart.Marker)
+                {
+                    return box.Center - box.AxisZ * box.HalfExtents.Z;
+                }
+            }
+
+            throw new InvalidOperationException("no marker box");
+        }
+
+        bool InWall(Vector3 point) => wall.Sweep(point, Vector3.Zero, 0f, out _, out _);
+        Assert.True(InWall(Muzzle(sim, player)), "the shouldered marker should reach into the wall for this test");
+
+        var face = new InputCommand { Yaw = 0f, Pitch = 0f };
+        for (int i = 0; i < 60; i++)
+        {
+            face.Tick = sim.Tick;
+            sim.Step(new[] { face });
+            open.Step(new[] { face });
+        }
+
+        Assert.True(player.Tuck > 0.2f, $"tuck {player.Tuck:0.00} rad");
+        Assert.True(player.Tuck <= Config.Hitboxes.TuckMax + 1e-4f);
+        Assert.False(InWall(Muzzle(sim, player)), "the barrel still pokes through the wall");
+        Assert.True(Muzzle(sim, player).Y > Muzzle(open, alone).Y + 0.1f, "the marker comes up, not down");
+
+        // In the open nothing changes: the marker stays shouldered, along the aim.
+        Assert.Equal(0f, alone.Tuck);
+        Assert.Equal(HitboxPart.Marker, FromTheFront(open, 0.13f, 1.45f));
+    }
+
+    [Fact]
     public void A_break_on_a_player_eliminates_them_once_and_credits_the_shooter()
     {
         (SimWorld sim, PlayerState shooter, PlayerState victim) = Duel(distance: 10f);

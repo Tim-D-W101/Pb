@@ -28,12 +28,30 @@
   "searchRadius_m": 8,
   "searchHops": 3,
 
-  // Holding a post, they sweep their view this far either side of the post's facing, over this period.
+  // Holding a post (or a room, or pausing on a patrol), they sweep their view scanAngle_deg either side
+  // of its facing: a look one way, back to the middle, the other way and back, each held between
+  // scanHoldMin_s and scanHoldMax_s. A marksman watching from a vantage sweeps it slowly and smoothly,
+  // over 1.6 times scanPeriod_s.
   "scanAngle_deg": 35,
   "scanPeriod_s": 7,
+  "scanHoldMin_s": 1.2,
+  "scanHoldMax_s": 2.6,
 
-  // How fast they turn their head when not aiming (aiming uses the tier's turn speed).
+  // How fast they turn when not aiming (aiming uses the tier's turn speed).
   "lookTurnSpeed_degps": 120,
+
+  // The head turns ahead of the body, at headTurnSpeed_degps and up to movement.jsonc "maxHeadTurn_deg"
+  // off the aim, so they look at a noise or round a corner before the body comes round (and see where
+  // they look). With nothing going on (idle, on a post, on patrol, going back) they glance round every
+  // glanceEveryMin_s to glanceEveryMax_s: glanceAngleMin_deg to glanceAngleMax_deg off the aim, either
+  // way, held for glanceHoldMin_s to glanceHoldMax_s.
+  "headTurnSpeed_degps": 300,
+  "glanceEveryMin_s": 2.5,
+  "glanceEveryMax_s": 7,
+  "glanceAngleMin_deg": 20,
+  "glanceAngleMax_deg": 55,
+  "glanceHoldMin_s": 0.5,
+  "glanceHoldMax_s": 1.4,
 
   // They refill from a pod when the loader drops below this share of full and nobody's in sight.
   "refillBelow": 0.4,
@@ -48,6 +66,11 @@
 
   // Eliminated, they walk to the dead zone and leave the field, at the latest after this long.
   "walkOffTime_s": 25,
+
+  // Patrols, going back to a post and walking off after a hit are at a calm walk, this share of the
+  // walking speed (movement.jsonc "walkSpeed_mps": 0.55 of 3 m/s is about 1.65 m/s). Investigating,
+  // searching and hunting stay at the brisk walking speed.
+  "strollPace": 0.55,
 
   // They shout (spotted you, lost you, under fire, refilling, hit) at most this often; you see it
   // as a subtitle when you're close enough to hear (presentation.jsonc "hud").

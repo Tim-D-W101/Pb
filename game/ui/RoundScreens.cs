@@ -9,13 +9,19 @@ using Pb.Sim.Match;
 
 namespace Pb.Game.Ui;
 
-/// <summary>What a round is: the level, its difficulty tier, the mode, the size and the objective.</summary>
-public sealed record RoundInfo(LevelLayout Level, LadderTierDef Tier, GameMode Mode, int Size, ObjectiveChoice Objective)
+/// <summary>What a round is: the level (for the place in it), its difficulty tier, the mode, the size and the objective.</summary>
+public sealed record RoundInfo(LevelLayout Level, TierDef Tier, GameMode Mode, int Size, ObjectiveChoice Objective)
 {
     /// <summary>"Free-for-all · 8 players · Normal", "Teams · 3 v 3 · Retrieve · Hard".</summary>
     public string Line => Objective.Kind == ObjectiveKind.Eliminate
         ? $"{Mode.DisplayName} · {ModeText.Size(Mode, Size)} · {Tier.DisplayName}"
         : $"{Mode.DisplayName} · {ModeText.Size(Mode, Size)} · {Objective.DisplayName} · {Tier.DisplayName}";
+
+    /// <summary>The part of the area the round is in, or null for the whole of it.</summary>
+    public PlaceSpec? Place => Level.Place is { Whole: false } place ? place : null;
+
+    /// <summary>"Oxbarrow Works" or "Oxbarrow Works: the warehouse".</summary>
+    public string Where => Place is { } place ? $"{Level.DisplayName}: {place.DisplayName}" : Level.DisplayName;
 }
 
 /// <summary>How the round stands for the summary, worked out by the level from the sim.</summary>
@@ -44,9 +50,6 @@ public sealed record SummaryFacts
 
     public string? Winner { get; init; }
 
-    /// <summary>The level this round opened up the ladder, if it opened one.</summary>
-    public string? Opened { get; init; }
-
     /// <summary>How the objective went, in a sentence (for the headline's line), if the round had one.</summary>
     public string? ObjectiveLine { get; init; }
 
@@ -64,22 +67,30 @@ public static class RoundScreens
     /// </summary>
     public static Control Briefing(RoundInfo round, Action start, Action back, Control? map = null, ObjectiveState? objective = null)
     {
-        LadderTierDef tier = round.Tier;
+        TierDef tier = round.Tier;
         VBoxContainer column = UiKit.Column(12);
         column.AddChild(UiKit.Body("BRIEFING", 18, UiKit.Accent));
         column.AddChild(UiKit.Title(round.Level.DisplayName, 44));
+        if (round.Place is { } place)
+        {
+            column.AddChild(UiKit.Title(place.DisplayName, 30, UiKit.Accent));
+        }
+
         column.AddChild(UiKit.Body($"{round.Line} · {Clock(tier.TimeLimit_s)} on the clock", 22, UiKit.Dim));
-        Label description = UiKit.Body(round.Level.Description, 19, UiKit.Text, wrap: true);
+        Label description = UiKit.Body(round.Place?.Description ?? round.Level.Description, 19, UiKit.Text, wrap: true);
         description.CustomMinimumSize = new Vector2(720, 0);
         column.AddChild(description);
         column.AddChild(new HSeparator());
-        var lines = new List<string>(objective is null ? Goal(round.Mode) : Goal(round.Mode, objective))
+        var lines = new List<string>(objective is null ? Goal(round) : Goal(round.Mode, objective))
         {
             "One hit and you're out, them too. A bounce doesn't count.",
-            $"You start with a full loader and {tier.StartPods} pod{(tier.StartPods == 1 ? "" : "s")}. " +
-            (tier.Pickups ? "Paint pods and air are lying around the compound." : "There are no pickups."),
+            $"You start with a full loader and {tier.StartPods} pod{(tier.StartPods == 1 ? "" : "s")}. " + Pickups(round),
             "Crouch to move quietly, lean (Q/E) round corners, and swap shoulders (X) for left-hand edges.",
         };
+        if (round.Place is not null)
+        {
+            lines.Insert(lines.Count - 1, "The round stays inside the boundary tape: you can't walk out, but paint flies over it.");
+        }
         foreach (string line in lines)
         {
             Label l = UiKit.Body("·  " + line, 18, UiKit.Text, wrap: true);
@@ -111,7 +122,21 @@ public static class RoundScreens
         return overlay;
     }
 
-    private static string[] Goal(GameMode mode) => mode.Kind switch
+    /// <summary>What's lying around to pick up where the round is.</summary>
+    private static string Pickups(RoundInfo round)
+    {
+        bool pods = round.Tier.Pickups && round.Level.Pickups.Any(p => p.Kind == PickupKind.Pod);
+        bool air = round.Tier.Pickups && round.Level.Pickups.Any(p => p.Kind == PickupKind.Air);
+        return (pods, air) switch
+        {
+            (true, true) => "Paint pods and air are lying around.",
+            (true, false) => "Paint pods are lying around, but no air.",
+            (false, true) => "There's air lying around, but no paint pods.",
+            _ => "There are no pickups.",
+        };
+    }
+
+    private static string[] Goal(RoundInfo round) => round.Mode.Kind switch
     {
         MatchModeKind.FreeForAll => new[]
         {
@@ -123,7 +148,11 @@ public static class RoundScreens
             "Your team against theirs: the last team standing wins. Your teammates start beside you and wear your colour.",
             "A teammate's paint puts you out too, so watch your fire. When you're out you can watch your team play on.",
         },
-        _ => new[] { "Clear the compound: eliminate every opponent before the time runs out." },
+        _ => new[]
+        {
+            $"Clear {(round.Place is { } place ? char.ToLowerInvariant(place.DisplayName[0]) + place.DisplayName[1..] : "the compound")}: " +
+            "eliminate every opponent before the time runs out.",
+        },
     };
 
     /// <summary>What to do in a round with an objective, with where it is.</summary>
@@ -134,7 +163,7 @@ public static class RoundScreens
             : "";
         if (objective.Kind == ObjectiveKind.Retrieve)
         {
-            string ways = string.Join(", ", objective.Level.Exits.Select(e => e.Name));
+            string ways = string.Join(", ", objective.Level.Exits.Select(e => e.Name).Distinct());
             return new[]
             {
                 $"The case is somewhere in {ModeText.The(objective.Spot.Area)} (marked on your screen). Walk over it to pick it up and carry it out: {ways}.",
@@ -157,17 +186,11 @@ public static class RoundScreens
         (string title, Color colour, string line) = Verdict(round.Mode, match.Outcome, facts);
 
         VBoxContainer column = UiKit.Column(12);
-        column.AddChild(UiKit.Body($"{round.Level.DisplayName} · {round.Line}", 20, UiKit.Dim));
+        column.AddChild(UiKit.Body($"{round.Where} · {round.Line}", 20, UiKit.Dim));
         column.AddChild(UiKit.Title(title, 56, colour));
         Label said = UiKit.Body(line, 20, UiKit.Text, wrap: true);
         said.CustomMinimumSize = new Vector2(580, 0);
         column.AddChild(said);
-        if (facts.Opened is { } opened)
-        {
-            Label unlocked = UiKit.Body($"New level open: {opened}", 24, UiKit.Accent);
-            unlocked.Name = "Unlocked";
-            column.AddChild(unlocked);
-        }
 
         column.AddChild(new HSeparator());
 

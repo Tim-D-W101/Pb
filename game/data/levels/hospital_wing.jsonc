@@ -184,6 +184,56 @@
     { "id": "courtyard", "points_m": [[-27, 0, -12], [0, 0, -12], [0, 0, 9], [-27, 0, 9]], "pause_s": 2 },
     { "id": "car_park", "points_m": [[-20, 0, 23.5], [30, 0, 23.5]], "loop": false, "pause_s": 3 }
   ],
+  // Where in the hospital you can choose to play, every one open, in menu order: the whole of it, or one
+  // part, taped off all round (you can't walk out; paint flies over the tape). A part has its own ways
+  // in (yaw 0 faces north, positive turns left), a spot the eliminated walk off to, and starts closer
+  // together (rules.jsonc "spawning" scaled by spawnScale). Its opponent spawns, patrols, pickups and
+  // objectives are the level's that lie inside it; with no way out inside it, the case goes out the way
+  // you came in, and a part with no case spots or rooms to hold offers only last one standing.
+  // Its picture in the menu is taken from the viewpoint named in "still" (the first inside it if left out).
+  "places": [
+    {
+      "id": "whole", "displayName": "The whole hospital",
+      "still": "over the grounds",
+      "description": "Everything inside the fence: both wings on all three floors, the courtyard they look down on, the fallen end, the boiler house, the ambulance bay and the car park. You come in at the gate, the breach in the east fence or the gap in the west fence."
+    },
+    {
+      "id": "wings", "displayName": "The wings and the courtyard",
+      "still": "down the north corridor",
+      "description": "Both wings, all three floors of wards, corridors and stairwells, the operating theatre and the fallen end, round the overgrown courtyard. You come in from the courtyard's south side.",
+      "rect_m": [-50, -38, 8, 18],
+      "playerSpawns": [
+        { "position_m": [-13, 0, 16], "yaw_deg": 0 },
+        { "position_m": [6, 0, -14], "yaw_deg": 90 }
+      ],
+      "deadZone_m": [6, 0, 16],
+      "spawnScale": 0.5
+    },
+    {
+      "id": "courtyard", "displayName": "The courtyard",
+      "description": "Only the overgrown garden between the wings: benches, broken walls and a dry fountain, with every window of both wings looking down on it (the wings themselves are taped off).",
+      "rect_m": [-34, -22, 8, 18],
+      "playerSpawns": [
+        { "position_m": [-13, 0, 16], "yaw_deg": 0 },
+        { "position_m": [6, 0, -14], "yaw_deg": 90 }
+      ],
+      "deadZone_m": [6, 0, 16],
+      "spawnScale": 0.4
+    },
+    {
+      "id": "boiler_house", "displayName": "The boiler house and the ambulance bay",
+      "description": "The east of the grounds: the boiler house under its chimney, the ambulance bay's canopy, the rubble of the fallen end and the open ground beyond. You come in at the breach in the east fence.",
+      "rect_m": [8, -40, 65, 20],
+      "deadZone_m": [62, 0, 16],
+      "spawnScale": 0.6
+    },
+    {
+      "id": "car_park", "displayName": "The car park",
+      "description": "The long car park along the south fence, its burnt-out wrecks and the gatehouse: open ground and long shots. You come in at the gate or the gap in the west fence.",
+      "rect_m": [-65, 18, 55, 48],
+      "spawnScale": 0.6
+    }
+  ],
   "pickups": [
     { "id": "pod_theatre", "kind": "pod", "position_m": [-14, 3.4, -32.8] },
     { "id": "pod_fallen_end", "kind": "pod", "position_m": [2, 0, -33] },

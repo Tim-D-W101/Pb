@@ -179,6 +179,47 @@
     { "id": "east_side", "points_m": [[22, 0, -20], [36, 0, -20], [36, 0, 8], [22, 0, 8]], "pause_s": 2 },
     { "id": "yard_loop", "points_m": [[-10, 0, 18], [16, 0, 18], [16, 0, 30], [-10, 0, 30]], "pause_s": 2 }
   ],
+  // Where in the depot you can choose to play, every one open, in menu order: the whole of it, or one
+  // part, taped off all round (you can't walk out; paint flies over the tape). A part has its own ways
+  // in (yaw 0 faces north, positive turns left), a spot the eliminated walk off to, and starts closer
+  // together (rules.jsonc "spawning" scaled by spawnScale). Its opponent spawns, patrols, pickups and
+  // objectives are the level's that lie inside it; with no way out inside it, the case goes out the way
+  // you came in, and a part with no case spots or rooms to hold offers only last one standing.
+  // Its picture in the menu is taken from the viewpoint named in "still" (the first inside it if left out).
+  "places": [
+    {
+      "id": "whole", "displayName": "The whole depot",
+      "still": "over the yard",
+      "description": "Everything inside the fence: the cold store's chambers, aisle and dock hall, the trailers at the docks, the plant room and tank compound, the depot office, the weighbridge and the gatehouse. You come in at the gate, the breach in the east fence or the gap in the west fence."
+    },
+    {
+      "id": "store", "displayName": "Inside the cold store",
+      "still": "down the aisle",
+      "description": "Only the building: the dock hall a lorry's height above the yard, the long aisle, the chambers of racking behind their heavy doors and the blast freezers. Dark, close and quiet, so every door carries.",
+      "rect_m": [-40, -36, 16, 0],
+      "playerSpawns": [
+        { "position_m": [-34, 1.2, -4], "yaw_deg": -90 },
+        { "position_m": [11, 1.2, -4], "yaw_deg": 90 }
+      ],
+      "deadZone_m": [-38, 1.2, -2],
+      "spawnScale": 0.4
+    },
+    {
+      "id": "docks", "displayName": "The docks and the lorry park",
+      "still": "the docks",
+      "description": "In front of the store: the trailers backed onto the dock doors (the doors into the hall are taped off), the dock ramp, the lorry park, the weighbridge and the gatehouse. You come in at the gate.",
+      "rect_m": [-50, 0, 20, 48],
+      "spawnScale": 0.6
+    },
+    {
+      "id": "plant_room", "displayName": "The plant room and the depot office",
+      "still": "the plant room",
+      "description": "The east side of the depot: the plant room of dead compressors, the ammonia tanks in their compound, both floors of the depot office and the lorry bays. You come in at the breach in the east fence.",
+      "rect_m": [16, -40, 60, 40],
+      "deadZone_m": [57, 0, 36],
+      "spawnScale": 0.55
+    }
+  ],
   "pickups": [
     { "id": "pod_dock_hall", "kind": "pod", "position_m": [-36, 1.2, -2] },
     { "id": "pod_plant_room", "kind": "pod", "position_m": [33, 0, -31] },

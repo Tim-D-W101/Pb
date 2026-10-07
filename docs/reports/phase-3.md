@@ -1,27 +1,195 @@
-# Phase 3 report: the level ladder
+# Phase 3 report: open areas
 
-**Date:** 2026-10-05 · **PR:** [Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4), into `main`.
+**Date:** 2026-10-05, updated 2026-10-06 after your play-test ([below](#after-your-play-test-2026-10-06)) and with more
+life in the opponents ([M3.14](#more-life-in-the-opponents-m314)), and 2026-10-07 with the voices
+([below](#the-voices-2026-10-07)) · **PRs:**
+[Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4) into `main`, and the open areas stacked on it.
 **Status:** built and tested. Three things are left:
 
-- **your play-test** on your PC: the climb from Level 1 to Level 4, the new opponents, the sound, and 60 fps on Medium
-  with ten people in a round (see [Your check](#your-check));
-- **the voices**: everything for them is built and tested, but Higgsfield allows five generations a day. Those of
-  2026-10-05 had gone on the last Phase 2 art before Phase 3 began, and those of 2026-10-06 on the Phase 2 session's
-  own check-in (the four generated props and the crouched walk left over from Phase 2, in their own PR), as booked.
-  The seven takes (six callout voices and the referee) start with the generations of 2026-10-07. Higgsfield's refusal
-  says the five-a-day limit belongs to the account's grace period, so updating its plan would lift it. Until then the
-  callouts are subtitles, as in Phase 2, and the referee's calls are subtitles with the horn and whistles;
+- **your play-test** on your PC: every area and its places, the new opponents (now with M3.14's life in them), the
+  sound, and 60 fps on Medium with ten people in a round (see [Your check](#your-check));
+- **the last two voices**: five of the seven takes were recorded on 2026-10-07 ([below](#the-voices-2026-10-07)), and
+  Gideon's and Maeve's come with the generations of 2026-10-08, as Higgsfield allows five a day (its refusal says the
+  limit belongs to the account's grace period, so updating its plan would lift it). Until then the fifth and sixth bot
+  in a round, who get those two voices, show their callouts as subtitles only;
 - **the art for the new levels** (M3.10): three texture sheets (twelve materials) and up to four generated props, with
   the daily generations after the voices. Until then the new levels wear the 30 photographic materials where they fit
   and the shader's procedural look elsewhere (the hospital's hedges are plain green boxes).
 
 The plan, with every milestone's details, is [phase-3.md](../phase-3.md); the technical design is
-[architecture §15](../architecture.md#15-phase-3-the-level-ladder).
+[architecture §15](../architecture.md#15-phase-3-open-areas).
+
+## After your play-test (2026-10-06)
+
+You said the opponents looked glitchy, clipping through things, that you couldn't really make out their walk, and
+that the areas should all be open, each with places to choose from, not a ladder you climb by winning. This is what
+changed (M3.12 and M3.13 in the [revised plan](../phase-3.md), which also has what's next and waits on your OK).
+
+**Every area open, each with places.**
+
+- **No more ladder.** Oxbarrow Works, the Rail Yard, the Cold Store and the Hospital Wing are all open from the start,
+  in every mode, size, objective and difficulty. The unlock rule, Settings → "Open every level" and the summary's "new
+  level open" are gone. Your records stay, now kept for each place, and are only there to beat.
+- **Where to play** in the menu: the four areas along the top; under the one you pick, where in it (the whole of it
+  or a part, each with what's there), then the mode, size, objective, difficulty, your record there, and Start.
+- **The places:**
+
+  | Area | Places |
+  |---|---|
+  | Oxbarrow Works | the whole works · the warehouse · the office block · the yard · the east field |
+  | The Rail Yard | the whole yard · the engine shed · between the wagons · the signal box and the yard office · the goods shed |
+  | The Cold Store | the whole depot · inside the cold store · the docks and the lorry park · the plant room and the depot office |
+  | The Hospital Wing | the whole hospital · the wings and the courtyard · the courtyard · the boiler house and the ambulance bay · the car park |
+
+- **A round in a part stays inside it:** invisible walls on its edge (paint flies over them), red-and-white tape on
+  posts wherever you could walk across (doorways included); you come in at its own entries, everyone starts inside it
+  as far apart as it allows, and only its own pickups, case spots and rooms count. A part with no case spot or room to
+  hold offers last one standing only.
+- **The briefing** names the place, frames its map on it with the rest dimmed and the edge taped, and says what's
+  lying about there.
+
+**The opponents.**
+
+- **Planted steps** replace the movement clips for their legs: a foot stays where it lands until its next step,
+  whichever way they move, at any pace, turning on the spot or on stairs. The clips only covered walking forwards, so
+  strafing, backing off and turning slid, and at the walking pace they shuffled.
+- **Each pace looks like itself:** a stroll on patrol (1.65 m/s), a walk, a run on bent knees and a sprint, each with
+  its own cadence, stride, lift and bob. Standing, a shooter's stance; turning, steps round.
+- **Markers stay out of walls:** pressed up to a wall or a crate, the arms and marker come up off it, just far enough
+  to clear it, and the hitboxes with them.
+- **No walking through stairs:** an opponent (or you) could walk into a flight of stairs from underneath or the side.
+
+Measured with `-- --gait-demo` (one opponent seen from the side: how far a foot's ball moves while it's down, and how
+far an ankle ever falls short of where the steps put it):
+
+| Move | Foot movement while down | Worst ankle miss |
+|---|---|---|
+| Walk | 0.12 m/s | 0.0 cm |
+| Strafe right / left | 0.11 / 0.12 m/s | 0.0 cm |
+| Back off | 0.11 m/s | 3.6 cm |
+| Crouched walk | 0.07 m/s | 0.0 cm |
+| Sprint | 0.20 m/s | 2.6 cm |
+| Run | 0.76 m/s | 9.7 cm |
+
+Walking, most of that movement is the foot rolling from heel to toe. The run's figure comes from the demo's turn from a
+walk straight into a run: while the body picks up speed, a foot pushing off can still be pulled a few centimetres.
+
+![Where to play](phase-3/m3.12-1-where-to-play.jpg)
+*Where to play: the four areas along the top, then where in Oxbarrow Works (here the warehouse), the mode, size,
+objective and difficulty, and your record there.*
+
+![Where to play in the Hospital Wing](phase-3/m3.12-2-where-to-play-hospital-wing.jpg)
+*The Hospital Wing's places: the whole hospital, the wings and the courtyard, the courtyard alone, the boiler house and
+the ambulance bay, and the car park.*
+
+![The briefing for a hold inside the Cold Store](phase-3/m3.12-3-briefing-inside-the-cold-store.jpg)
+*A 3 v 3 hold inside the Cold Store: the map framed on the building, the room to hold marked, the edge taped.*
+
+![Tape round the engine shed](phase-3/m3.12-4-tape-round-the-engine-shed.jpg)
+*The Rail Yard's engine shed: tape across the tracks outside its doors, and along the south side, tied off at a wagon.*
+
+![Tape across the Cold Store's doors](phase-3/m3.12-5-tape-across-the-cold-store-doors.jpg)
+*Inside the Cold Store: a dock door and the east door taped off.*
+
+![Tape round the courtyard](phase-3/m3.12-6-tape-round-the-courtyard.jpg)
+*The Hospital Wing's courtyard, its open side taped.*
+
+![Tape round the warehouse](phase-3/m3.12-7-tape-round-the-warehouse.jpg)
+*Oxbarrow Works' warehouse: the east loading gap and the west and north doors taped off, and the gravel out front.*
+
+![Before: an opponent walking into the stairs](phase-3/m3.13-1-before-walking-into-the-stairs.jpg)
+*Before: an opponent walking into the warehouse stairs from the side and disappearing inside the flight.*
+
+![Walking, from the side](phase-3/m3.13-2-walking.jpg)
+*Walking (3 m/s), a frame every tenth of a second: each foot planted until it steps, the marker shouldered.*
+
+![Running, from the side](phase-3/m3.13-3-running.jpg)
+*Running (5.5 m/s): bent knees, long strides, and both feet off the ground between steps.*
+
+**How to get it:** this is a pull request stacked on Phase 3's ([Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4)):
+merge that one into `main`, then this one. CI publishes each run's build as the test build, so once this pull request's
+run has finished, `Play.bat` brings it the next time you start the game (until another pull request's run replaces it).
+
+**Known issues from this round:**
+
+- **No new clips:** Higgsfield's daily generation limit stopped them that day (no credits spent), and the planted
+  steps cover every move without them. The voices came the next day ([below](#the-voices-2026-10-07)).
+- **A place's edge is a rectangle,** so some parts take in a strip of a neighbour's ground (in Oxbarrow Works, the yard
+  and the warehouse share the gravel in front of the bays), and a few doors on an edge are taped shut.
+
+## More life in the opponents (M3.14)
+
+You said the plan was OK and to go ahead, so the opponents got the rest of what M3.14 planned:
+
+- **Looking round.** Standing about, they glance one way or the other every few seconds, and when something makes them
+  turn (a noise, a shout, the next corner) the head goes first and the body follows. Their eyes are where their head
+  looks, and the head and mask hitboxes turn with it, so what you see is still what you can hit; the marker stays on
+  the aim.
+- **On a post** they look one way, hold it, back to the middle, the other way, hold it, instead of a steady swing.
+- **Standing still** the weight goes from one foot to the other every few seconds, and they breathe, harder just after
+  a sprint.
+- **Pulling up from a run**, the last step comes down short and the other foot follows at once, while they dip into
+  their knees and tip on over their feet, then settle; no more feet catching up after the body has stopped.
+- **Hit**, the flinch, then the marker up over the head and the other hand up, and they walk off like that, with "Hit!"
+  over them (the voice comes with the recordings).
+- **Behind low cover** their knees go out to the sides and their feet back, and their elbows tuck in, instead of
+  sticking into the cover. Measured with `-- --cover-demo`: crouched at the low cover by Oxbarrow's guardhouse, the
+  knees went 12.8 cm into it and the elbows 6.0 cm; now neither does. Out in the open on the Rail Yard, 4.0 cm of knee
+  before, none now.
+- **Where to play** shows a picture of the place you pick under the list of places, from one of its viewpoints; what's
+  there now heads the right-hand column and Start sits beside your record, so the whole card fits on the screen.
+
+The hands-up walk-off and the refill were going to be generated clips (8 credits each); built on the poser they keep
+the planted steps and match the hitboxes, so no clips were bought. Everything is in the data (`presentation.jsonc`
+`characters` and `steps`, `brain.jsonc`, `movement.jsonc` → `maxHeadTurn_deg`), and six new sim tests cover the head:
+its hitboxes, its limit, that a bot sees where its head looks, glances when nothing's going on, looks at a noise before
+its body comes round, and sweeps a post a look at a time.
+
+![Pulling up from a sprint, before and after](phase-3/m3.14-1-pulling-up.jpg)
+*Pulling up from a sprint, a frame every tenth of a second: before (top) the body stops upright and the feet catch up;
+now (bottom) it dips into the knees and tips on, then settles.*
+
+![Looking round](phase-3/m3.14-2-looking-round.jpg)
+*Looking round: straight down the marker, a look towards you, back, a look away, back. The marker stays on the aim.*
+
+![Out: the marker up and a hand up](phase-3/m3.14-3-out.jpg)
+*Hit at 2 m: the ball breaks on the chest, the marker comes up over the head and the other hand goes up, and the walk
+off starts.*
+
+![Tucked in behind cover](phase-3/m3.14-4-tucked-in.jpg)
+*Tucked in behind an electrical cabinet in Oxbarrow Works (`-- --cover-demo`): crouched tight to it, the knee stops at
+its face and the marker is up off it; stood up, the marker goes over the top.*
+
+![Where to play with a picture of the place](phase-3/m3.14-5-where-to-play-with-a-picture.jpg)
+*Where to play: the place you pick, as you'd see it there, under the list; what's there at the head of the right-hand
+column, and Start beside your record.*
+
+## The voices (2026-10-07)
+
+Five of the seven voice takes are in: Knox and Reid for the first character model, Brooks for the stocky one, Petra for
+the third, and Alistair as the referee (Higgsfield's Seed Audio, one take of each whole script; 17.9 credits). Bots call
+out in their own voices, from where they stand, and the referee calls the round: "Game on!", the time, "Hit! You're
+out.", the result. Gideon's and Maeve's takes come with the next day's generations: a day allows five, and a sixth was
+refused.
+
+- **Every line listened to.** Each take was cut into its lines (the 39 callouts, or the referee's 16), and all 172 files
+  were run through a speech recogniser and compared with their script line (`tools/art/voice-check.py`, new). Two had
+  more in them than their words: Knox says "Where'd they go?" twice, and Reid says "Man down." again before "They got
+  one of us!". The importer now takes `--keep-first="LINE"` and `--keep-last="LINE"` for that, keeping just the one
+  part, cut at the pause between them, and the line's provenance record says so. Everything else says its words.
+- **No next word at the end of a line.** Knox runs some lines almost together (30 ms apart), and the 90 ms kept after a
+  line's last sound reached into the next line's first word. The cutter now never reaches past the cut either side;
+  CI's art self-test checks that and the new part-keeping on its made-up takes.
+- **In the game:** Oxbarrow's walk-through voices its callouts and the referee calls the round. The voices are 2.9 MB
+  in all; the Windows build packs each voice on its own (the referee's 16 lines are a 288 KB pack), so `Play.bat`
+  downloads each once.
+
+Each take's provenance (job, voice, script, download) is in `game/data/assets.jsonc`.
 
 ## What was built
 
 You asked to continue and build Phase 3, the level ladder from the roadmap you approved with Phase 2. All of it is in
-but the recordings and the art above.
+but the recordings and the art above. *(Since 2026-10-06 the ladder is open areas, each with places: see above.)*
 
 - **The ladder and the save** (M3.1). Four compounds of rising difficulty: Oxbarrow Works, then the Rail Yard, the Cold
   Store and the Hospital Wing. Winning any round on a level opens the next (the rule is data, in `levels/ladder.jsonc`,
@@ -85,16 +253,25 @@ but the recordings and the art above.
 | Marksman and Flanker behave as described | ✅ | Eight behaviour tests; the role demos below, which CI also runs on the Rail Yard and the Hospital Wing. |
 | Objectives: retrieve and hold can be won and lost by their rules | ✅ | Fifteen rule tests and four bot-round tests; CI's retrieve and hold bot matches on every level; HUD screenshots below. |
 | Doors open and close for you and the bots, stop paint and sight | ✅ | Fifteen door tests; each level's walk-through in CI shoots a door, opens it and walks through; screenshots below. |
-| Every event has its sound; callouts are voiced and come from the caller | ✅ sounds, ⏳ voices | The [sound list](#sound-list); the walk-throughs check that shots, breaks, steps and doors were heard and the referee called the round. Callouts play from the caller as soon as the takes are in; until then they're subtitles. |
+| Every event has its sound; callouts are voiced and come from the caller | ✅ sounds, ✅ five of seven voices | The [sound list](#sound-list); the walk-throughs check that shots, breaks, steps and doors were heard and the referee called the round, and Oxbarrow's now voices its callouts. Every recorded line checked by speech recognition ([The voices](#the-voices-2026-10-07)); Gideon's and Maeve's come on 2026-10-08. |
 | Every action rebindable on mouse, keyboard and pad; colourblind-safe colours | ✅, ⏳ your play | Nine settings tests; CI's menu check finds the five tabs and a slot for every binding (111); screenshots below. |
 | 10 people in one round at ≥ 60 fps on a GTX 1070-class GPU at Medium, on every level | ⏳ your PC | The sim's share stays within its budget on every level ([Performance](#performance)). |
 
 ### Tests
 
-`dotnet test` runs **304 sim tests** (191 at the end of Phase 2), all green. Against the plan's test table:
+`dotnet test` runs **381 sim tests** (304 when this report was first written, 191 at the end of Phase 2), all green.
+Against the plan's test table:
 
 - **Profile and unlocks:** as in the table above, plus the shipped ladder opening in order and a rule naming a tier a
-  level lacks failing to load.
+  level lacks failing to load. *(Since 2026-10-06 the record book's tests replace these: records by area, place, mode,
+  objective and difficulty, a ladder save loading, every area and place open, and no unlock key accepted.)*
+- **Places (M3.12):** every part of every area keeps only what lies inside it, reaches every spawn, case spot and room
+  inside from each entry and nothing outside, and starts every mode, size and objective inside it, apart and on
+  walkable ground; bad places are named by file and key; each has its own picture for the menu, from a viewpoint
+  inside it.
+- **The head (M3.14):** the head and mask hitboxes turn with it and the marker doesn't; the sim keeps it within 70°
+  and straightens it once out; a bot sees where its head looks, glances round when nothing's going on, looks at a
+  noise before its body comes round, and sweeps a post a look at a time.
 - **Doors:** leaves hang where the files say; a shut door stops paint and sight and an open one doesn't; a tap swings
   the door you face and nothing else, holding eases it open; a door stops rather than swing into someone; opening and
   shutting make a noise a bot hears; bots open shut doors on their way, doors swinging towards them and doors standing
@@ -157,9 +334,9 @@ fast.
 
 About ten minutes, on the latest test build (`Play.bat` updates it):
 
-1. **The climb.** With "Open every level" off (Settings → Accessibility), only the levels you've won your way to are
-   open: on a first run, just Oxbarrow Works. Win a round there (Solo, Easy, 3 opponents is quickest) and the summary
-   says the Rail Yard is open; quit and restart, and it's still open.
+1. **Where to play.** Every area is open on a first run. Pick one, then a part of it (the engine shed, say): the round
+   stays inside the tape. Play a round, and your record there shows under the difficulty when you come back; quit and
+   restart, and it's still there.
 2. **The frame rate.** On the Medium preset (F12 cycles them), with v-sync off (F8), start the **Hospital Wing** as a
    **Free-for-all** with **10 players** and press **F4** for the performance overlay. The target is **60 fps or more at
    1080p**. The Hospital Wing has the most to draw; the Rail Yard the longest views.
@@ -167,7 +344,8 @@ About ten minutes, on the latest test build (`Play.bat` updates it):
    Hospital Wing (Marksmen at the top-floor windows over the courtyard, Flankers in the stairwells). Press **F3** to see
    what they think.
 4. **The sound.** Shots across the yard, a door slamming in the next room, footsteps on metal stairs, wind outside and
-   the hum inside. (The voices aren't in yet.)
+   the hum inside, and the bots' callouts and the referee in their voices (five of the seven voices are in; the
+   last two come on 2026-10-08).
 5. **The settings.** Rebind something on the Controls tab and try a colourblind team colour set (Accessibility).
 
 If the frame rate is short, the levers are, in order: render scale (Video), then Medium's weeds and shadows. Please
@@ -191,24 +369,25 @@ writes them all out as WAV files.
 | Menus | click, hover, toggle, back, reward |
 | Ambience | wind; distant traffic; room tones (room, hall, dripping water, pigeons, draught, cold, hum); crows cawing and wings flapping; trains passing |
 
-The voices, once recorded: 39 callouts in each of six voices (two per character model), from "Contact!" and
-"Flanking!" to "They're in the room!", and the referee's 16 lines ("Game on!", "One minute left!", "Hit! You're out.",
-"Room held! Round over." and so on).
+The voices: 39 callouts in each of six voices (two per character model), from "Contact!" and "Flanking!" to "They're
+in the room!", and the referee's 16 lines ("Game on!", "One minute left!", "Hit! You're out.", "Room held! Round over."
+and so on). Five of the seven were recorded on 2026-10-07 ([The voices](#the-voices-2026-10-07)).
 
 ## Higgsfield spend
 
-None yet in Phase 3: 296.87 credits are left. The plan allows up to 150:
+17.9 credits so far in Phase 3, on 2026-10-07: five voice takes (3.9 for a take of the 39 callouts, 2.3 for the
+referee's 16 lines). 216.97 credits are left. The plan allows up to 150:
 
 | Item | Credits |
 |---|---|
-| Voices: seven takes of the scripts (about 4 each) | ≈ 25 |
+| Voices: seven takes of the scripts (17.9 spent on five, 7.8 to go) | ≈ 26 |
 | Three texture sheets (twelve materials) | ≈ 13 |
 | Up to four generated props (one picture of six, then Tripo H3.1 at 18 each) | ≈ 77 |
-| **Phase 3, to come** | **≈ 115** |
+| **Phase 3** | **≈ 116, 17.9 spent** |
 | Phase 2's leftovers (four props and the crouched walk), approved with Phase 2 and made on 2026-10-06 by its own check-in | 80 |
 
-At five generations a day, Phase 3's share is about three days of generations once Phase 2's are done: the voices
-first, then the texture sheets, then the props.
+At five generations a day, Phase 3's share is about three days of generations: five voices on 2026-10-07, the last
+two and the three texture sheets on 2026-10-08, then the props.
 
 ## Screenshots
 
@@ -337,8 +516,8 @@ teammate already in the fight).*
 
 - **The frame rate is unchecked on a real GPU.** Everything here was rendered in software; your check above is the one
   that counts. The Hospital Wing is the heaviest level to draw.
-- **No voices yet** (Higgsfield's daily limit): callouts are subtitles and the referee's lines are subtitles with the
-  horn and whistles, until the takes are imported.
+- **Two voices to come** (Higgsfield's daily limit): Gideon's and Maeve's takes are made on 2026-10-08; until then the
+  fifth and sixth bot in a round, who get those voices, show their callouts as subtitles only.
 - **The new levels' own materials and props aren't generated yet** (M3.10): they use the Phase 2 materials and the
   procedural look, and the hospital's hedges are plain boxes. The four Phase 2 props and the crouched walk come first,
   from the Phase 2 session.
@@ -370,12 +549,12 @@ From the [revised roadmap](../phase-2.md#revised-roadmap): up to ten players, co
 and player against player. The sim was kept ready for it: doors, objectives and the profile's choices all go through
 the same commands and events, and the bots send the same commands as players.
 
-Before that, over the next few days: the voices, then the new levels' materials and props, each pushed as it's
-imported, with this report updated.
+Before that, over the next few days: the last two voices, then the new levels' materials and props, each pushed as
+it's imported, with this report updated.
 
 **Useful from you:**
 
 - your frame rate and GPU, from the check above;
-- how the Marksmen and Flankers feel on each difficulty, and whether the climb's pace is right (the unlock rule can
-  ask for a win on Normal or harder);
+- how the Marksmen and Flankers feel on each difficulty, and whether the places are the right ones (each is a
+  rectangle in the level file, quick to move);
 - whether a fifth level is wanted before multiplayer.

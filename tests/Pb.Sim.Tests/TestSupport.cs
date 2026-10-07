@@ -37,6 +37,70 @@ internal static class TestData
     }
 }
 
+/// <summary>
+/// What the calling thread allocates while some code runs, for the tests that hot paths don't allocate. A garbage
+/// collection running alongside the measured code (another test's, or a background one still going) can move a thread's
+/// allocation count by the unused rest of its allocation context, a few bytes to a few KB it never allocated. So
+/// collections in progress are finished first and held off while the code runs, and a run a collection broke into anyway
+/// is measured again.
+/// </summary>
+internal static class Allocations
+{
+    /// <summary>What every test thread together may allocate while the code runs before a collection is let through.</summary>
+    private const long RegionBytes = 256L * 1024 * 1024;
+
+    private const int Attempts = 5;
+
+    /// <summary>One measurement at a time: the process has only one no-collection region.</summary>
+    private static readonly object Gate = new();
+
+    /// <summary>Bytes allocated on this thread by <paramref name="run"/> (called again if a collection disturbed it).</summary>
+    public static long During(Action run)
+    {
+        lock (Gate)
+        {
+            for (int attempt = 1; ; attempt++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+                bool held = GC.TryStartNoGCRegion(RegionBytes);
+                bool undisturbed;
+                long allocated;
+                try
+                {
+                    long before = GC.GetAllocatedBytesForCurrentThread();
+                    run();
+                    allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+                }
+                finally
+                {
+                    undisturbed = held && EndRegion();
+                }
+
+                if (undisturbed || allocated == 0 || attempt == Attempts)
+                {
+                    return allocated;
+                }
+            }
+        }
+    }
+
+    /// <returns>false if a collection ended the region early (the others allocated more than it holds).</returns>
+    private static bool EndRegion()
+    {
+        try
+        {
+            GC.EndNoGCRegion();
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+}
+
 /// <summary>A data source that serves edited copies of real files, for validation tests.</summary>
 internal sealed class EditedDataSource : IDataSource
 {

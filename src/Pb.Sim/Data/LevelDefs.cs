@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Pb.Sim.Data;
 
 // Data-file definitions for the level kit (kit/*.jsonc), buildings (kit/buildings/*.jsonc), levels
-// (levels/*.jsonc) and the level ladder. Plan coordinates are [x, z] pairs in metres: x east, z south
+// (levels/*.jsonc) and the areas to play in (levels/areas.jsonc). Plan coordinates are [x, z] pairs in metres: x east, z south
 // (north is −Z, the direction yaw 0 faces). Rectangles are [x0, z0, x1, z1].
 #pragma warning disable CA1707 // Identifiers should not contain underscores: the suffix is the unit.
 
@@ -1145,6 +1145,12 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public TrackDef[]? Tracks { get; set; }
 
+    /// <summary>
+    /// Where in the level you can choose to play, in menu order: the whole of it (a place without a rect),
+    /// or a part, with the round kept inside it. Every place is open.
+    /// </summary>
+    public PlaceDef[] Places { get; set; } = Array.Empty<PlaceDef>();
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
@@ -1152,6 +1158,17 @@ public sealed class LevelDef : IValidatable
         Objectives?.Validate(v.Scope(nameof(Objectives)));
         LevelDefChecks.Items(v, nameof(Tracks), Tracks);
         LevelDefChecks.Items(v, nameof(Viewpoints), Viewpoints);
+        if (Places.Length == 0 || Places[0].Rect_m is not null || Places[0].Id != "whole")
+        {
+            v.Error(nameof(Places), "must start with the whole level: a place called \"whole\" without a rect (your records keep it by that name)");
+        }
+
+        if (Places.Skip(1).Any(p => p.Rect_m is null))
+        {
+            v.Error(nameof(Places), "only the first place, the whole level, goes without a rect");
+        }
+
+        LevelDefChecks.UniqueIds(v, nameof(Places), Places, p => p.Id);
         Scenery?.Validate(v.Scope(nameof(Scenery)));
         Markings?.Validate(v.Scope(nameof(Markings)));
         v.Vector(nameof(BoundsMin_m), BoundsMin_m);
@@ -1247,7 +1264,63 @@ public sealed class BuildingPlacementDef : IValidatable
     }
 }
 
-/// <summary>A place an opponent can start. The ladder decides how many spawns are used per difficulty.</summary>
+/// <summary>
+/// One place to play in a level: the whole of it, or the part inside <see cref="Rect_m"/> (x0, z0, x1, z1),
+/// with invisible walls round it and the round's starts, patrols, pickups and walking off kept inside.
+/// </summary>
+public sealed class PlaceDef : IValidatable
+{
+    public string Id { get; set; } = "";
+
+    public string DisplayName { get; set; } = "";
+
+    public string Description { get; set; } = "";
+
+    /// <summary>The play area on the plan; omitted for the whole level.</summary>
+    [Optional]
+    public float[]? Rect_m { get; set; }
+
+    /// <summary>Where you come in (one at random each round); omitted for the level's own entries inside the rect.</summary>
+    [Optional]
+    public SpawnDef[]? PlayerSpawns { get; set; }
+
+    /// <summary>Where the eliminated walk off to; omitted for the level's.</summary>
+    [Optional]
+    public float[]? DeadZone_m { get; set; }
+
+    /// <summary>The starts' distances (rules.jsonc "spawning") are scaled by this here: a smaller place, closer starts (1 if left out).</summary>
+    [Optional]
+    public float SpawnScale { get; set; } = 1f;
+
+    /// <summary>The viewpoint (by name) its picture in the menu is taken from; the first inside it if left out.</summary>
+    [Optional]
+    public string? Still { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Id), Id);
+        v.NotEmpty(nameof(DisplayName), DisplayName);
+        v.NotEmpty(nameof(Description), Description);
+        if (Rect_m is not null && (Rect_m.Length != 4 || Rect_m[2] <= Rect_m[0] || Rect_m[3] <= Rect_m[1]))
+        {
+            v.Error(nameof(Rect_m), "must be [x0, z0, x1, z1] with x1 > x0 and z1 > z0");
+        }
+
+        for (int i = 0; PlayerSpawns is not null && i < PlayerSpawns.Length; i++)
+        {
+            PlayerSpawns[i].Validate(v.Item(nameof(PlayerSpawns), i));
+        }
+
+        if (DeadZone_m is not null)
+        {
+            v.Vector(nameof(DeadZone_m), DeadZone_m);
+        }
+
+        v.InRange(nameof(SpawnScale), SpawnScale, 0.2, 1);
+    }
+}
+
+/// <summary>A place an opponent can start. The round's mode and size decide how many start; real rounds also start them at cover points.</summary>
 public sealed class OpponentSpawnDef : IValidatable
 {
     public string Id { get; set; } = "";
@@ -1437,56 +1510,31 @@ public sealed class ExitDef : IValidatable
     }
 }
 
-/// <summary>levels/ladder.jsonc: the levels in play order. Locked entries are announced but not playable yet.</summary>
-public sealed class LadderDef : IValidatable
+/// <summary>
+/// The areas to play in (levels/areas.jsonc), in menu order. Every area is open, and so is every place
+/// in it (its level file's "places"): nothing is unlocked by playing another.
+/// </summary>
+public sealed class AreaListDef : IValidatable
 {
-    public LadderLevelDef[] Levels { get; set; } = Array.Empty<LadderLevelDef>();
+    public AreaEntryDef[] Areas { get; set; } = Array.Empty<AreaEntryDef>();
 
-    /// <summary>How later levels open (the first is always open).</summary>
-    [Optional]
-    public UnlockDef Unlock { get; set; } = new();
-
-    /// <summary>What level select's records count.</summary>
+    /// <summary>What the records in the menu count (records are only for you to beat: they unlock nothing).</summary>
     [Optional]
     public RecordsDef Records { get; set; } = new();
 
     public void Validate(Validator v)
     {
-        if (Levels.Length == 0)
+        if (Areas.Length == 0)
         {
-            v.Error(nameof(Levels), "must list at least one level");
+            v.Error(nameof(Areas), "must list at least one area");
         }
 
-        LevelDefChecks.UniqueIds(v, nameof(Levels), Levels, l => l.Id);
-        Unlock.Validate(v.Scope(nameof(Unlock)));
+        LevelDefChecks.UniqueIds(v, nameof(Areas), Areas, l => l.Id);
         Records.Validate(v.Scope(nameof(Records)));
-        for (int i = 0; i < Levels.Length && Unlock.MinTier.Length > 0; i++)
-        {
-            LadderLevelDef level = Levels[i];
-            if (level.Tiers is { Length: > 0 } tiers && Array.FindIndex(tiers, t => t.Id == Unlock.MinTier) < 0)
-            {
-                v.Scope(nameof(Unlock)).Error(nameof(UnlockDef.MinTier),
-                    $"'{Unlock.MinTier}' is not one of {level.Id}'s difficulty tiers ({string.Join(", ", tiers.Select(t => t.Id))})");
-            }
-        }
     }
 }
 
-/// <summary>
-/// How the ladder opens: each level after the first opens when a round on the level before it is won (in any
-/// mode) on <see cref="MinTier"/> or a harder tier (later in that level's list). Empty: any tier counts.
-/// </summary>
-public sealed class UnlockDef : IValidatable
-{
-    [Optional]
-    public string MinTier { get; set; } = "";
-
-    public void Validate(Validator v)
-    {
-    }
-}
-
-/// <summary>What level select's records count: accuracy only from rounds with at least <see cref="AccuracyMinShots"/> shots.</summary>
+/// <summary>What the records in the menu count: accuracy only from rounds with at least <see cref="AccuracyMinShots"/> shots.</summary>
 public sealed class RecordsDef : IValidatable
 {
     [Optional]
@@ -1495,61 +1543,54 @@ public sealed class RecordsDef : IValidatable
     public void Validate(Validator v) => v.InRange(nameof(AccuracyMinShots), AccuracyMinShots, 1, 1000);
 }
 
-public sealed class LadderLevelDef : IValidatable
+/// <summary>One area: its level file, its difficulty tiers, and the roster scripted solo runs fill.</summary>
+public sealed class AreaEntryDef : IValidatable
 {
     public string Id { get; set; } = "";
 
     public string DisplayName { get; set; } = "";
 
-    /// <summary>The level file; omitted for levels that aren't built yet (shown locked).</summary>
-    [Optional]
-    public string? File { get; set; }
+    /// <summary>The level file.</summary>
+    public string File { get; set; } = "";
 
-    [Optional]
-    public string? Note { get; set; }
-
-    /// <summary>Difficulty tiers, easiest first (playable levels need at least one).</summary>
-    [Optional]
-    public LadderTierDef[]? Tiers { get; set; }
+    /// <summary>Difficulty tiers, easiest first.</summary>
+    public TierDef[] Tiers { get; set; } = Array.Empty<TierDef>();
 
     /// <summary>
-    /// Opponent spawn ids that scripted solo runs (smoke tests, demos) fill in this order, so they play out
-    /// the same every time; real rounds deal random starts instead.
+    /// Opponent spawn ids that scripted solo runs over the whole level (smoke tests, demos) fill in this
+    /// order, so they play out the same every time; real rounds deal random starts instead.
     /// </summary>
-    [Optional]
-    public string[]? Roster { get; set; }
+    public string[] Roster { get; set; } = Array.Empty<string>();
 
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
-        if (!string.IsNullOrWhiteSpace(File) && (Tiers is null || Tiers.Length == 0))
+        v.NotEmpty(nameof(File), File);
+        if (Tiers.Length == 0)
         {
-            v.Error(nameof(Tiers), "a playable level needs at least one difficulty tier");
+            v.Error(nameof(Tiers), "an area needs at least one difficulty tier");
         }
 
-        if (!string.IsNullOrWhiteSpace(File) && (Roster is null || Roster.Length == 0))
+        if (Roster.Length == 0)
         {
-            v.Error(nameof(Roster), "a playable level needs a roster for scripted runs");
+            v.Error(nameof(Roster), "an area needs a roster for scripted runs");
         }
 
-        if (Roster is not null && Roster.Distinct(StringComparer.Ordinal).Count() != Roster.Length)
+        if (Roster.Distinct(StringComparer.Ordinal).Count() != Roster.Length)
         {
             v.Error(nameof(Roster), "lists a spawn twice");
         }
 
-        if (Tiers is not null)
-        {
-            LevelDefChecks.UniqueIds(v, nameof(Tiers), Tiers, t => t.Id);
-        }
+        LevelDefChecks.UniqueIds(v, nameof(Tiers), Tiers, t => t.Id);
     }
 }
 
 /// <summary>
-/// One difficulty tier of a level: how good the bots are, how long the round lasts and what everyone
+/// One difficulty tier of an area: how good the bots are, how long the round lasts and what everyone
 /// carries. Never how many there are: the mode and size are picked separately.
 /// </summary>
-public sealed class LadderTierDef : IValidatable
+public sealed class TierDef : IValidatable
 {
     public string Id { get; set; } = "";
 

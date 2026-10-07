@@ -145,13 +145,24 @@ public static class UiKit
     /// "Label  [A] [B] [C]": one choice from a few, as toggle buttons that stay lit (clearer than a drop-down
     /// from across a room). Each button is named <paramref name="namePrefix"/> + its index, for tests.
     /// </summary>
+    /// <param name="wrap">Buttons that don't fit across go on to a second line.</param>
     public static HBoxContainer ChoiceRow(string name, string[] options, int selected, Action<int> changed, string namePrefix,
-        int buttonWidth = 150)
+        int buttonWidth = 150, bool wrap = false)
     {
         HBoxContainer row = Row(10);
         Label label = Body(name);
         label.CustomMinimumSize = new Vector2(150, 0);
         row.AddChild(label);
+        Container holder = row;
+        if (wrap)
+        {
+            var flow = new HFlowContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            flow.AddThemeConstantOverride("h_separation", 10);
+            flow.AddThemeConstantOverride("v_separation", 10);
+            row.AddChild(flow);
+            holder = flow;
+        }
+
         var group = new ButtonGroup();
         for (int i = 0; i < options.Length; i++)
         {
@@ -175,10 +186,49 @@ public static class UiKit
                 }
             };
             button.MouseEntered += Pb.Game.Audio.UiSounds.Hover;
-            row.AddChild(button);
+            holder.AddChild(button);
         }
 
         return row;
+    }
+
+    /// <summary>
+    /// "LABEL" over [A] [B] [C] stacked: one choice from a list too long for a row (where to play in an area), as
+    /// toggle buttons that stay lit. Each button is named <paramref name="namePrefix"/> + its index, for tests.
+    /// </summary>
+    public static VBoxContainer ChoiceColumn(string name, string[] options, int selected, Action<int> changed, string namePrefix,
+        int buttonWidth = 340)
+    {
+        VBoxContainer column = Column(8);
+        column.AddChild(Body(name, 18, Dim));
+        var group = new ButtonGroup();
+        for (int i = 0; i < options.Length; i++)
+        {
+            int index = i;
+            var button = new Button
+            {
+                Name = namePrefix + i,
+                Text = options[i],
+                ToggleMode = true,
+                ButtonGroup = group,
+                ButtonPressed = i == selected,
+                CustomMinimumSize = new Vector2(buttonWidth, 44),
+                FocusMode = Control.FocusModeEnum.All,
+                Alignment = HorizontalAlignment.Left,
+            };
+            button.Toggled += on =>
+            {
+                if (on)
+                {
+                    Pb.Game.Audio.UiSounds.Click();
+                    changed(index);
+                }
+            };
+            button.MouseEntered += Pb.Game.Audio.UiSounds.Hover;
+            column.AddChild(button);
+        }
+
+        return column;
     }
 
     /// <summary>"Label  [On]": a toggle button that reads On or Off (clearer than a small tick box from across a room).</summary>

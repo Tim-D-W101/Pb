@@ -54,8 +54,8 @@ public sealed class SimFilesDef : IValidatable
     /// <summary>Level kit index (materials, prop types, building templates).</summary>
     public string Kit { get; set; } = "";
 
-    /// <summary>The level ladder: which levels exist and in what order.</summary>
-    public string Ladder { get; set; } = "";
+    /// <summary>The areas to play in (every one open), in menu order, each with its difficulty tiers.</summary>
+    public string Areas { get; set; } = "";
 
     /// <summary>Bots: navigation grid, senses, behaviours and difficulty tiers (M2.5).</summary>
     public string Navigation { get; set; } = "";
@@ -71,7 +71,7 @@ public sealed class SimFilesDef : IValidatable
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Kit), Kit);
-        v.NotEmpty(nameof(Ladder), Ladder);
+        v.NotEmpty(nameof(Areas), Areas);
         v.NotEmpty(nameof(Navigation), Navigation);
         v.NotEmpty(nameof(Brain), Brain);
         v.NotEmpty(nameof(Senses), Senses);
@@ -350,6 +350,8 @@ public sealed class MovementDef : IValidatable
 
     public float HeadRadius_m { get; set; }
 
+    public float MaxHeadTurn_deg { get; set; }
+
     public float ShoulderSwapTime_s { get; set; }
 
     public float SlideMinSpeed_mps { get; set; }
@@ -403,6 +405,7 @@ public sealed class MovementDef : IValidatable
         v.InRange(nameof(LeanInTime_s), LeanInTime_s, 0.01, 2);
         v.InRange(nameof(LeanReturnTime_s), LeanReturnTime_s, 0.01, 2);
         v.InRange(nameof(HeadRadius_m), HeadRadius_m, 0.05, 0.3);
+        v.InRange(nameof(MaxHeadTurn_deg), MaxHeadTurn_deg, 0, 90);
         v.InRange(nameof(ShoulderSwapTime_s), ShoulderSwapTime_s, 0.01, 3);
         v.InRange(nameof(SlideMinSpeed_mps), SlideMinSpeed_mps, 0.5, 20);
         v.InRange(nameof(SlideBoost_mps), SlideBoost_mps, 0, 10);
@@ -813,6 +816,14 @@ public sealed class HitboxesDef : IValidatable
 
     public float EliminatedPitch_deg { get; set; }
 
+    public float TuckMax_deg { get; set; }
+
+    public float TuckRate_degps { get; set; }
+
+    public float TuckStep_deg { get; set; }
+
+    public float TuckBarrelRadius_m { get; set; }
+
     public HitboxPart[] LethalParts { get; set; } = Array.Empty<HitboxPart>();
 
     public bool BallsInFlightCount { get; set; }
@@ -835,6 +846,10 @@ public sealed class HitboxesDef : IValidatable
         Tank.Validate(v.Scope(nameof(Tank)));
         v.InRange(nameof(EliminatedRaise_m), EliminatedRaise_m, 0, 1);
         v.InRange(nameof(EliminatedPitch_deg), EliminatedPitch_deg, -90, 90);
+        v.InRange(nameof(TuckMax_deg), TuckMax_deg, 0, 85);
+        v.InRange(nameof(TuckRate_degps), TuckRate_degps, 1, 3000);
+        v.InRange(nameof(TuckStep_deg), TuckStep_deg, 1, 45);
+        v.InRange(nameof(TuckBarrelRadius_m), TuckBarrelRadius_m, 0, 0.2);
         if (LethalParts.Contains(HitboxPart.Body))
         {
             v.Error(nameof(LethalParts), "'body' is for range targets; players have head, torso, arms and legs");

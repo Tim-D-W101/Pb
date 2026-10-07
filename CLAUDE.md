@@ -40,9 +40,15 @@ tools/package/godot-project.sh                        # self-contained project z
 python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate the hospital wings (edit the script, not the files)
 ```
 
+The menu's picture of each place (`game/ui/places/LEVEL_PLACE.jpg`) is taken in the game, from the viewpoint the level
+file's place names in `"still"`; retake a level's after changing it (under lavapipe, below), then import:
+`xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan res://scenes/Level.tscn -- --level=ID
+--place-stills=res://ui/places` and `godot --headless --path game --import`.
+
 The Windows build needs the export templates: `tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe
 windows_release_x86_64_console.exe` pulls just those from the 1.2 GB release archive. Exported builds always
-start on the main menu; `-- --level=ID` (with the level's other options) skips it once. The game's own pack leaves
+start on the main menu; `-- --level=ID` (with the level's other options, and `--place=ID` for one of the level's
+`places`) skips it once. The game's own pack leaves
 `art/` out: `tools/package/art-packs.sh` exports it as one pack per asset (`art/Pb-art-<id>.pck`), which `ArtFiles`
 mounts in exported builds, and the release lists every game file's SHA-256 so `Play.bat` downloads only what changed.
 The Windows build runs headless under Wine (`apt-get install wine`), the way to catch faults only the Windows .NET
@@ -69,7 +75,10 @@ material's `albedo`, `normal` and `roughnessMap` (`kit/materials.jsonc`), the pr
 (`kit/props.jsonc`) or a character model or movement clip (`presentation.jsonc` → `characters`, `characters.clips`) at the files.
 A voice's script is the exact lines of `presentation.jsonc` `hud.callouts` (or `hud.referee` for the referee), one per line:
 `tools/art/voice-script.py callouts` (or `referee`) prints it, for the generator and for the import's last argument. Its
-files are found by their words, so nothing needs pointing at them. Characters
+files are found by their words, so nothing needs pointing at them. Then check the cut lines with
+`tools/art/voice-check.py <voice-id>...` (a speech recogniser; `pip install faster-whisper` in a virtual environment): a
+take that says a line twice, or runs another line's words into one, is imported again with `--keep-first="LINE"` or
+`--keep-last="LINE"` after the script (several lines joined with `|`), which keep that line's first or last part. Characters
 must use the generator's biped rig (the bone names `CharacterPoser` binds). One generation can hold four
 materials (a 2 × 2 sheet): cut each with `--region=x,y,w,h`. Cut a regular pattern (bricks, planks,
 corrugations) to whole repeats and pass `--repeats=across,down` (and `--stretch` for a cut that isn't
@@ -106,12 +115,18 @@ for close-ups of anything in the level. On `Level.tscn`, through the player's ow
 `-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
 view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
-sprinting, strafing, backing off and walking crouched, seen from the side (movement clips, or the steps without them).
+sprinting, pulling up, strafing, backing off, walking crouched and looking round, seen from the side (the planted steps,
+or the movement clips with `characters.legs` = `"clips"`), printing how far the planted feet slid (`--gait-only=NAME`
+plays only the moves starting with NAME). `-- --cover-demo` tucks an opponent in behind low cover, stands it up to shoot
+over and tucks it in again, printing how far its knees and elbows got into the cover (`--cover-at=X,Z` picks the cover
+nearest that point); it runs headless too, for the numbers alone.
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
-the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N` and `--objective=eliminate|retrieve|hold` pick the mode, size and
-objective (the menu's choices; they're in `rules.jsonc`), e.g. `-- --round-tour --mode=ffa --size=6`, and
+the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
+objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`), e.g.
+`-- --round-tour --mode=ffa --size=6 --place=warehouse`; `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
+runs quicker; and
 `-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
 the room, the ways out. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's
@@ -121,7 +136,9 @@ hardware can confirm the 60 fps target.
 
 - C# 12, nullable enabled, file-scoped namespaces. `Pb.Sim` builds with warnings as errors.
 - Godot scripts: one class per file, file name = class name, `partial`.
-- Hot paths (anything per ball or per tick) must not allocate. A test enforces this for `SimWorld.Step`.
+- Hot paths (anything per ball or per tick) must not allocate. A test enforces this for `SimWorld.Step`. Measure with
+  `Allocations.During` (tests' `TestSupport.cs`), not a bare `GC.GetAllocatedBytesForCurrentThread()`: another thread's
+  collection can add a few phantom bytes to the count, which fails such tests at random on CI.
 - The sim uses System.Numerics. Convert with `Pb.Game.Core.Conv` (`ToGodot()` / `ToSim()`).
 - Coordinates match Godot: Y up, yaw 0 faces −Z, positive yaw turns left, positive pitch looks up.
 - `game/Pb.csproj` keeps tiered PGO and quick JIT for loops off. With them on, the .NET 8 JIT on Windows x64 crashes

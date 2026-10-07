@@ -34,7 +34,15 @@ public partial class CharacterVisual : Node3D
     private float _refillPhase = 1f;
     private Vector3 _flinchPush;
     private float _flinchAge = 10f;
+    private float _kneesOut;
+    private float _elbowsOut;
     private float _flinchStrength;
+    private float _breathPhase;
+    private float _exertion;
+    // Out of the round: how long ago, and the gear's boxes as they were the tick before (the raise starts from them).
+    private float _outAge = -1f;
+    private readonly PosedBox[] _lastIn = new PosedBox[HitboxRig.PartCount];
+    private bool _wasIn;
     private Color _paint = Colors.White;
     private Node3D? _pod;
     private float _crouchEye;
@@ -43,8 +51,12 @@ public partial class CharacterVisual : Node3D
     private Node3D? _marker;
     private MarkerModelDef? _markerDef;
     private readonly System.Collections.Generic.Dictionary<GeometryInstance3D, (GeometryInstance3D.ShadowCastingSetting Cast, bool Visible)> _drawn = new();
+    private StepGait.GroundQuery _ground = null!;
 
     public bool HasModel => _model is not null;
+
+    /// <summary>The drawn model, if the character has one (null: hitbox boxes).</summary>
+    public CharacterModel? Model => _model;
 
     /// <summary>
     /// Only the character's shadow shows (your own body in first person): the model casts its shadow but
@@ -86,6 +98,7 @@ public partial class CharacterVisual : Node3D
         _sim = sim;
         _state = state;
         _look = characters;
+        _ground = Ground;
         _paint = jersey;
         _standEye = sim.Config.Movement.StandEyeHeight;
         _crouchEye = sim.Config.Movement.CrouchEyeHeight;
@@ -102,6 +115,9 @@ public partial class CharacterVisual : Node3D
             if (_model is not null)
             {
                 AddChild(_model);
+                // Their own timing for breathing and shifting weight.
+                _model.Steps?.Vary(state.Id * 7919 + index);
+                _breathPhase = (state.Id * 0.618034f) % 1f;
             }
         }
 
@@ -158,6 +174,17 @@ public partial class CharacterVisual : Node3D
         _sim.PlayerHits.PoseNow(_state, _current);
         _poseBefore = _poseNow;
         _poseNow = HitboxPose.Of(_state);
+        if (_poseNow.Alive)
+        {
+            _outAge = -1f;
+            System.Array.Copy(_current, _lastIn, _current.Length);
+            _wasIn = true;
+        }
+        else if (_outAge < 0f)
+        {
+            // Out already when first drawn: nothing to raise from, so the gear's up from the start.
+            _outAge = _wasIn ? 0f : 60f;
+        }
     }
 
     public override void _Process(double delta)
@@ -165,18 +192,33 @@ public partial class CharacterVisual : Node3D
         if (_state is not null)
         {
             Visible = _state.Present;
+            if (_outAge >= 0f)
+            {
+                _outAge += (float)delta;
+            }
+
             ApplyPose((float)Engine.GetPhysicsInterpolationFraction());
         }
     }
 
     private void ApplyPose(float alpha)
     {
+        // Just out, the gear comes up over the head over a moment (the sim has it up at once; nothing counts on it now).
+        float raise = Raise();
+        bool raising = _outAge >= 0f && raise < 1f;
         for (int i = 0; i < _parts.Length; i++)
         {
             ref PosedBox a = ref _previous[i];
             ref PosedBox b = ref _current[i];
-            Quaternion q = Quat(a).Slerp(Quat(b), alpha);
-            Vector3 centre = a.Center.ToGodot().Lerp(b.Center.ToGodot(), alpha);
+            float t = alpha;
+            if (raising && IsGearOrArms(b.Part))
+            {
+                a = ref _lastIn[i];
+                t = raise;
+            }
+
+            Quaternion q = Quat(a).Slerp(Quat(b), t);
+            Vector3 centre = a.Center.ToGodot().Lerp(b.Center.ToGodot(), t);
             _parts[i].GlobalTransform = new Transform3D(new Basis(q), centre);
             _half[i] = a.HalfExtents.ToGodot().Lerp(b.HalfExtents.ToGodot(), alpha);
             if (_meshes[i] is { } mesh)
@@ -210,6 +252,9 @@ public partial class CharacterVisual : Node3D
         float flinch = _flinchAge < 0.04f ? _flinchAge / 0.04f : Mathf.Exp(-(_flinchAge - 0.04f) / 0.15f);
         poser.Flinch = flinch > 0.01f ? Vector3.Up.Cross(_flinchPush) * (_flinchStrength * flinch) : Vector3.Zero;
         poser.RightHanded = Mathf.Lerp(_poseBefore.Shoulder, _poseNow.Shoulder, alpha) >= 0f;
+        poser.HeadYaw = _poseNow.Alive ? Mathf.LerpAngle(_poseBefore.HeadYaw, _poseNow.HeadYaw, alpha) : 0f;
+        poser.Breath = Breathe((float)GetProcessDeltaTime());
+        poser.SupportRaise = _shadowOnly ? 0f : Raise();
 
         // Wrists on the marker: the trigger hand at the pistol grip, the other under the front.
         int marker = _indexOfPart[(int)HitboxPart.Marker];
@@ -227,12 +272,56 @@ public partial class CharacterVisual : Node3D
             poser.SupportHand = Refill(Grip(_look.SupportGrip), feet, eye, poser);
         }
 
-        // The legs, by the ground the feet covered since the last frame.
+        // Out: the support hand leaves the marker and goes up, open, over the head on its own side.
+        if (poser.SupportRaise > 0f)
+        {
+            float side = poser.RightHanded ? -1f : 1f;
+            Vector3 up = feet + Vector3.Up * (eye + 0.12f + _look.OutHandAbove_m) + poser.Right * (_look.OutHandOut_m * side) + poser.Forward * 0.04f;
+            poser.SupportHand = poser.SupportHand.Lerp(up, poser.SupportRaise);
+        }
+
+        // The legs: planted steps where the body goes, or the clips by the ground the feet covered.
         Vector3 moved = feet - _lastFeet;
         _lastFeet = feet;
         float crouch = (_standEye - eye) / Mathf.Max(_standEye - _crouchEye, 0.01f);
-        _model.Gait.Update(moved, _state.Velocity.ToGodot(), poser.Forward, crouch, _state.Stance == Stance.Sliding,
-            _state.Grounded, (float)GetProcessDeltaTime());
+        float delta = (float)GetProcessDeltaTime();
+        // Tucked in behind something: knees (crouched) and elbows out to the sides, clear of it.
+        float ease = 1f - Mathf.Exp(-delta / 0.15f);
+        if (_look.Steps is { } fit)
+        {
+            float knees = crouch > 0.2f && _poseNow.Alive ? Closeness(feet, poser.Forward, 0.42f, fit.KneeReach_m, fit.KneeClose_m) * Mathf.Clamp(crouch, 0f, 1f) : 0f;
+            float elbows = _poseNow.Alive ? Closeness(feet, poser.Forward, eye - 0.48f, fit.ElbowReach_m, fit.ElbowClose_m) : 0f;
+            _kneesOut = Mathf.Lerp(_kneesOut, knees, ease);
+            poser.ElbowsOut = _elbowsOut = Mathf.Lerp(_elbowsOut, elbows, ease);
+        }
+
+        if (_model.Steps is { } steps)
+        {
+            steps.KneesOut = _kneesOut;
+            steps.Update(feet, yaw, crouch, poser.HipDrop, Mathf.Lerp(_poseBefore.Shoulder, _poseNow.Shoulder, alpha), _state.Stance == Stance.Sliding,
+                _state.Grounded, delta, _ground);
+        }
+        else
+        {
+            _model.Gait?.Update(moved, _state.Velocity.ToGodot(), poser.Forward, crouch, _state.Stance == Stance.Sliding, _state.Grounded, delta);
+        }
+    }
+
+    /// <summary>
+    /// The breath this frame (rad): slow at rest, quicker and deeper just after running hard, easing back.
+    /// </summary>
+    private float Breathe(float delta)
+    {
+        CharactersDef look = _look!;
+        float pace = new Vector2(_state.Velocity.X, _state.Velocity.Z).Length() / _sim.Config.Movement.SprintSpeed;
+        float hard = _state.Sprinting ? 1f : Mathf.Clamp(pace, 0f, 1f) * 0.7f;
+        _exertion = hard > _exertion
+            ? Mathf.Lerp(_exertion, hard, 1f - Mathf.Exp(-delta / 3f))
+            : Mathf.Lerp(_exertion, hard, 1f - Mathf.Exp(-delta / look.BreathRecover_s));
+        _breathPhase = Mathf.PosMod(_breathPhase + Mathf.Lerp(look.BreathRest_hz, look.BreathHard_hz, _exertion) * delta, 1f);
+        // In a little quicker than out.
+        float wave = _breathPhase < 0.4f ? Mathf.Sin(Mathf.Pi * _breathPhase / 0.4f * 0.5f) : Mathf.Cos(Mathf.Pi * (_breathPhase - 0.4f) / 0.6f * 0.5f);
+        return Mathf.DegToRad(look.Breath_deg) * (0.6f + 0.6f * _exertion) * (wave - 0.5f);
     }
 
     /// <summary>
@@ -291,7 +380,52 @@ public partial class CharacterVisual : Node3D
         return hand;
     }
 
+    /// <summary>
+    /// How close something solid is ahead of the body at <paramref name="height"/> over its feet (paint geometry): 0
+    /// from <paramref name="reach"/> away or nothing, 1 at <paramref name="close"/> or nearer.
+    /// </summary>
+    private float Closeness(Vector3 feet, Vector3 forward, float height, float reach, float close)
+    {
+        System.Numerics.Vector3 from = (feet + Vector3.Up * height).ToSim();
+        System.Numerics.Vector3 to = (feet + Vector3.Up * height + forward * reach).ToSim();
+        if (!_sim.Collision.SweepSphere(from, to, 0.06f, out SweepHit hit))
+        {
+            return 0f;
+        }
+
+        float distance = hit.T * reach;
+        return Mathf.Clamp((reach - distance) / Mathf.Max(reach - close, 0.01f), 0f, 1f);
+    }
+
+    /// <summary>The ground's height near <paramref name="at"/>: what a drop down from a little above it lands on (paint geometry, so the drawn stair treads).</summary>
+    private bool Ground(Vector3 at, out float height)
+    {
+        System.Numerics.Vector3 from = at.ToSim() + new System.Numerics.Vector3(0f, 0.6f, 0f);
+        System.Numerics.Vector3 to = at.ToSim() - new System.Numerics.Vector3(0f, 0.6f, 0f);
+        if (_sim.Collision.SweepSphere(from, to, 0.02f, out SweepHit hit) && hit.Normal.Y > 0.6f)
+        {
+            height = hit.Point.Y - 0.02f * hit.Normal.Y;
+            return true;
+        }
+
+        height = at.Y;
+        return false;
+    }
+
     private static bool IsGear(HitboxPart part) => part is HitboxPart.Marker or HitboxPart.Loader or HitboxPart.Tank;
+
+    private static bool IsGearOrArms(HitboxPart part) => IsGear(part) || part == HitboxPart.Arms;
+
+    /// <summary>How far through bringing the gear up and the hand up since going out (0–1; 1 while in, as nothing's raising).</summary>
+    private float Raise()
+    {
+        if (_outAge < 0f || _look is null)
+        {
+            return _outAge < 0f ? 0f : 1f;
+        }
+
+        return Mathf.SmoothStep(0f, _look.OutRaise_s, _outAge);
+    }
 
     /// <summary>Draws <paramref name="geometry"/> as the character is drawn: all of it, or only its shadow.</summary>
     private void Draw(GeometryInstance3D geometry)

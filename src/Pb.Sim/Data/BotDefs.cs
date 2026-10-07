@@ -67,7 +67,25 @@ public sealed class BrainDef : IValidatable
 
     public float ScanPeriod_s { get; set; }
 
+    public float ScanHoldMin_s { get; set; }
+
+    public float ScanHoldMax_s { get; set; }
+
     public float LookTurnSpeed_degps { get; set; }
+
+    public float HeadTurnSpeed_degps { get; set; }
+
+    public float GlanceEveryMin_s { get; set; }
+
+    public float GlanceEveryMax_s { get; set; }
+
+    public float GlanceAngleMin_deg { get; set; }
+
+    public float GlanceAngleMax_deg { get; set; }
+
+    public float GlanceHoldMin_s { get; set; }
+
+    public float GlanceHoldMax_s { get; set; }
 
     public float RefillBelow { get; set; }
 
@@ -78,6 +96,8 @@ public sealed class BrainDef : IValidatable
     public float AimTolerance_deg { get; set; }
 
     public float WalkOffTime_s { get; set; }
+
+    public float StrollPace { get; set; }
 
     public float CalloutCooldown_s { get; set; }
 
@@ -160,12 +180,22 @@ public sealed class BrainDef : IValidatable
         v.InRange(nameof(SearchHops), SearchHops, 0, 20);
         v.InRange(nameof(ScanAngle_deg), ScanAngle_deg, 0, 180);
         v.InRange(nameof(ScanPeriod_s), ScanPeriod_s, 0.5, 120);
+        v.InRange(nameof(ScanHoldMin_s), ScanHoldMin_s, 0.1, 30);
+        v.InRange(nameof(ScanHoldMax_s), ScanHoldMax_s, ScanHoldMin_s, 60);
         v.InRange(nameof(LookTurnSpeed_degps), LookTurnSpeed_degps, 10, 3600);
+        v.InRange(nameof(HeadTurnSpeed_degps), HeadTurnSpeed_degps, 10, 3600);
+        v.InRange(nameof(GlanceEveryMin_s), GlanceEveryMin_s, 0.2, 120);
+        v.InRange(nameof(GlanceEveryMax_s), GlanceEveryMax_s, GlanceEveryMin_s, 240);
+        v.InRange(nameof(GlanceAngleMin_deg), GlanceAngleMin_deg, 0, 90);
+        v.InRange(nameof(GlanceAngleMax_deg), GlanceAngleMax_deg, GlanceAngleMin_deg, 90);
+        v.InRange(nameof(GlanceHoldMin_s), GlanceHoldMin_s, 0.05, 10);
+        v.InRange(nameof(GlanceHoldMax_s), GlanceHoldMax_s, GlanceHoldMin_s, 20);
         v.InRange(nameof(RefillBelow), RefillBelow, 0, 1);
         v.InRange(nameof(TeammateClearance_m), TeammateClearance_m, 0, 5);
         v.InRange(nameof(AimSettleTime_s), AimSettleTime_s, 0.01, 30);
         v.InRange(nameof(AimTolerance_deg), AimTolerance_deg, 0.05, 45);
         v.InRange(nameof(WalkOffTime_s), WalkOffTime_s, 1, 600);
+        v.InRange(nameof(StrollPace), StrollPace, 0.2, 1);
     }
 }
 
@@ -247,6 +277,9 @@ public enum BotGait
 {
     Walk,
     Run,
+
+    /// <summary>A calm walk, slower than <see cref="Walk"/>: patrols, going back to a post, walking off.</summary>
+    Stroll,
 }
 
 /// <summary>One bot behaviour (bots/archetypes.jsonc).</summary>

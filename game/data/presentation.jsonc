@@ -513,7 +513,7 @@
   // back over period_s (vertical fov_deg), with the menu's wash darkest (shade) on the left where the
   // panels sit. Built at the saved graphics preset; nothing moves in it but the camera and the weeds.
   "menuBackdrop": {
-    // A drift for each level: the menu shows the newest level you've opened that has one here (else the first).
+    // A drift for each area: the menu shows the area you played last, if it has one here (else the first).
     "shots": [
       { "level": "oxbarrow_works", "from": { "position_m": [9, 2.6, 24], "yaw_deg": 12, "pitch_deg": -4 }, "to": { "position_m": [1, 2.3, 25], "yaw_deg": -2, "pitch_deg": -3 } },
       // Down the lane between the rakes of wagons towards the footbridge.
@@ -663,6 +663,32 @@
     "alongWalls": 0.7,
     "on": ["asphalt_cracked", "concrete_floor"],
     "material": "cast_iron"
+  },
+
+  // Round a place smaller than its whole area (a level's "places"), the round's invisible walls stand on
+  // the edge; wherever a walk could cross it (open ground, a doorway, a gap between crates) it's taped
+  // off in red and white, on posts or tied to whatever it meets, so you can see where the round ends
+  // (looks only: paint flies through). The edge is surveyed every sample_m: a gap is clear of the walking
+  // geometry by clearRadius_m at each of clearHeights_m above a floor (the ground, a building's floor or
+  // stairs; never a window or a roof) and at least minGap_m wide. strands_m are the tapes' heights above
+  // the floor; sag_m is how far a 2.5 m span sags; stripes are stripe_m long; flutter_m how far it moves
+  // in the wind. Posts stand at the corners, at loose ends and at most postSpacing_m apart, banded in
+  // the tape's colours every postBand_m.
+  "placeBoundary": {
+    "sample_m": 0.2,
+    "clearRadius_m": 0.25,
+    "clearHeights_m": [0.35, 1.1, 1.75],
+    "minGap_m": 0.35,
+    "strands_m": [0.95],
+    "tapeWidth_m": 0.06,
+    "sag_m": 0.05,
+    "stripe_m": 0.11,
+    "colors": ["#c42d22", "#ece9e0"],
+    "flutter_m": 0.025,
+    "postSpacing_m": 2.6,
+    "postHeight_m": 1.05,
+    "postWidth_m": 0.035,
+    "postBand_m": 0.2
   },
 
   // Trees out beyond the levels and the training ground (looks only): copses in the scrubland, the
@@ -866,24 +892,143 @@
     // A ball hitting a body, breaking or bouncing off, makes it flinch: the upper body turns away from
     // the hit by up to this much (a ball at 90 m/s; slower ones less), snapping there and easing back.
     "flinch_deg": 9,
-    // Movement clips, shared by every model (each a GLB holding one in-place clip on the generator's
-    // rig, fitted to each model's build by bone name): "walk", "run" and "crouchWalk". Each plays at
-    // the pace that keeps its feet planted; walk blends into run between the two clips' own speeds,
-    // and into the crouched walk as you crouch, all in step. Any can be left out; without a walk, the
-    // steps below stand in.
+    // Breathing: the chest rises and falls breath_deg, breathRest_hz at rest and up to breathHard_hz just
+    // after a sprint, easing back to rest over breathRecover_s.
+    "breath_deg": 0.8,
+    "breathRest_hz": 0.25,
+    "breathHard_hz": 0.65,
+    "breathRecover_s": 12,
+    // Hit, a player brings the marker up over their head in the trigger hand (over outRaise_s) and puts
+    // the other hand up, open, outHandAbove_m over the top of the head and outHandOut_m to its side, and
+    // walks off like that, as at a real game.
+    "outRaise_s": 0.45,
+    "outHandAbove_m": 0.2,
+    "outHandOut_m": 0.17,
+    // How the legs move. "steps" plants each foot in the world where it lands until its next step, so
+    // feet never skate, in any direction, at any pace, turning on the spot or on stairs (below).
+    // "clips" plays the movement clips instead (forward clips only: strafing and turning slide).
+    "legs": "steps",
+    "steps": {
+      // The gait by speed: cycles a second (a cycle is two steps), the share of the cycle each foot
+      // is in the air (under half is a walk, both feet down between steps; over half a run, both off
+      // the ground between them), how high a foot lifts, where it lands (as a share of the ground the
+      // body covers while that foot is down: 0.5 puts it under the hip halfway through) and how far the
+      // hips bob. Between rows it blends. The walking speed (3 m/s) is a jog; bots stroll at 1.65.
+      "gaits": [
+        { "speed_mps": 0.3, "cadence_hz": 0.85, "swing": 0.42, "lift_m": 0.05, "landAhead": 0.45, "bob_m": 0.010 },
+        { "speed_mps": 1.0, "cadence_hz": 0.98, "swing": 0.43, "lift_m": 0.07, "landAhead": 0.43, "bob_m": 0.020 },
+        { "speed_mps": 1.7, "cadence_hz": 1.12, "swing": 0.45, "lift_m": 0.09, "landAhead": 0.42, "bob_m": 0.025 },
+        { "speed_mps": 2.3, "cadence_hz": 1.25, "swing": 0.47, "lift_m": 0.11, "landAhead": 0.41, "bob_m": 0.030 },
+        { "speed_mps": 2.7, "cadence_hz": 1.36, "swing": 0.62, "lift_m": 0.17, "landAhead": 0.40, "bob_m": 0.040 },
+        { "speed_mps": 3.0, "cadence_hz": 1.40, "swing": 0.66, "lift_m": 0.20, "landAhead": 0.40, "bob_m": 0.045 },
+        { "speed_mps": 4.2, "cadence_hz": 1.46, "swing": 0.72, "lift_m": 0.26, "landAhead": 0.40, "bob_m": 0.055 },
+        { "speed_mps": 5.5, "cadence_hz": 1.52, "swing": 0.76, "lift_m": 0.30, "landAhead": 0.40, "bob_m": 0.060 },
+        { "speed_mps": 7.0, "cadence_hz": 1.60, "swing": 0.80, "lift_m": 0.34, "landAhead": 0.40, "bob_m": 0.065 }
+      ],
+      // Crouched, quicker steps that lift less.
+      "crouchCadence": 1.4,
+      "crouchLift": 0.7,
+      // The stance: standing still, the ankles this far apart across the aim (standing, crouched) and
+      // the support-side foot this far ahead of the other, with the hips turned blade_deg off the aim
+      // towards the trigger side, as a shooter stands; walking, the feet land this far apart (narrower
+      // running). Toes turn out a little.
+      "stanceWidth_m": 0.3,
+      "crouchStanceWidth_m": 0.4,
+      "stagger_m": 0.22,
+      "crouchStagger_m": 0.3,
+      "blade_deg": 25,
+      "toeOut_deg": 7,
+      // The hips turn at most maxTwist_deg from the aim (the chest stays on it). Moving, the legs turn
+      // travelTwist of the way towards the travel; further round than backOff_deg is backing off, and
+      // the legs face away from the travel. They turn at legTurnRate_degps.
+      "maxTwist_deg": 60,
+      "travelTwist": 0.85,
+      "backOff_deg": 115,
+      "legTurnRate_degps": 400,
+      // Standing, the hips give hipGive_deg towards the aim; a foot steps back into the stance when
+      // it's settleDistance_m out of place or the aim is settleTwist_deg round from the feet, one foot
+      // at a time, each step settleStep_s long, lifting settleLift_m.
+      "hipGive_deg": 12,
+      "settleDistance_m": 0.16,
+      "settleTwist_deg": 40,
+      "settleStep_s": 0.3,
+      "settleLift_m": 0.06,
+      // Pulling up from faster than stopFrom_mps (the body halts in a few hundredths of a second, at the
+      // sim's deceleration), the foot in the air comes down short into the stance and the other follows
+      // at once: for stopWindow_s after the stop a foot stopTolerance_m out of place steps, each step
+      // stopStep_s long and lifting stopLift_m. The hips dip stopDip_m into the knees and the upper body
+      // tips on stopLean_deg, in over stopDipIn_s and settling back over stopSettle_s; all of it in full
+      // from stopFull_mps, less from slower.
+      "stopFrom_mps": 1.2,
+      "stopWindow_s": 0.7,
+      "stopTolerance_m": 0.05,
+      "stopStep_s": 0.17,
+      "stopLift_m": 0.05,
+      "stopDip_m": 0.035,
+      "stopLean_deg": 4,
+      "stopDipIn_s": 0.09,
+      "stopSettle_s": 0.22,
+      "stopFull_mps": 5.5,
+      // Crouched with something (a wall, sandbags) within kneeReach_m ahead at knee height, the knees go
+      // out to the sides instead of into it, fully once it's kneeClose_m away, and standing still the
+      // feet come back from it by up to kneeBack_m. Likewise the elbows, for something within
+      // elbowReach_m ahead at elbow height: out to the sides, level, fully at elbowClose_m.
+      "kneeReach_m": 0.62,
+      "kneeClose_m": 0.34,
+      "kneeBack_m": 0.12,
+      "elbowReach_m": 0.5,
+      "elbowClose_m": 0.3,
+      // Standing still, the weight goes onto one foot (or now and then back onto both) every
+      // weightEveryMin_s to weightEveryMax_s, taking weightShift_s: the hips move weightSway_m over that
+      // foot and roll weightRoll_deg, the other knee easing.
+      "weightEveryMin_s": 2.5,
+      "weightEveryMax_s": 6,
+      "weightShift_s": 0.8,
+      "weightSway_m": 0.03,
+      "weightRoll_deg": 2.5,
+      // Heel and toe: the heel comes up by up to heelOff_deg as the foot falls behind the hip, from
+      // heelOffFrom_m behind it to fully up heelOffOver_m further; the toes come up toeUp_deg to land.
+      "heelOff_deg": 50,
+      "heelOffFrom_m": 0.0,
+      "heelOffOver_m": 0.4,
+      "toeUp_deg": 12,
+      // The hips sit softKnees_m below their rest height, so the knees are never locked, and runSink_m
+      // lower again running (runners run on bent knees); they sway over the foot that's down, turn with
+      // the stride and roll over the foot in the air; the upper body leans into a run, per m/s, up to a most.
+      "softKnees_m": 0.025,
+      "runSink_m": 0.04,
+      "sway_m": 0.025,
+      "hipTurn_deg": 5,
+      "hipRoll_deg": 3,
+      "leanPerSpeed_deg": 1.0,
+      "maxLean_deg": 7,
+      // Legs reach maxStretch of their length; a step lands at most maxStep leg lengths from its hip;
+      // the hips drop at once, at most maxReachDrop_m, to let the legs reach, and ease back up (further
+      // back, a foot pushing off comes along with the body until it lifts).
+      "maxStretch": 0.995,
+      "maxStep": 0.9,
+      "maxReachDrop_m": 0.1,
+      // A foot lands on the ground under it (a stair tread, a kerb) up to stepUp_m above or stepDown_m
+      // below the body's own floor; anything else, on the body's floor.
+      "stepUp_m": 0.3,
+      "stepDown_m": 0.45,
+      // Off the ground: the feet tuck up this far in the air, and sliding, the lead foot reaches out ahead.
+      "tuckLift_m": 0.22,
+      "slideReach_m": 0.55,
+      // How quickly the body's measured velocity follows its movement.
+      "velocitySmoothing_s": 0.08
+    },
+    // Movement clips for "clips" legs, shared by every model (each a GLB holding one in-place clip on
+    // the generator's rig, fitted to each model's build by bone name): "walk", "run" and "crouchWalk".
+    // Each plays at the pace that keeps its feet planted; walk blends into run between the two clips'
+    // own speeds, and into the crouched walk as you crouch, all in step. Any can be left out; without a
+    // walk, the steps stand in.
     "clips": { "walk": "res://art/models/clip_walk.glb", "run": "res://art/models/clip_run.glb" },
     // How long clips take to blend in and out, and between each other.
     "clipBlend_s": 0.2,
-    // The legs turn from where you face towards where you're going, by up to this much (the chest
-    // stays on the aim); backing off plays the cycle backwards.
+    // With clips, the legs turn from where you face towards where you're going, by up to this much (the
+    // chest stays on the aim); backing off plays the cycle backwards.
     "maxLegYaw_deg": 65,
-    // Steps while moving without a walk clip: stride, foot lift, the speed of a full stride and how
-    // long steps take to reach it from a standstill, and how far the hips bob at each footfall.
-    "stride_m": 0.75,
-    "stepLift_m": 0.12,
-    "fullStrideSpeed_mps": 3.0,
-    "strideEase_s": 0.25,
-    "hipBob_m": 0.025,
     // How far the hips drop for each metre the eye drops when crouching.
     "hipDropPerEyeDrop": 0.85,
     // Shares of the aim pitch the chest and the head take.

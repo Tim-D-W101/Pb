@@ -138,9 +138,24 @@ public sealed class SpawnRules
 
     /// <summary>With an objective, you come in at least <see cref="MinDistanceFromYou"/> plus this from it.</summary>
     public required float ObjectiveClearance { get; init; }
+
+    /// <summary>These rules with every distance scaled by <paramref name="scale"/> (for a smaller place to play).</summary>
+    public SpawnRules Scaled(float scale) => scale == 1f ? this : new SpawnRules
+    {
+        MinDistanceFromYou = MinDistanceFromYou * scale,
+        MinSpacing = MinSpacing * scale,
+        CoverShare = CoverShare,
+        CoverRoles = CoverRoles,
+        PatrolReach = PatrolReach * scale,
+        FreeForAllSpacing = FreeForAllSpacing * scale,
+        TeammatesWithin = TeammatesWithin * scale,
+        TeammateSpacing = TeammateSpacing,
+        TeamSpread = TeamSpread * scale,
+        ObjectiveClearance = ObjectiveClearance * scale,
+    };
 }
 
-/// <summary>One round's settings: who the hero is and the mode, plus a difficulty tier from the ladder.</summary>
+/// <summary>One round's settings: who the hero is and the mode, plus an area's difficulty tier.</summary>
 public sealed class MatchSetup
 {
     /// <summary>The human player: everyone on another team is an opponent.</summary>
@@ -160,7 +175,7 @@ public sealed class MatchSetup
     /// <summary>How the round is won besides being the last team standing; your side attacks it, the others defend.</summary>
     public ObjectiveKind Objective { get; init; } = ObjectiveKind.Eliminate;
 
-    public static MatchSetup From(LadderTierDef tier, int heroId, MatchModeKind mode = MatchModeKind.Solo,
+    public static MatchSetup From(TierDef tier, int heroId, MatchModeKind mode = MatchModeKind.Solo,
         ObjectiveKind objective = ObjectiveKind.Eliminate) => new()
     {
         HeroId = heroId,

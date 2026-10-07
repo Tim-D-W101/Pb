@@ -35,8 +35,10 @@ public partial class CharacterModel : Node3D
 
     public CharacterPoser Poser { get; private set; } = null!;
 
-    /// <summary>How the legs move: the movement clips, or steps without them.</summary>
-    public Gait Gait { get; private set; } = null!;
+    /// <summary>How the legs move: planted steps, or (with "clips" legs) the movement clips.</summary>
+    public StepGait? Steps { get; private set; }
+
+    public Gait? Gait { get; private set; }
 
     /// <summary>The model at <paramref name="path"/>, or null when the file is missing or isn't the generator's rig.</summary>
     public static CharacterModel? TryCreate(string path, Color tint, Color team, CharactersDef def)
@@ -53,9 +55,6 @@ public partial class CharacterModel : Node3D
             Name = "Poser",
             ChestPitch = def.ChestPitch,
             HeadPitch = def.HeadPitch,
-            Stride = def.Stride_m,
-            StepLift = def.StepLift_m,
-            HipBob = def.HipBob_m,
         };
         if (skeleton is null || !poser.Bind(skeleton))
         {
@@ -65,12 +64,23 @@ public partial class CharacterModel : Node3D
             return null;
         }
 
-        MoveClip? Clip(string name, string? file) => MoveClipBaker.Bake(name, file, path, instance, skeleton);
-        var gait = new Gait(def, Clip("walk", def.Clips.Walk), Clip("run", def.Clips.Run), Clip("crouchWalk", def.Clips.CrouchWalk));
-        poser.Gait = gait;
-        var model = new CharacterModel { Name = "Model", _skeleton = skeleton, Poser = poser, Gait = gait };
         // Generated models face +Z; characters here face −Z.
         instance.RotationDegrees = new Vector3(0f, 180f, 0f);
+        var model = new CharacterModel { Name = "Model", _skeleton = skeleton, Poser = poser };
+        MoveClip? Clip(string name, string? file) => MoveClipBaker.Bake(name, file, path, instance, skeleton);
+        MoveClip? walk = def.Legs == "clips" ? Clip("walk", def.Clips.Walk) : null;
+        if (walk is not null)
+        {
+            model.Gait = poser.Gait = new Gait(def, walk, Clip("run", def.Clips.Run), Clip("crouchWalk", def.Clips.CrouchWalk));
+        }
+        else
+        {
+            model.Steps = poser.Steps = new StepGait(def.Steps) { Build = poser.Measure(skeleton, SkeletonInModel(instance, skeleton)) };
+            poser.MaxReachDrop = def.Steps.MaxReachDrop_m;
+            GD.Print($"Steps on {path.GetFile()}: legs {model.Steps.Build.Length:0.00} m, hips {model.Steps.Build.HipHeight:0.00} m up and " +
+                     $"{model.Steps.Build.HipHalfWidth * 2f:0.00} m apart, ankles {model.Steps.Build.AnkleHeight:0.00} m up, ball of the foot {model.Steps.Build.BallAhead:0.00} m ahead");
+        }
+
         model.AddChild(instance);
         skeleton.AddChild(poser);
         model._animation = FindFirst<AnimationPlayer>(instance);
@@ -166,7 +176,8 @@ public partial class CharacterModel : Node3D
         return pod;
     }
 
-    private BoneAttachment3D Attachment(string bone)
+    /// <summary>A node that follows <paramref name="bone"/> as it's drawn (posed), made the first time it's asked for.</summary>
+    public BoneAttachment3D Attachment(string bone)
     {
         if (!_attachments.TryGetValue(bone, out BoneAttachment3D? attachment))
         {
@@ -418,6 +429,26 @@ public partial class CharacterModel : Node3D
                 }
             }
         }
+    }
+
+    /// <summary>The skeleton's transform in the model's own space (Y up, facing −Z, metres), through the nodes between them.</summary>
+    private static Transform3D SkeletonInModel(Node3D instance, Skeleton3D skeleton)
+    {
+        Transform3D transform = skeleton.Transform;
+        for (Node? node = skeleton.GetParent(); node is not null; node = node.GetParent())
+        {
+            if (node is Node3D spatial)
+            {
+                transform = spatial.Transform * transform;
+            }
+
+            if (node == instance)
+            {
+                break;
+            }
+        }
+
+        return transform;
     }
 
     /// <summary>Metres per skeleton unit (the generator's rig is in centimetres under a 0.01 scale).</summary>

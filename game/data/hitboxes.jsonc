@@ -27,6 +27,17 @@
   "eliminatedRaise_m": 0.45,
   "eliminatedPitch_deg": 65,
 
+  // Up against a wall or a crate, the marker comes up off it rather than poke through (what you see is
+  // still what you can hit): the arms and gear pitch up about the back of the marker, at most
+  // tuckMax_deg, just far enough that the barrel (tuckBarrelRadius_m thick) clears whatever is in
+  // front, at tuckRate_degps (at once during the briefing, so nobody starts with the barrel in a wall).
+  // The clear angle is looked for in steps of tuckStep_deg, then refined.
+  // Shots are unaffected: one fired into the wall still breaks on it.
+  "tuckMax_deg": 70,
+  "tuckRate_degps": 300,
+  "tuckStep_deg": 10,
+  "tuckBarrelRadius_m": 0.03,
+
   // A break on any of these parts eliminates (spec: all of them). Take out marker, loader and tank
   // for "gun hits don't count" rules.
   "lethalParts": ["mask", "head", "torso", "arms", "legs", "marker", "loader", "tank"],

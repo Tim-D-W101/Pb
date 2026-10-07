@@ -249,7 +249,8 @@ public sealed class BotSenses
             return 0;
         }
 
-        Vector3 forward = ViewAngles.Forward(_self.Yaw, _self.Pitch);
+        // They see where their head looks.
+        Vector3 forward = ViewAngles.Forward(_self.Yaw + _self.HeadYaw, _self.Pitch);
         float angle = MathF.Acos(Math.Clamp(Vector3.Dot(forward, toChest / distance), -1f, 1f));
         if (angle > _p.HalfFieldOfView)
         {
