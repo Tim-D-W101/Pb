@@ -75,7 +75,10 @@ material's `albedo`, `normal` and `roughnessMap` (`kit/materials.jsonc`), the pr
 (`kit/props.jsonc`) or a character model or movement clip (`presentation.jsonc` → `characters`, `characters.clips`) at the files.
 A voice's script is the exact lines of `presentation.jsonc` `hud.callouts` (or `hud.referee` for the referee), one per line:
 `tools/art/voice-script.py callouts` (or `referee`) prints it, for the generator and for the import's last argument. Its
-files are found by their words, so nothing needs pointing at them. Characters
+files are found by their words, so nothing needs pointing at them. Then check the cut lines with
+`tools/art/voice-check.py <voice-id>...` (a speech recogniser; `pip install faster-whisper` in a virtual environment): a
+take that says a line twice, or runs another line's words into one, is imported again with `--keep-first="LINE"` or
+`--keep-last="LINE"` after the script (several lines joined with `|`), which keep that line's first or last part. Characters
 must use the generator's biped rig (the bone names `CharacterPoser` binds). One generation can hold four
 materials (a 2 × 2 sheet): cut each with `--region=x,y,w,h`. Cut a regular pattern (bricks, planks,
 corrugations) to whole repeats and pass `--repeats=across,down` (and `--stretch` for a cut that isn't

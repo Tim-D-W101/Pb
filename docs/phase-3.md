@@ -4,7 +4,8 @@
 > 2026-10-05 as the level ladder (you asked to "continue and build phase 3"), and M3.1–M3.9 and M3.11 were built
 > ([report](reports/phase-3.md)). After your play-test you asked for the areas to be open, each with places to choose
 > from, and for the opponents to stop glitching through things and walk clearly: that's M3.12 and M3.13, done, and
-> M3.14 (more life in the opponents) is done too. What's left is M3.8's voices and M3.10's art. Technical design:
+> M3.14 (more life in the opponents) is done too. What's left is M3.8's last two voices (five of the seven were
+> recorded on 2026-10-07) and M3.10's art. Technical design:
 > [architecture.md §15](architecture.md#15-phase-3-open-areas). Everything in [spec.md](spec.md) still applies:
 > ballistics, paint rules, gear, metric units, original IP, data files, tests.
 
@@ -226,16 +227,17 @@ cobwebs, run-off, birds, sunbeams through holes in the roof), which work on any 
 
 ## Higgsfield budget
 
-235 credits are left (2026-10-06, after the Phase 2 leftovers: four props and the crouched walk). Speech is cheap
-(0.15 credits a line):
+235 credits were left (2026-10-06, after the Phase 2 leftovers: four props and the crouched walk); Phase 3 has spent
+17.9 of them so far (2026-10-07: five voice takes), leaving 216.97. Speech is cheap (about 0.1 credits a line: 3.9 for a
+take of the 39 callouts, 2.3 for the referee's 16 lines):
 
 | Item | Credits |
 |---|---|
-| Voices: six voices × about 35 lines, plus the referee (about 220 lines) | ≈ 35 |
+| Voices: six voices × 39 lines, plus the referee's 16 (17.9 spent on five takes, 7.8 to go) | ≈ 26 |
 | Three texture sheets (twelve materials) | ≈ 13 |
 | Up to four generated props (one picture of six, then Tripo H3.1 at 18 each) | ≈ 77 |
 | ~~Two movement clips for the opponents (M3.14): the hands-up walk-off and the refill~~ (built on the poser instead) | ~~16~~ 0 |
-| **Phase 3 total** | **≈ 125 (cap 150)** |
+| **Phase 3 total** | **≈ 116 (cap 150)** |
 
 Generations are limited to five a day, so the art arrives over several days; everything works before it does.
 
@@ -469,7 +471,7 @@ until M3.10 gives them a texture.
 
 ### M3.8 Sound and voices
 
-**Done 2026-10-05, but for the voices' recordings.**
+**Done 2026-10-05; the voices recorded on 2026-10-07, all but two.**
 
 - [x] Audio buses (master, effects, voices, ambience, menus) with their volumes in settings.
 - [x] Synthesised effects, several variations each: the marker report (pitch and body following tank pressure),
@@ -483,10 +485,13 @@ until M3.10 gives them a texture.
 - [ ] Voices: the cast and lines in `presentation.jsonc`, imported with `tools/art/import.sh voice` and recorded in
   `assets.jsonc` (provenance, like the art); each bot gets a voice of its model; callouts play from the caller with
   the subtitle; new callouts for flanking, pushing, a teammate out, the case and the room; the referee's lines.
-  *Everything but the recordings is built; Higgsfield refused the first take on 2026-10-05 and again on 2026-10-06,
-  because each day's five generations had gone on art (the second day's on Phase 2's leftovers, as booked), so the
-  seven takes start with the generations of 2026-10-07. The refusal says the limit belongs to the account's grace
-  period.*
+  *Five of the seven takes were recorded on 2026-10-07 (Knox and Reid for the first model, Brooks for the second,
+  Petra for the third, and Alistair as the referee: 17.9 credits); Gideon's and Maeve's come with the generations of
+  2026-10-08, as the day's five were used (the sixth was refused for the limit, which the refusal says belongs to the
+  account's grace period). Higgsfield had refused the first take on 2026-10-05 and 2026-10-06, the days' five having
+  gone on art. Every line was listened to with a speech recogniser (`tools/art/voice-check.py`): two had more in them
+  than their script (Knox says "Where'd they go?" twice, and Reid "Man down." again before "They got one of us!"),
+  imported again keeping just the one part (`--keep-first`, `--keep-last`).*
 - [x] Everything off with `--no-art` falls back to subtitles, and CI runs without audio as now.
 
 As built: every sound is synthesised when the game starts (`game/audio/SoundBank.cs`), 87 of them in 225 variations
@@ -509,7 +514,15 @@ hit!" when you're out and the room in a hold. Voices are art: each line is a fil
 words>.ogg`, found by its words, so a missing one is a subtitle only. A voice is imported as one take of its whole
 script, cut into lines at its pauses (`game/tools/VoiceSplitter.cs`), choosing the pauses that give each line the length
 its words suggest, so a comma's pause isn't cut even when it's as long as a line break (tested with ffmpeg's own speech
-synthesiser and on twelve made-up takes in CI); each line is levelled, faded and encoded as OGG. Headless runs (CI)
+synthesiser and on twelve made-up takes in CI); each line is levelled, faded and encoded as OGG. The first real takes
+(2026-10-07) showed two more things. A take can run two lines almost together (30 ms apart), so the little kept
+either side of a line now stops at the cuts either side, and no line ends with the start of the next one's first word.
+And a take sometimes says more than a line's words (the line twice, or another line's words again inside it):
+`--keep-first="LINE"` or `--keep-last="LINE"` on the import keeps the line's first or last part, cut at the longest
+pause inside it, and its record says so. CI's art self-test checks both on its made-up takes. `tools/art/voice-check.py`
+listens to every line of a voice with a speech recogniser (Whisper, run locally) and lists any whose words
+aren't the script's, letter by letter, so spacing and "your" for "you're" pass but a doubled, stray or missing word
+doesn't. Headless runs (CI)
 build and count every sound but start none (Godot's dummy driver never retires a playback), and the level smoke tests
 now check that shots, breaks, steps and doors were all heard and the referee called the round. Tests: the areas' tones
 are known, a bad one fails to load, every voice file is on record and every record's files are there, and voices on

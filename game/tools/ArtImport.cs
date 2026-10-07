@@ -56,6 +56,8 @@ public partial class ArtImport : Node
     /// A generated take of a voice's script (<c>--prompt</c>, one line of text per line spoken), cut into its lines at
     /// its pauses (<see cref="VoiceSplitter"/>), each levelled to the same peak, faded at its ends and written as OGG Vorbis
     /// to <c>art/voices/&lt;voice&gt;_&lt;words&gt;.ogg</c>, where <see cref="Audio.VoiceBank"/> finds it. Needs ffmpeg.
+    /// <c>--keep-first="LINE|LINE"</c> and <c>--keep-last="…"</c> name lines the take says more in than their words (a line
+    /// said twice, another line's words again inside it): only their first or last part is kept.
     /// </summary>
     private static int ImportVoice()
     {
@@ -64,6 +66,19 @@ public partial class ArtImport : Node
         AudioDef.VoiceId(check, "id", id);
         check.ThrowIfErrors();
         string[] lines = Required("--prompt").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        // Lines the take says more in than the script (a line said twice, a word of another line said again inside it):
+        // only their first, or last, part is kept, cut at the longest pause inside them.
+        string[] keepFirst = Named("--keep-first"), keepLast = Named("--keep-last");
+        foreach (string named in keepFirst.Concat(keepLast).Where(n => !lines.Contains(n)))
+        {
+            throw new ArgumentException($"--keep-first/--keep-last name \"{named}\", which isn't a line of the script");
+        }
+
+        foreach (string named in keepFirst.Intersect(keepLast))
+        {
+            throw new ArgumentException($"\"{named}\" is in both --keep-first and --keep-last");
+        }
+
         string temp = Path.Combine(Path.GetTempPath(), $"pb-voice-{id}-{System.Environment.ProcessId}");
         Directory.CreateDirectory(temp);
         try
@@ -79,6 +94,12 @@ public partial class ArtImport : Node
             var notes = new List<string>();
             for (int k = 0; k < lines.Length; k++)
             {
+                string? part = keepFirst.Contains(lines[k]) ? "first" : keepLast.Contains(lines[k]) ? "last" : null;
+                if (part is not null)
+                {
+                    cut[k] = VoiceSplitter.KeepPart(samples, rate, cut[k], part == "first");
+                }
+
                 string path = Audio.VoiceBank.PathOf(id, lines[k]);
                 float start = cut[k].Start / (float)rate, length = (cut[k].End - cut[k].Start) / (float)rate;
                 float peak = 1e-6f;
@@ -95,9 +116,10 @@ public partial class ArtImport : Node
                 File.WriteAllText(ProjectSettings.GlobalizePath(path) + ".import",
                     "[remap]\n\nimporter=\"oggvorbisstr\"\ntype=\"AudioStreamOggVorbis\"\n\n[params]\n\nloop=false\nloop_offset=0\nbpm=0\nbeat_count=0\nbar_beats=4\n");
                 files.Add(path);
-                notes.Add(string.Create(CultureInfo.InvariantCulture, $"\"{lines[k]}\" {length:0.00} s"));
+                string kept = part is null ? "" : $" (the take says more in it: its {part} part kept)";
+                notes.Add(string.Create(CultureInfo.InvariantCulture, $"\"{lines[k]}\" {length:0.00} s{kept}"));
                 GD.Print(string.Create(CultureInfo.InvariantCulture,
-                    $"ART {path}: {length:0.00} s (after a {cut[k].PauseBefore:0.00} s pause), {gain:+0.0;-0.0} dB to peak"));
+                    $"ART {path}: {length:0.00} s (after a {cut[k].PauseBefore:0.00} s pause), {gain:+0.0;-0.0} dB to peak{kept}"));
             }
 
             Record("voice", id, files, $"{lines.Length} lines cut from one take at its pauses, each to −1 dB peak: {string.Join(", ", notes)}");
@@ -464,8 +486,8 @@ public partial class ArtImport : Node
         float halfShift = Change(pattern, TextureMaker.MakeTileable(pattern, 0.12f));
         bool repeatsOk = inStep < 0.01f && halfShift > 0.1f;
 
-        // Voices: a made-up take of six lines, with pauses within them, splits back into its lines, each kept whole
-        // with no more than a little silence either side.
+        // Voices: a made-up take of eight lines, with pauses within them, splits back into its lines, each kept whole
+        // with no more than a little silence either side and none of the line before.
         const int rate = 24000, takes = 12, linesPerTake = 8;
         int goodTakes = 0;
         for (int seed = 1; seed <= takes; seed++)
@@ -476,13 +498,39 @@ public partial class ArtImport : Node
             for (int k = 0; good && k < truth.Count; k++)
             {
                 good = split[k].Start <= truth[k].Start + rate / 100 && truth[k].Start - split[k].Start < rate * 6 / 100 &&
-                       split[k].End >= truth[k].End - rate / 100 && split[k].End - truth[k].End < rate * 12 / 100;
+                       split[k].End >= truth[k].End - rate / 100 && split[k].End - truth[k].End < rate * 12 / 100 &&
+                       (k == 0 || split[k].Start > split[k - 1].End);
             }
 
             goodTakes += good ? 1 : 0;
         }
 
         bool voiceOk = goodTakes == takes;
+
+        // A line the take says more in (said twice, or with another line's words again): two made-up lines in one cut give
+        // back each whole when the first, or the last, part is kept.
+        bool Close(VoiceSplitter.Line part, (int Start, int End) whole) =>
+            part.Start <= whole.Start + rate / 100 && whole.Start - part.Start < rate * 6 / 100 &&
+            part.End >= whole.End - rate / 100 && part.End - whole.End < rate * 12 / 100;
+        int doubled = 0, undoubled = 0;
+        for (int seed = 1; seed <= takes; seed++)
+        {
+            (float[] take, List<(int Start, int End)> truth, string[] script) = VoiceSplitter.FakeTake(rate, linesPerTake, seed);
+            // Two lines without a comma's pause in them, so the pause between them is the longest in the cut.
+            int k = Enumerable.Range(0, linesPerTake - 1).FirstOrDefault(i => !script[i].Contains(',') && !script[i + 1].Contains(','), -1);
+            if (k < 0)
+            {
+                continue;
+            }
+
+            var both = new VoiceSplitter.Line(truth[k].Start - rate * 4 / 100, truth[k + 1].End + rate * 9 / 100, 0f);
+            VoiceSplitter.Line first = VoiceSplitter.KeepPart(take, rate, both, first: true);
+            VoiceSplitter.Line last = VoiceSplitter.KeepPart(take, rate, both, first: false);
+            doubled++;
+            undoubled += Close(first, truth[k]) && Close(last, truth[k + 1]) && first.End < last.Start ? 1 : 0;
+        }
+
+        voiceOk &= doubled > 0 && undoubled == doubled;
 
         // Sounds: the bank renders, every variation of every sound in it sounding.
         Audio.SoundBank bank = Audio.SoundBank.Render(2);
@@ -498,7 +546,7 @@ public partial class ArtImport : Node
             $"SMOKE {(ok ? "PASS" : "FAIL")}: art pipeline seam ratio {before:0.00} → {after:0.00}, ramp {rampBefore:0.000} → {rampAfter:0.000}, flat normal error {normalError:0.0000}, " +
             $"roughness error {roughnessError:0.0000}, bump normals {(bumpOk ? "lean outwards" : "WRONG")}, " +
             $"repeating pattern changed by {inStep:0.000} in step with its repeats ({halfShift:0.000} by a half shift); " +
-            $"{goodTakes} of {takes} made-up takes of {linesPerTake} lines split into them; " +
+            $"{goodTakes} of {takes} made-up takes of {linesPerTake} lines split into them, {undoubled} of {doubled} doubled lines cut back to one; " +
             $"{bank.SoundCount} sounds in {bank.VariationCount} variations ({bank.Seconds:0} s) rendered in {bank.RenderMilliseconds:0} ms, {bank.Problems.Count} silent"));
         return ok ? 0 : 1;
     }
@@ -591,6 +639,10 @@ public partial class ArtImport : Node
         Error error = Image.CreateFromData(rgb.Width, rgb.Height, false, Image.Format.Rgb8, bytes).SaveJpg(ProjectSettings.GlobalizePath(path), quality);
         return error == Error.Ok ? path : throw new IOException($"can't write {path} ({error})");
     }
+
+    /// <summary>The script lines a flag names (<c>--flag="line|line"</c>), none when it's absent.</summary>
+    private static string[] Named(string flag) =>
+        Args.Value(flag)?.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? Array.Empty<string>();
 
     private static string Required(string flag) =>
         Args.Value(flag) is { Length: > 0 } value ? value : throw new ArgumentException($"{flag}=… is required");

@@ -9,13 +9,13 @@ namespace Pb.Game.Tools;
 /// loudness every 10 ms, finds the quiet stretches between the speech, and cuts at the middle of as many of them as there
 /// are line breaks, chosen for being long and for giving each line about the length its words take to say (so a comma's
 /// pause inside a line isn't cut even when it's as long as the pause between two lines). Each line is then trimmed of
-/// its silence, with a little kept either side.
+/// its silence, with a little kept either side as far as the cuts either side allow.
 /// </summary>
 public static class VoiceSplitter
 {
     private const float Frame = 0.01f;
 
-    /// <summary>Kept before a line's first sound and after its last (s).</summary>
+    /// <summary>Kept before a line's first sound and after its last (s), where the cuts either side leave room.</summary>
     private const float Lead = 0.04f, Tail = 0.09f;
 
     /// <summary>A line: its first and last sample, and the pause cut at before it (s).</summary>
@@ -31,29 +31,12 @@ public static class VoiceSplitter
     public static List<Line> Split(float[] samples, int rate, IReadOnlyList<string> script)
     {
         int lines = script.Count;
-        int frame = Math.Max(1, (int)(rate * Frame));
-        int frames = samples.Length / frame;
-        if (frames < 2 || lines < 1)
+        (float[] db, float threshold, int frame) = Loudness(samples, rate);
+        if (db.Length < 2 || lines < 1)
         {
             throw new ArgumentException("the take is too short to split");
         }
 
-        var db = new float[frames];
-        for (int f = 0; f < frames; f++)
-        {
-            double sum = 0;
-            for (int i = f * frame; i < (f + 1) * frame; i++)
-            {
-                sum += samples[i] * samples[i];
-            }
-
-            db[f] = 10f * MathF.Log10((float)(sum / frame) + 1e-12f);
-        }
-
-        // Quiet: within 12 dB of the noise floor (the quietest tenth), and at least 35 dB under the loudest.
-        float[] sorted = db.Order().ToArray();
-        float floor = sorted[frames / 10], loudest = sorted[^1];
-        float threshold = MathF.Max(floor + 12f, loudest - 35f);
         bool Loud(int f) => db[f] > threshold;
 
         int first = Array.FindIndex(db, d => d > threshold), last = Array.FindLastIndex(db, d => d > threshold);
@@ -105,8 +88,12 @@ public static class VoiceSplitter
                 b--;
             }
 
-            int start = Math.Max(0, a * frame - (int)(Lead * rate));
-            int end = Math.Min(samples.Length - 1, (b + 1) * frame + (int)(Tail * rate));
+            // A little kept either side, but never past the cuts into the line before or after: a take that runs two
+            // lines together leaves less than that between them, and the next word's start would end this line.
+            int lower = k == 0 ? 0 : from * frame;
+            int upper = k < cut.Count ? to * frame - 1 : samples.Length - 1;
+            int start = Math.Max(lower, a * frame - (int)(Lead * rate));
+            int end = Math.Min(upper, (b + 1) * frame + (int)(Tail * rate));
             result.Add(new Line(start, end, before));
             if (k < cut.Count)
             {
@@ -116,6 +103,101 @@ public static class VoiceSplitter
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// <paramref name="line"/> (of <see cref="Split"/>) cut down to its first or last part, at the longest pause inside it:
+    /// for a take that says a line twice, or says a word of another line again inside it (the import's
+    /// <c>--keep-first</c> and <c>--keep-last</c>). Trimmed as <see cref="Split"/> trims, within the line's own ends.
+    /// Throws when there's no pause inside the line to cut at.
+    /// </summary>
+    public static Line KeepPart(float[] samples, int rate, Line line, bool first)
+    {
+        (float[] db, float threshold, int frame) = Loudness(samples, rate);
+        bool Loud(int f) => db[f] > threshold;
+        int from = line.Start / frame, to = Math.Min(db.Length - 1, line.End / frame);
+        while (from < to && !Loud(from))
+        {
+            from++;
+        }
+
+        while (to > from && !Loud(to))
+        {
+            to--;
+        }
+
+        // The longest quiet stretch between the line's first sound and its last.
+        int longest = 0, middle = -1;
+        for (int f = from; f <= to; f++)
+        {
+            if (Loud(f))
+            {
+                continue;
+            }
+
+            int start = f;
+            while (f <= to && !Loud(f))
+            {
+                f++;
+            }
+
+            if (f - start > longest)
+            {
+                longest = f - start;
+                middle = start + (f - start) / 2;
+            }
+        }
+
+        if (middle < 0)
+        {
+            throw new ArgumentException("the line has no pause inside it to cut at");
+        }
+
+        int a = first ? from : middle, b = first ? middle - 1 : to;
+        while (a < b && !Loud(a))
+        {
+            a++;
+        }
+
+        while (b > a && !Loud(b))
+        {
+            b--;
+        }
+
+        int lower = first ? line.Start : middle * frame;
+        int upper = first ? middle * frame - 1 : line.End;
+        return new Line(Math.Max(lower, a * frame - (int)(Lead * rate)), Math.Min(upper, (b + 1) * frame + (int)(Tail * rate)), line.PauseBefore);
+    }
+
+    /// <summary>
+    /// The take's loudness every 10 ms (dB), the level a frame has to be over to be speech rather than a pause (within
+    /// 12 dB of the noise floor, the quietest tenth, is quiet, and so is anything 35 dB under the loudest), and how many
+    /// samples a frame is.
+    /// </summary>
+    private static (float[] Db, float Threshold, int Frame) Loudness(float[] samples, int rate)
+    {
+        int frame = Math.Max(1, (int)(rate * Frame));
+        int frames = samples.Length / frame;
+        var db = new float[frames];
+        for (int f = 0; f < frames; f++)
+        {
+            double sum = 0;
+            for (int i = f * frame; i < (f + 1) * frame; i++)
+            {
+                sum += samples[i] * samples[i];
+            }
+
+            db[f] = 10f * MathF.Log10((float)(sum / frame) + 1e-12f);
+        }
+
+        if (frames == 0)
+        {
+            return (db, 0f, frame);
+        }
+
+        float[] sorted = db.Order().ToArray();
+        float floor = sorted[frames / 10], loudest = sorted[^1];
+        return (db, MathF.Max(floor + 12f, loudest - 35f), frame);
     }
 
     /// <summary>How long a line should take to say, in arbitrary units: its letters, a little more for each word, more for each pause mark.</summary>

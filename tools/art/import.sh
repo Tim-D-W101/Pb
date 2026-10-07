@@ -19,7 +19,9 @@
 # Voices are one text-to-speech take of a voice's script, its lines one per line of the script (the exact
 # lines of presentation.jsonc hud.callouts or hud.referee): the take is cut into them at its pauses and each
 # goes into art/voices/<voice-id>_<its words>.ogg (needs ffmpeg). The voice id is one from presentation.jsonc
-# audio.cast (or audio.refereeVoice).
+# audio.cast (or audio.refereeVoice). Extra voice flags, for a take that says more in a line than its words (the
+# line twice, or another line's words again inside it; tools/art/voice-check.py finds them): --keep-first="LINE"
+# or --keep-last="LINE" (several lines joined with |) keep only that line's first or last part.
 # Needs Godot .NET as $GODOT (default: godot) and a built game/Pb.csproj.
 set -euo pipefail
 kind="${1:?texture, model, clip or voice}"

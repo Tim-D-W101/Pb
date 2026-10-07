@@ -690,8 +690,12 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   crows from `Birds.TryFlying` (and wings where `Birds.Flushed` says birds were put up). `RefereeCalls` queues the
   referee's lines so they don't talk over each other. Voice files are `art/voices/<voice>_<slug>.ogg` (named for their
   voice so `tools/package/art-packs.sh` packs them per voice); `tools/art/import.sh voice` cuts one take into its lines
-  with `VoiceSplitter` (dynamic programming over the take's pauses against the lines' expected lengths) and encodes them
-  with ffmpeg. Under Godot's dummy driver (headless) nothing is started, so CI exercises everything but the mixer.
+  with `VoiceSplitter` (dynamic programming over the take's pauses against the lines' expected lengths; the silence
+  kept either side of a line never reaches past the cuts) and encodes them with ffmpeg. A line the take says more in
+  (twice, or with another line's words again) keeps its first or last part with `--keep-first`/`--keep-last`
+  (`VoiceSplitter.KeepPart`, at the longest pause inside it), and `tools/art/voice-check.py` checks every cut line's
+  words with a local speech recogniser. Under Godot's dummy driver (headless) nothing is started, so CI exercises
+  everything but the mixer.
 
 ### 15.7 Settings and bindings
 
