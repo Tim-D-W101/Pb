@@ -44,6 +44,9 @@ public sealed class LadderSpec
 
     public required float Exit { get; init; }
 
+    /// <summary>How far the stiles carry on above the top (drawn only: handholds).</summary>
+    public float Rails { get; init; }
+
     /// <summary>What the rungs are made of: what a foot on one sounds like.</summary>
     public required SurfaceId Surface { get; init; }
 

@@ -58,6 +58,7 @@ public static class LevelFactory
                     Facing = yaw + l.Facing,
                     Width = l.Width,
                     Exit = l.Exit,
+                    Rails = l.Rails,
                     Surface = type.Colliders[0].Material.Surface,
                     Owner = owner,
                 });

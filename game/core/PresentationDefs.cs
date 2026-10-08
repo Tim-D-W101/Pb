@@ -1339,6 +1339,18 @@ public sealed class CharactersDef : IValidatable
 
     public float OutHandOut_m { get; set; }
 
+    /// <summary>
+    /// On a ladder: the hips this far in towards the rungs and down, each hand and foot moving up (or down) two rungs at
+    /// a time over this long, swung this far out from the ladder on the way.
+    /// </summary>
+    public float LadderHipsIn_m { get; set; }
+
+    public float LadderHipsDown_m { get; set; }
+
+    public float LadderLimbMove_s { get; set; }
+
+    public float LadderLimbSwing_m { get; set; }
+
     /// <summary>How far the hips drop for each metre the eye drops (crouching).</summary>
     public float HipDropPerEyeDrop { get; set; }
 
@@ -1390,6 +1402,10 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(OutRaise_s), OutRaise_s, 0.01, 3);
         v.InRange(nameof(OutHandAbove_m), OutHandAbove_m, -0.2, 0.6);
         v.InRange(nameof(OutHandOut_m), OutHandOut_m, 0, 0.6);
+        v.InRange(nameof(LadderHipsIn_m), LadderHipsIn_m, -0.2, 0.4);
+        v.InRange(nameof(LadderHipsDown_m), LadderHipsDown_m, 0, 0.4);
+        v.InRange(nameof(LadderLimbMove_s), LadderLimbMove_s, 0.02, 1);
+        v.InRange(nameof(LadderLimbSwing_m), LadderLimbSwing_m, 0, 0.3);
         if (Legs is not ("steps" or "clips"))
         {
             v.Error(nameof(Legs), $"'{Legs}' is neither \"steps\" nor \"clips\"");

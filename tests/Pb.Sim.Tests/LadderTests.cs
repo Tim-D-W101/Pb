@@ -237,6 +237,56 @@ public class LadderTests
     }
 
     [Fact]
+    public void The_bots_paths_climb_the_ladders()
+    {
+        (LevelLayout level, NavGrid grid, _) = BotArena.SharedFor("rail_yard");
+        Assert.Equal(level.Ladders.Count, grid.LadderLinkCount);
+        LadderSpec legs = level.Ladders.First(l => level.Owners[l.Owner].Contains("water_tower", StringComparison.Ordinal) && l.Foot.Y < 1f);
+        LadderSpec tank = level.Ladders.First(l => level.Owners[l.Owner].Contains("water_tower", StringComparison.Ordinal) && l.Foot.Y > 1f);
+
+        // From the ground out in front to the tank's roof: up both ladders, each end a waypoint.
+        var path = new List<Vector3>();
+        Assert.True(grid.FindPath(legs.ClimbPoint(0f, 4f), tank.TopPoint, path), "no way up the water tower");
+        _out.WriteLine(string.Join(" → ", path.Select(p => $"({p.X:0.0}, {p.Y:0.0}, {p.Z:0.0})")));
+        int climbs = 0;
+        for (int i = 1; i < path.Count; i++)
+        {
+            climbs += grid.LadderBetween(path[i - 1], path[i]) >= 0 ? 1 : 0;
+        }
+
+        Assert.Equal(2, climbs);
+        Assert.InRange(path[^1].Y, tank.TopY - 0.05f, tank.TopY + 0.05f);
+    }
+
+    [Fact]
+    public void A_bot_on_patrol_climbs_the_water_tower_and_back_down()
+    {
+        BotArena arena = BotArena.Create(level: "rail_yard");
+        LadderSpec legs = arena.Level.Ladders.First(l => arena.Level.Owners[l.Owner].Contains("water_tower", StringComparison.Ordinal) && l.Foot.Y < 1f);
+        Vector3 below = legs.ClimbPoint(0f, 3f);
+        var route = new PatrolRoute { Id = "tower", Points = new[] { below, legs.TopPoint }, Loop = true, Pause = 0.5f };
+        var spawn = new OpponentSpawn { Id = "climber", Position = below, Yaw = legs.Facing, Roles = new[] { "patroller" }, Patrol = route };
+        BotBrain bot = arena.AddBotAt(spawn, team: 1);
+        arena.Start();
+        float highest = 0f;
+        bool climbed = false, down = false;
+        int ticks = 0;
+        arena.Run(90 * Second, () =>
+        {
+            ticks++;
+            PlayerState me = bot.Self;
+            highest = MathF.Max(highest, me.Position.Y);
+            climbed |= !me.OnLadder && me.Position.Y > legs.TopY - 0.1f;
+            down = climbed && !me.OnLadder && me.Position.Y < 0.5f;
+            return down;
+        });
+
+        _out.WriteLine($"up to {highest:0.00} m, back down={down} after {ticks / (float)Second:0.0} s");
+        Assert.True(climbed, $"never stood on the catwalk (highest {highest:0.00} m)");
+        Assert.True(down, "never came back down");
+    }
+
+    [Fact]
     public void A_ladder_too_short_to_climb_fails_to_load_with_its_key()
     {
         var source = new EditedDataSource(TestData.Source)

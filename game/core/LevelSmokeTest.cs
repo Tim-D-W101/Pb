@@ -19,6 +19,7 @@ namespace Pb.Game.Core;
 /// the real scene, walking collision and presentation code:
 /// <list type="number">
 /// <item>the autopilot walks in through the main gate, sweeping its aim and firing;</item>
+/// <item>it climbs every ladder to the top and steps off, then gets back on facing out over the top and climbs down;</item>
 /// <item>it climbs every flight of stairs and every ramp in the level, starting at the foot of each;</item>
 /// <item>back at the spawn, it sprints, slides into a crouch, stands and jumps;</item>
 /// <item>in front of a shut door it shoots the door (the ball must break on it), opens it with interact and walks through;</item>
@@ -54,6 +55,7 @@ public sealed class LevelSmokeTest
     private enum Phase
     {
         Walk,
+        Ladder,
         Climb,
         Moves,
         Door,
@@ -83,6 +85,12 @@ public sealed class LevelSmokeTest
     private int _climb = -1;
     private float _climbHighest;
     private int _climbsFailed;
+    private int _ladder = -1;
+    private int _laddersFailed;
+    private bool _ladderUp;
+    private int _ladderUpAt = -1;
+    private int _ladderDownFrom = -1;
+    private bool _ladderOn;
     private bool _slid;
     private bool _slideEndedCrouched;
     private float _jumpBaseY;
@@ -118,7 +126,7 @@ public sealed class LevelSmokeTest
         _pilot = new ScriptedPilot(sim);
         driver.Ticked += _ => AfterTick();
         GD.Print($"SMOKE start: level {sim.Level?.Id}, {ticks} ticks walking in at {sim.Config.TickRate} Hz, " +
-                 $"then {_climbs.Count} flights of stairs, a slide and a jump, and a duel with {opponents.Count} bots");
+                 $"then {sim.Ladders.Count} ladders up and down, {_climbs.Count} flights of stairs, a slide and a jump, and a duel with {opponents.Count} bots");
     }
 
     public ICommandSource Pilot => _pilot;
@@ -156,9 +164,13 @@ public sealed class LevelSmokeTest
                 _lowestY = System.MathF.Min(_lowestY, p.Y);
                 if (t >= _walkTicks)
                 {
-                    NextClimb();
+                    NextLadder();
                 }
 
+                break;
+
+            case Phase.Ladder:
+                StepLadder(state, t);
                 break;
 
             case Phase.Climb:
@@ -252,6 +264,85 @@ public sealed class LevelSmokeTest
                 }
 
                 break;
+        }
+    }
+
+    /// <summary>Up the next ladder from in front of its foot, facing it, until stepped off at the top; or on to the stairs.</summary>
+    private void NextLadder()
+    {
+        _phase = Phase.Ladder;
+        _phaseStart = _elapsed;
+        _ladder++;
+        if (_ladder >= _sim.Ladders.Count)
+        {
+            NextClimb();
+            return;
+        }
+
+        LadderSpec l = _sim.Ladders[_ladder];
+        _player.Teleport(l.ClimbPoint(l.Foot.Y, _sim.Config.Movement.Climbing.Standoff + 0.25f), l.Facing);
+        _ladderUp = false;
+        _ladderUpAt = -1;
+        _ladderDownFrom = -1;
+        _ladderOn = false;
+        _pilot.Script = (_, _) =>
+        {
+            int t = _elapsed - _phaseStart;
+            if (!_ladderUp)
+            {
+                return new InputCommand { Move = new System.Numerics.Vector2(0f, 1f), Yaw = l.Facing, Buttons = t < 2 ? InputButtons.Interact : InputButtons.None };
+            }
+
+            // At the top: turn round, then interact facing out over it, and back down.
+            int down = t - _ladderUpAt;
+            float outward = l.Facing + System.MathF.PI;
+            return down < 30
+                ? new InputCommand { Yaw = outward }
+                : new InputCommand { Move = new System.Numerics.Vector2(0f, -1f), Yaw = outward, Buttons = down < 32 ? InputButtons.Interact : InputButtons.None };
+        };
+    }
+
+    /// <summary>
+    /// A ladder's climb: up, the body must step off at the top and stand on the floor there; then back on from the top and
+    /// down, off at the bottom on the ground. Each way gets twice the time the climb takes, and a few seconds.
+    /// </summary>
+    private void StepLadder(PlayerState state, int t)
+    {
+        LadderSpec l = _sim.Ladders[_ladder];
+        int budget = (int)((l.Height / _sim.Config.Movement.Climbing.Speed * 2f + 4f) * _sim.Config.TickRate);
+        string name = $"{_sim.Level!.Owners[l.Owner]} ({l.Height:0.0} m)";
+        _ladderOn |= state.OnLadder;
+        if (!_ladderUp)
+        {
+            if (_ladderOn && !state.OnLadder && state.Grounded && state.Position.Y >= l.TopY - 0.1f)
+            {
+                _ladderUp = true;
+                _ladderUpAt = t;
+                _ladderOn = false;
+            }
+            else if (t >= budget)
+            {
+                _laddersFailed++;
+                GD.Print($"SMOKE ladder {name}: FAILED up (on it={_ladderOn}, at y={state.Position.Y:0.00}, top {l.TopY:0.00})");
+                NextLadder();
+            }
+
+            return;
+        }
+
+        if (_ladderOn && !state.OnLadder && _ladderDownFrom < 0)
+        {
+            _ladderDownFrom = t;
+        }
+
+        bool down = _ladderDownFrom >= 0 && state.Grounded && state.Position.Y <= l.Foot.Y + 0.1f;
+        if (down || t - _ladderUpAt >= budget)
+        {
+            _laddersFailed += down ? 0 : 1;
+            GD.Print($"SMOKE ladder {name}: up to {l.TopY:0.00} in {_ladderUpAt / _sim.Config.TickRate:0.0} s ok, " +
+                     (down ? $"down to {state.Position.Y:0.00} in {(t - _ladderUpAt) / _sim.Config.TickRate:0.0} s ok"
+                         : $"FAILED down (on it={_ladderOn}, at y={state.Position.Y:0.00})"));
+            NextLadder();
         }
     }
 
@@ -419,10 +510,11 @@ public sealed class LevelSmokeTest
                  $"callouts {audio.Spoken} voiced, {audio.Unvoiced} subtitles only; ambience {audio.Ambience?.Where} (tone '{audio.Ambience?.Tone}', " +
                  $"{audio.Ambience?.Crows} crows); referee: {string.Join(" / ", _host.Referee.Called)})");
 
-        bool ok = _travelled > 15f && _lowestY > -0.5f && _shots > 0 && _breaks > 0 && _climbsFailed == 0 && slideOk && jumpOk &&
+        bool ok = _travelled > 15f && _lowestY > -0.5f && _shots > 0 && _breaks > 0 && _climbsFailed == 0 && _laddersFailed == 0 && slideOk && jumpOk &&
                   doorOk && shootOk && shotOk && audioOk && _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: ticks={_elapsed} travelled={_travelled:0.0}m lowestY={_lowestY:0.00} " +
                  $"shots={_shots} breaks={_breaks} bounces={_bounces} climbs={_climbs.Count - _climbsFailed}/{_climbs.Count} " +
+                 $"ladders={_sim.Ladders.Count - _laddersFailed}/{_sim.Ladders.Count} " +
                  $"meshes={_world.MeshCount} walkColliders={_world.ColliderCount} simErrors={_driver.ErrorCount} " +
                  $"avgStepMs={_driver.AverageStepMs:0.000}");
         _host.GetTree().Quit(ok ? 0 : 1);

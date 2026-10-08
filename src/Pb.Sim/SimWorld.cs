@@ -360,7 +360,7 @@ public sealed class SimWorld
     {
         HitboxParams rig = Config.Hitboxes;
         float target = 0f;
-        if (player.Alive && player.Present && rig.TuckMax > 0f && !BarrelClear(player, 0f))
+        if (player.Alive && player.Present && !player.OnLadder && rig.TuckMax > 0f && !BarrelClear(player, 0f))
         {
             target = rig.TuckMax;
             float clear = -1f;

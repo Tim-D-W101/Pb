@@ -3,6 +3,7 @@ using Pb.Game.Ballistics;
 using Pb.Game.Core;
 using Pb.Sim;
 using Pb.Sim.Collision;
+using Pb.Sim.Level;
 using Pb.Sim.Players;
 
 namespace Pb.Game.Player;
@@ -36,6 +37,7 @@ public partial class CharacterVisual : Node3D
     private float _flinchAge = 10f;
     private float _kneesOut;
     private float _elbowsOut;
+    private LadderLimbs? _limbs;
     private float _flinchStrength;
     private float _breathPhase;
     private float _exertion;
@@ -278,6 +280,23 @@ public partial class CharacterVisual : Node3D
             float side = poser.RightHanded ? -1f : 1f;
             Vector3 up = feet + Vector3.Up * (eye + 0.12f + _look.OutHandAbove_m) + poser.Right * (_look.OutHandOut_m * side) + poser.Forward * 0.04f;
             poser.SupportHand = poser.SupportHand.Lerp(up, poser.SupportRaise);
+        }
+
+        // On a ladder: hands and feet on the rungs (the gear's slung on the back, by its hitboxes).
+        if (_state.Ladder >= 0 && _state.Ladder < _sim.Ladders.Count && _state.LadderPhase == LadderPhase.Climbing)
+        {
+            LadderSpec ladder = _sim.Ladders[_state.Ladder];
+            _limbs ??= new LadderLimbs();
+            _limbs.Update(ladder, _state.Ladder, feet, _look.LadderLimbMove_s, _look.LadderLimbSwing_m, (float)GetProcessDeltaTime());
+            poser.Ladder = new CharacterPoser.LadderGrip(_limbs.LeftFoot, _limbs.RightFoot, _limbs.LeftHand, _limbs.RightHand, ladder.Forward.ToGodot());
+            poser.LadderHipsIn = _look.LadderHipsIn_m;
+            poser.LadderHipsDown = _look.LadderHipsDown_m;
+            poser.SupportRaise = 0f;
+        }
+        else
+        {
+            poser.Ladder = null;
+            _limbs?.Leave();
         }
 
         // The legs: planted steps where the body goes, or the clips by the ground the feet covered.

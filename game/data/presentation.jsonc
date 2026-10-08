@@ -904,6 +904,13 @@
     "outRaise_s": 0.45,
     "outHandAbove_m": 0.2,
     "outHandOut_m": 0.17,
+    // On a ladder: hands on the rungs and the balls of the feet on them, opposite hand and foot stepping up (or down)
+    // two rungs at a time, each over ladderLimbMove_s and swung ladderLimbSwing_m out from the ladder on the way; the
+    // hips ladderHipsIn_m in towards the rungs and ladderHipsDown_m down, the marker slung on the back (hitboxes.jsonc).
+    "ladderHipsIn_m": 0.12,
+    "ladderHipsDown_m": 0.06,
+    "ladderLimbMove_s": 0.2,
+    "ladderLimbSwing_m": 0.08,
     // How the legs move. "steps" plants each foot in the world where it lands until its next step, so
     // feet never skate, in any direction, at any pace, turning on the spot or on stairs (below).
     // "clips" plays the movement clips instead (forward clips only: strafing and turning slide).

@@ -866,6 +866,16 @@ public sealed class HitboxesDef : IValidatable
 
     public float TuckBarrelRadius_m { get; set; }
 
+    public float ClimbArmsPitch_deg { get; set; }
+
+    public float SlungBelowEye_m { get; set; }
+
+    public float SlungBehind_m { get; set; }
+
+    public float SlungPitch_deg { get; set; }
+
+    public float SlungRoll_deg { get; set; }
+
     public HitboxPart[] LethalParts { get; set; } = Array.Empty<HitboxPart>();
 
     public bool BallsInFlightCount { get; set; }
@@ -892,6 +902,11 @@ public sealed class HitboxesDef : IValidatable
         v.InRange(nameof(TuckRate_degps), TuckRate_degps, 1, 3000);
         v.InRange(nameof(TuckStep_deg), TuckStep_deg, 1, 45);
         v.InRange(nameof(TuckBarrelRadius_m), TuckBarrelRadius_m, 0, 0.2);
+        v.InRange(nameof(ClimbArmsPitch_deg), ClimbArmsPitch_deg, -30, 90);
+        v.InRange(nameof(SlungBelowEye_m), SlungBelowEye_m, 0, 1);
+        v.InRange(nameof(SlungBehind_m), SlungBehind_m, 0, 0.6);
+        v.InRange(nameof(SlungPitch_deg), SlungPitch_deg, -90, 90);
+        v.InRange(nameof(SlungRoll_deg), SlungRoll_deg, -90, 90);
         if (LethalParts.Contains(HitboxPart.Body))
         {
             v.Error(nameof(LethalParts), "'body' is for range targets; players have head, torso, arms and legs");

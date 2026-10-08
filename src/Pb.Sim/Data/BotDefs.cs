@@ -23,9 +23,12 @@ public sealed class NavigationDef : IValidatable
 
     public int Landmarks { get; set; }
 
+    public float LadderCostPerMetre { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(CellSize_m), CellSize_m, 0.1, 1);
+        v.InRange(nameof(LadderCostPerMetre), LadderCostPerMetre, 1, 50);
         v.InRange(nameof(AgentRadius_m), AgentRadius_m, 0.05, 1);
         v.InRange(nameof(AgentHeight_m), AgentHeight_m, 0.8, 3);
         v.InRange(nameof(StepHeight_m), StepHeight_m, 0.05, 1);

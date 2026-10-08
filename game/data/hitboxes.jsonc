@@ -38,6 +38,15 @@
   "tuckStep_deg": 10,
   "tuckBarrelRadius_m": 0.03,
 
+  // On a ladder both hands are on the rungs: the arms reach up in front, pitched up climbArmsPitch_deg, and the gear
+  // hangs on the back, the marker's back end slung from slungBelowEye_m below and slungBehind_m behind the eye, its
+  // barrel pitched down slungPitch_deg and turned across the back slungRoll_deg.
+  "climbArmsPitch_deg": 55,
+  "slungBelowEye_m": 0.3,
+  "slungBehind_m": 0.17,
+  "slungPitch_deg": -78,
+  "slungRoll_deg": 25,
+
   // A break on any of these parts eliminates (spec: all of them). Take out marker, loader and tank
   // for "gun hits don't count" rules.
   "lethalParts": ["mask", "head", "torso", "arms", "legs", "marker", "loader", "tank"],

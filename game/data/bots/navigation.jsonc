@@ -37,5 +37,10 @@
   // Searches use them to know how far a place really is when the way there goes round (up the stairs at the
   // far end, through the one door): they head for the stairs instead of searching the floor below. More is
   // faster searching but slower loading, and 4 bytes per place each. 0 turns it off.
-  "landmarks": 8
+  "landmarks": 8,
+
+  // Ladders join the place in front of a ladder's foot to the place you step off onto at its top. A search counts
+  // each metre climbed as this much walking (climbing is about a third of a run's speed, and getting on and off
+  // takes a moment), and a bot climbs where its path does.
+  "ladderCostPerMetre": 3.5
 }
