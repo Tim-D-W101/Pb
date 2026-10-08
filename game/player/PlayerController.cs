@@ -160,6 +160,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         }
 
         ViewModel.Side = State.Shoulder;
+        ViewModel.Lowered = State.OnLadder;
         ViewModel.RefillProgress = State.Marker.Refill.Active ? State.Marker.Refill.Progress(State.Marker.Paint.Params) : -1f;
         int capacity = State.Marker.Paint.Params.Capacity;
         ViewModel.LoaderFill = capacity > 0 ? (float)State.Marker.Paint.Loader / capacity : 0f;
@@ -230,12 +231,14 @@ public partial class PlayerController : PawnBody, IPlayerDriver
             buttons = Toggle(buttons, InputButtons.Crouch, _settings.CrouchToggle, ref _crouchHeld, ref _crouchLatched, (buttons & InputButtons.Sprint) != 0);
             buttons = Toggle(buttons, InputButtons.Walk, _settings.WalkToggle, ref _walkHeld, ref _walkLatched, (buttons & InputButtons.Sprint) != 0);
 
-            // One button bound to both (the pad's refill button): facing a door it works the door, anywhere else it refills.
+            // One button bound to both (the pad's refill button): facing a door or a ladder (or on one) it's interact,
+            // anywhere else it refills.
             const InputButtons Both = InputButtons.Interact | InputButtons.Refill;
             if ((buttons & Both) == Both)
             {
-                bool door = Sim.Doors.FindTarget(State.EyePosition, Pb.Sim.Core.ViewAngles.Forward(_yaw, _pitch)) >= 0;
-                buttons &= door ? ~InputButtons.Refill : ~InputButtons.Interact;
+                bool interact = State.OnLadder || Sim.Doors.FindTarget(State.EyePosition, Pb.Sim.Core.ViewAngles.Forward(_yaw, _pitch)) >= 0 ||
+                                Sim.Ladders.FindGrab(State.Position, _yaw, Move.Climbing, out _) >= 0;
+                buttons &= interact ? ~InputButtons.Refill : ~InputButtons.Interact;
             }
         }
 

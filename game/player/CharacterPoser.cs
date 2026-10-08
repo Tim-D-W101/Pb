@@ -14,7 +14,9 @@ namespace Pb.Game.Player;
 /// <item>the hips drop for a crouch;</item>
 /// <item>the spine rolls with the lean, the chest and head pitch with the aim, the chest breathes and the
 /// head turns as the sim's head does;</item>
-/// <item>both hands go to the marker by two-bone IK.</item>
+/// <item>both hands go to the marker by two-bone IK;</item>
+/// <item>on a ladder (<see cref="Ladder"/>), the body square to it with the hips in towards it, the balls of the feet
+/// and the hands on the rungs.</item>
 /// </list>
 /// <see cref="CharacterModel"/> sets the targets in world space every frame; the hitboxes stay the sim's.
 /// </summary>
@@ -90,6 +92,14 @@ public partial class CharacterPoser : SkeletonModifier3D
     /// <summary>The movement clips and how they play (when the legs follow clips rather than steps).</summary>
     public Gait? Gait { get; set; }
 
+    /// <summary>On a ladder: where the balls of the feet and the hands go on the rungs (world); null off one.</summary>
+    public LadderGrip? Ladder { get; set; }
+
+    /// <summary>On a ladder, the hips this far in towards the rungs and down (m).</summary>
+    public float LadderHipsIn { get; set; } = 0.12f;
+
+    public float LadderHipsDown { get; set; } = 0.06f;
+
     /// <summary>Finds the generator rig's bones; false when the skeleton isn't one.</summary>
     public bool Bind(Skeleton3D skeleton)
     {
@@ -149,6 +159,12 @@ public partial class CharacterPoser : SkeletonModifier3D
         Vector3 up = toSkeleton.Basis * Vector3.Up;
         Vector3 forward = toSkeleton.Basis * Forward;
         Vector3 right = toSkeleton.Basis * Right;
+
+        if (Ladder is { } grip)
+        {
+            LadderBody(skeleton, toSkeleton, grip, up, forward, right);
+            return;
+        }
 
         if (Steps is { HasBuild: true } steps)
         {
@@ -255,6 +271,36 @@ public partial class CharacterPoser : SkeletonModifier3D
             Rotate(skeleton, _spineLow, pitchAxis, -steps.Lean);
             Rotate(skeleton, _neck, pitchAxis, steps.Lean * 0.6f);
         }
+    }
+
+    /// <summary>
+    /// On a ladder: the hips in towards the rungs and down, square to them (the idle's turn of the hips and the chest
+    /// taken out), the head looking where the sim's does, the balls of the feet on their rungs with the knees forward
+    /// and a little out, and the hands on theirs with the elbows down and out.
+    /// </summary>
+    private void LadderBody(Skeleton3D skeleton, Transform3D toSkeleton, LadderGrip grip, Vector3 up, Vector3 forward, Vector3 right)
+    {
+        Vector3 axis = up.Normalized();
+        float hipsIdle = YawFromRest(skeleton, _hips, axis);
+        float chestIdle = YawFromRest(skeleton, _spineTop, axis);
+        Transform3D rest = skeleton.GetBoneGlobalRest(_hips);
+        skeleton.SetBoneGlobalPose(_hips, new Transform3D(rest.Basis, rest.Origin + toSkeleton.Basis * (grip.Into * LadderHipsIn) - up * LadderHipsDown));
+        float back = -(chestIdle - hipsIdle);
+        Rotate(skeleton, _spineLow, axis, back * 0.4f);
+        Rotate(skeleton, _spineMid, axis, back * 0.3f);
+        Rotate(skeleton, _spineTop, axis, back * 0.3f);
+        UpperBody(skeleton, up, forward, right, toSkeleton);
+
+        float ballAhead = Steps is { HasBuild: true } s ? s.Build.BallAhead : 0.13f;
+        float ankleHeight = Steps is { HasBuild: true } t ? t.Build.AnkleHeight : 0.08f;
+        Vector3 lift = Vector3.Up * ankleHeight;
+        StepLeg(skeleton, toSkeleton, _leftLeg, _leftToe, _leftRest, grip.LeftFoot - grip.Into * ballAhead + lift, grip.Into, 0f, -1f, up, 0.3f);
+        StepLeg(skeleton, toSkeleton, _rightLeg, _rightToe, _rightRest, grip.RightFoot - grip.Into * ballAhead + lift, grip.Into, 0f, 1f, up, 0.3f);
+
+        Vector3 down = -up;
+        Vector3 side = right.Normalized() * up.Length();
+        SolveTwoBone(skeleton, _leftArm, toSkeleton * grip.LeftHand, down * 0.6f - side * 0.5f, keepEnd: false);
+        SolveTwoBone(skeleton, _rightArm, toSkeleton * grip.RightHand, down * 0.6f + side * 0.5f, keepEnd: false);
     }
 
     /// <summary>How far the hips must come down (skeleton units) for <paramref name="chain"/> to reach <paramref name="ankle"/> (world).</summary>
@@ -543,6 +589,9 @@ public partial class CharacterPoser : SkeletonModifier3D
 
         return new Quaternion(axis.Normalized(), Mathf.Acos(dot));
     }
+
+    /// <summary>On a ladder, where the balls of the feet and the hands go (world), and which way is into the ladder.</summary>
+    public readonly record struct LadderGrip(Vector3 LeftFoot, Vector3 RightFoot, Vector3 LeftHand, Vector3 RightHand, Vector3 Into);
 
     /// <summary>
     /// A foot at rest, in skeleton space: its bone's and its toes' rest orientations, and the frame of the

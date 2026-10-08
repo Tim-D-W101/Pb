@@ -1,4 +1,5 @@
 using System.Numerics;
+using Pb.Sim.AI;
 using Pb.Sim.Ballistics;
 using Pb.Sim.Collision;
 using Pb.Sim.Core;
@@ -78,6 +79,9 @@ public sealed class SimWorld
     /// <summary>The level's door leaves (none on the range).</summary>
     public DoorSet Doors { get; } = new();
 
+    /// <summary>The level's ladders (none on the range), climbed by the movement rules.</summary>
+    public LadderSet Ladders { get; } = new();
+
     /// <summary>Players may move and fire: always without a match, and only while it's live with one.</summary>
     public bool IsLive => Match is null || Match.Phase == MatchPhase.Live;
 
@@ -130,6 +134,7 @@ public sealed class SimWorld
         Stress = null;
         level.BuildCollision(Collision);
         Doors.Load(level.Doors, Collision, MatchSeed, Config.Rules.Doors);
+        Ladders.Load(level.Ladders);
         Targets.Load(Array.Empty<TargetSpec>());
         Ballistics.Bounds = level.Bounds;
     }
@@ -142,6 +147,7 @@ public sealed class SimWorld
         Pickups.Load(Array.Empty<PickupSpec>());
         range.BuildCollision(Collision);
         Doors.Load(Array.Empty<DoorSpec>(), Collision, MatchSeed, Config.Rules.Doors);
+        Ladders.Load(Array.Empty<LadderSpec>());
         Targets.Load(range.Targets);
         Targets.Update(Time);
         Ballistics.Bounds = range.Bounds;
@@ -223,22 +229,27 @@ public sealed class SimWorld
             if (i < commands.Length)
             {
                 InputCommand cmd = commands[i];
-                player.Yaw = cmd.Yaw;
+                // On a ladder the body faces it and the head turns to look round (as far as a head turns); hands on
+                // the rungs, the marker can neither fire nor refill.
+                bool climbing = player.Ladder >= 0 && player.Ladder < Ladders.Count;
+                float body = climbing ? Ladders[player.Ladder].Facing : cmd.Yaw;
+                float head = climbing ? BotAim.Wrap(cmd.Yaw + cmd.HeadYaw - body) : cmd.HeadYaw;
+                player.Yaw = body;
                 player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
-                player.HeadYaw = player.Alive ? Math.Clamp(cmd.HeadYaw, -Config.Movement.MaxHeadTurn, Config.Movement.MaxHeadTurn) : 0f;
+                player.HeadYaw = player.Alive ? Math.Clamp(head, -Config.Movement.MaxHeadTurn, Config.Movement.MaxHeadTurn) : 0f;
                 UpdateTuck(player, dt);
                 UpdateFootsteps(player);
                 bool live = IsLive;
                 var input = new MarkerInput(
-                    live && cmd.Has(InputButtons.Fire), live && cmd.Has(InputButtons.Refill), cmd.Has(InputButtons.ToggleFireMode),
-                    player.Sprinting, player.Alive, player.MarkerReady);
+                    live && !climbing && cmd.Has(InputButtons.Fire), live && !climbing && cmd.Has(InputButtons.Refill),
+                    cmd.Has(InputButtons.ToggleFireMode), player.Sprinting, player.Alive, player.MarkerReady);
                 int count = player.Marker.Update(t0, dt, input, _shots, Events, player.Id, player.Team, Tick);
                 for (int k = 0; k < count; k++)
                 {
                     FireShot(player, _shots[k]);
                 }
 
-                Doors.Interact(this, player, live && player.Alive && cmd.Has(InputButtons.Interact), dt);
+                Doors.Interact(this, player, live && player.Alive && !climbing && cmd.Has(InputButtons.Interact), dt);
             }
         }
 
@@ -349,7 +360,7 @@ public sealed class SimWorld
     {
         HitboxParams rig = Config.Hitboxes;
         float target = 0f;
-        if (player.Alive && player.Present && rig.TuckMax > 0f && !BarrelClear(player, 0f))
+        if (player.Alive && player.Present && !player.OnLadder && rig.TuckMax > 0f && !BarrelClear(player, 0f))
         {
             target = rig.TuckMax;
             float clear = -1f;
@@ -417,7 +428,19 @@ public sealed class SimWorld
             player.GroundSurface = ground.Surface;
         }
 
-        if (player.Alive)
+        if (player.Alive && player.Ladder >= 0 && player.Ladder < Ladders.Count)
+        {
+            // A foot on a rung every so often as they climb, heard like a step on what the rungs are made of.
+            float climbed = MathF.Abs(position.Y - player.LastPosition.Y);
+            player.ClimbDistance += climbed < 2f ? climbed : 0f;
+            if (player.ClimbDistance >= f.ClimbStride)
+            {
+                player.ClimbDistance %= f.ClimbStride;
+                player.GroundSurface = Ladders[player.Ladder].Surface;
+                Footstep(player, FootstepKind.Step, f.ClimbRadius);
+            }
+        }
+        else if (player.Alive)
         {
             if (player.Grounded && !player.LastGrounded && -player.LastVelocity.Y >= f.LandMinSpeed)
             {

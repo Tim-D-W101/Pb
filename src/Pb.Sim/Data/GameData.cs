@@ -281,6 +281,15 @@ public sealed class GameData
         JumpSpeed = d.JumpSpeed_mps,
         JumpCooldown = d.JumpCooldown_s,
         SprintRecoveryTime = d.SprintRecoveryTime_s,
+        Climbing = new ClimbParams
+        {
+            Speed = d.Climbing.Speed_mps,
+            Reach = d.Climbing.Reach_m,
+            Standoff = d.Climbing.Standoff_m,
+            GrabAngle = d.Climbing.GrabAngle_deg * Units.DegreesToRadians,
+            StepOffSpeed = d.Climbing.StepOffSpeed_mps,
+            LetGoSpeed = d.Climbing.LetGoSpeed_mps,
+        },
         Footsteps = ToFootsteps(d.Footsteps, surfaces, file),
     };
 
@@ -371,6 +380,11 @@ public sealed class GameData
             TuckRate = d.TuckRate_degps * Units.DegreesToRadians,
             TuckStep = d.TuckStep_deg * Units.DegreesToRadians,
             TuckBarrelRadius = d.TuckBarrelRadius_m,
+            ClimbArmsPitch = d.ClimbArmsPitch_deg * Units.DegreesToRadians,
+            SlungBelowEye = d.SlungBelowEye_m,
+            SlungBehind = d.SlungBehind_m,
+            SlungPitch = d.SlungPitch_deg * Units.DegreesToRadians,
+            SlungRoll = d.SlungRoll_deg * Units.DegreesToRadians,
             LethalParts = lethal,
             BallsInFlightCount = d.BallsInFlightCount,
             MaskSprayRadius = d.MaskSprayRadius_m,
@@ -402,6 +416,8 @@ public sealed class GameData
             JumpRadius = d.JumpRadius_m,
             LandRadius = d.LandRadius_m,
             LandMinSpeed = d.LandMinSpeed_mps,
+            ClimbStride = d.ClimbStride_m,
+            ClimbRadius = d.ClimbRadius_m,
             SurfaceLoudness = loudness,
         };
     }

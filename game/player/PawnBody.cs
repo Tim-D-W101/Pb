@@ -60,12 +60,14 @@ public partial class PawnBody : CharacterBody3D
         }
 
         bool grounded = IsOnFloor();
-        MovementResult result = MovementModel.Step(State, cmd, Move, dt, grounded, Sim.Collision);
+        MovementResult result = MovementModel.Step(State, cmd, Move, dt, grounded, Sim.Collision, Sim.Ladders);
 
+        // On a ladder the rules give the climb itself: no gravity.
         Vector3 velocity = Velocity;
         velocity.X = result.HorizontalVelocity.X;
         velocity.Z = result.HorizontalVelocity.Z;
-        velocity.Y = result.JumpVelocity > 0f ? result.JumpVelocity
+        velocity.Y = result.Climbing ? result.ClimbVelocity
+            : result.JumpVelocity > 0f ? result.JumpVelocity
             : grounded ? Mathf.Min(velocity.Y, 0f)
             : velocity.Y - Move.Gravity * dt;
         Velocity = velocity;

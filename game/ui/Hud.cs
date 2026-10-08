@@ -403,6 +403,24 @@ public partial class Hud : CanvasLayer, ISimEventListener
             return;
         }
 
+        // On a ladder, how to climb it and let go; in reach of one, how to get on.
+        if (_player.OnLadder)
+        {
+            _prompt.Visible = true;
+            _prompt.Text = $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · climb up or down · {InputSetup.KeyName("jump")} · let go";
+            _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
+            return;
+        }
+
+        int ladder = _sim.Ladders.FindGrab(_player.Position, _player.Yaw, _sim.Config.Movement.Climbing, out bool fromTop);
+        if (ladder >= 0)
+        {
+            _prompt.Visible = true;
+            _prompt.Text = $"{InputSetup.KeyName("interact")} · {(fromTop ? "climb down the ladder" : "climb the ladder")}";
+            _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
+            return;
+        }
+
         int door = _player.InteractDoor >= 0 ? _player.InteractDoor
             : _sim.Doors.FindTarget(_player.EyePosition, Pb.Sim.Core.ViewAngles.Forward(_player.Yaw, _player.Pitch));
         if (door >= 0)

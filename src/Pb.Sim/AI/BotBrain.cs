@@ -213,6 +213,14 @@ public sealed class BotBrain
     private int _doorTaps;
     private Vector3 _doorFace;
 
+    // A ladder on the path: which way it's climbing, how long it's been at it, when it last tapped interact, and where to
+    // look to get on (facing it, or out over its top).
+    private bool _climbUp;
+    private bool _atLadder;
+    private float _ladderTime;
+    private int _ladderTapAt = -1000;
+    private Vector3 _ladderFace;
+
     public BotBrain(BotSquad squad, PlayerState self, ArchetypeParams archetype, DifficultyParams tier, OpponentSpawn spawn)
     {
         _squad = squad;
@@ -353,11 +361,24 @@ public sealed class BotBrain
         }
 
         _turnSpeed = _b.LookTurnSpeed;
+        _atLadder = false;
         Act(dt);
         if (_doorLeaf >= 0)
         {
             // Waiting at a door: look at it (whatever the mode wanted to look at), so interact finds it.
             LookToward(_doorFace, slow: false);
+        }
+
+        if (Self.OnLadder)
+        {
+            // Hands on the rungs: on up or down the way it was going, whatever else it would rather be doing.
+            _cmd.Move = new Vector2(0f, _climbUp ? 1f : -1f);
+            _cmd.Buttons &= ~(InputButtons.Fire | InputButtons.Crouch | InputButtons.Sprint | InputButtons.Jump | InputButtons.Interact);
+        }
+        else if (_atLadder)
+        {
+            // At a ladder to get on: face it (or out over its top), so interact finds it.
+            LookToward(_ladderFace, slow: false);
         }
 
         Look(dt);
@@ -1873,6 +1894,13 @@ public sealed class BotBrain
             GoTo(_sim.Level?.DeadZone ?? Home, BotGait.Stroll);
         }
 
+        if (Self.OnLadder)
+        {
+            // Out on a ladder: down it first (the movement rules take the out down), then off the field.
+            _cmd.Yaw = _yaw;
+            return _cmd;
+        }
+
         _outFor += dt;
         if (_outFor >= _b.WalkOffTime || (_hasGoal && _arrived) || (!_hasGoal && !_needPath))
         {
@@ -2008,6 +2036,64 @@ public sealed class BotBrain
     }
 
     /// <summary>
+    /// A ladder between here and <paramref name="next"/> (the path climbs it): stand in front of its foot (or behind its
+    /// top, to climb down), face it (or out over it), tap interact, and climb to the other end, where the movement rules
+    /// step off. True while dealing with one (don't walk on); it gives up the goal if it can't get on.
+    /// </summary>
+    private bool AtLadder(Vector3 next, float dt)
+    {
+        if (Self.OnLadder)
+        {
+            // Up if the next waypoint is at its top end, down if at its foot.
+            LadderSpec on = _sim.Ladders[Self.Ladder];
+            _climbUp = next.Y > on.Foot.Y + on.Height * 0.5f;
+            _ladderTime = 0f;
+            _stuckFor = 0f;
+            _bestDistance = float.MaxValue;
+            return true;
+        }
+
+        int ladder = _sim.Ladders.Count == 0 ? -1 : _squad.Grid.LadderBetween(Self.Position, next);
+        if (ladder < 0 || ladder >= _sim.Ladders.Count)
+        {
+            _ladderTime = 0f;
+            return false;
+        }
+
+        LadderSpec l = _sim.Ladders[ladder];
+        bool down = next.Y < Self.Position.Y;
+        float face = down ? l.Facing + MathF.PI : l.Facing;
+        Vector3 stand = down ? l.TopPoint : l.ClimbPoint(l.Foot.Y, _sim.Config.Movement.Climbing.Standoff + 0.15f);
+        _atLadder = true;
+        _ladderFace = Self.EyePosition + ViewAngles.FlatForward(face) * 3f;
+        _ladderTime += dt;
+        _stuckFor = 0f;
+        _bestDistance = float.MaxValue;
+        if (_ladderTime > 8f)
+        {
+            _hasGoal = false; // can't get on (someone's on it, or in the way): give the goal up
+            _arrived = true;
+            return true;
+        }
+
+        if (FlatDistance(Self.Position, stand) > 0.2f)
+        {
+            MoveTowards(stand with { Y = Self.Position.Y }, BotGait.Walk, 0f);
+            return true;
+        }
+
+        _cmd.Move = Vector2.Zero;
+        if (MathF.Abs(BotAim.Wrap(_yaw - face)) < 0.35f && _tick - _ladderTapAt > 30)
+        {
+            _cmd.Buttons |= InputButtons.Interact; // a one-tick press
+            _ladderTapAt = _tick;
+            _climbUp = !down;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Where to stand to open a door that swings this way: beside the doorway, out of the swing but within reach: on the
     /// latch side of a single leaf (a pair meets in the middle, so beyond the hinge), else straight out as far as reach allows.
     /// </summary>
@@ -2075,7 +2161,7 @@ public sealed class BotBrain
             distance = FlatDistance(Self.Position, next);
         }
 
-        if (AtShutDoor(next, dt))
+        if (AtLadder(next, dt) || AtShutDoor(next, dt))
         {
             return;
         }

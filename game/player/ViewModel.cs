@@ -177,6 +177,11 @@ public partial class ViewModel : Node3D
     /// <summary>Small recoil kick when the local player fires.</summary>
     public void Kick() => _kick = 1f;
 
+    /// <summary>On a ladder: the marker goes down out of sight (it's slung) while both hands are on the rungs.</summary>
+    public bool Lowered { get; set; }
+
+    private float _low;
+
     public override void _Process(double delta)
     {
         if (_kick > 0f)
@@ -198,10 +203,14 @@ public partial class ViewModel : Node3D
 
         float f = _phase;
         float cant = Smooth(0f, 0.12f, f) * (1f - Smooth(0.86f, 1f, f));
-        Position = Rest + new Vector3(0, 0, _kickBack * _kick * _kick) + new Vector3(0f, -0.02f, 0.015f) * cant;
+        _low = Mathf.MoveToward(_low, Lowered ? 1f : 0f, (float)delta / 0.3f);
+        float low = Smooth(0f, 1f, _low);
+        Visible = low < 0.98f;
+        Position = Rest + new Vector3(0, 0, _kickBack * _kick * _kick) + new Vector3(0f, -0.02f, 0.015f) * cant + new Vector3(0.04f, -0.34f, 0.1f) * low;
         // On the left shoulder the hands swap: the whole model is mirrored, while it passes under your chin.
-        // Refilling, it rolls the loader towards you and tips its nose up a little.
-        Basis = Tilt * Basis.FromEuler(new Vector3(Mathf.DegToRad(7f) * cant, 0f, Mathf.DegToRad(-16f) * cant)) * Basis.FromScale(new Vector3(Side < 0f ? -1f : 1f, 1f, 1f));
+        // Refilling, it rolls the loader towards you and tips its nose up a little; going onto a ladder, its nose drops away.
+        Basis = Tilt * Basis.FromEuler(new Vector3(Mathf.DegToRad(7f) * cant - Mathf.DegToRad(40f) * low, 0f, Mathf.DegToRad(-16f) * cant)) *
+                Basis.FromScale(new Vector3(Side < 0f ? -1f : 1f, 1f, 1f));
 
         // The support hand drops off the foregrip, down and to the left out of sight, and comes back.
         float off = Smooth(0f, 0.12f, f) * (1f - Smooth(0.88f, 1f, f));

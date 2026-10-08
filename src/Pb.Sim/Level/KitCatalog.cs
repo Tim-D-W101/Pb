@@ -46,6 +46,9 @@ public sealed class PropType
 
     public required IReadOnlyList<PropColliderTemplate> Colliders { get; init; }
 
+    /// <summary>Its climbable ladders, in its own frame.</summary>
+    public IReadOnlyList<LadderTemplate> Ladders { get; init; } = Array.Empty<LadderTemplate>();
+
     public bool HasModel => !string.IsNullOrWhiteSpace(Def.Model);
 
     public bool HasShape => !string.IsNullOrWhiteSpace(Def.Shape);
@@ -140,7 +143,17 @@ public sealed class KitCatalog
                 });
             }
 
-            props[p.Id] = new PropType { Id = p.Id, Def = p, Colliders = colliders };
+            LadderTemplate[] ladders = (p.Ladders ?? Array.Empty<LadderDef>()).Select(l => new LadderTemplate
+            {
+                Foot = Validator.ToVector3(l.Foot_m),
+                Height = l.Height_m,
+                Facing = l.Facing_deg * Units.DegreesToRadians,
+                Width = l.Width_m,
+                Rails = l.Rails_m,
+                Exit = l.Exit_m,
+                Bracket = l.Bracket_m,
+            }).ToArray();
+            props[p.Id] = new PropType { Id = p.Id, Def = p, Colliders = colliders, Ladders = ladders };
         }
 
         propErrors.ThrowIfErrors();

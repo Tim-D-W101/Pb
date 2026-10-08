@@ -1045,13 +1045,14 @@ public static partial class PropShapes
     }
 
     /// <summary>
-    /// The water tower: four legs braced with struts and crossed tie rods, a railed platform, a
-    /// riveted tank with hoops and a conical roof, and a ladder up a leg and the tank.
+    /// The water tower: four legs braced with struts and crossed tie rods, a catwalk round the tank with railings (but for
+    /// the gap where the ladder comes up), a riveted tank with hoops and a flat roof with a hatch, and its ladders.
     /// </summary>
     private static void WaterTower(Ctx c)
     {
         int steel = c.Default, tankMat = c.Mat("steel_painted");
         var legs = new List<Vector3>();
+        var railings = new List<int>();
         float legHeight = 0f, legWidth = 0.3f;
         int platform = -1, tank = -1;
         for (int i = 0; i < c.Count; i++)
@@ -1059,6 +1060,10 @@ public static partial class PropShapes
             if (c.IsCylinder(i))
             {
                 tank = i;
+            }
+            else if (!c.Paints(i))
+            {
+                railings.Add(i);
             }
             else if (c.Size(i).Y > 4f)
             {
@@ -1105,37 +1110,34 @@ public static partial class PropShapes
                     }
                 }
             }
-
-            // A ladder up the outside of the first leg.
-            Vector3 l = legs[0];
-            Vector3 outward = new Vector3(l.X - mid.X, 0f, l.Z - mid.Z).Normalized();
-            Vector3 sideways = outward.Cross(Vector3.Up);
-            Vector3 foot = l + outward * (legWidth * 0.5f + 0.18f);
-            Ladder(c, steel, new Vector3(foot.X, bottom, foot.Z), sideways, legHeight);
         }
 
         if (platform >= 0)
         {
-            Vector3 ps = c.Size(platform), pc = c.Center(platform);
-            c.M.Box(steel, pc, new Vector3(ps.X, ps.Y * 0.7f, ps.Z));
-            float top = pc.Y + ps.Y * 0.5f, ex = ps.X * 0.5f - 0.04f, ez = ps.Z * 0.5f - 0.04f;
-            var corners = new[] { new Vector3(-ex, 0f, -ez), new Vector3(ex, 0f, -ez), new Vector3(ex, 0f, ez), new Vector3(-ex, 0f, ez) };
-            for (int i = 0; i < 4; i++)
-            {
-                Vector3 a = pc + corners[i], b = pc + corners[(i + 1) % 4];
-                for (int k = 0; k < 4; k++)
-                {
-                    Vector3 p = a.Lerp(b, k / 4f);
-                    c.M.Rod(steel, new Vector3(p.X, top, p.Z), new Vector3(p.X, top + 1f, p.Z), 0.025f, 5);
-                }
+            c.M.Box(steel, c.Center(platform), new Vector3(c.Size(platform).X, c.Size(platform).Y * 0.7f, c.Size(platform).Z));
+        }
 
-                c.M.Bar(steel, new Vector3(a.X, top + 1f, a.Z), new Vector3(b.X, top + 1f, b.Z), 0.04f, 0.04f);
-                c.M.Bar(steel, new Vector3(a.X, top + 0.5f, a.Z), new Vector3(b.X, top + 0.5f, b.Z), 0.03f, 0.03f);
+        // Each railing a post every metre or so, with a top rail and a knee rail.
+        foreach (int i in railings)
+        {
+            Vector3 size = c.Size(i), center = c.Center(i);
+            Vector3 along = size.X >= size.Z ? new Vector3(size.X * 0.5f - 0.03f, 0f, 0f) : new Vector3(0f, 0f, size.Z * 0.5f - 0.03f);
+            float foot = center.Y - size.Y * 0.5f, top = center.Y + size.Y * 0.5f;
+            Vector3 a = center - along, b = center + along;
+            int posts = Math.Max(1, (int)MathF.Ceiling(along.Length() * 2f / 1.05f));
+            for (int k = 0; k <= posts; k++)
+            {
+                Vector3 post = a.Lerp(b, k / (float)posts);
+                c.M.Rod(steel, new Vector3(post.X, foot, post.Z), new Vector3(post.X, top, post.Z), 0.025f, 5);
             }
+
+            c.M.Bar(steel, new Vector3(a.X, top, a.Z), new Vector3(b.X, top, b.Z), 0.045f, 0.045f);
+            c.M.Bar(steel, new Vector3(a.X, (foot + top) * 0.5f, a.Z), new Vector3(b.X, (foot + top) * 0.5f, b.Z), 0.03f, 0.03f);
         }
 
         if (tank >= 0)
         {
+            // Hoops round the side, a lip round the flat roof (you can stand on it), and a hatch by the ladder's top.
             float r = c.Radius(tank), hh = c.Height(tank) * 0.5f;
             var p = new List<Vector2> { new(0f, -hh), new(r - 0.1f, -hh), new(r, -hh + 0.1f) };
             foreach (float f in new[] { 0.25f, 0.55f, 0.85f })
@@ -1147,29 +1149,51 @@ public static partial class PropShapes
                 p.Add(new Vector2(r, y + 0.05f));
             }
 
-            p.Add(new Vector2(r, hh - 0.1f));
-            p.Add(new Vector2(r + 0.06f, hh - 0.08f));
-            p.Add(new Vector2(r + 0.06f, hh - 0.04f));
-            p.Add(new Vector2(r * 0.12f, hh + 0.55f));
-            p.Add(new Vector2(r * 0.06f, hh + 0.62f));
-            p.Add(new Vector2(0f, hh + 0.62f));
+            p.Add(new Vector2(r, hh - 0.08f));
+            p.Add(new Vector2(r + 0.05f, hh - 0.07f));
+            p.Add(new Vector2(r + 0.05f, hh + 0.04f));
+            p.Add(new Vector2(r - 0.04f, hh + 0.04f));
+            p.Add(new Vector2(r - 0.05f, hh));
+            p.Add(new Vector2(0f, hh));
             c.M.Lathe(tankMat, c.Center(tank), c.Rot(tank), p, 32);
             Vector3 tc = c.Center(tank);
-            Ladder(c, steel, new Vector3(tc.X + r + 0.15f, tc.Y - hh, tc.Z), Vector3.Back, 2f * hh - 0.1f);
+            c.M.Box(steel, new Vector3(tc.X + r * 0.55f, tc.Y + hh + 0.03f, tc.Z), new Vector3(0.62f, 0.06f, 0.62f));
+            c.M.Box(tankMat, new Vector3(tc.X + r * 0.55f, tc.Y + hh + 0.07f, tc.Z), new Vector3(0.5f, 0.03f, 0.5f));
         }
+
+        Ladders(c, steel);
     }
 
-    private static void Ladder(Ctx c, int material, Vector3 foot, Vector3 sideways, float height)
+    /// <summary>
+    /// The prop's ladders (kit/props.jsonc "ladders"), from the same numbers that are climbed: two stiles carrying on above
+    /// the top as handholds, a rung every 0.3 m, and brackets back to what it's fixed to every couple of metres.
+    /// </summary>
+    private static void Ladders(Ctx c, int material)
     {
-        const float half = 0.2f, rung = 0.3f;
-        foreach (float s in new[] { -half, half })
+        const float rung = 0.3f;
+        foreach (LadderTemplate l in c.Type.Ladders)
         {
-            c.M.Rod(material, foot + sideways * s, foot + sideways * s + Vector3.Up * height, 0.02f, 5);
-        }
+            Vector3 foot = l.Foot.ToGodot();
+            (float s, float co) = MathF.SinCos(l.Facing);
+            var forward = new Vector3(-s, 0f, -co);
+            var across = new Vector3(co, 0f, -s);
+            float half = l.Width * 0.5f;
+            int brackets = Math.Max(1, (int)MathF.Ceiling(l.Height / 2.4f));
+            foreach (float side in new[] { -half, half })
+            {
+                Vector3 at = foot + across * side;
+                c.M.Rod(material, at, at + Vector3.Up * (l.Height + l.Rails), 0.02f, 5);
+                for (int k = 0; k <= brackets && l.Bracket > 0.01f; k++)
+                {
+                    Vector3 y = Vector3.Up * Mathf.Lerp(0.6f, l.Height - 0.2f, k / (float)brackets);
+                    c.M.Bar(material, at + y, at + y + forward * l.Bracket, 0.035f, 0.035f);
+                }
+            }
 
-        for (float y = rung; y < height - 0.05f; y += rung)
-        {
-            c.M.Rod(material, foot + sideways * -half + Vector3.Up * y, foot + sideways * half + Vector3.Up * y, 0.012f, 4, caps: false);
+            for (float y = rung; y < l.Height + 0.01f; y += rung)
+            {
+                c.M.Rod(material, foot + across * -half + Vector3.Up * y, foot + across * half + Vector3.Up * y, 0.012f, 4, caps: false);
+            }
         }
     }
 
@@ -1282,6 +1306,9 @@ public static partial class PropShapes
         }
 
         public bool IsCylinder(int i) => Type.Colliders[i].Kind == PrimitiveKind.Cylinder;
+
+        /// <summary>Whether paint meets collider <paramref name="i"/> (false: it only keeps feet in, like a railing).</summary>
+        public bool Paints(int i) => Type.Colliders[i].Paint;
 
         public Vector3 Center(int i = 0) => Type.Colliders[i].Center.ToGodot();
 

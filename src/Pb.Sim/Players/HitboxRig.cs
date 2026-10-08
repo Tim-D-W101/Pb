@@ -51,6 +51,20 @@ public sealed class HitboxParams
 
     public float TuckBarrelRadius { get; init; }
 
+    /// <summary>
+    /// On a ladder: how far the arms reach up (rad), and where the gear hangs on the back: the marker's back end below
+    /// and behind the eye (m), its barrel pitched down and turned across the back (rad).
+    /// </summary>
+    public float ClimbArmsPitch { get; init; }
+
+    public float SlungBelowEye { get; init; }
+
+    public float SlungBehind { get; init; }
+
+    public float SlungPitch { get; init; }
+
+    public float SlungRoll { get; init; }
+
     /// <summary>Indexed by <see cref="HitboxPart"/>.</summary>
     public required bool[] LethalParts { get; init; }
 
@@ -65,13 +79,14 @@ public sealed class HitboxParams
 /// Everything the rig needs from a player, recorded every tick for the hitbox history. <see cref="Tuck"/>
 /// is how far the gear is pitched up off a wall in front (rad, see <see cref="PlayerState.Tuck"/>), and
 /// <see cref="HeadYaw"/> how far the head is turned from the aim (rad, see <see cref="PlayerState.HeadYaw"/>).
+/// <see cref="Climbing"/>: on a ladder, hands on the rungs and the gear slung.
 /// </summary>
 public readonly record struct HitboxPose(
     Vector3 Position, float Yaw, float Pitch, float EyeHeight, float LeanRoll, float Shoulder, bool Alive, bool Present, float Tuck = 0f,
-    float HeadYaw = 0f)
+    float HeadYaw = 0f, bool Climbing = false)
 {
     public static HitboxPose Of(PlayerState p) =>
-        new(p.Position, p.Yaw, p.Pitch, p.EyeHeight, p.LeanRoll, p.Shoulder, p.Alive, p.Present, p.Tuck, p.HeadYaw);
+        new(p.Position, p.Yaw, p.Pitch, p.EyeHeight, p.LeanRoll, p.Shoulder, p.Alive, p.Present, p.Tuck, p.HeadYaw, p.OnLadder);
 }
 
 /// <summary>One posed hitbox: an oriented box in world space.</summary>
@@ -93,8 +108,9 @@ public struct PosedBox
 /// the yaw; the torso and head roll about the hips with the lean; the mask, arms and gear follow the
 /// aim, and the arms and gear sit on the shoulder side. The head and mask turn with the head, about
 /// the middle of the head. Near a wall the arms and gear pitch up about the back of the marker (the
-/// tuck), so the barrel never pokes through. Eliminated players hold the marker up. Characters are drawn
-/// from the same boxes, so what you see is what you can hit.
+/// tuck), so the barrel never pokes through. Eliminated players hold the marker up. On a ladder the arms reach
+/// up to the rungs and the gear hangs on the back. Characters are drawn from the same boxes, so what you see is
+/// what you can hit.
 /// </summary>
 public static class HitboxRig
 {
@@ -129,6 +145,21 @@ public static class HitboxRig
             parts[3] = Box(HitboxPart.Mask, middle + Vector3.Transform(parts[3].Center - middle, turn), Quaternion.Concatenate(aim, turn),
                 rig.Mask.HalfExtents);
         }
+        if (pose.Climbing && pose.Alive)
+        {
+            // Both hands on the rungs: the arms up in front, the gear on the back, the marker's back end at the sling
+            // and its barrel hanging down, the loader and tank where they sit on it.
+            Quaternion reach = Quaternion.CreateFromYawPitchRoll(pose.Yaw, rig.ClimbArmsPitch, 0f);
+            Quaternion slung = Quaternion.CreateFromYawPitchRoll(pose.Yaw, rig.SlungPitch, rig.SlungRoll);
+            Vector3 sling = eye + Vector3.Transform(new Vector3(0f, -rig.SlungBelowEye, rig.SlungBehind), body);
+            Vector3 marker = sling + Vector3.Transform(new Vector3(0f, 0f, -rig.Marker.HalfExtents.Z), slung);
+            parts[4] = FromEye(HitboxPart.Arms, rig.Arms, eye, reach, 1f);
+            parts[5] = Box(HitboxPart.Marker, marker, slung, rig.Marker.HalfExtents);
+            parts[6] = OnMarker(HitboxPart.Loader, rig.Loader, rig.Marker, marker, slung);
+            parts[7] = OnMarker(HitboxPart.Tank, rig.Tank, rig.Marker, marker, slung);
+            return;
+        }
+
         float tuck = pose.Alive ? pose.Tuck : 0f;
         Quaternion tilt = Quaternion.CreateFromAxisAngle(Vector3.UnitX, tuck);
         Quaternion gear = tuck > 0f ? Quaternion.Concatenate(tilt, aim) : aim;
@@ -161,6 +192,13 @@ public static class HitboxRig
         var local = new Vector3(box.Centre.X * side, box.Centre.Y, -box.Centre.Z);
         Vector3 tilted = pivot + Vector3.Transform(local - pivot, tilt);
         return Box(part, hands + Vector3.Transform(tilted, aim), gear, box.HalfExtents);
+    }
+
+    /// <summary>A gear box where it sits on the marker (its offset from the marker's middle), the marker's middle at <paramref name="marker"/>.</summary>
+    private static PosedBox OnMarker(HitboxPart part, PartBox box, PartBox markerBox, Vector3 marker, Quaternion frame)
+    {
+        Vector3 offset = box.Centre - markerBox.Centre;
+        return Box(part, marker + Vector3.Transform(new Vector3(offset.X, offset.Y, -offset.Z), frame), frame, box.HalfExtents);
     }
 
     private static PosedBox FromEye(HitboxPart part, PartBox box, Vector3 eye, Quaternion frame, float side)

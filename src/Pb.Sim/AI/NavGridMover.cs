@@ -32,7 +32,25 @@ public sealed class NavGridMover
             cmd.Buttons = InputButtons.None;
         }
 
-        MovementResult result = MovementModel.Step(state, cmd, _sim.Config.Movement, dt, true, _sim.Collision);
+        // Off a ladder the grid keeps the feet on a floor; on one, they're on the floor only at its foot.
+        bool grounded = true;
+        if (state.OnLadder)
+        {
+            int under = _grid.SpanAt(state.Position);
+            grounded = under >= 0 && state.Position.Y - _grid.PositionOf(under).Y <= 0.05f;
+        }
+
+        MovementResult result = MovementModel.Step(state, cmd, _sim.Config.Movement, dt, grounded, _sim.Collision, _sim.Ladders);
+        if (result.Climbing)
+        {
+            // Straight along the ladder: nothing on the grid holds a climber.
+            var climb = new Vector3(result.HorizontalVelocity.X, result.ClimbVelocity, result.HorizontalVelocity.Z);
+            state.Position += climb * dt;
+            state.Velocity = climb;
+            state.Grounded = false;
+            return;
+        }
+
         var velocity = new Vector3(result.HorizontalVelocity.X, 0f, result.HorizontalVelocity.Z);
         int here = _grid.SpanAt(state.Position);
         Vector3 moved = state.Position + velocity * dt;

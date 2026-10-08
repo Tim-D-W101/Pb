@@ -4,11 +4,11 @@ An original first-person tactical paintball game: physically simulated paintball
 eliminations, played through abandoned industrial compounds you explore and clear, with up to
 ten players a round. Built with Godot 4.7 (.NET / C#).
 
-**Status: Phase 3 is built ([report](docs/reports/phase-3.md), [plan](docs/phase-3.md)): four open areas, each with
-places to play in, doors, objectives, new opponents, sound, full settings; after your play-test (2026-10-06) every area
-is open with nothing to unlock, and the opponents plant their steps; since then they look round, shift their weight,
-pull up from a run, keep out of their cover and put a hand up when hit (M3.14). The voices and the new areas' generated
-art come with Higgsfield's daily generations.** Phase 2 is built
+**Status: Phase 3 is finished but for your play-test ([report](docs/reports/phase-3.md), [plan](docs/phase-3.md)):
+four open areas, each with places to play in, doors, ladders, objectives, new opponents, sound with voiced callouts, full
+settings; after your play-test (2026-10-06) every area is open with nothing to unlock, and the opponents plant their
+steps; since then they look round, shift their weight, pull up from a run, keep out of their cover and put a hand up
+when hit (M3.14), and you and they can climb every ladder (M3.15).** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -25,13 +25,15 @@ footbridge over the lot, with Marksmen watching from the high places. Then **the
 dark, its floor a lorry's height above the yard, chambers of racking behind heavy doors off a long aisle, and trailers
 backed onto the docks that you run through to get in. And the hardest, **the Hospital Wing**: three storeys of wards
 and corridors in two wings round an overgrown courtyard that every window looks down on, an operating theatre, a lift
-shaft open through every floor and the end of one wing fallen in. The bots hold posts, patrol, hunt and rush, notice you by sight
+shaft open through every floor and the end of one wing fallen in. The ladders up the water towers (to a railed catwalk
+12 m up, and on up the tank to its roof) and up the tank wagons' sides can be climbed, by you and by the bots, whose
+paths go up them. The bots hold posts, patrol, hunt and rush, notice you by sight
 and sound, and fight from cover; in free-for-all and teams they fight each other too. They shout where you are, so
 their teammates know; Marksmen shoot carefully from far off and move after a few shots, and Flankers work round to
 your side when a teammate calls you out. The match HUD
 is in, and so is the art pass: photographic textures on every surface; every prop modelled (built in
-code from its colliders, with generated models replacing them as they arrive: so far the oil drum
-and the burnt-out car); framed windows with broken glass; gutters, roof trusses, lamps and fittings
+code from its colliders, and generated models for the oil drum, the burnt-out car, the stacked tyres, the generator
+and the sandbag walls); framed windows with broken glass; gutters, roof trusses, lamps and fittings
 on the buildings; barbed wire on the perimeter wall and pylons on the skyline; oil, puddles, leaves,
 litter, ivy and old paint from past games; worn paint markings in the warehouse and on the yard;
 crows wheeling overhead and scattering at gunfire; dust kicked up underfoot, footprints in the dirt
@@ -45,15 +47,15 @@ out of the cover they tuck in behind, bring their markers up off a wall instead 
 a ball hits them, put the marker and a hand up to walk off when they're out, and refill from their pods in plain sight;
 the compound itself behind the main menu; and the
 training ground dressed to match, with netting, a timber backstop, inflatable bunkers and masked
-dummies covered in old paint. Generated models for four more props and a crouched-walk clip follow.
+dummies covered in old paint.
 
 Every sound is synthesised in code: the marker's report thinning as the tank empties, paint breaking and
 bouncing off metal, glass, wood, brick, tarp and bodies, footsteps on each floor (splashing in puddles),
 doors by kind, refills, the hit marker, the breakout horn and the referee's whistle, all heard from where
 they happen, muffled through walls and echoing in the halls; wind that rises with the gusts, crows,
 distant traffic and trains outside, and each room's own sound inside (dripping water, pigeons in the
-rafters, a draught through broken windows, the dead quiet of a cold store). The bots' callouts and the
-referee's calls are subtitled, and voiced once their recordings are made.
+rafters, a draught through broken windows, the dead quiet of a cold store). The bots shout their callouts in six
+voices, two for each of the three opponents, and a referee calls the round, all subtitled too.
 
 The settings (in the main menu and the pause menu) come in five tabs: Controls, where every action can be bound to
 two keys or mouse buttons and a pad button or stick, with clashes shown and swappable, and crouch and walk can be
@@ -105,6 +107,8 @@ The export presets already include the data files. The editor's F5 run uses a De
 | Slide (from a run; ends crouched) | V, or crouch while sprinting | B while sprinting |
 | Refill loader from a pod (2.5 s) | R | X / Square |
 | Open or shut the door you're facing (hold to ease it open) | F | X / Square, facing a door |
+| Get on the ladder you're facing (or, facing out over its top, get on to climb down) | F | X / Square, facing a ladder |
+| On a ladder: climb up / down; let go | W / S; Space | Left stick up / down; A / Cross |
 | Semi ↔ ramping | B | Y / Triangle |
 | Pause menu (settings, restart, quit) | Esc | Start / Options |
 

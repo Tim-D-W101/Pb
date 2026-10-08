@@ -550,7 +550,8 @@ public static class KitGeometry
             float top = c.Kind == PrimitiveKind.Cylinder
                 ? c.Center.Y + MathF.Abs(Vector3.Transform(Vector3.UnitY, c.Rotation).Y) * c.HalfExtents.Y
                 : c.Center.Y + BoxHalfHeight(c.Rotation, c.HalfExtents);
-            if (type.Def.Cover && top >= CoverHeight)
+            // Cover stops paint: a railing that only keeps feet in (walk only) hides nobody.
+            if (type.Def.Cover && c.Paint && top >= CoverHeight)
             {
                 flags |= PrimitiveFlags.Cover;
             }

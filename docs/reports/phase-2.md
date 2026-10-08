@@ -1,17 +1,15 @@
 # Phase 2 report: the compound
 
-**Date:** 2026-10-05 · **PRs:** [Tim-D-W101/Pb#1](https://github.com/Tim-D-W101/Pb/pull/1) (Phase 1, then Phase 2
-up to the second day of art), [Tim-D-W101/Pb#2](https://github.com/Tim-D-W101/Pb/pull/2) (the art pass from
-2026-10-02) and [Tim-D-W101/Pb#3](https://github.com/Tim-D-W101/Pb/pull/3) (the last art and this report). Each is
-stacked on the one before, so they merge in that order.
-**Status:** built. Two things are left:
+**Date:** 2026-10-05, art finished 2026-10-06 · **PRs:** [Tim-D-W101/Pb#1](https://github.com/Tim-D-W101/Pb/pull/1)
+(Phase 1, then Phase 2 up to the second day of art), [Tim-D-W101/Pb#2](https://github.com/Tim-D-W101/Pb/pull/2) (the
+art pass from 2026-10-02) and [Tim-D-W101/Pb#3](https://github.com/Tim-D-W101/Pb/pull/3) (the last materials, the car,
+the marker and this report), merged into `main` on 2026-10-05, then
+[Tim-D-W101/Pb#5](https://github.com/Tim-D-W101/Pb/pull/5) (the last generated props and the crouched walk).
+**Status:** built. One thing is left: **your play-test** on your PC, 60 fps on Medium with ten people in the round,
+and how the opponents feel (see [Performance](#performance)).
 
-- **your play-test** on your PC: 60 fps on Medium with ten people in the round, and how the opponents feel (see
-  [Performance](#performance));
-- **four generated props and a clip**: the stacked tyres, sandbag wall, pallet stack and generator, and a crouched
-  walk for the opponents. Higgsfield allows five generations a day and today's are spent, so they come with
-  tomorrow's. Until then those props keep their detail models built in code, and a crouched opponent steps
-  procedurally.
+The pallet stacks still wear their models built in code: their generation failed on 2026-10-06 (the credits came
+back), and another try waits for a day you want it.
 
 The plan, with every item's details and dates, is [phase-2.md](../phase-2.md).
 
@@ -56,12 +54,13 @@ different people, up to ten in a round, with levels by difficulty. Phase 2 deliv
   - **Light and air:** four presets (Low to Ultra), sunbeams with dust through the windows and roof holes, daylight
     spilling in, about 50,000 tufts of weeds and dry grass that sway and part as you walk through, a cloud deck on
     the wind, trees, a town's edge on the horizon, and crows.
-  - **Props:** all 27 types are modelled. The oil drum and the burnt-out car are generated models; the rest have
-    detail models built in code from their colliders (pallets, crates, tyres, sandbags, a generator, a forklift,
-    racking, the water tower and so on), wearing the photographic materials.
-  - **Three generated, rigged opponents** with generated walk and run clips shared across all three, posed to their
-    hitboxes every frame: crouching, leaning, aiming, feet on the ground and both hands on the marker. They flinch
-    when hit, refill from their pods in plain sight, wear team armbands, and take paint where the ball hit.
+  - **Props:** all 27 types are modelled. Five are generated models: the oil drum, the burnt-out car, the stacked
+    tyres, the generator and the sandbag wall. The rest have detail models built in code from their colliders
+    (pallets, crates, a forklift, racking, the water tower and so on), wearing the photographic materials.
+  - **Three generated, rigged opponents** with generated walk, run and crouched-walk clips shared across all three,
+    posed to their hitboxes every frame: crouching, leaning, aiming, feet on the ground and both hands on the
+    marker. They flinch when hit, refill from their pods in plain sight, wear team armbands, and take paint where
+    the ball hit.
   - **The generated marker**, loader and tank in your gloved hands and in every opponent's, with refilling from a pod
     played in your hands. Your own body casts your shadow, and shows once you're out.
   - **Dressing:** framed windows with broken glass, gutters, trusses, lamps and fittings, barbed wire, painted
@@ -71,7 +70,7 @@ different people, up to ten in a round, with levels by difficulty. Phase 2 deliv
   - **Fallbacks:** without the art, materials go back to their procedural look, props to their coded models (then
     grey boxes) and opponents to their hitboxes. CI's bot match runs that way, so nothing depends on the art.
 
-**Today (2026-10-05)** finished the art in [Tim-D-W101/Pb#3](https://github.com/Tim-D-W101/Pb/pull/3):
+**The last two days of art.** On 2026-10-05, in [Tim-D-W101/Pb#3](https://github.com/Tim-D-W101/Pb/pull/3):
 
 - the last ten materials (pump machinery, the car body, both drums, pallet boards, tyre tread, burlap, tarp, dirty
   glass, and a laminate for the desks), each cut from its picture to suit the coded shape that wears it;
@@ -81,6 +80,18 @@ different people, up to ten in a round, with levels by difficulty. Phase 2 deliv
 - a fix: every copy of an opponent model had the same tint, so the fourth opponent looked just like the first; each
   copy now gets the next tint.
 
+On 2026-10-06, in [Tim-D-W101/Pb#5](https://github.com/Tim-D-W101/Pb/pull/5):
+
+- the stacked tyres, the generator and the sandbag wall as generated models. Each is scaled to its collider's
+  height, so cover is as it was, and its footprint is refitted to it (the tyres 0.90 m across, the generator
+  1.77 × 1.29 m, the sandbag wall 1.90 × 0.72 m);
+- the crouched walk, so a crouched opponent steps with a clip instead of procedurally (1.31 m/s, a 1.2 s cycle);
+- the pallet stack's generation failed and was refunded, and the day's five were spent, so both pallet stacks keep
+  their models built in code;
+- the whole-round bot test now plays five seeded rounds. The generator's wider footprint changed how its one fixed
+  round played out: the guardhouse sentry hit the bot in your slot before it fired. Over ten seeds that bot fires
+  in about half the rounds, with either footprint, so one round was a coin toss.
+
 ## Acceptance checks
 
 | Check from the plan | Result | Evidence |
@@ -89,7 +100,7 @@ different people, up to ten in a round, with levels by difficulty. Phase 2 deliv
 | 10 people in one round at ≥ 60 fps on a GTX 1070-class GPU, Medium | ⏳ your PC | The sim's share is small: 0.28 ms a tick with ten players and about 1,000 balls in the air, and 0.02 ms for nine Hard bots' brains (below). Only your GPU can measure the rest. |
 | Different levels by difficulty | ✅ | The menu offers Oxbarrow Works in three modes, several sizes and three difficulties; the ladder lists the Phase 3 levels as locked (CI's menu smoke test checks it). |
 | Rules and ballistics tested | ✅ | 191 sim tests, all green, and CI green with the headless bot matches. |
-| Realistic look | ✅ (four props to come) | 30 photographic materials; three generated, rigged and animated characters; the generated marker, oil drum and car (screenshots below). |
+| Realistic look | ✅ | 30 photographic materials; three generated, rigged characters with generated walk, run and crouched-walk clips; the generated marker and five generated props (screenshots below). |
 
 ### Tests
 
@@ -104,7 +115,8 @@ different people, up to ten in a round, with levels by difficulty. Phase 2 deliv
   and stats, and starts that are fair for every mode and size.
 - **Bots:** nobody seen through a wall; detection slower at range, in the dark, crouched and still; shots heard
   less through walls; the aim solver within 5 cm of a still target at 10–40 m and within 10 cm of one running
-  across at 25 m; each tier at least as good as the one below; whole rounds from 30 sets of random starts.
+  across at 25 m; each tier at least as good as the one below; whole rounds from 30 sets of random starts, and five
+  seeded rounds with a bot in your slot.
 - **Determinism and cost:** the same seed and inputs give the same round, and stepping allocates nothing, whether
   with 1,000 balls in the air, in a live solo or free-for-all round, or with a full squad of bots thinking.
 
@@ -146,21 +158,22 @@ and how the opponents felt: too sharp, too slow, too predictable?
 
 ## Higgsfield spend
 
-248.5 credits of the 400 you allowed (of 541), so about 297 are left:
+310.5 credits of the 400 you allowed (of 541), so about 235 are left:
 
 | Item | Credits |
 |---|---|
 | Oil drum (30) and three characters (38 each) | 144 |
-| Walk and run clips (8 each) | 16 |
-| Burnt-out car (18, Tripo H3.1) and marker (30) | 48 |
+| Walk, run and crouched-walk clips (8 each) | 24 |
+| Marker (30); burnt-out car, stacked tyres, generator and sandbag wall (18 each, Tripo H3.1) | 102 |
 | 30 materials in ten pictures, reference pictures and concept art | 40.5 |
-| **Spent** | **248.5** |
-| To come: four props (18 each) and the crouched walk (8) | 80 |
+| **Spent** | **310.5** |
+
+The pallet stack's failed generation was refunded. Another try, or the cable reel, would cost 18 each.
 
 ## Screenshots
 
 These were rendered in the cloud container with Mesa's software Vulkan, so the look is right but frame rates mean
-nothing. All 113 shots from the phase are in [phase-2/](phase-2/), named by milestone.
+nothing. All 115 shots from the phase are in [phase-2/](phase-2/), named by milestone.
 
 **The compound as it stands**, from the level's viewpoints on the Medium preset:
 
@@ -185,7 +198,7 @@ nothing. All 113 shots from the phase are in [phase-2/](phase-2/), named by mile
 ![The containers](phase-2/m2.8-8-the-containers.jpg)
 *The containers by the warehouse, an opponent on patrol.*
 
-**Today's art:**
+**The last art:**
 
 ![The generated marker in your hands, right and left shoulder](phase-2/m2.6-70-generated-marker-in-your-hands.jpg)
 *The generated marker in your gloved hands on the right shoulder, and on the left after a swap (the orange splat is
@@ -197,8 +210,15 @@ the shot the wall's edge stopped from the right).*
 ![The generated burnt-out car](phase-2/m2.6-69-generated-car.jpg)
 *The generated burnt-out car in the yard.*
 
+![The generated tyres, generator and sandbag walls](phase-2/m2.6-72-generated-tyres-generator-and-sandbags.jpg)
+*The generated stacked tyres, generator and sandbag walls (2026-10-06).*
+
+![An opponent walking crouched](phase-2/m2.6-73-crouched-walk.jpg)
+*An opponent walking crouched with the generated clip, seen from the side (`-- --gait-demo`).*
+
 ![The last materials on the props built in code](phase-2/m2.6-68-day-4-materials-on-the-props.jpg)
-*The last materials on the props built in code: drums, tyres, sandbags and pallets (their generated models come next).*
+*The last materials on the props built in code (2026-10-05): drums, tyres, sandbags and pallets. The tyres and
+sandbags have generated models since.*
 
 **People and rounds:**
 
@@ -231,9 +251,10 @@ the shot the wall's edge stopped from the right).*
 
 - **The frame rate is unchecked on a real GPU.** Everything here was rendered in software; your check above is the
   one that counts.
-- **Four props are still built in code** (tyres, sandbag wall, pallet stack, generator) until tomorrow's
-  generations, and the cable reel after them if you want it.
-- **No crouched-walk clip yet:** a crouched opponent steps procedurally until it's generated.
+- **The pallet stacks are still built in code:** their generation failed on 2026-10-06 (refunded) and the day's five
+  were spent. The cable reel's picture is uploaded too, if you want it generated.
+- **Props are solid to their collider boxes:** shots through the gaps in the generator's frame, the car's empty
+  windows or between a pallet stack's boards break on the box, as they always have.
 - **The walk clip is slow** (0.3 m/s, a careful creep), so at the sim's 3 m/s walk the opponents play mostly the
   run clip, at about three steps a second. It reads well enough; a brisker walk clip would cost 8 credits.
 - **The generated loader isn't see-through,** so how much paint you have shows on the gear panel only (the coded
@@ -243,18 +264,16 @@ the shot the wall's edge stopped from the right).*
   one a tick.
 - **Close up, the "Hit!" over an eliminated opponent** can sit partly off the top of the screen (at about 3 m).
 - **Sound** is still the synthesised placeholder set, and doors don't open or close; both are Phase 3.
-- **Three stacked PRs:** [Tim-D-W101/Pb#1](https://github.com/Tim-D-W101/Pb/pull/1) into `main`, then
-  [Tim-D-W101/Pb#2](https://github.com/Tim-D-W101/Pb/pull/2), then [Tim-D-W101/Pb#3](https://github.com/Tim-D-W101/Pb/pull/3).
-  GitHub's default branch is still `claude/nifty-meitner-exeh6k`; switch it to `main` in Settings → Branches.
 
 ## Deviations from the plan
 
 - **Props were modelled in code first.** With five generations a day, every prop type got a detail model built from
   its colliders, and generated models replace them where they look better. Generated props now use Tripo H3.1
-  (18 credits) instead of Meshy (30), cut from one product picture of six.
-- **Two clips so far, not about six.** The idle comes with each rig; walk and run are generated and shared by all
-  three characters (their rigs matched, so the plan's extra 100 credits weren't needed); turning, leaning, aiming
-  and crouching are posed in code.
+  (18 credits) instead of Meshy (30), cut from one product picture of six, and each is scaled to its collider's
+  height with the footprint refitted to it.
+- **Three clips, not about six.** The idle comes with each rig; walk, run and a crouched walk are generated and
+  shared by all three characters (their rigs matched, so the plan's extra 100 credits weren't needed); turning,
+  leaning, aiming and crouching in place are posed in code.
 - **Modes were added (M2.10)** at your request: free-for-all and teams, and difficulty no longer sets the number of
   opponents.
 - **Four graphics presets, not three,** after your play-test, with Medium lighter than first planned.
@@ -279,4 +298,5 @@ From the [revised roadmap](../phase-2.md#revised-roadmap):
 - your frame rate and GPU, from the check above;
 - how the opponents feel on each difficulty;
 - anything about the look you'd change, now that the art is in;
-- whether you want the cable reel generated too, and a brisker walk clip.
+- whether you want another try at the pallet stack, the cable reel generated, or a brisker walk clip (18, 18 and
+  8 credits).

@@ -25,8 +25,10 @@ public interface IBotNavigation
 /// into square columns; down each column every surface with headroom above it and clear of walls by
 /// the agent radius becomes a "span", a place a bot can stand. Spans in neighbouring columns join when
 /// the step between them is small enough, so stairs (ramps), floors and mezzanines all connect, and
-/// paths are A* searches over spans, straightened afterwards. It's deterministic and engine-free, so
-/// the game and the sim tests use the same paths. Searches don't allocate.
+/// paths are A* searches over spans, straightened afterwards. A ladder joins the place in front of its
+/// foot to the place you step off onto at its top, so paths climb where ladders go (a path keeps both
+/// ends as waypoints; <see cref="LadderBetween"/> tells a bot it's to climb). It's deterministic and
+/// engine-free, so the game and the sim tests use the same paths. Searches don't allocate.
 /// </summary>
 public sealed class NavGrid : IBotNavigation
 {
@@ -54,6 +56,11 @@ public sealed class NavGrid : IBotNavigation
     // Which connected piece of the grid each span is in: a goal in another piece fails without a search.
     private readonly int[] _component;
 
+    // Ladders: for each span the ladder link it's an end of (or None), and each link's ends (foot, top), its ladder
+    // (an index into the level's ladders) and what climbing it costs.
+    private readonly int[] _ladderOf;
+    private readonly List<(int Foot, int Top, int Ladder, float Cost)> _ladderLinks = new();
+
     // Landmarks: walking distances from a few spans spread over the biggest piece to every span in it
     // ([span * count + landmark]), so the search's estimate of what's left knows about the long way round.
     private readonly int _landmarkCount;
@@ -71,7 +78,7 @@ public sealed class NavGrid : IBotNavigation
     private readonly List<int> _spans;
     private int _generation;
 
-    private NavGrid(NavParams p, float minX, float minZ, int cols, int rows, int[] columnStart, float[] spanY)
+    private NavGrid(NavParams p, float minX, float minZ, int cols, int rows, int[] columnStart, float[] spanY, IReadOnlyList<LadderSpec> ladders)
     {
         _p = p;
         _minX = minX;
@@ -103,6 +110,8 @@ public sealed class NavGrid : IBotNavigation
         // Room for a path many times longer than any level's (4 km of cells), so a search never grows it.
         _spans = new List<int>(Math.Min(spanY.Length, 16384));
         Link();
+        _ladderOf = new int[spanY.Length];
+        LinkLadders(ladders);
         _component = new int[spanY.Length];
         int biggest = LabelComponents();
         _landmarkCount = biggest == None ? 0 : p.Landmarks;
@@ -182,7 +191,32 @@ public sealed class NavGrid : IBotNavigation
         }
 
         columnStart[cols * rows] = spanY.Count;
-        return new NavGrid(p, bounds.Min.X, bounds.Min.Z, cols, rows, columnStart, spanY.ToArray());
+        return new NavGrid(p, bounds.Min.X, bounds.Min.Z, cols, rows, columnStart, spanY.ToArray(), level.Ladders);
+    }
+
+    /// <summary>Ladders the grid joins up (each climbable both ways).</summary>
+    public int LadderLinkCount => _ladderLinks.Count;
+
+    /// <summary>
+    /// The ladder (an index into the level's ladders) a path climbs between <paramref name="from"/> and the waypoint
+    /// <paramref name="to"/>: one end of it near the first and the other end at the second; −1 if the way there is a walk.
+    /// </summary>
+    public int LadderBetween(Vector3 from, Vector3 to)
+    {
+        for (int k = 0; k < _ladderLinks.Count; k++)
+        {
+            (int foot, int top, int ladder, _) = _ladderLinks[k];
+            Vector3 a = PositionOf(foot), b = PositionOf(top);
+            if ((Near(from, a, 1.2f) && Near(to, b, 0.3f)) || (Near(from, b, 1.2f) && Near(to, a, 0.3f)))
+            {
+                return ladder;
+            }
+        }
+
+        return None;
+
+        static bool Near(Vector3 p, Vector3 q, float flat) =>
+            MathF.Abs(p.Y - q.Y) <= 0.8f && (p.X - q.X) * (p.X - q.X) + (p.Z - q.Z) * (p.Z - q.Z) <= flat * flat;
     }
 
     public Vector3 PositionOf(int span) => new(_spanX[span], _spanY[span], _spanZ[span]);
@@ -413,6 +447,21 @@ public sealed class NavGrid : IBotNavigation
                     _open.Push(n, g + Heuristic(n, goalAt));
                 }
             }
+
+            if (_ladderOf[s] != None)
+            {
+                (int foot, int top, _, float cost) = _ladderLinks[_ladderOf[s]];
+                int n = s == foot ? top : foot;
+                float g = gs + cost;
+                if (_closed[n] != generation && (_seen[n] != generation || g < _g[n]) &&
+                    (n == goal || Blocked is not { } blocked || !blocked(PositionOf(n))))
+                {
+                    _seen[n] = generation;
+                    _g[n] = g;
+                    _parent[n] = s;
+                    _open.Push(n, g + Heuristic(n, goalAt));
+                }
+            }
         }
 
         LastSearchExpanded = expanded;
@@ -486,6 +535,17 @@ public sealed class NavGrid : IBotNavigation
                         stack.Push(n);
                     }
                 }
+
+                if (_ladderOf[s] != None)
+                {
+                    (int foot, int top, _, _) = _ladderLinks[_ladderOf[s]];
+                    int n = s == foot ? top : foot;
+                    if (_component[n] == None)
+                    {
+                        _component[n] = label;
+                        stack.Push(n);
+                    }
+                }
             }
 
             if (size > biggestSize)
@@ -502,21 +562,29 @@ public sealed class NavGrid : IBotNavigation
 
     /// <summary>
     /// Spreads the landmarks over the biggest piece: each one as far as possible from those before it (the first as far as
-    /// possible from <paramref name="seed"/>), and works out every span's walking distance from each.
+    /// possible from <paramref name="seed"/>), and works out every span's walking distance from each. They're placed by
+    /// walking alone, so a ladder up to a dead end (a water tower's catwalk) doesn't move them, and measured with the
+    /// ladders, so the places only a ladder reaches have distances too.
     /// </summary>
     private void PlaceLandmarks(int seed)
     {
         var distance = new float[_spanY.Length];
+        var climbing = _ladderLinks.Count > 0 ? new float[_spanY.Length] : distance;
         var nearest = new float[_spanY.Length];
         Array.Fill(nearest, float.PositiveInfinity);
-        Distances(seed, distance);
+        Distances(seed, distance, ladders: false);
         int next = Farthest(distance);
         for (int k = 0; k < _landmarkCount; k++)
         {
-            Distances(next, distance);
+            Distances(next, distance, ladders: false);
+            if (_ladderLinks.Count > 0)
+            {
+                Distances(next, climbing, ladders: true);
+            }
+
             for (int s = 0; s < distance.Length; s++)
             {
-                _landmarkDistance[s * _landmarkCount + k] = distance[s];
+                _landmarkDistance[s * _landmarkCount + k] = climbing[s];
                 nearest[s] = MathF.Min(nearest[s], distance[s]);
             }
 
@@ -542,7 +610,7 @@ public sealed class NavGrid : IBotNavigation
     }
 
     /// <summary>Walking distance from <paramref name="source"/> to every span (infinite where it can't walk), by Dijkstra.</summary>
-    private void Distances(int source, float[] distance)
+    private void Distances(int source, float[] distance, bool ladders)
     {
         Array.Fill(distance, float.PositiveInfinity);
         int generation = ++_generation;
@@ -572,6 +640,17 @@ public sealed class NavGrid : IBotNavigation
                 {
                     distance[n] = g;
                     _open.Push(n, g);
+                }
+            }
+
+            if (ladders && _ladderOf[s] != None)
+            {
+                (int foot, int top, _, float cost) = _ladderLinks[_ladderOf[s]];
+                int n = s == foot ? top : foot;
+                if (_closed[n] != generation && ds + cost < distance[n])
+                {
+                    distance[n] = ds + cost;
+                    _open.Push(n, ds + cost);
                 }
             }
         }
@@ -671,6 +750,28 @@ public sealed class NavGrid : IBotNavigation
     /// Joins each span to the span in each neighbouring column within a step of it (the nearest in
     /// height). Diagonal moves also need both side columns joined, so paths never cut a wall corner.
     /// </summary>
+    /// <summary>
+    /// Joins each ladder's foot to its top: the place in front of the foot (where a bot stands to get on) to the place you
+    /// step off onto, both on the grid, a real climb apart. A place is the end of one ladder at most.
+    /// </summary>
+    private void LinkLadders(IReadOnlyList<LadderSpec> ladders)
+    {
+        Array.Fill(_ladderOf, None);
+        for (int i = 0; i < ladders.Count; i++)
+        {
+            LadderSpec l = ladders[i];
+            int foot = NearestSpan(l.ClimbPoint(l.Foot.Y, 0.6f), 1f);
+            int top = NearestSpan(l.TopPoint, 1f);
+            if (foot == None || top == None || foot == top || _spanY[top] - _spanY[foot] < 1f || _ladderOf[foot] != None || _ladderOf[top] != None)
+            {
+                continue;
+            }
+
+            _ladderOf[foot] = _ladderOf[top] = _ladderLinks.Count;
+            _ladderLinks.Add((foot, top, i, (_spanY[top] - _spanY[foot]) * _p.LadderCostPerMetre));
+        }
+    }
+
     private void Link()
     {
         Array.Fill(_links, None);

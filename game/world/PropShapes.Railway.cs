@@ -181,8 +181,8 @@ public static partial class PropShapes
             c.M.Cylinder(dark, dome + new Vector3(0f, c.Height(1) * 0.5f + 0.03f, 0f), Basis.Identity, c.Radius(1) * 0.8f, 0.06f, 16);
         }
 
-        // A ladder up the side to a walkway along the top.
-        Ladder(c, dark, new Vector3(tank.X + r + 0.05f, floor - 0.15f, tank.Z + 0.6f), Vector3.Back, r * 2f + 0.1f);
+        // The ladder up the side (from the data, as it's climbed) to the walkway along the top.
+        Ladders(c, dark);
         c.M.Box(dark, new Vector3(tank.X, tank.Y + r + 0.04f, tank.Z), new Vector3(0.5f, 0.04f, length * 0.4f));
         Underframe(c, tank.Z, length, floor - 0.05f);
     }

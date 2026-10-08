@@ -44,6 +44,8 @@ namespace Pb.Game.Core;
 ///   --gait-only=NAME      with --gait-demo, only the moves whose names start with NAME (e.g. "look", "sprint")
 ///   --cover-demo          an opponent tucks in behind low cover, stands to shoot over it and tucks in again, from the side
 ///   --cover-at=X,Z        with --cover-demo, the low cover nearest that point (else the nearest out in the open)
+///   --ladder-demo         an opponent climbs a ladder, steps off at the top, turns round and climbs down, from the side
+///   --ladder=N            with --ladder-demo, the level's Nth ladder (else the tallest)
 ///   --place-stills=DIR    takes the menu's picture of each of the level's places into DIR (res://ui/places), then quits
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
@@ -193,9 +195,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         string? roleDemo = Args.Value("--role-demo");
         bool gaitDemo = Args.Has("--gait-demo");
         bool coverDemo = Args.Has("--cover-demo");
+        bool ladderDemo = Args.Has("--ladder-demo");
         _botMatch = Args.Has("--bot-match");
         _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    roleDemo is not null || gaitDemo || coverDemo || _botMatch || Args.Has("--objective-demo");
+                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
         _counts = !_scripted && !roundTour;
 
@@ -501,6 +504,13 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(demo);
             float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
             demo.Start(_sim, _squad, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
+        }
+        else if (ladderDemo)
+        {
+            var demo = new LadderDemo { Name = "LadderDemo" };
+            AddChild(demo);
+            float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
+            demo.Start(_sim, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
         }
         else if (botDemo)
         {

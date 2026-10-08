@@ -25,6 +25,9 @@ public sealed class NavParams
     public required float HeuristicWeight { get; init; }
 
     public required int Landmarks { get; init; }
+
+    /// <summary>A search counts each metre climbed on a ladder as this much walking.</summary>
+    public float LadderCostPerMetre { get; init; } = 3.5f;
 }
 
 /// <summary>How every bot thinks and acts (SI, angles in radians), from bots/brain.jsonc.</summary>
@@ -344,6 +347,7 @@ public sealed class BotConfig
             MaxSearchNodes = nav.MaxSearchNodes,
             HeuristicWeight = nav.HeuristicWeight,
             Landmarks = nav.Landmarks,
+            LadderCostPerMetre = nav.LadderCostPerMetre,
         },
         Senses = new SenseParams
         {

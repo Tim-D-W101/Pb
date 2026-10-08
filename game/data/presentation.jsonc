@@ -904,6 +904,13 @@
     "outRaise_s": 0.45,
     "outHandAbove_m": 0.2,
     "outHandOut_m": 0.17,
+    // On a ladder: hands on the rungs and the balls of the feet on them, opposite hand and foot stepping up (or down)
+    // two rungs at a time, each over ladderLimbMove_s and swung ladderLimbSwing_m out from the ladder on the way; the
+    // hips ladderHipsIn_m in towards the rungs and ladderHipsDown_m down, the marker slung on the back (hitboxes.jsonc).
+    "ladderHipsIn_m": 0.12,
+    "ladderHipsDown_m": 0.06,
+    "ladderLimbMove_s": 0.2,
+    "ladderLimbSwing_m": 0.08,
     // How the legs move. "steps" plants each foot in the world where it lands until its next step, so
     // feet never skate, in any direction, at any pace, turning on the spot or on stairs (below).
     // "clips" plays the movement clips instead (forward clips only: strafing and turning slide).
@@ -1023,7 +1030,7 @@
     // Each plays at the pace that keeps its feet planted; walk blends into run between the two clips'
     // own speeds, and into the crouched walk as you crouch, all in step. Any can be left out; without a
     // walk, the steps stand in.
-    "clips": { "walk": "res://art/models/clip_walk.glb", "run": "res://art/models/clip_run.glb" },
+    "clips": { "walk": "res://art/models/clip_walk.glb", "run": "res://art/models/clip_run.glb", "crouchWalk": "res://art/models/clip_crouch.glb" },
     // How long clips take to blend in and out, and between each other.
     "clipBlend_s": 0.2,
     // With clips, the legs turn from where you face towards where you're going, by up to this much (the

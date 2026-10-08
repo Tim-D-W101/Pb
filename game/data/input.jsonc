@@ -23,7 +23,7 @@
     { "name": "refill", "label": "Refill the loader", "group": "combat", "keys": ["R"], "buttons": ["X"] },
     // Opens and shuts the door you're facing (tap), or eases it open (hold). On a pad it shares the refill button:
     // facing a door it works the door, anywhere else it refills.
-    { "name": "interact", "label": "Use a door", "group": "combat", "keys": ["F"], "buttons": ["X"] },
+    { "name": "interact", "label": "Use a door or a ladder", "group": "combat", "keys": ["F"], "buttons": ["X"] },
     { "name": "fire_mode", "label": "Fire mode", "group": "combat", "keys": ["B"], "buttons": ["Y"] },
     { "name": "lean_left", "label": "Lean left", "group": "movement", "keys": ["Q"], "buttons": ["LeftShoulder"] },
     { "name": "lean_right", "label": "Lean right", "group": "movement", "keys": ["E"], "buttons": ["RightShoulder"] },
