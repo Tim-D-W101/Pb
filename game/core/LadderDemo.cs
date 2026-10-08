@@ -135,11 +135,11 @@ public partial class LadderDemo : Node, ICommandSource
         }
     }
 
-    /// <summary>Square to the climber's side, level with their middle, a little towards the ladder so its rungs show.</summary>
+    /// <summary>From behind and to the side (the climber's back and the ladder's rungs both show), level with their chest.</summary>
     private void Aim()
     {
-        SVector3 at = _who!.State.Position + new SVector3(0f, 1.1f, 0f) + _ladder.Forward * 0.2f;
-        SVector3 eye = at + _side * 2.4f - _ladder.Forward * 0.3f + new SVector3(0f, 0.15f, 0f);
+        SVector3 at = _who!.State.Position + new SVector3(0f, 1.2f, 0f) + _ladder.Forward * 0.2f;
+        SVector3 eye = at + _side * 1.9f - _ladder.Forward * 1.9f + new SVector3(0f, 0.25f, 0f);
         _camera.GlobalPosition = eye.ToGodot();
         _camera.LookAt(at.ToGodot(), Vector3.Up);
     }

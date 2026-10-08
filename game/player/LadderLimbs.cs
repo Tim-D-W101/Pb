@@ -14,8 +14,9 @@ public sealed class LadderLimbs
 {
     private const float Rung = 0.3f;
 
-    // Left foot, right foot, left hand, right hand.
+    // Left foot, right foot, left hand, right hand, and where each belongs this frame.
     private readonly Limb[] _limbs = { new(), new(), new(), new() };
+    private readonly Vector3[] _targets = new Vector3[4];
     private int _ladder = -1;
 
     public Vector3 LeftFoot => _limbs[0].At;
@@ -34,19 +35,16 @@ public sealed class LadderLimbs
         float highest = ladder.Height + ladder.Rails - 0.1f;
         float footSide = 0.1f, handSide = ladder.Width * 0.5f - 0.06f;
         Vector3 On(float y, float side) => foot + Vector3.Up * Mathf.Clamp(y, 0f, highest) + across * side - into * 0.03f;
-        Vector3[] targets =
-        {
-            On(2f * Rung * Mathf.Floor(cycle), -footSide),
-            On(2f * Rung * Mathf.Floor(cycle + 0.5f) - Rung, footSide),
-            On(2f * Rung * Mathf.Floor(cycle + 0.5f) + 5f * Rung, -handSide),
-            On(2f * Rung * Mathf.Floor(cycle) + 6f * Rung, handSide),
-        };
+        _targets[0] = On(2f * Rung * Mathf.Floor(cycle), -footSide);
+        _targets[1] = On(2f * Rung * Mathf.Floor(cycle + 0.5f) - Rung, footSide);
+        _targets[2] = On(2f * Rung * Mathf.Floor(cycle + 0.5f) + 5f * Rung, -handSide);
+        _targets[3] = On(2f * Rung * Mathf.Floor(cycle) + 6f * Rung, handSide);
 
         bool fresh = index != _ladder;
         _ladder = index;
         for (int i = 0; i < _limbs.Length; i++)
         {
-            _limbs[i].Update(targets[i], fresh, -into * swing, delta / Mathf.Max(move, 1e-3f));
+            _limbs[i].Update(_targets[i], fresh, -into * swing, delta / Mathf.Max(move, 1e-3f));
         }
     }
 

@@ -2,19 +2,22 @@
 
 **Date:** 2026-10-05, updated 2026-10-06 after your play-test ([below](#after-your-play-test-2026-10-06)) and with more
 life in the opponents ([M3.14](#more-life-in-the-opponents-m314)), 2026-10-07 with the voices
-([below](#the-voices-2026-10-07-and-08)) and 2026-10-08 with the last two and the new levels' materials
-([below](#the-new-levels-materials-2026-10-08)) · **PRs:**
+([below](#the-voices-2026-10-07-and-08)) and 2026-10-08 with the last two, the new levels' materials
+([below](#the-new-levels-materials-2026-10-08)), the props ([below](#the-props-2026-10-08)) and the ladders you asked for
+([below](#ladders-m315)) · **PRs:**
 [Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4) and [Tim-D-W101/Pb#6](https://github.com/Tim-D-W101/Pb/pull/6),
-both merged into `main` on 2026-10-07, and the voices and materials of 2026-10-08 in their own PR.
-**Status:** built and tested. Two things are left:
+both merged into `main` on 2026-10-07, and [Tim-D-W101/Pb#7](https://github.com/Tim-D-W101/Pb/pull/7) (the last voices,
+the materials, Phase 2's leftover props from [Tim-D-W101/Pb#5](https://github.com/Tim-D-W101/Pb/pull/5) and the
+ladders), which closes the phase.
+**Status:** finished (2026-10-08) and tested. One thing is left: **your play-test** on your PC: every area and its
+places, the new opponents (now with M3.14's life in them), the sound and the voices, the ladders, and 60 fps on Medium
+with ten people in a round (see [Your check](#your-check)).
 
-- **your play-test** on your PC: every area and its places, the new opponents (now with M3.14's life in them), the
-  sound, and 60 fps on Medium with ten people in a round (see [Your check](#your-check));
-- **the generated props** (M3.10): up to four of the new levels' props get generated models, with the next days'
-  generations (Higgsfield allows five a day; its refusal says the limit belongs to the account's grace period, so
-  updating its plan would lift it). Until then every prop is the detailed model built in code. The voices are all in
-  ([below](#the-voices-2026-10-07-and-08)), and so are the three texture sheets
-  ([below](#the-new-levels-materials-2026-10-08)).
+The voices are all in ([below](#the-voices-2026-10-07-and-08)), and so are the three texture sheets
+([below](#the-new-levels-materials-2026-10-08)) and Phase 2's generated tyres, generator and sandbag wall
+([below](#the-props-2026-10-08)). The new levels' own props didn't get generated models: Higgsfield's subscription was
+cancelled on 2026-10-08, taking the 196.42 credits left with it, the day before their generations, so they're the
+detailed models built in code.
 
 The plan, with every milestone's details, is [phase-3.md](../phase-3.md); the technical design is
 [architecture §15](../architecture.md#15-phase-3-open-areas).
@@ -106,14 +109,14 @@ the ambulance bay, and the car park.*
 ![Running, from the side](phase-3/m3.13-3-running.jpg)
 *Running (5.5 m/s): bent knees, long strides, and both feet off the ground between steps.*
 
-**How to get it:** this is a pull request stacked on Phase 3's ([Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4)):
-merge that one into `main`, then this one. CI publishes each run's build as the test build, so once this pull request's
-run has finished, `Play.bat` brings it the next time you start the game (until another pull request's run replaces it).
+**How to get it:** in `main` since 2026-10-07 (this round was [Tim-D-W101/Pb#6](https://github.com/Tim-D-W101/Pb/pull/6),
+merged after [Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4)). CI publishes each run's build as the test
+build, and `Play.bat` brings the latest the next time you start the game.
 
 **Known issues from this round:**
 
 - **No new clips:** Higgsfield's daily generation limit stopped them that day (no credits spent), and the planted
-  steps cover every move without them. The voices came the next day ([below](#the-voices-2026-10-07)).
+  steps cover every move without them. The voices came the next day ([below](#the-voices-2026-10-07-and-08)).
 - **A place's edge is a rectangle,** so some parts take in a strip of a neighbour's ground (in Oxbarrow Works, the yard
   and the warehouse share the gravel in front of the bays), and a few doors on an edge are taped shut.
 
@@ -221,10 +224,76 @@ door.*
 ![Down the north corridor](phase-3/m3.10-5-down-the-north-corridor.jpg)
 *Down the hospital's north corridor: the green gloss paint (the cream photo tinted), chipped, over the worn lino.*
 
+## The props (2026-10-08)
+
+- **Phase 2's last generated props are in every area now:** the stacked tyres (four worn tyres), the generator (an open
+  frame on a skid, its fuel tank on top) and the sandbag wall (four layers of bags), made on 2026-10-06 by the Phase 2
+  session ([Tim-D-W101/Pb#5](https://github.com/Tim-D-W101/Pb/pull/5)) and brought into Phase 3. They stand wherever
+  those props do: in Oxbarrow Works and round the three new areas, 26 in all. Each is scaled to its collider's height,
+  so cover is as it was, and its footprint was refitted to it: the tyres 0.90 m across (were 0.74), the generator
+  1.77 × 1.29 m (was 1.8 × 1.0), the sandbag wall 1.90 × 0.72 m (was 2.4 × 0.6). The new areas were laid out with the
+  old sizes, so each of the 26 was probed round its new outline: none runs into a wall or another prop.
+- **The crouched walk** is the generator's cautious crouched walk, made on the first opponent's rig. It plays when the
+  opponents move on clips (`characters.legs` = `"clips"` in `presentation.jsonc`); their planted steps, the default
+  since your play-test, have a crouched walk of their own.
+- **Still built in code:** the pallet stacks (their generation failed on 2026-10-06 and was refunded) and every prop
+  of the new areas: the wagons, shunter and buffer stops, the trailers, racking, roll cages, compressors and ammonia
+  tanks, the beds, trolleys, wheelchairs, lockers and the ambulance. Up to four of them were to get generated models
+  on 2026-10-09 (a picture of six, then the models, about 77 credits), but Higgsfield's subscription was cancelled on
+  2026-10-08 (at 09:06 UTC the account moved to the free plan and the 196.42 credits left were taken off), so they
+  weren't made. The importer is ready if generations come back.
+
+## Ladders (M3.15)
+
+You asked, as you asked to finish the phase: "in the railyard there was like a water tank with a ladder going up it, i
+want to be able to climb up that ladder, and wherever else there are ladders those must be climable". There were five,
+all drawn and none climbable: up the legs and up the tank of each water tower (Oxbarrow Works and the Rail Yard), and up
+the side of each of the Rail Yard's three tank wagons. Every one can be climbed now, by you and by the bots.
+
+- **How:** walk up to a ladder facing it and the HUD says "F · climb the ladder". **F** gets you on, **W** climbs and
+  **S** climbs down (1.6 m/s: the water tower's 12.2 m take about 8 s), and at the top you step off onto what it climbs
+  to; at the bottom, onto the ground. **Space** lets go (and you fall). To come down, walk to the top of the ladder,
+  face out over it ("F · climb down the ladder") and press F. On a pad, the refill button works ladders as it does doors.
+- **On a ladder** both hands are on the rungs: you can't fire, refill, crouch, lean or sprint, and your marker is slung
+  on your back (in first person it drops out of sight). You can look round. Each foot on a rung is heard, like a step
+  on steel, so climbing gives you away. Paint hits a climber where they're drawn: arms up on the rungs, marker on the
+  back.
+- **Somewhere to stand at the top.** The water tower had nowhere to stand: its tank filled its platform. Its legs now
+  stand under the corners of a 6.2 m catwalk round the tank, 12.2 m up, with a railing that keeps you on it (paint flies
+  through it) but for the gap where the ladder comes up; from the catwalk the second ladder goes up the tank to its flat
+  roof, 15.6 m up. The tank wagons' walkway along the top is solid now. The catwalk is a strong place to shoot from and
+  a hard one to leave: there's one way down, and you can't shoot on the way.
+- **The bots climb too.** Their navigation joins each ladder's foot to its top, so when their way goes up (hunting you
+  on the catwalk, say) they walk to the foot, face the ladder, get on, climb and step off, and come back down the same
+  way. A bot that's out on a ladder climbs down before it walks off.
+- **They look the part:** hands on the rungs and the balls of the feet on them, opposite hand and foot stepping up two
+  rungs at a time, the hips in towards the ladder, the marker slung across the back.
+
+Checked by thirteen sim tests (see [Tests](#tests)) and by CI: each level's walk-through now climbs every ladder through
+the real scene, up, off onto the floor at the top, back on facing out and down, all seven passing (the catwalks at
+12.20 m in 8.3 s and their roofs at 15.60 m, the wagons' walkways at 3.86 m). `-- --ladder-demo` films an opponent at it.
+
+![The Rail Yard's water tower](phase-3/m3.15-1-the-water-tower.jpg)
+*The Rail Yard's water tower: the ladder up the middle of its west side to the gap in the catwalk's railing; the second
+climbs the far side of the tank to its flat roof.*
+
+![An opponent climbing](phase-3/m3.15-2-climbing.jpg)
+*An opponent climbing it (`-- --ladder-demo`): a hand up on the next rung, the marker slung on the back, barrel down.*
+
+![From the catwalk](phase-3/m3.15-3-from-the-catwalk.jpg)
+*From the catwalk, 12 m up: the whole yard, the tank wagons, the goods shed, the footbridge and the engine shed.*
+
+![A tank wagon's ladder](phase-3/m3.15-4-a-tank-wagon-ladder.jpg)
+*A tank wagon's ladder, from a step just off the ground to the walkway along its top, its stiles carrying on as
+handholds.*
+
+
 ## What was built
 
 You asked to continue and build Phase 3, the level ladder from the roadmap you approved with Phase 2. All of it is in
-but the recordings and the art above. *(Since 2026-10-06 the ladder is open areas, each with places: see above.)*
+but the new levels' generated props ([above](#the-props-2026-10-08)), and the ladders you asked for on 2026-10-08 are in
+too ([above](#ladders-m315)). *(Since 2026-10-06 the ladder is open areas, each
+with places: see above.)*
 
 - **The ladder and the save** (M3.1). Four compounds of rising difficulty: Oxbarrow Works, then the Rail Yard, the Cold
   Store and the Hospital Wing. Winning any round on a level opens the next (the rule is data, in `levels/ladder.jsonc`,
@@ -283,18 +352,20 @@ but the recordings and the art above. *(Since 2026-10-06 the ladder is open area
 
 | Check from the plan | Result | Evidence |
 |---|---|---|
-| Climb the ladder: win on each level to open the next; progress survives a restart | ✅ rules, ⏳ your play | Eleven ladder tests: only the first level is open at the start, a win opens the next and nothing else, a loss opens nothing, a stricter rule, records, per-objective records, "open every level", the file's round trip and a broken file. CI's bot match saves its round to the profile. Level select and the summary below. |
-| Three new levels of rising difficulty, each playable in every mode, size and difficulty | ✅ | Level select; the level tests (every spawn, patrol point, pickup, case spot, way out and room reachable; fair starts for every mode, objective and size; bot rounds); in CI, a walk through each level and three bot matches on each. |
+| Every area and every place in it open from the start; records survive a restart | ✅, ⏳ your play | CI's menu check: the four areas and their 19 places, all open, every card on one screen, with each mode's sizes and objectives. The record book's tests: records by area, place, mode, objective and difficulty, the file's round trip, an old ladder save or a broken file loading, every area and place open. CI's bot match saves its round to the profile. |
+| Three new areas, each playable in every mode, size and difficulty, and in each of its places | ✅ | Where to play (above); the level and place tests (every spawn, patrol point, pickup, case spot, way out and room reachable from every way in; fair starts for every mode, objective and size, in every place); in CI, a walk through each area, three bot matches on each and one in a place of each. |
+| The opponents walk, run and turn on planted feet and keep their gear out of walls | ✅, ⏳ you watch them | The gait demo's measurements and the cover demo's (above); screenshots. |
 | Marksman and Flanker behave as described | ✅ | Eight behaviour tests; the role demos below, which CI also runs on the Rail Yard and the Hospital Wing. |
-| Objectives: retrieve and hold can be won and lost by their rules | ✅ | Fifteen rule tests and four bot-round tests; CI's retrieve and hold bot matches on every level; HUD screenshots below. |
+| Objectives: retrieve and hold can be won and lost by their rules | ✅ | Fifteen rule tests and four bot-round tests; a retrieve or hold bot match on every area in CI; HUD screenshots below. |
 | Doors open and close for you and the bots, stop paint and sight | ✅ | Fifteen door tests; each level's walk-through in CI shoots a door, opens it and walks through; screenshots below. |
+| Every ladder can be climbed, by you and the bots (M3.15) | ✅, ⏳ your play | Thirteen ladder tests; each walk-through in CI climbs every ladder up and down through the real scene (seven); the ladder demo ([above](#ladders-m315)). |
 | Every event has its sound; callouts are voiced and come from the caller | ✅ | The [sound list](#sound-list); the walk-throughs check that shots, breaks, steps and doors were heard and the referee called the round, and Oxbarrow's voices its callouts. Every recorded line checked by speech recognition ([The voices](#the-voices-2026-10-07-and-08)). |
 | Every action rebindable on mouse, keyboard and pad; colourblind-safe colours | ✅, ⏳ your play | Nine settings tests; CI's menu check finds the five tabs and a slot for every binding (111); screenshots below. |
 | 10 people in one round at ≥ 60 fps on a GTX 1070-class GPU at Medium, on every level | ⏳ your PC | The sim's share stays within its budget on every level ([Performance](#performance)). |
 
 ### Tests
 
-`dotnet test` runs **381 sim tests** (304 when this report was first written, 191 at the end of Phase 2), all green.
+`dotnet test` runs **394 sim tests** (304 when this report was first written, 191 at the end of Phase 2), all green.
 Against the plan's test table:
 
 - **Profile and unlocks:** as in the table above, plus the shipped ladder opening in order and a rule naming a tier a
@@ -332,13 +403,20 @@ Against the plan's test table:
 - **Determinism and cost:** the same seed and inputs give the same round with doors and objectives; stepping
   allocates nothing with doors on the move or an objective round on.
 - **Sound data:** every area's tone is known, every voice file is on record and every record's files are there.
+- **Ladders (M3.15):** every ladder has ground at its foot, a floor at its top and room for a body up it and over the
+  top; up the Rail Yard's water tower to its catwalk, on up to the tank's roof and back, and down from the catwalk to the
+  ground; getting on needs facing the ladder within reach (or facing out over its top); no firing or refilling on one,
+  the body facing it and the head looking round; jump lets go; the eliminated climb down; a foot on a rung is heard every
+  other rung; climbing doesn't allocate; bots' paths climb both of the tower's ladders, and a bot on patrol climbs it,
+  steps onto the catwalk and comes back down; a ladder too short to climb fails to load, naming its key.
 
-CI also runs the game headless (`tools/ci/smoke-test.sh`): the menu (four levels, three modes, the settings' five tabs
-and 111 binding slots), the range under a 1,000-ball stress test, a walk through each of the four levels (every flight
-of stairs and every ramp, a slide, a jump, a door shot, opened and walked through, a duel each way, and every kind of
-sound heard), fourteen bot matches (solo and free-for-all on every level, teams with retrieve or hold on every level),
-the two role demos (the Marksman has to spot you and open up, the Flanker has to go round and look out from its spot),
-and the art importer's self-test (including twelve made-up voice takes cut into their lines), all with zero sim
+CI also runs the game headless (`tools/ci/smoke-test.sh`, 27 runs): the menu (four areas and their 19 places, three
+modes, the settings' five tabs and 111 binding slots), the range under a 1,000-ball stress test, a walk through each of
+the four levels (every ladder up and down, every flight of stairs and every ramp, a slide, a jump, a door shot, opened
+and walked through, a duel each way, and every kind of sound heard), eighteen bot matches (solo and free-for-all on
+every level, teams with retrieve or hold on every level, and one in a place of each), the two role demos (the Marksman
+has to spot you and open up, the Flanker has to go round and look out from its spot), and the art importer's self-test
+(including twelve made-up voice takes cut into their lines and nine doubled lines cut back to one), all with zero sim
 errors. The bot that plays your slot only sweeps the opponents' spawns, so it loses most of its rounds; the matches are
 there to play whole rounds without errors.
 
@@ -381,6 +459,9 @@ About ten minutes, on the latest test build (`Play.bat` updates it):
 4. **The sound.** Shots across the yard, a door slamming in the next room, footsteps on metal stairs, wind outside and
    the hum inside, and the bots' callouts and the referee in their voices.
 5. **The settings.** Rebind something on the Controls tab and try a colourblind team colour set (Accessibility).
+6. **The ladders.** On the Rail Yard, walk to the water tower at the east end, face its ladder and press **F**, then
+   **W** to the catwalk; from there up the tank to its roof, and back down facing out over the top (**F**, then **S**).
+   Try a tank wagon's ladder too, and watch an opponent come up after you.
 
 If the frame rate is short, the levers are, in order: render scale (Video), then Medium's weeds and shadows. Please
 tell me your GPU and the figures, and how the Marksmen and Flankers feel.
@@ -409,20 +490,21 @@ and so on), recorded on 2026-10-07 and 08 ([The voices](#the-voices-2026-10-07-a
 
 ## Higgsfield spend
 
-38.45 credits so far in Phase 3: five voice takes on 2026-10-07 (17.9: 3.9 for a take of the 39 callouts, 2.3 for the
-referee's 16 lines), and the last two takes and the three texture sheets on 2026-10-08 (20.55: 4.25 a sheet). 196.42
-credits are left. The plan allows up to 150:
+38.45 credits in Phase 3, of the 150 the plan allowed: five voice takes on 2026-10-07 (17.9: 3.9 for a take of the 39
+callouts, 2.3 for the referee's 16 lines), and the last two takes and the three texture sheets on 2026-10-08 (20.55:
+4.25 a sheet). The props were to be next, on 2026-10-09, but Higgsfield's subscription was cancelled on 2026-10-08 (at
+09:06 UTC the account moved to the free plan and the 196.42 credits left were taken off), so they weren't made:
 
 | Item | Credits |
 |---|---|
-| Voices: seven takes of the scripts (done) | 25.7 |
-| Three texture sheets, twelve materials (done) | 12.75 |
-| Up to four generated props (one picture of six, then Tripo H3.1 at 18 each) | ≈ 77 |
-| **Phase 3** | **≈ 115, 38.45 spent** |
-| Phase 2's leftovers (four props and the crouched walk), approved with Phase 2 and made on 2026-10-06 by its own check-in | 80 |
+| Voices: seven takes of the scripts | 25.7 |
+| Three texture sheets, twelve materials | 12.75 |
+| ~~Up to four generated props (one picture of six, then Tripo H3.1 at 18 each)~~ (not made) | ~~≈ 77~~ 0 |
+| **Phase 3** | **38.45** |
+| Phase 2's leftovers (the tyres, generator and sandbag wall, 18 each, and the crouched walk, 8; the pallet stack's failed and was refunded), from Phase 2's budget, made on 2026-10-06 by its own check-in | 62 |
 
-At five generations a day, Phase 3's share is about three days of generations: five voices on 2026-10-07, the last
-two and the three texture sheets on 2026-10-08, then the props (a picture of six, then up to four models).
+At five generations a day, Phase 3's art took two days: five voices on 2026-10-07, then the last two and the three
+texture sheets on 2026-10-08.
 
 ## Screenshots
 
@@ -517,8 +599,8 @@ teammate already in the fight).*
 ## How to run
 
 - **Play on Windows:** download [Pb-windows.zip](https://github.com/Tim-D-W101/Pb/releases/download/test-build/Pb-windows.zip),
-  unzip it and run `Play.bat`; it keeps itself up to date. **Play**, pick a level, a mode, a size, a difficulty and
-  (in solo and teams) an objective, then **Start**.
+  unzip it and run `Play.bat`; it keeps itself up to date. **Play**, pick an area and where in it, a mode, a size, a
+  difficulty and (in solo and teams) an objective, then **Start**.
 - **From Godot 4.7.2 .NET:** open `game/project.godot` and press F5.
 - **Controls and debug keys** are in the [README](../../README.md#controls); every binding can be changed in
   Settings → Controls.
@@ -526,8 +608,8 @@ teammate already in the fight).*
   benchmark.
 - **Scripted views** (how these screenshots were made): `-- --shots` tours a level's viewpoints, `-- --role-demo=marksman`
   or `=flanker` shows a new role at work, `-- --objective-demo`, `-- --round-tour` and `-- --menu-tour` show the
-  objectives and the screens, and `-- --bot-match` lets a bot play your slot (see [CLAUDE.md](../../CLAUDE.md) for the
-  full list).
+  objectives and the screens, `-- --ladder-demo` films an opponent climbing, and `-- --bot-match` lets a bot play your
+  slot (see [CLAUDE.md](../../CLAUDE.md) for the full list).
 
 ## Fixed after the report
 
@@ -551,11 +633,16 @@ teammate already in the fight).*
 
 - **The frame rate is unchecked on a real GPU.** Everything here was rendered in software; your check above is the one
   that counts. The Hospital Wing is the heaviest level to draw.
-- **The new levels' props aren't generated yet** (M3.10): they're the detailed models built in code until the next
-  days' generations. A few new materials keep a tinted Phase 2 photo (grey wagon steel, the shunter's green, sooty brick,
-  the white cladding and trailers, the render) or the drawn look (the ammonia tanks, curtains, mattresses, the
-  ambulance, steel doors). The Phase 2 session's four props and crouched walk are in its own PR,
-  [Tim-D-W101/Pb#5](https://github.com/Tim-D-W101/Pb/pull/5).
+- **The new levels' props aren't generated** (M3.10): they're the detailed models built in code, since Higgsfield's
+  subscription was cancelled before their day. A few new materials keep a tinted Phase 2 photo (grey wagon steel, the
+  shunter's green, sooty brick, the white cladding and trailers, the render) or the drawn look (the ammonia tanks,
+  curtains, mattresses, the ambulance, steel doors). Phase 2's pallet stacks are still built in code too: their
+  generation failed on 2026-10-06. The crouched-walk clip only plays with movement-clip legs (`characters.legs` =
+  `"clips"`); the planted steps have a crouched walk of their own.
+- **Ladders:** getting on or off at the top is a quick move rather than an animation (the body steps over the edge and
+  the legs follow the steps), and a ladder takes one climber at a time: a bot waiting to get on gives up after 8 s.
+  Bots climb a ladder when their path goes up one: hunting you up there, say, or a Marksman starting near a water tower
+  taking its catwalk as a vantage.
 - **Flank spots are scarce indoors.** A Flanker needs cover that is hidden from you yet has a shot at where you were;
   inside the hospital and the cold store there often isn't one, and then it comes to help like anyone else. The call
   also only says roughly where you are (give or take 2.5 m), so even a good spot can miss you, and then it searches
@@ -577,6 +664,10 @@ teammate already in the fight).*
 - **Bot navigation got landmarks** (not in the plan): a fix the Rail Yard needed and every level gained from.
 - **A Flanker looks out from its spot** before searching: a change to M3.3's behaviour, made in M3.11 after the demo
   showed what it did without it.
+- **Ladders (M3.15)** weren't in the plan: you asked for them on 2026-10-08. To give them somewhere to lead, the water
+  tower was rebuilt round a catwalk (its legs moved out under its corners, 5.8 m apart instead of 3.2), and the tank wagon's
+  walkway made solid.
+- **The new levels' generated props weren't made** (M3.10): Higgsfield's subscription was cancelled before their day.
 
 ## What's next: Phase 4, multiplayer
 
@@ -584,8 +675,9 @@ From the [revised roadmap](../phase-2.md#revised-roadmap): up to ten players, co
 and player against player. The sim was kept ready for it: doors, objectives and the profile's choices all go through
 the same commands and events, and the bots send the same commands as players.
 
-Before that, over the next few days: the new levels' generated props, pushed as they're imported, with this report
-updated.
+Phase 3 is finished but for your check. Phase 4 starts, as every phase has, with a plan for your OK; it needs no new
+art, and Higgsfield is on its free plan with no credits, so any generated art after that would need a plan with credits
+again.
 
 **Useful from you:**
 

@@ -774,3 +774,40 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   holds 30 frames and saves the frame's middle band at 720 × 320 as JPEG; the area card shows `res://ui/places/LEVEL_PLACE.jpg`
   under the places when it's there. The menu's smoke test picks every place of every area and checks the laid-out page
   fits the project's 1600 × 900 less the screen's margins (headless windows are taller, so the room is worked out).
+
+### 15.11 Ladders (as built, M3.15)
+
+- **Data.** A prop type lists its `ladders` (`kit/props.jsonc`) in its own frame: the foot (middle of the bottom, in the
+  rungs' plane), the height to the floor at the top, the facing of a climber on it, width, handholds above the top
+  (`rails_m`), how far past the rungs stepping off goes (`exit_m`) and how far back the brackets reach (`bracket_m`).
+  `KitCatalog` turns them into `LadderTemplate`s, `LevelFactory` places them as `LadderSpec`s in world space
+  (`LevelLayout.Ladders`, kept by `ForPlace`), and `PropShapes.Ladders` draws them from the template, so a drawn ladder
+  is always a climbable one and the reverse.
+- **Rules.** `SimWorld.Ladders` (a `LadderSet`) holds the level's ladders and `FindGrab`: in front of one within
+  `climbing.reach_m`, facing it to within `grabAngle_deg`, from its foot to a metre under its top; or behind its top within
+  reach and its exit, facing out over it. Climbing is a branch of `MovementModel.Step` (`Climb`), so the game's
+  `PawnBody`, the headless `NavGridMover` and a future network client all climb by the same rules. `PlayerState.Ladder`
+  and `LadderPhase` (climbing, stepping off at the top, getting on at the top) are the state. Interact gets on; forward
+  and back are up and down at `speed_mps` (the dead climb down); the body is pulled onto the climbing line
+  (`standoff_m` out from the rungs) at up to 3 m/s; at the top it steps on over the edge at `stepOffSpeed_mps` until past
+  the rungs by the ladder's exit, rising 5 cm to clear it; at the bottom it's off once grounded; jump lets go, pushed back
+  at `letGoSpeed_mps`. Getting on or off at the top gives up after 1.5 s (someone in the way). `MovementResult.Climbing`
+  and `ClimbVelocity` tell the host there's no gravity this tick.
+- **In the sim's tick** a climber's body faces the ladder (`PlayerState.Yaw` = its facing) and the head turns to the
+  view up to `maxHeadTurn_deg`; fire and refill are blocked, doors ignore interact, the tuck is off, and a footstep on the
+  rungs' surface comes every `footsteps.climbStride_m` climbed. `HitboxRig.Pose` with `HitboxPose.Climbing`: the arms
+  pitched up `climbArmsPitch_deg` in front, the marker slung from `slungBelowEye_m`/`slungBehind_m` with its barrel
+  pitched `slungPitch_deg` and rolled `slungRoll_deg`, the loader and tank where they sit on it.
+- **Bots.** `NavGrid` joins each ladder's foot (the span in front of it) to its top (the span stepped off onto), both ways,
+  at `ladderCostPerMetre` × the climb; components, searches and landmark distances cross them, but landmarks are placed
+  by walking alone, so a ladder to a dead end leaves ground searches as they were. A path keeps both ends as waypoints;
+  `LadderBetween` tells `BotBrain.AtLadder` it's a climb: stand in front of the foot (or at the top's exit), face it (or
+  out), tap interact, and climb to the end the next waypoint is at; while on a ladder, `Think` keeps it climbing whatever
+  the mode, and `WalkOff` lets the dead climb down first.
+- **Drawing.** `CharacterVisual` hands `CharacterPoser.Ladder` the hands' and feet's places from `LadderLimbs` (rungs
+  every 0.3 m; feet at or below the body's feet, hands from shoulder height up; left foot with right hand, then right foot
+  with left hand, two rungs at a time over `ladderLimbMove_s`, swung `ladderLimbSwing_m` out). `LadderBody` sets the hips
+  `ladderHipsIn_m` in and `ladderHipsDown_m` down, square to the ladder, the feet by `StepLeg` with the knees forward and
+  the arms by two-bone IK. The first-person `ViewModel.Lowered` drops the marker out of view. The HUD prompt says what
+  interact will do, and on a ladder how to climb and let go.
+- **Checks.** `LevelSmokeTest` climbs every ladder up and down through the real scene; `-- --ladder-demo` films one.

@@ -1,13 +1,16 @@
 # Phase 3 — Open areas: plan
 
-> **Status: revised 2026-10-06 and approved the same day with the defaults ("the plan is OK go ahead").** Approved
-> 2026-10-05 as the level ladder (you asked to "continue and build phase 3"), and M3.1–M3.9 and M3.11 were built
-> ([report](reports/phase-3.md)). After your play-test you asked for the areas to be open, each with places to choose
-> from, and for the opponents to stop glitching through things and walk clearly: that's M3.12 and M3.13, done, and
-> M3.14 (more life in the opponents) is done too, M3.8's voices are all in (2026-10-07 and 08), and so are M3.10's
-> three texture sheets (2026-10-08). What's left is M3.10's generated props. Technical design:
-> [architecture.md §15](architecture.md#15-phase-3-open-areas). Everything in [spec.md](spec.md) still applies:
-> ballistics, paint rules, gear, metric units, original IP, data files, tests.
+> **Status: revised 2026-10-06 and approved the same day with the defaults ("the plan is OK go ahead"); finished
+> 2026-10-08 but for your play-test.** Approved 2026-10-05 as the level ladder (you asked to "continue and build phase
+> 3"), and M3.1–M3.9 and M3.11 were built ([report](reports/phase-3.md)). After your play-test you asked for the areas
+> to be open, each with places to choose from, and for the opponents to stop glitching through things and walk
+> clearly: that's M3.12 and M3.13, done, and M3.14 (more life in the opponents) is done too, M3.8's voices are all in
+> (2026-10-07 and 08), and so are M3.10's three texture sheets (2026-10-08) and Phase 2's leftover props and crouched
+> walk. You asked on 2026-10-08 for the ladders to be climbable: that's M3.15, done. M3.10's generated props for the new
+> levels weren't made: Higgsfield's subscription was cancelled on 2026-10-08, taking the credits left with it, the day
+> before their generations, so those props keep their models built in code. What's left is your check (M3.11). Technical design: [architecture.md §15](architecture.md#15-phase-3-open-areas).
+> Everything in [spec.md](spec.md) still applies: ballistics, paint rules, gear, metric units, original IP, data files,
+> tests.
 
 ## Your direction
 
@@ -28,6 +31,13 @@ How I've read it:
 | In each area, you choose where you want to play | Each area offers **places**: the whole of it, or one part (a building, the tracks, a courtyard), with the round kept inside that part. |
 | Not locked; they must all be open | Every area and every place is open from the start, in every mode, size, objective and difficulty. Nothing unlocks; your records are only there to beat. |
 | The mannequins glitch through; walking isn't clear; more realistic | Planted steps, a gait for every pace, markers that come up off walls, no walking through stairs (M3.13), and more life to come (M3.14). |
+
+And on 2026-10-08, as you asked to finish the phase:
+
+> "…in the railyard there was like a water tank with a ladder going up it, i want to be able to climb up that ladder,
+> and wherever else there are ladders those must be climable"
+
+That's M3.15: every ladder in the game can be climbed, by you and by the bots.
 
 From the revised roadmap you approved with Phase 2 ([phase-2.md](phase-2.md#revised-roadmap)), the first plan's brief:
 
@@ -213,7 +223,8 @@ cobwebs, run-off, birds, sunbeams through holes in the roof), which work on any 
 - **New props**, each with its colliders in data and a detail model built in code (like the Phase 2 props): box vans,
   open, flat and tank wagons, a shunter, buffer stops, sleeper and rail stacks; lorry trailers you can walk through,
   tall pallet racking, roll cages, compressors, ammonia tanks; hospital beds, trolleys, wheelchairs, lockers, ward
-  curtains (paint goes through them, sight doesn't), benches, an ambulance wreck. A few get generated models.
+  curtains (paint goes through them, sight doesn't), benches, an ambulance wreck. A few get generated models. *(None
+  did: Higgsfield's subscription was cancelled before their day; see M3.10.)*
 - **Doors** are built in code: panel doors, steel doors, cold-room doors and double swing doors with wired-glass
   vision panels, with frames, handles and kick plates, and the paint that hits them moves with them.
 
@@ -231,20 +242,23 @@ cobwebs, run-off, birds, sunbeams through holes in the roof), which work on any 
 
 ## Higgsfield budget
 
-235 credits were left (2026-10-06, after the Phase 2 leftovers: four props and the crouched walk); Phase 3 has spent
-38.45 of them so far (2026-10-07: five voice takes, 17.9; 2026-10-08: the last two takes and the three texture sheets,
-20.55), leaving 196.42. Speech is cheap (about 0.1 credits a line: 3.9 for a take of the 39 callouts, 2.3 for the
-referee's 16 lines), and a texture sheet costs 4.25:
+235 credits were left (2026-10-06, after the Phase 2 leftovers: three props and the crouched walk); Phase 3 spent
+38.45 of them (2026-10-07: five voice takes, 17.9; 2026-10-08: the last two takes and the three texture sheets, 20.55).
+The other 196.42 went when Higgsfield's subscription was cancelled on 2026-10-08 (at 09:06 UTC the account moved to the
+free plan and its credits were taken off), the day before the props' generations, so the props weren't made. Speech is
+cheap (about 0.1 credits a line: 3.9 for a take of the 39 callouts, 2.3 for the referee's 16 lines), and a texture
+sheet costs 4.25:
 
 | Item | Credits |
 |---|---|
 | Voices: six voices × 39 lines, plus the referee's 16 (done) | 25.7 |
 | Three texture sheets (twelve materials, done) | 12.75 |
-| Up to four generated props (one picture of six, then Tripo H3.1 at 18 each) | ≈ 77 |
+| ~~Up to four generated props (one picture of six, then Tripo H3.1 at 18 each)~~ (not made: the subscription was cancelled first) | ~~≈ 77~~ 0 |
 | ~~Two movement clips for the opponents (M3.14): the hands-up walk-off and the refill~~ (built on the poser instead) | ~~16~~ 0 |
-| **Phase 3 total** | **≈ 115, 38.45 spent (cap 150)** |
+| **Phase 3 total** | **38.45 (cap 150)** |
 
-Generations are limited to five a day, so the art arrives over several days; everything works before it does.
+Generations were limited to five a day, so the art came over two days; everything worked before it did, and what
+didn't come keeps the look built in code.
 
 ## Scope
 
@@ -574,10 +588,13 @@ slot is refused; the menu smoke test checks the five tabs and a slot for every b
 ### M3.10 Art
 
 - [x] The three texture sheets, imported with their provenance (2026-10-08, 12.75 credits).
-- [ ] The props that get generated models.
-- [ ] The Phase 2 leftovers: generated tyres, sandbag wall, pallet stack and generator, and the crouched walk.
-  *Booked by the Phase 2 session's own check-in on 2026-10-06, in its own PR into `main`; that day's five generations
-  go to them, so Phase 3's voices and art start the day after.*
+- [ ] **Not made:** the props that get generated models. Higgsfield's subscription was cancelled on 2026-10-08, taking
+  the 196.42 credits left with it, the day before their generations (a picture of six props, then up to four models).
+  Every new prop keeps the detailed model built in code. If generations come back, the importer is ready for them.
+- [x] The Phase 2 leftovers: generated tyres, sandbag wall and generator, and the crouched walk (2026-10-06, made by
+  the Phase 2 session's own check-in in [Tim-D-W101/Pb#5](https://github.com/Tim-D-W101/Pb/pull/5), brought into Phase
+  3 on 2026-10-08). The pallet stack's generation failed (refunded) and the day's five were spent, so both pallet stacks
+  keep their models built in code.
 
 As built (2026-10-08): three 2 × 2 sheets from GPT Image 2.5 (4K, high quality, the Phase 2 sheets' framing), one per
 level, each swatch cut with `--region` from inside its white lines. The hospital's: cream gloss paint on old plaster
@@ -593,6 +610,13 @@ rest break up their repeat. The tints that stood in are gone. Grey wagon steel, 
 white cladding and trailers, the render and the drawn materials (ammonia tanks, curtains, mattresses, the ambulance,
 steel doors) keep their stand-ins.
 
+Phase 2's leftovers came in on 2026-10-08 with their refitted colliders: the tyres 0.90 m across (were 0.74), the
+generator 1.77 × 1.29 m (was 1.8 × 1.0) and the sandbag wall 1.90 × 0.72 m (was 2.4 × 0.6), each scaled to its
+collider's height, so cover is as it was. The three new levels were laid out with the old sizes, so each of the
+props' 26 placements in the four areas and their buildings was probed round its new outline: none runs into a wall or
+another prop. The crouched walk plays when the opponents' legs are clips (`characters.legs` = `"clips"`); the planted
+steps, which have been their legs since M3.13, have a crouched walk of their own.
+
 ### M3.11 Verify and report
 
 **Done 2026-10-05, but for your check.** [Report](reports/phase-3.md).
@@ -601,8 +625,8 @@ steel doors) keep their stand-ins.
   free-for-all on all four, teams with an objective on all four).
 - [x] Benchmark: the sim with ten players and 1,000 balls stays within 0.5 ms a tick on every level (0.40–0.44 ms).
 - [x] [`docs/reports/phase-3.md`](reports/phase-3.md) with screenshots of every level, door, objective and screen.
-- [ ] Your check: every area and its places, the new opponents, the sound, and 60 fps on Medium. *(Was "the ladder from
-  Level 1 to Level 4" until 2026-10-06.)*
+- [ ] Your check: every area and its places, the new opponents, the sound, the ladders, and 60 fps on Medium. *(Was "the
+  ladder from Level 1 to Level 4" until 2026-10-06.)*
 
 As built: `-- --role-demo=marksman` and `=flanker` (`game/core/RoleDemo.cs`) show the two new roles at work with the
 F3 overlay, on the sim's clock so they can be captured at a low frame rate, and CI runs both as smoke tests: the
@@ -695,6 +719,43 @@ elbows got into it: at the low cover by Oxbarrow's guardhouse, 12.8 cm and 6.0 c
 Rail Yard, 4.0 cm of knee before, 0 now. `-- --gait-demo` ends with a look round from in front (`--gait-only=look` plays
 just that). `-- --place-stills=DIR` takes the menu's pictures (`game/ui/places/`).
 
+### M3.15 Ladders
+
+**Done 2026-10-08, at your request.** Five ladders were drawn and none could be climbed: on the two water towers (Oxbarrow
+Works and the Rail Yard), one up the legs and one up the tank, and up the side of each of the Rail Yard's three tank wagons.
+
+- [x] **Ladders are data** on their props (`kit/props.jsonc` → `"ladders"`: where the foot is, how high it climbs, which
+  way a climber faces, its width, handholds above the top, how far stepping off takes you), placed with the level and
+  drawn from the same numbers, so what you climb is what you see.
+- [x] **Climbing** (`movement.jsonc` → `"climbing"`): facing a ladder within reach, **F** gets you on (on a pad, the
+  refill button, as for doors); **W** climbs and **S** climbs down, 1.6 m/s, so the 12 m water tower takes about 8 s; at
+  the top you step off onto what it climbs to, at the bottom onto the ground; **Space** lets go. Facing out over a
+  ladder's top, F gets you on to climb down. On a ladder both hands are on the rungs: no firing or refilling, no
+  crouching, leaning or sprinting, and the marker is slung on your back (the hitboxes too, so paint hits a climber where
+  they're drawn). You can look round as you climb. A foot on a rung is heard every other rung. The HUD says what F does.
+- [x] **Somewhere to stand at the top.** The water tower's tank filled its platform, so the legs now stand under the
+  corners of a 6.2 m catwalk round the tank, with railings (they keep you on it; paint passes them) but for a gap where
+  the ladder comes up, and the tank has a flat roof with a hatch, up the second ladder. The tank wagon's walkway along
+  its top is solid now, and its ladder starts at a step just off the ground.
+- [x] **Bots climb too:** a ladder joins its foot to its top in their navigation, so a bot whose path goes up (to hunt
+  you on the catwalk, say) walks to the foot, faces the ladder, gets on and climbs, and comes back down the same way.
+  Out on a ladder, it climbs down before walking off.
+- [x] **The climbers look the part:** hands and feet on the rungs, opposite hand and foot stepping two rungs at a time,
+  the hips in towards the ladder, the marker on the back; in first person the marker drops out of sight.
+- [x] **Tests:** thirteen sim tests (every ladder has ground at its foot, a floor at its top and room for a body up it
+  and over the top; up the tower to the catwalk, on to the roof and back down, and down from the catwalk; getting on
+  needs facing it within reach; no firing on a ladder; jump lets go; the eliminated climb down; rung footsteps; no
+  allocation; bots' paths climb both ladders; a bot on patrol climbs the tower and back; a bad ladder fails to load).
+  CI's level walk-throughs climb every ladder up and down through the real scene (all seven pass).
+
+As built: `LadderSpec` and `LadderSet` (`src/Pb.Sim/Level/Ladders.cs`) are the ladders in world space and the rule for
+getting on; climbing is a branch of `MovementModel` (`Climb`), with the climber's state in `PlayerState.Ladder` and
+`LadderPhase`, so the game's bodies, the headless mover and the network later all climb alike. The navigation grid
+links each ladder's ends (`navigation.jsonc` → `ladderCostPerMetre`, 3.5), its landmarks placed by walking alone so ground
+paths search as before. The pose is `LadderLimbs` and `CharacterPoser.LadderBody`, with its numbers in
+`presentation.jsonc` (`ladder*`) and the slung gear in `hitboxes.jsonc` (`climbArmsPitch_deg`, `slung*`).
+`-- --ladder-demo` (with `--ladder=N`) films an opponent climbing the level's tallest ladder from behind and to the side.
+
 ## Tests
 
 | Test | Pass criterion |
@@ -709,6 +770,7 @@ just that). `-- --place-stills=DIR` takes the menu's pictures (`game/ui/places/`
 | New levels | Every level loads without errors, its navigation reaches every spawn, patrol point, pickup, case spot, way out and room, and starts are fair for every mode and size. |
 | Settings | Old settings files load; bad values are clamped; binding overrides apply over the defaults and survive a reload. |
 | Determinism and cost | The same seed and inputs give the same round with doors and objectives; stepping stays allocation-free; ten players and 1,000 balls stay within budget on every level. |
+| Ladders (M3.15) | Every ladder has ground at its foot, a floor at its top and room to climb; you get on facing it within reach, climb, step off at the top and climb back down; no firing on one; bots' paths climb ladders and a bot does. |
 
 ## Acceptance checks
 
@@ -720,6 +782,7 @@ just that). `-- --place-stills=DIR` takes the menu's pictures (`game/ui/places/`
 | Marksman and Flanker behave as described | Sim tests; a scripted demo of each, screenshots |
 | Objectives: retrieve and hold can be won and lost by their rules | Sim tests and headless rounds; screenshots of the HUD |
 | Doors open and close for you and the bots, stop paint and sight | Sim tests; the level smoke test opens a door; screenshots |
+| Every ladder can be climbed, by you and the bots (M3.15) | Sim tests; the level smoke test climbs every ladder; the ladder demo |
 | Audio: every event has its sound; callouts are voiced and come from the caller | Your play; the sound list in the report |
 | Every action rebindable on mouse, keyboard and pad; colourblind-safe colours | Your play; settings tests; screenshots |
 | 10 people in one round at ≥ 60 fps on a GTX 1070-class GPU at Medium, on every level | Your PC, with the perf overlay |
@@ -737,6 +800,7 @@ just that). `-- --place-stills=DIR` takes the menu's pictures (`game/ui/places/`
 5. **Voices.** **Six voices across the three character models plus a referee, about 35 lines each, from Higgsfield's
    text-to-speech.**
 6. **Higgsfield spend.** **Up to 150 of the 235 credits left on Phase 3** (now including the opponents' two clips).
+   *(38.45 were spent; the rest went with the subscription, cancelled on 2026-10-08.)*
 7. **Sound effects.** **Synthesised in code** (Higgsfield only makes speech). Recorded sounds could replace them later.
 8. **More life in the opponents (M3.14).** **All of it, with the hands-up walk-off and the refill as generated
    clips.** Or leave the opponents as they are now. *(Built 2026-10-06; the walk-off and the refill came out better on

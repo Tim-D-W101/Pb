@@ -119,7 +119,9 @@ sprinting, pulling up, strafing, backing off, walking crouched and looking round
 or the movement clips with `characters.legs` = `"clips"`), printing how far the planted feet slid (`--gait-only=NAME`
 plays only the moves starting with NAME). `-- --cover-demo` tucks an opponent in behind low cover, stands it up to shoot
 over and tucks it in again, printing how far its knees and elbows got into the cover (`--cover-at=X,Z` picks the cover
-nearest that point); it runs headless too, for the numbers alone.
+nearest that point); it runs headless too, for the numbers alone. `-- --ladder-demo` has an opponent climb the level's
+tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
+Oxbarrow Works and `--level=rail_yard` have ladders).
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
