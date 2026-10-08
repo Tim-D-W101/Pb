@@ -1,20 +1,20 @@
 # Phase 3 report: open areas
 
 **Date:** 2026-10-05, updated 2026-10-06 after your play-test ([below](#after-your-play-test-2026-10-06)) and with more
-life in the opponents ([M3.14](#more-life-in-the-opponents-m314)), and 2026-10-07 with the voices
-([below](#the-voices-2026-10-07)) · **PRs:**
-[Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4) into `main`, and the open areas stacked on it.
-**Status:** built and tested. Three things are left:
+life in the opponents ([M3.14](#more-life-in-the-opponents-m314)), 2026-10-07 with the voices
+([below](#the-voices-2026-10-07-and-08)) and 2026-10-08 with the last two and the new levels' materials
+([below](#the-new-levels-materials-2026-10-08)) · **PRs:**
+[Tim-D-W101/Pb#4](https://github.com/Tim-D-W101/Pb/pull/4) and [Tim-D-W101/Pb#6](https://github.com/Tim-D-W101/Pb/pull/6),
+both merged into `main` on 2026-10-07, and the voices and materials of 2026-10-08 in their own PR.
+**Status:** built and tested. Two things are left:
 
 - **your play-test** on your PC: every area and its places, the new opponents (now with M3.14's life in them), the
   sound, and 60 fps on Medium with ten people in a round (see [Your check](#your-check));
-- **the last two voices**: five of the seven takes were recorded on 2026-10-07 ([below](#the-voices-2026-10-07)), and
-  Gideon's and Maeve's come with the generations of 2026-10-08, as Higgsfield allows five a day (its refusal says the
-  limit belongs to the account's grace period, so updating its plan would lift it). Until then the fifth and sixth bot
-  in a round, who get those two voices, show their callouts as subtitles only;
-- **the art for the new levels** (M3.10): three texture sheets (twelve materials) and up to four generated props, with
-  the daily generations after the voices. Until then the new levels wear the 30 photographic materials where they fit
-  and the shader's procedural look elsewhere (the hospital's hedges are plain green boxes).
+- **the generated props** (M3.10): up to four of the new levels' props get generated models, with the next days'
+  generations (Higgsfield allows five a day; its refusal says the limit belongs to the account's grace period, so
+  updating its plan would lift it). Until then every prop is the detailed model built in code. The voices are all in
+  ([below](#the-voices-2026-10-07-and-08)), and so are the three texture sheets
+  ([below](#the-new-levels-materials-2026-10-08)).
 
 The plan, with every milestone's details, is [phase-3.md](../phase-3.md); the technical design is
 [architecture §15](../architecture.md#15-phase-3-open-areas).
@@ -164,15 +164,15 @@ its face and the marker is up off it; stood up, the marker goes over the top.*
 *Where to play: the place you pick, as you'd see it there, under the list; what's there at the head of the right-hand
 column, and Start beside your record.*
 
-## The voices (2026-10-07)
+## The voices (2026-10-07 and 08)
 
-Five of the seven voice takes are in: Knox and Reid for the first character model, Brooks for the stocky one, Petra for
-the third, and Alistair as the referee (Higgsfield's Seed Audio, one take of each whole script; 17.9 credits). Bots call
-out in their own voices, from where they stand, and the referee calls the round: "Game on!", the time, "Hit! You're
-out.", the result. Gideon's and Maeve's takes come with the next day's generations: a day allows five, and a sixth was
-refused.
+All seven voice takes are in: Knox and Reid for the first character model, Brooks and Gideon for the stocky one, Petra
+and Maeve for the third, and Alistair as the referee (Higgsfield's Seed Audio, one take of each whole script; 25.7
+credits for the 250 lines). Bots call out in their own voices, from where they stand, and the referee calls the round:
+"Game on!", the time, "Hit! You're out.", the result. Five were made on 2026-10-07 and Gideon's and Maeve's on
+2026-10-08, as a day allows five generations.
 
-- **Every line listened to.** Each take was cut into its lines (the 39 callouts, or the referee's 16), and all 172 files
+- **Every line listened to.** Each take was cut into its lines (the 39 callouts, or the referee's 16), and all 250 files
   were run through a speech recogniser and compared with their script line (`tools/art/voice-check.py`, new). Two had
   more in them than their words: Knox says "Where'd they go?" twice, and Reid says "Man down." again before "They got
   one of us!". The importer now takes `--keep-first="LINE"` and `--keep-last="LINE"` for that, keeping just the one
@@ -253,7 +253,7 @@ but the recordings and the art above. *(Since 2026-10-06 the ladder is open area
 | Marksman and Flanker behave as described | ✅ | Eight behaviour tests; the role demos below, which CI also runs on the Rail Yard and the Hospital Wing. |
 | Objectives: retrieve and hold can be won and lost by their rules | ✅ | Fifteen rule tests and four bot-round tests; CI's retrieve and hold bot matches on every level; HUD screenshots below. |
 | Doors open and close for you and the bots, stop paint and sight | ✅ | Fifteen door tests; each level's walk-through in CI shoots a door, opens it and walks through; screenshots below. |
-| Every event has its sound; callouts are voiced and come from the caller | ✅ sounds, ✅ five of seven voices | The [sound list](#sound-list); the walk-throughs check that shots, breaks, steps and doors were heard and the referee called the round, and Oxbarrow's now voices its callouts. Every recorded line checked by speech recognition ([The voices](#the-voices-2026-10-07)); Gideon's and Maeve's come on 2026-10-08. |
+| Every event has its sound; callouts are voiced and come from the caller | ✅ | The [sound list](#sound-list); the walk-throughs check that shots, breaks, steps and doors were heard and the referee called the round, and Oxbarrow's voices its callouts. Every recorded line checked by speech recognition ([The voices](#the-voices-2026-10-07-and-08)). |
 | Every action rebindable on mouse, keyboard and pad; colourblind-safe colours | ✅, ⏳ your play | Nine settings tests; CI's menu check finds the five tabs and a slot for every binding (111); screenshots below. |
 | 10 people in one round at ≥ 60 fps on a GTX 1070-class GPU at Medium, on every level | ⏳ your PC | The sim's share stays within its budget on every level ([Performance](#performance)). |
 
@@ -344,8 +344,7 @@ About ten minutes, on the latest test build (`Play.bat` updates it):
    Hospital Wing (Marksmen at the top-floor windows over the courtyard, Flankers in the stairwells). Press **F3** to see
    what they think.
 4. **The sound.** Shots across the yard, a door slamming in the next room, footsteps on metal stairs, wind outside and
-   the hum inside, and the bots' callouts and the referee in their voices (five of the seven voices are in; the
-   last two come on 2026-10-08).
+   the hum inside, and the bots' callouts and the referee in their voices.
 5. **The settings.** Rebind something on the Controls tab and try a colourblind team colour set (Accessibility).
 
 If the frame rate is short, the levers are, in order: render scale (Video), then Medium's weeds and shadows. Please
@@ -371,23 +370,24 @@ writes them all out as WAV files.
 
 The voices: 39 callouts in each of six voices (two per character model), from "Contact!" and "Flanking!" to "They're
 in the room!", and the referee's 16 lines ("Game on!", "One minute left!", "Hit! You're out.", "Room held! Round over."
-and so on). Five of the seven were recorded on 2026-10-07 ([The voices](#the-voices-2026-10-07)).
+and so on), recorded on 2026-10-07 and 08 ([The voices](#the-voices-2026-10-07-and-08)).
 
 ## Higgsfield spend
 
-17.9 credits so far in Phase 3, on 2026-10-07: five voice takes (3.9 for a take of the 39 callouts, 2.3 for the
-referee's 16 lines). 216.97 credits are left. The plan allows up to 150:
+38.45 credits so far in Phase 3: five voice takes on 2026-10-07 (17.9: 3.9 for a take of the 39 callouts, 2.3 for the
+referee's 16 lines), and the last two takes and the three texture sheets on 2026-10-08 (20.55: 4.25 a sheet). 196.42
+credits are left. The plan allows up to 150:
 
 | Item | Credits |
 |---|---|
-| Voices: seven takes of the scripts (17.9 spent on five, 7.8 to go) | ≈ 26 |
-| Three texture sheets (twelve materials) | ≈ 13 |
+| Voices: seven takes of the scripts (done) | 25.7 |
+| Three texture sheets, twelve materials (done) | 12.75 |
 | Up to four generated props (one picture of six, then Tripo H3.1 at 18 each) | ≈ 77 |
-| **Phase 3** | **≈ 116, 17.9 spent** |
+| **Phase 3** | **≈ 115, 38.45 spent** |
 | Phase 2's leftovers (four props and the crouched walk), approved with Phase 2 and made on 2026-10-06 by its own check-in | 80 |
 
 At five generations a day, Phase 3's share is about three days of generations: five voices on 2026-10-07, the last
-two and the three texture sheets on 2026-10-08, then the props.
+two and the three texture sheets on 2026-10-08, then the props (a picture of six, then up to four models).
 
 ## Screenshots
 
@@ -516,11 +516,11 @@ teammate already in the fight).*
 
 - **The frame rate is unchecked on a real GPU.** Everything here was rendered in software; your check above is the one
   that counts. The Hospital Wing is the heaviest level to draw.
-- **Two voices to come** (Higgsfield's daily limit): Gideon's and Maeve's takes are made on 2026-10-08; until then the
-  fifth and sixth bot in a round, who get those voices, show their callouts as subtitles only.
-- **The new levels' own materials and props aren't generated yet** (M3.10): they use the Phase 2 materials and the
-  procedural look, and the hospital's hedges are plain boxes. The four Phase 2 props and the crouched walk come first,
-  from the Phase 2 session.
+- **The new levels' props aren't generated yet** (M3.10): they're the detailed models built in code until the next
+  days' generations. A few new materials keep a tinted Phase 2 photo (grey wagon steel, the shunter's green, sooty brick,
+  the white cladding and trailers, the render) or the drawn look (the ammonia tanks, curtains, mattresses, the
+  ambulance, steel doors). The Phase 2 session's four props and crouched walk are in its own PR,
+  [Tim-D-W101/Pb#5](https://github.com/Tim-D-W101/Pb/pull/5).
 - **Flank spots are scarce indoors.** A Flanker needs cover that is hidden from you yet has a shot at where you were;
   inside the hospital and the cold store there often isn't one, and then it comes to help like anyone else. The call
   also only says roughly where you are (give or take 2.5 m), so even a good spot can miss you, and then it searches
@@ -549,8 +549,8 @@ From the [revised roadmap](../phase-2.md#revised-roadmap): up to ten players, co
 and player against player. The sim was kept ready for it: doors, objectives and the profile's choices all go through
 the same commands and events, and the bots send the same commands as players.
 
-Before that, over the next few days: the last two voices, then the new levels' materials and props, each pushed as
-it's imported, with this report updated.
+Before that, over the next few days: the new levels' generated props, pushed as they're imported, with this report
+updated.
 
 **Useful from you:**
 

@@ -788,6 +788,288 @@
         "res://art/voices/callout_a2_theyre-holding-it-go.ogg"
       ],
       "notes": "39 lines cut from one take at its pauses, each to −1 dB peak: \"Contact!\" 0.80 s, \"There!\" 0.54 s, \"Eyes on one!\" 0.95 s, \"Over here!\" 0.78 s, \"Lost them.\" 0.66 s, \"Where'd they go?\" 0.82 s, \"Anyone see them?\" 0.98 s, \"Taking fire!\" 0.96 s, \"Incoming!\" 0.75 s, \"I'm pinned!\" 0.88 s, \"Reloading!\" 0.70 s, \"Changing pods!\" 0.97 s, \"Hit!\" 0.38 s, \"I'm hit!\" 0.54 s, \"Hit, hit!\" 0.70 s, \"Going round!\" 0.81 s, \"Flanking!\" 0.65 s, \"I'll take the side!\" 1.10 s, \"Pushing up!\" 0.73 s, \"Moving in!\" 0.88 s, \"Going in!\" 0.84 s, \"Moving!\" 0.69 s, \"Changing spots!\" 1.21 s, \"Relocating!\" 1.00 s, \"Man down!\" 0.95 s, \"They got one of us!\" 1.03 s (the take says more in it: its last part kept), \"We lost one!\" 0.85 s, \"Got the case!\" 0.90 s, \"I've got it, cover me!\" 1.20 s, \"Case is mine, heading out!\" 1.61 s, \"Case is down!\" 0.97 s, \"We lost the case, grab it!\" 1.67 s, \"Someone get the case!\" 1.23 s, \"They've got the case!\" 1.16 s, \"The case is moving, stop them!\" 1.83 s, \"Cut them off!\" 0.72 s, \"They're in the room!\" 0.99 s, \"Take the room back!\" 1.08 s, \"They're holding it, go!\" 1.34 s"
+    },
+    {
+      "id": "callout_b2",
+      "kind": "voice",
+      "job": "6011e513-dc94-42c5-949b-6d4460a2899e",
+      "generator": "seed_audio",
+      "prompt": "Contact!\nThere!\nEyes on one!\nOver here!\nLost them.\nWhere'd they go?\nAnyone see them?\nTaking fire!\nIncoming!\nI'm pinned!\nReloading!\nChanging pods!\nHit!\nI'm hit!\nHit, hit!\nGoing round!\nFlanking!\nI'll take the side!\nPushing up!\nMoving in!\nGoing in!\nMoving!\nChanging spots!\nRelocating!\nMan down!\nThey got one of us!\nWe lost one!\nGot the case!\nI've got it, cover me!\nCase is mine, heading out!\nCase is down!\nWe lost the case, grab it!\nSomeone get the case!\nThey've got the case!\nThe case is moving, stop them!\nCut them off!\nThey're in the room!\nTake the room back!\nThey're holding it, go!",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002147_6011e513-dc94-42c5-949b-6d4460a2899e.wav",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/voices/callout_b2_contact.ogg",
+        "res://art/voices/callout_b2_there.ogg",
+        "res://art/voices/callout_b2_eyes-on-one.ogg",
+        "res://art/voices/callout_b2_over-here.ogg",
+        "res://art/voices/callout_b2_lost-them.ogg",
+        "res://art/voices/callout_b2_whered-they-go.ogg",
+        "res://art/voices/callout_b2_anyone-see-them.ogg",
+        "res://art/voices/callout_b2_taking-fire.ogg",
+        "res://art/voices/callout_b2_incoming.ogg",
+        "res://art/voices/callout_b2_im-pinned.ogg",
+        "res://art/voices/callout_b2_reloading.ogg",
+        "res://art/voices/callout_b2_changing-pods.ogg",
+        "res://art/voices/callout_b2_hit.ogg",
+        "res://art/voices/callout_b2_im-hit.ogg",
+        "res://art/voices/callout_b2_hit-hit.ogg",
+        "res://art/voices/callout_b2_going-round.ogg",
+        "res://art/voices/callout_b2_flanking.ogg",
+        "res://art/voices/callout_b2_ill-take-the-side.ogg",
+        "res://art/voices/callout_b2_pushing-up.ogg",
+        "res://art/voices/callout_b2_moving-in.ogg",
+        "res://art/voices/callout_b2_going-in.ogg",
+        "res://art/voices/callout_b2_moving.ogg",
+        "res://art/voices/callout_b2_changing-spots.ogg",
+        "res://art/voices/callout_b2_relocating.ogg",
+        "res://art/voices/callout_b2_man-down.ogg",
+        "res://art/voices/callout_b2_they-got-one-of-us.ogg",
+        "res://art/voices/callout_b2_we-lost-one.ogg",
+        "res://art/voices/callout_b2_got-the-case.ogg",
+        "res://art/voices/callout_b2_ive-got-it-cover-me.ogg",
+        "res://art/voices/callout_b2_case-is-mine-heading-out.ogg",
+        "res://art/voices/callout_b2_case-is-down.ogg",
+        "res://art/voices/callout_b2_we-lost-the-case-grab-it.ogg",
+        "res://art/voices/callout_b2_someone-get-the-case.ogg",
+        "res://art/voices/callout_b2_theyve-got-the-case.ogg",
+        "res://art/voices/callout_b2_the-case-is-moving-stop-them.ogg",
+        "res://art/voices/callout_b2_cut-them-off.ogg",
+        "res://art/voices/callout_b2_theyre-in-the-room.ogg",
+        "res://art/voices/callout_b2_take-the-room-back.ogg",
+        "res://art/voices/callout_b2_theyre-holding-it-go.ogg"
+      ],
+      "notes": "39 lines cut from one take at its pauses, each to −1 dB peak: \"Contact!\" 0.79 s, \"There!\" 0.55 s, \"Eyes on one!\" 1.07 s, \"Over here!\" 0.71 s, \"Lost them.\" 0.74 s, \"Where'd they go?\" 0.82 s, \"Anyone see them?\" 0.92 s, \"Taking fire!\" 0.95 s, \"Incoming!\" 0.74 s, \"I'm pinned!\" 0.73 s, \"Reloading!\" 0.67 s, \"Changing pods!\" 0.88 s, \"Hit!\" 0.35 s, \"I'm hit!\" 0.51 s, \"Hit, hit!\" 1.17 s, \"Going round!\" 0.83 s, \"Flanking!\" 0.64 s, \"I'll take the side!\" 1.03 s, \"Pushing up!\" 0.66 s, \"Moving in!\" 0.71 s, \"Going in!\" 0.67 s, \"Moving!\" 0.52 s, \"Changing spots!\" 1.02 s, \"Relocating!\" 0.91 s, \"Man down!\" 0.89 s, \"They got one of us!\" 1.03 s, \"We lost one!\" 0.95 s, \"Got the case!\" 0.82 s, \"I've got it, cover me!\" 1.30 s, \"Case is mine, heading out!\" 1.64 s, \"Case is down!\" 0.92 s, \"We lost the case, grab it!\" 1.29 s, \"Someone get the case!\" 1.24 s, \"They've got the case!\" 1.02 s, \"The case is moving, stop them!\" 1.32 s, \"Cut them off!\" 0.71 s, \"They're in the room!\" 0.84 s, \"Take the room back!\" 0.92 s, \"They're holding it, go!\" 1.04 s"
+    },
+    {
+      "id": "callout_c2",
+      "kind": "voice",
+      "job": "2509415d-e4f3-4dd3-92ea-e633ad711722",
+      "generator": "seed_audio",
+      "prompt": "Contact!\nThere!\nEyes on one!\nOver here!\nLost them.\nWhere'd they go?\nAnyone see them?\nTaking fire!\nIncoming!\nI'm pinned!\nReloading!\nChanging pods!\nHit!\nI'm hit!\nHit, hit!\nGoing round!\nFlanking!\nI'll take the side!\nPushing up!\nMoving in!\nGoing in!\nMoving!\nChanging spots!\nRelocating!\nMan down!\nThey got one of us!\nWe lost one!\nGot the case!\nI've got it, cover me!\nCase is mine, heading out!\nCase is down!\nWe lost the case, grab it!\nSomeone get the case!\nThey've got the case!\nThe case is moving, stop them!\nCut them off!\nThey're in the room!\nTake the room back!\nThey're holding it, go!",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002147_2509415d-e4f3-4dd3-92ea-e633ad711722.wav",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/voices/callout_c2_contact.ogg",
+        "res://art/voices/callout_c2_there.ogg",
+        "res://art/voices/callout_c2_eyes-on-one.ogg",
+        "res://art/voices/callout_c2_over-here.ogg",
+        "res://art/voices/callout_c2_lost-them.ogg",
+        "res://art/voices/callout_c2_whered-they-go.ogg",
+        "res://art/voices/callout_c2_anyone-see-them.ogg",
+        "res://art/voices/callout_c2_taking-fire.ogg",
+        "res://art/voices/callout_c2_incoming.ogg",
+        "res://art/voices/callout_c2_im-pinned.ogg",
+        "res://art/voices/callout_c2_reloading.ogg",
+        "res://art/voices/callout_c2_changing-pods.ogg",
+        "res://art/voices/callout_c2_hit.ogg",
+        "res://art/voices/callout_c2_im-hit.ogg",
+        "res://art/voices/callout_c2_hit-hit.ogg",
+        "res://art/voices/callout_c2_going-round.ogg",
+        "res://art/voices/callout_c2_flanking.ogg",
+        "res://art/voices/callout_c2_ill-take-the-side.ogg",
+        "res://art/voices/callout_c2_pushing-up.ogg",
+        "res://art/voices/callout_c2_moving-in.ogg",
+        "res://art/voices/callout_c2_going-in.ogg",
+        "res://art/voices/callout_c2_moving.ogg",
+        "res://art/voices/callout_c2_changing-spots.ogg",
+        "res://art/voices/callout_c2_relocating.ogg",
+        "res://art/voices/callout_c2_man-down.ogg",
+        "res://art/voices/callout_c2_they-got-one-of-us.ogg",
+        "res://art/voices/callout_c2_we-lost-one.ogg",
+        "res://art/voices/callout_c2_got-the-case.ogg",
+        "res://art/voices/callout_c2_ive-got-it-cover-me.ogg",
+        "res://art/voices/callout_c2_case-is-mine-heading-out.ogg",
+        "res://art/voices/callout_c2_case-is-down.ogg",
+        "res://art/voices/callout_c2_we-lost-the-case-grab-it.ogg",
+        "res://art/voices/callout_c2_someone-get-the-case.ogg",
+        "res://art/voices/callout_c2_theyve-got-the-case.ogg",
+        "res://art/voices/callout_c2_the-case-is-moving-stop-them.ogg",
+        "res://art/voices/callout_c2_cut-them-off.ogg",
+        "res://art/voices/callout_c2_theyre-in-the-room.ogg",
+        "res://art/voices/callout_c2_take-the-room-back.ogg",
+        "res://art/voices/callout_c2_theyre-holding-it-go.ogg"
+      ],
+      "notes": "39 lines cut from one take at its pauses, each to −1 dB peak: \"Contact!\" 0.75 s, \"There!\" 0.46 s, \"Eyes on one!\" 0.93 s, \"Over here!\" 0.69 s, \"Lost them.\" 0.62 s, \"Where'd they go?\" 0.82 s, \"Anyone see them?\" 0.92 s, \"Taking fire!\" 0.93 s, \"Incoming!\" 0.67 s, \"I'm pinned!\" 0.74 s, \"Reloading!\" 0.65 s, \"Changing pods!\" 1.00 s, \"Hit!\" 0.45 s, \"I'm hit!\" 0.62 s, \"Hit, hit!\" 1.11 s, \"Going round!\" 0.96 s, \"Flanking!\" 0.70 s, \"I'll take the side!\" 1.01 s, \"Pushing up!\" 0.71 s, \"Moving in!\" 0.85 s, \"Going in!\" 0.79 s, \"Moving!\" 0.62 s, \"Changing spots!\" 1.08 s, \"Relocating!\" 0.92 s, \"Man down!\" 1.01 s, \"They got one of us!\" 0.99 s, \"We lost one!\" 0.99 s, \"Got the case!\" 0.97 s, \"I've got it, cover me!\" 1.32 s, \"Case is mine, heading out!\" 1.60 s, \"Case is down!\" 0.93 s, \"We lost the case, grab it!\" 1.35 s, \"Someone get the case!\" 1.00 s, \"They've got the case!\" 0.97 s, \"The case is moving, stop them!\" 1.71 s, \"Cut them off!\" 0.67 s, \"They're in the room!\" 0.93 s, \"Take the room back!\" 1.05 s, \"They're holding it, go!\" 1.39 s"
+    },
+    {
+      "id": "paint_cream",
+      "kind": "texture",
+      "job": "c4aadb1d-849c-4052-a2cf-8f77f3fbcbbf",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: old cream gloss paint on a smooth plastered hospital corridor wall, faint brush marks, a few hairline cracks and small chips showing grey plaster, about 2.5 m across. Top right: white glazed square ceramic wall tiles in a straight grid, exactly 8 tiles across and 8 down, thin light grey grout lines, the glaze slightly crazed, faint grime in the grout, about 1.2 m across. Bottom left: worn hospital sheet linoleum floor seen from above, mottled grey-green marbled pattern with scuffs and faint trolley wheel marks, about 3 m across. Bottom right: the clipped side of a dense privet hedge, small dark green oval leaves with a few lighter new shoots and dark gaps between them, about 1.2 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Top left: old cream gloss paint on a smooth plastered hospital corridor wall.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002515_c4aadb1d-849c-4052-a2cf-8f77f3fbcbbf.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/paint_cream_albedo.jpg",
+        "res://art/textures/paint_cream_normal.jpg",
+        "res://art/textures/paint_cream_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0029514,0.0029514,0.4890625,0.4890625, flatten 0.8, seam band 0.12, normal strength 1.5, roughness 0.6 ± 0.15"
+    },
+    {
+      "id": "tiles_white",
+      "kind": "texture",
+      "job": "c4aadb1d-849c-4052-a2cf-8f77f3fbcbbf",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: old cream gloss paint on a smooth plastered hospital corridor wall, faint brush marks, a few hairline cracks and small chips showing grey plaster, about 2.5 m across. Top right: white glazed square ceramic wall tiles in a straight grid, exactly 8 tiles across and 8 down, thin light grey grout lines, the glaze slightly crazed, faint grime in the grout, about 1.2 m across. Bottom left: worn hospital sheet linoleum floor seen from above, mottled grey-green marbled pattern with scuffs and faint trolley wheel marks, about 3 m across. Bottom right: the clipped side of a dense privet hedge, small dark green oval leaves with a few lighter new shoots and dark gaps between them, about 1.2 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Top right: white glazed square ceramic wall tiles, cut to 4 x 4 whole tiles between grout lines.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002515_c4aadb1d-849c-4052-a2cf-8f77f3fbcbbf.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/tiles_white_albedo.jpg",
+        "res://art/textures/tiles_white_normal.jpg",
+        "res://art/textures/tiles_white_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5789931,0.0703125,0.2633681,0.2730903 stretched square, pattern repeats 4,4, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.25 ± 0.15"
+    },
+    {
+      "id": "lino",
+      "kind": "texture",
+      "job": "c4aadb1d-849c-4052-a2cf-8f77f3fbcbbf",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: old cream gloss paint on a smooth plastered hospital corridor wall, faint brush marks, a few hairline cracks and small chips showing grey plaster, about 2.5 m across. Top right: white glazed square ceramic wall tiles in a straight grid, exactly 8 tiles across and 8 down, thin light grey grout lines, the glaze slightly crazed, faint grime in the grout, about 1.2 m across. Bottom left: worn hospital sheet linoleum floor seen from above, mottled grey-green marbled pattern with scuffs and faint trolley wheel marks, about 3 m across. Bottom right: the clipped side of a dense privet hedge, small dark green oval leaves with a few lighter new shoots and dark gaps between them, about 1.2 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Bottom left: worn hospital sheet linoleum floor.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002515_c4aadb1d-849c-4052-a2cf-8f77f3fbcbbf.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/lino_albedo.jpg",
+        "res://art/textures/lino_normal.jpg",
+        "res://art/textures/lino_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0029514,0.5078125,0.4890625,0.4890625, flatten 0.8, seam band 0.12, normal strength 1, roughness 0.5 ± 0.15"
+    },
+    {
+      "id": "hedge",
+      "kind": "texture",
+      "job": "c4aadb1d-849c-4052-a2cf-8f77f3fbcbbf",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: old cream gloss paint on a smooth plastered hospital corridor wall, faint brush marks, a few hairline cracks and small chips showing grey plaster, about 2.5 m across. Top right: white glazed square ceramic wall tiles in a straight grid, exactly 8 tiles across and 8 down, thin light grey grout lines, the glaze slightly crazed, faint grime in the grout, about 1.2 m across. Bottom left: worn hospital sheet linoleum floor seen from above, mottled grey-green marbled pattern with scuffs and faint trolley wheel marks, about 3 m across. Bottom right: the clipped side of a dense privet hedge, small dark green oval leaves with a few lighter new shoots and dark gaps between them, about 1.2 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Bottom right: the clipped side of a dense privet hedge.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002515_c4aadb1d-849c-4052-a2cf-8f77f3fbcbbf.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/hedge_albedo.jpg",
+        "res://art/textures/hedge_normal.jpg",
+        "res://art/textures/hedge_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5078125,0.5078125,0.4890625,0.4890625, flatten 0.8, seam band 0.12, normal strength 3, roughness 0.95 ± 0.15"
+    },
+    {
+      "id": "ballast",
+      "kind": "texture",
+      "job": "af17dfb0-05ab-41f3-84a1-b686ae1ccd48",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: railway track ballast seen from above, loose angular crushed grey granite stones 3 to 6 cm across with rust-brown staining and dust, about 1.6 m across. Top right: weathered creosote-soaked timber from old railway sleepers, dark brown-black wood with the grain running left to right, deep drying cracks and splits along the grain and oily patches, about 0.8 m across. Bottom left: the side of an old railway goods wagon, vertical wooden planks, exactly 6 across, painted faded bauxite red-brown, the paint worn through to grey wood at the plank edges, a few bolt heads, about 1 m across. Bottom right: the black-painted steel shell of an old railway tank wagon, weathered, with oily drips and dust streaks running down and faint rust spots, about 1 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Top left: railway track ballast.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002514_af17dfb0-05ab-41f3-84a1-b686ae1ccd48.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/ballast_albedo.jpg",
+        "res://art/textures/ballast_normal.jpg",
+        "res://art/textures/ballast_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0029514,0.0029514,0.4890625,0.4890625, flatten 0.8, seam band 0.12, normal strength 3, roughness 0.96 ± 0.15"
+    },
+    {
+      "id": "sleeper_timber",
+      "kind": "texture",
+      "job": "af17dfb0-05ab-41f3-84a1-b686ae1ccd48",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: railway track ballast seen from above, loose angular crushed grey granite stones 3 to 6 cm across with rust-brown staining and dust, about 1.6 m across. Top right: weathered creosote-soaked timber from old railway sleepers, dark brown-black wood with the grain running left to right, deep drying cracks and splits along the grain and oily patches, about 0.8 m across. Bottom left: the side of an old railway goods wagon, vertical wooden planks, exactly 6 across, painted faded bauxite red-brown, the paint worn through to grey wood at the plank edges, a few bolt heads, about 1 m across. Bottom right: the black-painted steel shell of an old railway tank wagon, weathered, with oily drips and dust streaks running down and faint rust spots, about 1 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Top right: weathered creosote-soaked timber from old railway sleepers.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002514_af17dfb0-05ab-41f3-84a1-b686ae1ccd48.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/sleeper_timber_albedo.jpg",
+        "res://art/textures/sleeper_timber_normal.jpg",
+        "res://art/textures/sleeper_timber_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5078125,0.0029514,0.4890625,0.4890625, flatten 0.8, seam band 0.12, normal strength 2.5, roughness 0.9 ± 0.15"
+    },
+    {
+      "id": "wagon_brown",
+      "kind": "texture",
+      "job": "af17dfb0-05ab-41f3-84a1-b686ae1ccd48",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: railway track ballast seen from above, loose angular crushed grey granite stones 3 to 6 cm across with rust-brown staining and dust, about 1.6 m across. Top right: weathered creosote-soaked timber from old railway sleepers, dark brown-black wood with the grain running left to right, deep drying cracks and splits along the grain and oily patches, about 0.8 m across. Bottom left: the side of an old railway goods wagon, vertical wooden planks, exactly 6 across, painted faded bauxite red-brown, the paint worn through to grey wood at the plank edges, a few bolt heads, about 1 m across. Bottom right: the black-painted steel shell of an old railway tank wagon, weathered, with oily drips and dust streaks running down and faint rust spots, about 1 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Bottom left: the side of an old railway goods wagon, cut to 4 whole planks above the row of bolts.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002514_af17dfb0-05ab-41f3-84a1-b686ae1ccd48.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/wagon_brown_albedo.jpg",
+        "res://art/textures/wagon_brown_normal.jpg",
+        "res://art/textures/wagon_brown_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0897569,0.5071181,0.3394097,0.3394097, pattern repeats 4,0, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.85 ± 0.15"
+    },
+    {
+      "id": "tank_black",
+      "kind": "texture",
+      "job": "af17dfb0-05ab-41f3-84a1-b686ae1ccd48",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: railway track ballast seen from above, loose angular crushed grey granite stones 3 to 6 cm across with rust-brown staining and dust, about 1.6 m across. Top right: weathered creosote-soaked timber from old railway sleepers, dark brown-black wood with the grain running left to right, deep drying cracks and splits along the grain and oily patches, about 0.8 m across. Bottom left: the side of an old railway goods wagon, vertical wooden planks, exactly 6 across, painted faded bauxite red-brown, the paint worn through to grey wood at the plank edges, a few bolt heads, about 1 m across. Bottom right: the black-painted steel shell of an old railway tank wagon, weathered, with oily drips and dust streaks running down and faint rust spots, about 1 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Bottom right: the black-painted steel shell of an old railway tank wagon, cut between its riveted bands.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002514_af17dfb0-05ab-41f3-84a1-b686ae1ccd48.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/tank_black_albedo.jpg",
+        "res://art/textures/tank_black_normal.jpg",
+        "res://art/textures/tank_black_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5543403,0.5418403,0.3960069,0.3960069, flatten 0.8, seam band 0.12, normal strength 1.5, roughness 0.5 ± 0.15"
+    },
+    {
+      "id": "panel_white",
+      "kind": "texture",
+      "job": "900866aa-4485-4c16-88d0-b66e111dc6a0",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: a white coated steel insulated cold-store wall panel with shallow vertical ribs, exactly 6 ribs across, faint even grime and a few light scuffs, about 2.4 m across. Top right: a painted concrete warehouse floor seen from above, worn grey-green floor paint with faint forklift tyre marks, scuffs and small chips showing bare concrete, about 3 m across. Bottom left: dull galvanised steel sheet with a grey zinc spangle crystal pattern, faint white storage stains and light scratches, about 1 m across. Bottom right: the face of an old painted wooden door, grey-green gloss paint worn at the edges to show the wood grain running up and down, small dents and scratches, about 1.2 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Top left: a white coated steel insulated cold-store wall panel, cut to 5 whole ribs.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002514_900866aa-4485-4c16-88d0-b66e111dc6a0.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/panel_white_albedo.jpg",
+        "res://art/textures/panel_white_normal.jpg",
+        "res://art/textures/panel_white_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0720486,0.0696181,0.3637153,0.3637153, pattern repeats 5,0, flatten 0.8, seam band 0.12, normal strength 1.5, roughness 0.5 ± 0.15"
+    },
+    {
+      "id": "floor_painted",
+      "kind": "texture",
+      "job": "900866aa-4485-4c16-88d0-b66e111dc6a0",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: a white coated steel insulated cold-store wall panel with shallow vertical ribs, exactly 6 ribs across, faint even grime and a few light scuffs, about 2.4 m across. Top right: a painted concrete warehouse floor seen from above, worn grey-green floor paint with faint forklift tyre marks, scuffs and small chips showing bare concrete, about 3 m across. Bottom left: dull galvanised steel sheet with a grey zinc spangle crystal pattern, faint white storage stains and light scratches, about 1 m across. Bottom right: the face of an old painted wooden door, grey-green gloss paint worn at the edges to show the wood grain running up and down, small dents and scratches, about 1.2 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Top right: a painted concrete warehouse floor.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002514_900866aa-4485-4c16-88d0-b66e111dc6a0.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/floor_painted_albedo.jpg",
+        "res://art/textures/floor_painted_normal.jpg",
+        "res://art/textures/floor_painted_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5078125,0.0029514,0.4890625,0.4890625, flatten 0.8, seam band 0.12, normal strength 1.5, roughness 0.6 ± 0.15"
+    },
+    {
+      "id": "steel_galvanised",
+      "kind": "texture",
+      "job": "900866aa-4485-4c16-88d0-b66e111dc6a0",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: a white coated steel insulated cold-store wall panel with shallow vertical ribs, exactly 6 ribs across, faint even grime and a few light scuffs, about 2.4 m across. Top right: a painted concrete warehouse floor seen from above, worn grey-green floor paint with faint forklift tyre marks, scuffs and small chips showing bare concrete, about 3 m across. Bottom left: dull galvanised steel sheet with a grey zinc spangle crystal pattern, faint white storage stains and light scratches, about 1 m across. Bottom right: the face of an old painted wooden door, grey-green gloss paint worn at the edges to show the wood grain running up and down, small dents and scratches, about 1.2 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Bottom left: dull galvanised steel sheet with a zinc spangle pattern.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002514_900866aa-4485-4c16-88d0-b66e111dc6a0.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/steel_galvanised_albedo.jpg",
+        "res://art/textures/steel_galvanised_normal.jpg",
+        "res://art/textures/steel_galvanised_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.0029514,0.5078125,0.4890625,0.4890625, flatten 0.8, seam band 0.12, normal strength 1, roughness 0.5 ± 0.15"
+    },
+    {
+      "id": "door_wood",
+      "kind": "texture",
+      "job": "900866aa-4485-4c16-88d0-b66e111dc6a0",
+      "generator": "gpt_image_2_5",
+      "prompt": "Material reference sheet: a 2x2 grid of four equal square texture swatches separated by thin straight white lines. Each swatch is a flat straight-on orthographic photo of one surface filling its square edge to edge, evenly lit by soft diffuse light, no shadows, no perspective, no objects, no text, no labels. Top left: a white coated steel insulated cold-store wall panel with shallow vertical ribs, exactly 6 ribs across, faint even grime and a few light scuffs, about 2.4 m across. Top right: a painted concrete warehouse floor seen from above, worn grey-green floor paint with faint forklift tyre marks, scuffs and small chips showing bare concrete, about 3 m across. Bottom left: dull galvanised steel sheet with a grey zinc spangle crystal pattern, faint white storage stains and light scratches, about 1 m across. Bottom right: the face of an old painted wooden door, grey-green gloss paint worn at the edges to show the wood grain running up and down, small dents and scratches, about 1.2 m across. Photorealistic, high detail, seamless tileable textures for a video game. (cell: Bottom right: the face of an old painted wooden door, cut between its frame edges.)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261008_002514_900866aa-4485-4c16-88d0-b66e111dc6a0.png",
+      "imported": "2026-10-08",
+      "files": [
+        "res://art/textures/door_wood_albedo.jpg",
+        "res://art/textures/door_wood_normal.jpg",
+        "res://art/textures/door_wood_roughness.jpg"
+      ],
+      "notes": "1024 px, region 0.5522569,0.5522569,0.3960069,0.3960069, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.8 ± 0.15"
     }
   ]
 }

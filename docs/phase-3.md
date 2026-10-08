@@ -4,8 +4,8 @@
 > 2026-10-05 as the level ladder (you asked to "continue and build phase 3"), and M3.1–M3.9 and M3.11 were built
 > ([report](reports/phase-3.md)). After your play-test you asked for the areas to be open, each with places to choose
 > from, and for the opponents to stop glitching through things and walk clearly: that's M3.12 and M3.13, done, and
-> M3.14 (more life in the opponents) is done too. What's left is M3.8's last two voices (five of the seven were
-> recorded on 2026-10-07) and M3.10's art. Technical design:
+> M3.14 (more life in the opponents) is done too, M3.8's voices are all in (2026-10-07 and 08), and so are M3.10's
+> three texture sheets (2026-10-08). What's left is M3.10's generated props. Technical design:
 > [architecture.md §15](architecture.md#15-phase-3-open-areas). Everything in [spec.md](spec.md) still applies:
 > ballistics, paint rules, gear, metric units, original IP, data files, tests.
 
@@ -205,7 +205,11 @@ cobwebs, run-off, birds, sunbeams through holes in the roof), which work on any 
 
 - **New materials** from Higgsfield texture sheets (four per picture): rail ballast, creosoted sleepers, bauxite
   wagon paint, cinder ground; white insulated panel, quarry tiles, painted floor; hospital green and cream paint,
-  white wall tiles, worn linoleum. Until they're generated, the shader's procedural look stands in.
+  white wall tiles, worn linoleum. Until they're generated, the shader's procedural look stands in. *(As made on
+  2026-10-08: the hospital's cream gloss paint, which the green shares, its white wall tiles, worn linoleum and the
+  courtyard hedge; ballast, creosoted sleepers, a bauxite-brown planked wagon side and a black tank; white insulated
+  panel, a painted concrete floor, galvanised steel and the painted timber door. Cinder ground and quarry tiles had no
+  surface to go on, so the tank, the steel and the door took their places.)*
 - **New props**, each with its colliders in data and a detail model built in code (like the Phase 2 props): box vans,
   open, flat and tank wagons, a shunter, buffer stops, sleeper and rail stacks; lorry trailers you can walk through,
   tall pallet racking, roll cages, compressors, ammonia tanks; hospital beds, trolleys, wheelchairs, lockers, ward
@@ -228,16 +232,17 @@ cobwebs, run-off, birds, sunbeams through holes in the roof), which work on any 
 ## Higgsfield budget
 
 235 credits were left (2026-10-06, after the Phase 2 leftovers: four props and the crouched walk); Phase 3 has spent
-17.9 of them so far (2026-10-07: five voice takes), leaving 216.97. Speech is cheap (about 0.1 credits a line: 3.9 for a
-take of the 39 callouts, 2.3 for the referee's 16 lines):
+38.45 of them so far (2026-10-07: five voice takes, 17.9; 2026-10-08: the last two takes and the three texture sheets,
+20.55), leaving 196.42. Speech is cheap (about 0.1 credits a line: 3.9 for a take of the 39 callouts, 2.3 for the
+referee's 16 lines), and a texture sheet costs 4.25:
 
 | Item | Credits |
 |---|---|
-| Voices: six voices × 39 lines, plus the referee's 16 (17.9 spent on five takes, 7.8 to go) | ≈ 26 |
-| Three texture sheets (twelve materials) | ≈ 13 |
+| Voices: six voices × 39 lines, plus the referee's 16 (done) | 25.7 |
+| Three texture sheets (twelve materials, done) | 12.75 |
 | Up to four generated props (one picture of six, then Tripo H3.1 at 18 each) | ≈ 77 |
 | ~~Two movement clips for the opponents (M3.14): the hands-up walk-off and the refill~~ (built on the poser instead) | ~~16~~ 0 |
-| **Phase 3 total** | **≈ 116 (cap 150)** |
+| **Phase 3 total** | **≈ 115, 38.45 spent (cap 150)** |
 
 Generations are limited to five a day, so the art arrives over several days; everything works before it does.
 
@@ -466,12 +471,12 @@ round the beds hide you and stop a ball, but you walk straight through them (and
 flies under the beds and benches. In the courtyard, wild hedges are walls 1.1 m high. Tiers: Easy 12 min, 2 pods;
 Normal 11 min, 1 pod; Hard 9 min, 1 pod (bots carry 2, 2 and 3). `HospitalTests` checks the floors and stairs, the
 lift shaft, the fallen end, the curtains and the Marksmen's view of the courtyard; the level smoke test's duel now
-falls back to any opponent with room in front of them when every sentry faces a wall. The hedges are plain coloured boxes
-until M3.10 gives them a texture.
+falls back to any opponent with room in front of them when every sentry faces a wall. The hedges were plain coloured
+boxes until M3.10 gave them a clipped hedge's photo (2026-10-08).
 
 ### M3.8 Sound and voices
 
-**Done 2026-10-05; the voices recorded on 2026-10-07, all but two.**
+**Done 2026-10-05; the voices recorded on 2026-10-07 and 2026-10-08.**
 
 - [x] Audio buses (master, effects, voices, ambience, menus) with their volumes in settings.
 - [x] Synthesised effects, several variations each: the marker report (pitch and body following tank pressure),
@@ -482,16 +487,17 @@ until M3.10 gives them a texture.
 - [x] Ambience: wind outdoors (following the gusts the weeds sway in), each indoor area's hum, crows, distant
   traffic and trains; mixed by where you are.
 - [x] Space: air absorption over distance, muffling when a wall's in the way, reverb by area (indoor, size).
-- [ ] Voices: the cast and lines in `presentation.jsonc`, imported with `tools/art/import.sh voice` and recorded in
+- [x] Voices: the cast and lines in `presentation.jsonc`, imported with `tools/art/import.sh voice` and recorded in
   `assets.jsonc` (provenance, like the art); each bot gets a voice of its model; callouts play from the caller with
   the subtitle; new callouts for flanking, pushing, a teammate out, the case and the room; the referee's lines.
   *Five of the seven takes were recorded on 2026-10-07 (Knox and Reid for the first model, Brooks for the second,
-  Petra for the third, and Alistair as the referee: 17.9 credits); Gideon's and Maeve's come with the generations of
-  2026-10-08, as the day's five were used (the sixth was refused for the limit, which the refusal says belongs to the
-  account's grace period). Higgsfield had refused the first take on 2026-10-05 and 2026-10-06, the days' five having
+  Petra for the third, and Alistair as the referee: 17.9 credits), and Gideon's and Maeve's on 2026-10-08 (7.8), as the
+  first day's five were used (the sixth was refused for the limit, which the refusal says belongs to the account's
+  grace period): 250 lines in all, 25.7 credits. Higgsfield had refused the first take on 2026-10-05 and 2026-10-06, the days' five having
   gone on art. Every line was listened to with a speech recogniser (`tools/art/voice-check.py`): two had more in them
   than their script (Knox says "Where'd they go?" twice, and Reid "Man down." again before "They got one of us!"),
-  imported again keeping just the one part (`--keep-first`, `--keep-last`).*
+  imported again keeping just the one part (`--keep-first`, `--keep-last`); Gideon's and Maeve's say every line as
+  written.*
 - [x] Everything off with `--no-art` falls back to subtitles, and CI runs without audio as now.
 
 As built: every sound is synthesised when the game starts (`game/audio/SoundBank.cs`), 87 of them in 225 variations
@@ -567,10 +573,25 @@ slot is refused; the menu smoke test checks the five tabs and a slot for every b
 
 ### M3.10 Art
 
-- [ ] The three texture sheets and the props that get generated models, imported with their provenance.
+- [x] The three texture sheets, imported with their provenance (2026-10-08, 12.75 credits).
+- [ ] The props that get generated models.
 - [ ] The Phase 2 leftovers: generated tyres, sandbag wall, pallet stack and generator, and the crouched walk.
   *Booked by the Phase 2 session's own check-in on 2026-10-06, in its own PR into `main`; that day's five generations
   go to them, so Phase 3's voices and art start the day after.*
+
+As built (2026-10-08): three 2 × 2 sheets from GPT Image 2.5 (4K, high quality, the Phase 2 sheets' framing), one per
+level, each swatch cut with `--region` from inside its white lines. The hospital's: cream gloss paint on old plaster
+(`paint_cream`, and `paint_green` as the same photo tinted mint), white glazed wall tiles (`tiles_white`, cut to 4 × 4
+whole tiles between grout lines, 0.6 m), worn grey-green linoleum (`lino`) and a clipped privet hedge (`hedge`). The rail
+yard's: crushed granite ballast (`ballast`, 1 m, so its stones come out 6 to 9 cm), creosoted sleeper timber
+(`sleeper_timber`), a bauxite-brown planked wagon side (`wagon_brown`, 4 whole planks cut above the bolt row, 0.68 m) and
+a black tank wagon's shell (`tank_black`, cut between its riveted bands). The cold store's: white insulated panel
+(`panel_white`, 5 whole ribs, 1.75 m), a painted concrete floor with tyre marks (`floor_painted`), galvanised steel
+(`steel_galvanised`, the pylons, cabinets and compressors) and the painted timber door (`door_wood`, every panel door,
+cut between its frame edges). Regular patterns are cut to whole repeats and blended in step with them (`--repeats`); the
+rest break up their repeat. The tints that stood in are gone. Grey wagon steel, the shunter's green, sooty brick, the
+white cladding and trailers, the render and the drawn materials (ammonia tanks, curtains, mattresses, the ambulance,
+steel doors) keep their stand-ins.
 
 ### M3.11 Verify and report
 
