@@ -215,6 +215,12 @@ door.*
 ![Down the cold store's aisle](phase-3/m3.10-3-down-the-cold-store-aisle.jpg)
 *Down the Cold Store's aisle: ribbed insulated panel either side over the painted floor.*
 
+![The courtyard's hedges](phase-3/m3.10-4-the-courtyard-hedges.jpg)
+*The Hospital Wing's courtyard: the hedges are clipped privet now, not plain green boxes.*
+
+![Down the north corridor](phase-3/m3.10-5-down-the-north-corridor.jpg)
+*Down the hospital's north corridor: the green gloss paint (the cream photo tinted), chipped, over the worn lino.*
+
 ## What was built
 
 You asked to continue and build Phase 3, the level ladder from the roadmap you approved with Phase 2. All of it is in
