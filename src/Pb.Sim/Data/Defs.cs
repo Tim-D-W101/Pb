@@ -380,6 +380,8 @@ public sealed class MovementDef : IValidatable
 
     public float SprintRecoveryTime_s { get; set; }
 
+    public ClimbingDef Climbing { get; set; } = new();
+
     public FootstepsDef Footsteps { get; set; } = new();
 
     public void Validate(Validator v)
@@ -420,7 +422,40 @@ public sealed class MovementDef : IValidatable
         v.InRange(nameof(JumpSpeed_mps), JumpSpeed_mps, 0, 10);
         v.InRange(nameof(JumpCooldown_s), JumpCooldown_s, 0, 5);
         v.InRange(nameof(SprintRecoveryTime_s), SprintRecoveryTime_s, 0, 2);
+        Climbing.Validate(v.Scope(nameof(Climbing)));
         Footsteps.Validate(v.Scope(nameof(Footsteps)));
+    }
+}
+
+/// <summary>Climbing ladders (the props' "ladders"): getting on, climbing, stepping off and letting go.</summary>
+public sealed class ClimbingDef : IValidatable
+{
+    /// <summary>Up or down at full forward or back input.</summary>
+    public float Speed_mps { get; set; }
+
+    /// <summary>How far in front of a ladder (or behind its top, to climb down) you can be to get on.</summary>
+    public float Reach_m { get; set; }
+
+    /// <summary>The middle of a climber's body is this far out from the rungs.</summary>
+    public float Standoff_m { get; set; }
+
+    /// <summary>You get on facing the ladder to within this (facing out over the top, to climb down).</summary>
+    public float GrabAngle_deg { get; set; }
+
+    /// <summary>How fast you step off at the top onto what the ladder climbs to, and off it again at the top to climb down.</summary>
+    public float StepOffSpeed_mps { get; set; }
+
+    /// <summary>Letting go pushes you off the ladder at this speed.</summary>
+    public float LetGoSpeed_mps { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Speed_mps), Speed_mps, 0.1, 10);
+        v.InRange(nameof(Reach_m), Reach_m, 0.3, 3);
+        v.InRange(nameof(Standoff_m), Standoff_m, 0.2, 1);
+        v.InRange(nameof(GrabAngle_deg), GrabAngle_deg, 5, 180);
+        v.InRange(nameof(StepOffSpeed_mps), StepOffSpeed_mps, 0.2, 10);
+        v.InRange(nameof(LetGoSpeed_mps), LetGoSpeed_mps, 0, 10);
     }
 }
 
@@ -445,6 +480,12 @@ public sealed class FootstepsDef : IValidatable
 
     public float LandMinSpeed_mps { get; set; }
 
+    /// <summary>A foot on a rung per this much climbed.</summary>
+    public float ClimbStride_m { get; set; }
+
+    /// <summary>How far a foot on a rung is heard.</summary>
+    public float ClimbRadius_m { get; set; }
+
     /// <summary>Loudness by surface name (break_model.jsonc); surfaces not listed count as 1.</summary>
     public Dictionary<string, float> SurfaceLoudness { get; set; } = new();
 
@@ -455,13 +496,14 @@ public sealed class FootstepsDef : IValidatable
                  {
                      (nameof(CrouchRadius_m), CrouchRadius_m), (nameof(WalkRadius_m), WalkRadius_m), (nameof(RunRadius_m), RunRadius_m),
                      (nameof(SprintRadius_m), SprintRadius_m), (nameof(SlideRadius_m), SlideRadius_m), (nameof(JumpRadius_m), JumpRadius_m),
-                     (nameof(LandRadius_m), LandRadius_m),
+                     (nameof(LandRadius_m), LandRadius_m), (nameof(ClimbRadius_m), ClimbRadius_m),
                  })
         {
             v.InRange(key, value, 0, 200);
         }
 
         v.InRange(nameof(LandMinSpeed_mps), LandMinSpeed_mps, 0, 50);
+        v.InRange(nameof(ClimbStride_m), ClimbStride_m, 0.1, 3);
         foreach ((string surface, float loudness) in SurfaceLoudness)
         {
             v.InRange($"{Jsonc.KeyOf(nameof(SurfaceLoudness))}.{surface}", loudness, 0, 10);

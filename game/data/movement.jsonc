@@ -63,6 +63,25 @@
   "jumpSpeed_mps": 3.2,
   "jumpCooldown_s": 0.35,
 
+  // Ladders (kit/props.jsonc "ladders"). Facing one within reach, interact gets you on it (from the ground, or
+  // facing out over its top to climb down); forward climbs up and back climbs down, at the top you step off onto
+  // what it climbs to and at the bottom onto the ground, and jump lets go. Both hands are on the rungs, so there's
+  // no firing or refilling on a ladder, and you can't crouch, lean or sprint.
+  "climbing": {
+    // Up or down at full input: the Rail Yard's 12 m water tower takes about 8 s.
+    "speed_mps": 1.6,
+    // How far in front of the ladder (or behind its top) you can be to get on.
+    "reach_m": 0.9,
+    // Your middle hangs this far out from the rungs (the body's radius and a hand's width).
+    "standoff_m": 0.42,
+    // Getting on, you face the ladder (or out over its top) to within this either way.
+    "grabAngle_deg": 60,
+    // How fast you step off at the top, and back out over it to climb down.
+    "stepOffSpeed_mps": 2.2,
+    // Letting go pushes you away from the ladder this fast; then you fall.
+    "letGoSpeed_mps": 1.2
+  },
+
   // Footstep noise: what bots can hear (and, later, what footstep audio plays). A step is heard
   // within its radius, times the loudness of the surface underfoot.
   "footsteps": {
@@ -77,6 +96,9 @@
     "landRadius_m": 12,
     // Landings slower than this (downward) are silent.
     "landMinSpeed_mps": 2.5,
+    // On a ladder, a foot on a rung per this much climbed (every other rung), heard this far.
+    "climbStride_m": 0.6,
+    "climbRadius_m": 10,
     // By surface name from break_model.jsonc; surfaces not listed count as 1.
     "surfaceLoudness": {
       "metal": 1.5,

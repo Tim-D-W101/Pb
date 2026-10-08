@@ -21,6 +21,7 @@ public static class LevelFactory
         var sink = new PrimitiveSink { DoorKinds = kit.Doors };
         var owners = new List<string>();
         var props = new List<PropInstance>();
+        var ladders = new List<LadderSpec>();
         var buildings = new List<PlacedBuilding>();
         var walls = new List<PlacedWall>();
         var areas = new List<AreaSpec>();
@@ -45,7 +46,23 @@ public static class LevelFactory
             Vector3 position = parent.ToWorld(Validator.ToVector3(placement.Position_m));
             float yaw = parent.Yaw + placement.Yaw_deg * Units.DegreesToRadians;
             int first = sink.Items.Count;
-            KitGeometry.Prop(sink, new PlanFrame(position, yaw), type, Owner($"{ownerPrefix}prop:{type.Id}#{props.Count}"));
+            var frame = new PlanFrame(position, yaw);
+            int owner = Owner($"{ownerPrefix}prop:{type.Id}#{props.Count}");
+            KitGeometry.Prop(sink, frame, type, owner);
+            foreach (LadderTemplate l in type.Ladders)
+            {
+                ladders.Add(new LadderSpec
+                {
+                    Foot = frame.ToWorld(l.Foot),
+                    Height = l.Height,
+                    Facing = yaw + l.Facing,
+                    Width = l.Width,
+                    Exit = l.Exit,
+                    Surface = type.Colliders[0].Material.Surface,
+                    Owner = owner,
+                });
+            }
+
             props.Add(new PropInstance
             {
                 Type = type,
@@ -273,6 +290,7 @@ public static class LevelFactory
             Apertures = sink.Apertures,
             Doors = sink.Doors,
             Props = props,
+            Ladders = ladders,
             Buildings = buildings,
             Walls = walls,
             Scenery = def.Scenery,

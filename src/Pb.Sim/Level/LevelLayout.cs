@@ -152,6 +152,9 @@ public sealed class LevelLayout
 
     public required IReadOnlyList<PropInstance> Props { get; init; }
 
+    /// <summary>The ladders on its props, in world space (the sim's <see cref="LadderSet"/> climbs them).</summary>
+    public IReadOnlyList<LadderSpec> Ladders { get; init; } = Array.Empty<LadderSpec>();
+
     /// <summary>The buildings, each with its template and where it stands (presentation dresses them from their templates).</summary>
     public IReadOnlyList<PlacedBuilding> Buildings { get; init; } = Array.Empty<PlacedBuilding>();
 
@@ -286,6 +289,7 @@ public sealed class LevelLayout
             Apertures = Apertures,
             Doors = Doors,
             Props = Props,
+            Ladders = Ladders,
             Buildings = Buildings,
             Walls = Walls,
             Scenery = Scenery,

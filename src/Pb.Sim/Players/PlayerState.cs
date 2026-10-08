@@ -13,6 +13,19 @@ public enum Stance : byte
     Sliding,
 }
 
+/// <summary>Where someone on a ladder is with it.</summary>
+public enum LadderPhase : byte
+{
+    /// <summary>On the rungs, going up or down or hanging there.</summary>
+    Climbing,
+
+    /// <summary>At the top, stepping on over it onto what it climbs to.</summary>
+    SteppingOff,
+
+    /// <summary>At the top, stepping back out over it onto the rungs to climb down.</summary>
+    GettingOn,
+}
+
 /// <summary>Authoritative state of one participant. Position is at the feet.</summary>
 public sealed class PlayerState
 {
@@ -126,6 +139,22 @@ public sealed class PlayerState
     internal bool LastGrounded { get; set; } = true;
 
     internal Stance LastStance { get; set; }
+
+    /// <summary>
+    /// The ladder being climbed (an index into the sim's <see cref="Level.LadderSet"/>; −1: none) and what they're doing on
+    /// it. On a ladder both hands are on the rungs: no firing, refilling, crouching, leaning or sprinting.
+    /// </summary>
+    public int Ladder { get; internal set; } = -1;
+
+    public LadderPhase LadderPhase { get; internal set; }
+
+    /// <summary>Seconds into stepping off or getting on at the top.</summary>
+    internal float LadderTime { get; set; }
+
+    /// <summary>Height climbed since the last foot on a rung (m).</summary>
+    internal float ClimbDistance { get; set; }
+
+    public bool OnLadder => Ladder >= 0;
 
     /// <summary>The door being worked with the interact button (−1: none), and for how long it's been held.</summary>
     public int InteractDoor { get; internal set; } = -1;

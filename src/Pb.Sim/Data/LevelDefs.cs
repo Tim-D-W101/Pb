@@ -172,6 +172,10 @@ public sealed class PropTypeDef : IValidatable
     [Optional]
     public bool Cover { get; set; } = true;
 
+    /// <summary>Ladders on it that can be climbed (the game draws them from these numbers too).</summary>
+    [Optional]
+    public LadderDef[]? Ladders { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
@@ -191,6 +195,54 @@ public sealed class PropTypeDef : IValidatable
         {
             Colliders[i].Validate(v.Item(nameof(Colliders), i));
         }
+
+        for (int i = 0; Ladders is not null && i < Ladders.Length; i++)
+        {
+            Ladders[i].Validate(v.Item(nameof(Ladders), i));
+        }
+    }
+}
+
+/// <summary>
+/// A climbable ladder on a prop, in the prop's frame: its foot (the middle of its bottom, in the plane of the rungs),
+/// how high it climbs to the floor you step off onto, and which way a climber on it faces. A climber hangs in front of
+/// it, facing it; stepping off at the top takes them on past it, onto what it climbs to.
+/// </summary>
+public sealed class LadderDef : IValidatable
+{
+    public float[] Foot_m { get; set; } = Array.Empty<float>();
+
+    /// <summary>From the foot up to the floor at the top (or the top of what it climbs).</summary>
+    public float Height_m { get; set; }
+
+    /// <summary>The way a climber on it faces, in the prop's frame (0 = −Z, positive turns left).</summary>
+    public float Facing_deg { get; set; }
+
+    /// <summary>Between the stiles.</summary>
+    [Optional]
+    public float Width_m { get; set; } = 0.42f;
+
+    /// <summary>How far the stiles carry on above the top, as handholds for stepping off (drawn only).</summary>
+    [Optional]
+    public float Rails_m { get; set; }
+
+    /// <summary>How far past the ladder, the way the climber faces, stepping off at the top takes them.</summary>
+    [Optional]
+    public float Exit_m { get; set; } = 0.7f;
+
+    /// <summary>How far back from the rungs its brackets reach, to what it's fixed to (drawn only).</summary>
+    [Optional]
+    public float Bracket_m { get; set; } = 0.15f;
+
+    public void Validate(Validator v)
+    {
+        v.Vector(nameof(Foot_m), Foot_m);
+        v.InRange(nameof(Height_m), Height_m, 0.5, 40);
+        v.InRange(nameof(Facing_deg), Facing_deg, -360, 360);
+        v.InRange(nameof(Width_m), Width_m, 0.25, 1.2);
+        v.InRange(nameof(Rails_m), Rails_m, 0, 2);
+        v.InRange(nameof(Exit_m), Exit_m, 0.2, 3);
+        v.InRange(nameof(Bracket_m), Bracket_m, 0, 1);
     }
 }
 
