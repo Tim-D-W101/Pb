@@ -1070,6 +1070,58 @@
         "res://art/textures/door_wood_roughness.jpg"
       ],
       "notes": "1024 px, region 0.5522569,0.5522569,0.3960069,0.3960069, flatten 0.8, seam band 0.12, normal strength 2, roughness 0.8 ± 0.15"
+    },
+    {
+      "id": "clip_crouch",
+      "kind": "clip",
+      "job": "e7809bf3-1ba5-47d6-839c-14e233eaa884",
+      "generator": "3d_rigging",
+      "prompt": "opponent_a's model rigged with the generator's biped rig and its in-place clip 616, Cautious_Crouch_Walk_Forward_inplace (a crouched walk)",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261006_001800_e7809bf3-1ba5-47d6-839c-14e233eaa884.glb",
+      "imported": "2026-10-06",
+      "files": [
+        "res://art/models/clip_crouch.glb"
+      ],
+      "notes": "9.6 MB → 60 KB, rig and 1 animation(s) kept"
+    },
+    {
+      "id": "tyre_stack",
+      "kind": "model",
+      "job": "4d3a9325-dbfe-42c3-9c01-f2cf2a42f1e7",
+      "generator": "tripo_h3_1_image_to_3d",
+      "prompt": "Product reference sheet (cell: top middle): a stack of four old worn black car tyres lying flat on top of each other; three-quarter view from slightly above, isolated on plain white, soft even studio lighting, photorealistic product photo, no text, no labels, no logos, no badges. Reference picture: job 1ad003c8-ceed-4e5d-b3d8-5212ff8e9985 (GPT Image 2.5), cut out and uploaded as media 3aad0935-e705-47b9-915a-d8438c2b5e66.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261006_001753_4d3a9325-dbfe-42c3-9c01-f2cf2a42f1e7.glb",
+      "imported": "2026-10-06",
+      "files": [
+        "res://art/models/tyre_stack.glb"
+      ],
+      "notes": "0.90 × 1.00 × 0.90 m (x × y × z), base at y = 0.00, centre (0.00, 0.00); 14.5 MB → 0.8 MB; 3 picture(s) at 1024 px JPEG (were up to 4096 px), scaled ×1.019 to 1 m tall and stood on the origin"
+    },
+    {
+      "id": "generator",
+      "kind": "model",
+      "job": "37cce9b8-7c3c-4fcb-aeaa-8d95aa23e7f3",
+      "generator": "tripo_h3_1_image_to_3d",
+      "prompt": "Product reference sheet (cell: bottom left): an old portable diesel generator on a steel skid frame, faded green-grey paint, rust and oil stains; three-quarter view from slightly above, isolated on plain white, soft even studio lighting, photorealistic product photo, no text, no labels, no logos, no badges. Reference picture: job 1ad003c8-ceed-4e5d-b3d8-5212ff8e9985 (GPT Image 2.5), cut out and uploaded as media 75706351-1a18-483b-856f-b0b9d11dc090.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261006_001757_37cce9b8-7c3c-4fcb-aeaa-8d95aa23e7f3.glb",
+      "imported": "2026-10-06",
+      "files": [
+        "res://art/models/generator.glb"
+      ],
+      "notes": "1.29 × 1.40 × 1.77 m (x × y × z), base at y = 0.00, centre (0.00, 0.00); 10.9 MB → 0.9 MB; 3 picture(s) at 1024 px JPEG (were up to 4096 px), scaled ×1.796 to 1.4 m tall and stood on the origin"
+    },
+    {
+      "id": "sandbag_wall",
+      "kind": "model",
+      "job": "3e60d746-9c66-41d8-9fad-da447daaeb57",
+      "generator": "tripo_h3_1_image_to_3d",
+      "prompt": "Product reference sheet (cell: bottom right): a short straight wall of stacked beige hessian sandbags, four layers high; three-quarter view from slightly above, isolated on plain white, soft even studio lighting, photorealistic product photo, no text, no labels, no logos, no badges. Reference picture: job 1ad003c8-ceed-4e5d-b3d8-5212ff8e9985 (GPT Image 2.5), cut out and uploaded as media 0f3d11e4-8364-46f4-a5ee-3621426a6a0c.",
+      "source": "https://d8j0ntlcm91z4.cloudfront.net/user_39nxVZ3Av8M6nfjlDNFuyHGnYRG/hf_20261006_001759_3e60d746-9c66-41d8-9fad-da447daaeb57.glb",
+      "imported": "2026-10-06",
+      "files": [
+        "res://art/models/sandbag_wall.glb"
+      ],
+      "notes": "0.72 × 1.10 × 1.90 m (x × y × z), base at y = 0.00, centre (0.00, -0.00); 18.4 MB → 1.0 MB; 3 picture(s) at 1024 px JPEG (were up to 4096 px), scaled ×1.935 to 1.1 m tall and stood on the origin"
     }
   ]
 }

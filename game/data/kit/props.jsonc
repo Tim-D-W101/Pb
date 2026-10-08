@@ -56,20 +56,20 @@
       "colliders": [ { "shape": "box", "center_m": [0, 1.295, 0], "size_m": [6.06, 2.59, 2.44], "material": "container_green" } ]
     },
     {
-      "id": "sandbag_wall", "displayName": "Sandbag wall", "shape": "sandbags",
-      "colliders": [ { "shape": "box", "center_m": [0, 0.55, 0], "size_m": [2.4, 1.1, 0.6], "material": "sandbag" } ]
+      "id": "sandbag_wall", "displayName": "Sandbag wall", "model": "res://art/models/sandbag_wall.glb", "modelYaw_deg": 90, "shape": "sandbags",
+      "colliders": [ { "shape": "box", "center_m": [0, 0.55, 0], "size_m": [1.9, 1.1, 0.72], "material": "sandbag" } ]
     },
     {
-      "id": "tyre_stack", "displayName": "Stack of tyres", "shape": "tyres",
-      "colliders": [ { "shape": "cylinder", "center_m": [0, 0.5, 0], "radius_m": 0.37, "height_m": 1.0, "material": "tyre_rubber" } ]
+      "id": "tyre_stack", "displayName": "Stack of tyres", "model": "res://art/models/tyre_stack.glb", "shape": "tyres",
+      "colliders": [ { "shape": "cylinder", "center_m": [0, 0.5, 0], "radius_m": 0.45, "height_m": 1.0, "material": "tyre_rubber" } ]
     },
     {
       "id": "cable_reel", "displayName": "Cable reel", "shape": "cable_reel",
       "colliders": [ { "shape": "cylinder", "center_m": [0, 0.75, 0], "radius_m": 0.75, "height_m": 0.8, "rotation_deg": [0, 0, 90], "material": "wood_planks" } ]
     },
     {
-      "id": "generator", "displayName": "Generator", "shape": "generator",
-      "colliders": [ { "shape": "box", "center_m": [0, 0.7, 0], "size_m": [1.8, 1.4, 1.0], "material": "steel_painted" } ]
+      "id": "generator", "displayName": "Generator", "model": "res://art/models/generator.glb", "modelYaw_deg": 90, "shape": "generator",
+      "colliders": [ { "shape": "box", "center_m": [0, 0.7, 0], "size_m": [1.77, 1.4, 1.29], "material": "steel_painted" } ]
     },
     {
       "id": "car_wreck", "displayName": "Burnt-out car", "model": "res://art/models/car_wreck.glb", "modelYaw_deg": 90, "shape": "car_wreck",

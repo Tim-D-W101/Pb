@@ -393,31 +393,40 @@ public class BotTests
     }
 
     [Fact]
-    public void A_bot_in_your_slot_plays_a_whole_round_to_the_end()
+    public void A_bot_in_your_slot_plays_whole_rounds_to_the_end()
     {
-        BotArena arena = BotArena.Create("normal");
+        // Whether the hunter gets a shot off in one round turns on small things, such as a sentry seeing it
+        // first, so a single fixed round flips with any change to the level (over ten seeds it fires in about
+        // half). Each of five rounds must end with an outcome, and in at least one it must find someone to shoot.
         string[] roster = TestData.Data.Areas.Areas.First(l => l.Id == "oxbarrow_works").Roster.Take(6).ToArray();
-        foreach (string spawn in roster)
+        int roundsWithShots = 0;
+        for (ulong seed = 0; seed < 5; seed++)
         {
-            arena.AddBot(spawn);
+            BotArena arena = BotArena.Create("normal", seed);
+            foreach (string spawn in roster)
+            {
+                arena.AddBot(spawn);
+            }
+
+            arena.HeroBot();
+            arena.Start(timeLimit: 240f);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            arena.Run(250 * Second, () => arena.Sim.Match!.Phase == Match.MatchPhase.Ended);
+            Match.MatchState match = arena.Sim.Match!;
+            int out_ = arena.Bots.Count(b => b.Self.Team != arena.Hero.Team && !b.Self.Alive);
+            _out.WriteLine($"Seed {seed}: {match.Outcome} after {match.Elapsed:0} s ({watch.Elapsed.TotalSeconds:0.0} s to run): you put out {out_} of {roster.Length}, " +
+                           $"fired {arena.ShotsBy(0)}; you're {(arena.Hero.Alive ? "still in" : "out")}");
+            foreach (SimEvent e in arena.Log.Where(e => e.Type == SimEventType.PlayerEliminated))
+            {
+                _out.WriteLine($"  t={e.Tick / (float)Second:0.0}s {arena.Sim.FindPlayer(e.PlayerId)?.Name ?? "?"} put out {arena.Sim.FindPlayer(e.TargetId)?.Name}");
+            }
+
+            Assert.Equal(Match.MatchPhase.Ended, match.Phase);
+            Assert.NotEqual(Match.RoundOutcome.None, match.Outcome);
+            roundsWithShots += arena.ShotsBy(0) > 0 ? 1 : 0;
         }
 
-        arena.HeroBot();
-        arena.Start(timeLimit: 240f);
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-        arena.Run(250 * Second, () => arena.Sim.Match!.Phase == Match.MatchPhase.Ended);
-        Match.MatchState match = arena.Sim.Match!;
-        int out_ = arena.Bots.Count(b => b.Self.Team != arena.Hero.Team && !b.Self.Alive);
-        _out.WriteLine($"{match.Outcome} after {match.Elapsed:0} s ({watch.Elapsed.TotalSeconds:0.0} s to run): you put out {out_} of {roster.Length}, " +
-                       $"fired {arena.ShotsBy(0)}; you're {(arena.Hero.Alive ? "still in" : "out")}");
-        foreach (SimEvent e in arena.Log.Where(e => e.Type == SimEventType.PlayerEliminated))
-        {
-            _out.WriteLine($"  t={e.Tick / (float)Second:0.0}s {arena.Sim.FindPlayer(e.PlayerId)?.Name ?? "?"} put out {arena.Sim.FindPlayer(e.TargetId)?.Name}");
-        }
-
-        Assert.Equal(Match.MatchPhase.Ended, match.Phase);
-        Assert.NotEqual(Match.RoundOutcome.None, match.Outcome);
-        Assert.True(arena.ShotsBy(0) > 0, "never found anyone to shoot at");
+        Assert.True(roundsWithShots > 0, "never found anyone to shoot at in five rounds");
     }
 
     /// <summary>Ten sets of random starts in each mode, at the sizes the menu offers by default.</summary>
