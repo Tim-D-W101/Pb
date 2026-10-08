@@ -186,6 +186,35 @@ credits for the 250 lines). Bots call out in their own voices, from where they s
 
 Each take's provenance (job, voice, script, download) is in `game/data/assets.jsonc`.
 
+## The new levels' materials (2026-10-08)
+
+Three texture sheets from GPT Image 2.5 (2 × 2 swatches each, 4K, 4.25 credits a sheet), one per new level, cut into
+twelve tiling materials with normal and roughness maps. They replace the tinted Phase 2 photos that stood in:
+
+- **The Hospital Wing:** cream gloss paint on old plaster for the corridors and wards (the green paint is the same photo
+  tinted), white glazed wall tiles cut to 4 × 4 whole tiles between their grout lines, worn grey-green linoleum, and a
+  clipped privet hedge for the courtyard, whose hedges were plain green boxes.
+- **The Rail Yard:** crushed granite ballast (stones 6 to 9 cm), creosoted sleeper timber, a bauxite-brown van side cut
+  to 4 whole planks above its bolt row, and a black tank wagon's oily shell cut between its riveted bands.
+- **The Cold Store:** white insulated panel cut to 5 whole ribs, a painted floor with tyre marks, galvanised steel
+  (the pylons, cabinets and compressors) and the painted timber door that every panel door in the game wears.
+
+Regular patterns (the tiles, planks and ribs) are cut to whole repeats and blended in step with them; the rest break
+up their repeat. A few materials keep their stand-ins: grey wagon steel, the shunter's green, sooty brick, the white
+cladding and trailers, the render, and the drawn ones (ammonia tanks, curtains, mattresses, the ambulance, steel
+doors).
+
+![The new materials, each tiled 2 × 2](phase-3/m3.10-1-the-new-materials.jpg)
+*Each new material tiled 2 × 2, so its seams show if it has any. Top: cream paint, wall tiles, lino, hedge. Middle:
+ballast, sleeper timber, the van side, the tank shell. Bottom: insulated panel, painted floor, galvanised steel, the
+door.*
+
+![Between the wagons](phase-3/m3.10-2-between-the-wagons.jpg)
+*Between the wagons in the Rail Yard: ballast between the rails and the van's planked side.*
+
+![Down the cold store's aisle](phase-3/m3.10-3-down-the-cold-store-aisle.jpg)
+*Down the Cold Store's aisle: ribbed insulated panel either side over the painted floor.*
+
 ## What was built
 
 You asked to continue and build Phase 3, the level ladder from the roadmap you approved with Phase 2. All of it is in
