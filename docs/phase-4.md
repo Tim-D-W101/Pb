@@ -1,7 +1,8 @@
 # Phase 4 — Multiplayer: plan
 
-> **Status: approved 2026-10-09 with the defaults ("the plan is OK go ahead"); being built.** Phase 3 is finished but for your
-> play-test ([report](reports/phase-3.md)). Technical design: [architecture.md §16](architecture.md#16-phase-4-multiplayer).
+> **Status: finished 2026-10-09, but for your check ([report](reports/phase-4.md)).** Approved 2026-10-09 with the
+> defaults ("the plan is OK go ahead"). Phase 3 is finished but for your play-test ([report](reports/phase-3.md)). Technical
+> design: [architecture.md §16](architecture.md#16-phase-4-multiplayer). Hosting: [hosting.md](hosting.md).
 > Everything in [spec.md](spec.md) still applies: ballistics, paint rules, gear, metric units, original IP, data files,
 > tests.
 
@@ -286,7 +287,7 @@ The lobby is bare until M4.4: hosting, who's in and Start round; joined, you wai
 - [x] The Windows build joins the Linux server under Wine, which catches faults only the Windows .NET runtime has.
 - [x] The benchmark: the server's tick with ten players and 1,000 balls stays within budget, and so does the cost of a
   correction's replay.
-- [ ] `docs/reports/phase-4.md` with screenshots of the menus, the lobby and rounds from several players' screens.
+- [x] `docs/reports/phase-4.md` with screenshots of the menus, the lobby and rounds from several players' screens.
 
 *As built (verification):*
 - **CI's networked rounds** (`net-round` job, `tools/ci/net-round.sh`):

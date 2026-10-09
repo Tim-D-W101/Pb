@@ -33,7 +33,8 @@ public partial class ChatBox : VBoxContainer
     public bool Typing => _entry.HasFocus();
 
     /// <param name="teams">Offer "Team only" (in teams).</param>
-    public void Build(float width, int lines, bool teams, int fontSize = 18)
+    /// <param name="keepRoom">Keep room for all <paramref name="lines"/> from the start, so what's around doesn't move as lines come (the lobby).</param>
+    public void Build(float width, int lines, bool teams, int fontSize = 18, bool keepRoom = false)
     {
         _most = lines;
         AddThemeConstantOverride("separation", 6);
@@ -41,7 +42,7 @@ public partial class ChatBox : VBoxContainer
         _shown = new RichTextLabel
         {
             Name = "Lines", BbcodeEnabled = true, ScrollFollowing = true, FitContent = true, MouseFilter = MouseFilterEnum.Ignore,
-            CustomMinimumSize = new Vector2(width, 0), AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            CustomMinimumSize = new Vector2(width, keepRoom ? lines * fontSize * 1.45f : 0f), AutowrapMode = TextServer.AutowrapMode.WordSmart,
         };
         _shown.AddThemeFontSizeOverride("normal_font_size", fontSize);
         AddChild(_shown);

@@ -77,7 +77,7 @@ public partial class LobbyMain : Control
         }
 
         AddChild(margin);
-        VBoxContainer page = UiKit.Column(16);
+        VBoxContainer page = UiKit.Column(12);
         margin.AddChild(page);
 
         // The game's name and what's happening, with Leave up in the corner.
@@ -107,7 +107,7 @@ public partial class LobbyMain : Control
         columns.AddChild(Card("THE ROUND", _choices, 520f));
         VBoxContainer you = UiKit.Column(12);
         _preview = new CharacterPreview { Name = "Character" };
-        _preview.Build(_data.Config, _view, new Vector2(300, 300));
+        _preview.Build(_data.Config, _view, new Vector2(220, 220));
         you.AddChild(_preview);
         _looks = UiKit.Row(8);
         you.AddChild(_looks);
@@ -125,7 +125,7 @@ public partial class LobbyMain : Control
         page.AddChild(columns);
 
         _chat = new ChatBox { Name = "Chat" };
-        _chat.Build(1380f, 5, teams: true);
+        _chat.Build(1380f, 3, teams: true, keepRoom: true);
         _chat.SideColor = SideColor;
         _chat.Send = (text, team) => _session.Say(text, team);
         page.AddChild(UiKit.Panel(_chat));
@@ -203,12 +203,21 @@ public partial class LobbyMain : Control
         }
     }
 
-    /// <summary>A titled panel holding one of the page's columns.</summary>
+    /// <summary>
+    /// A titled panel holding one of the page's columns. What doesn't fit scrolls inside it (ten people in the game, say), so
+    /// the chat below always stays on the screen.
+    /// </summary>
     private static Control Card(string title, Control content, float width)
     {
         VBoxContainer column = UiKit.Column(12);
         column.AddChild(UiKit.Body(title, 18, UiKit.Dim));
-        column.AddChild(content);
+        var scroll = new ScrollContainer
+        {
+            Name = "Scroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = SizeFlags.ExpandFill,
+        };
+        content.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        scroll.AddChild(content);
+        column.AddChild(scroll);
         PanelContainer panel = UiKit.Panel(column, width);
         panel.SizeFlagsVertical = SizeFlags.ExpandFill;
         return panel;
@@ -525,8 +534,8 @@ public partial class LobbyMain : Control
             LobbyPhase.Loading => "Building the round…",
             LobbyPhase.Round => "A round is under way: you'll be in the next one.",
             LobbyPhase.Summary => "The round's over: back here in a moment.",
-            _ when session.Hosting => $"Others join with this computer's address{Addresses()} and port {session.Settings.Port}. " +
-                                      "When everyone's ready the countdown starts; Start now doesn't wait.",
+            _ when session.Hosting => $"Others join at this computer's address{Addresses()}, port {session.Settings.Port}. " +
+                                      "Everyone ready starts the countdown; Start now doesn't wait.",
             _ => "Ready up when you are: the round starts once everyone is.",
         };
     }

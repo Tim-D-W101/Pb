@@ -8,9 +8,9 @@ ten players a round. Built with Godot 4.7 (.NET / C#).
 four open areas, each with places to play in, doors, ladders, objectives, new opponents, sound with voiced callouts, full
 settings; after your play-test (2026-10-06) every area is open with nothing to unlock, and the opponents plant their
 steps; since then they look round, shift their weight, pull up from a run, keep out of their cover and put a hand up
-when hit (M3.14), and you and they can climb every ladder (M3.15).** **Next, Phase 4 (multiplayer: co-op against the bots and player
-vs player for up to ten, hosted from the game or on a dedicated server) is approved and being built
-([plan](docs/phase-4.md)).** Phase 2 is built
+when hit (M3.14), and you and they can climb every ladder (M3.15).** **Phase 4 (multiplayer: co-op against the bots and player
+vs player for up to ten, hosted from the game or on a dedicated server) is finished but for your check
+([report](docs/reports/phase-4.md), [plan](docs/phase-4.md), [hosting](docs/hosting.md)).** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
