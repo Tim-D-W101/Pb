@@ -46,6 +46,9 @@ public sealed class NetServer : IDisposable
 
     public ServerIdentity Identity { get; set; }
 
+    /// <summary>The name the host plays under in their own game, which nobody joining may take too.</summary>
+    public string? HostName { get; set; }
+
     public IReadOnlyList<ClientLink> Clients => _clients;
 
     /// <summary>The round under way (−1: none).</summary>
@@ -71,6 +74,9 @@ public sealed class NetServer : IDisposable
 
     /// <summary>Something a player sent that the server dropped, for the host's log.</summary>
     public event Action<ClientLink, string>? Violation;
+
+    /// <summary>The connection's own measure of the round trip to a player (s; 0 if it has none).</summary>
+    public float TransportRoundTrip(ClientLink link) => Math.Max(0f, _transport.RoundTrip(link.Peer));
 
     public ClientLink? LinkOf(int playerId)
     {
@@ -468,7 +474,7 @@ public sealed class NetServer : IDisposable
         }
 
         string candidate = name;
-        for (int n = 2; _clients.Any(c => c != self && c.Welcomed && c.Name == candidate); n++)
+        for (int n = 2; candidate == HostName || _clients.Any(c => c != self && c.Welcomed && c.Name == candidate); n++)
         {
             candidate = $"{name} {n}";
         }

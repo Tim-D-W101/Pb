@@ -55,6 +55,12 @@ public enum SimEventType : byte
     /// attacking side.
     /// </summary>
     HoldChanged,
+
+    /// <summary>
+    /// A person's callout key: <see cref="SimEvent.PlayerId"/> who called, <see cref="SimEvent.TargetId"/> the opponent
+    /// called out (−1: none in sight), <see cref="SimEvent.Position"/> where they are (or where the caller is looking).
+    /// </summary>
+    CalledOut,
 }
 
 public enum FootstepKind : byte

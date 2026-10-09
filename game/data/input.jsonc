@@ -31,6 +31,12 @@
     { "name": "slide", "label": "Slide", "group": "movement", "keys": ["V"] },
     { "name": "jump", "label": "Jump", "group": "movement", "keys": ["Space"], "buttons": ["A"] },
 
+    // Playing with others: hold for the scoreboard; type to everyone, or only your side; call out where you're looking.
+    { "name": "scoreboard", "label": "Scoreboard (hold)", "group": "others", "keys": ["Tab"] },
+    { "name": "chat", "label": "Chat to everyone", "group": "others", "keys": ["T"] },
+    { "name": "chat_team", "label": "Chat to your side", "group": "others", "keys": ["Y"] },
+    { "name": "callout", "label": "Call out what you see", "group": "others", "keys": ["Z"] },
+
     { "name": "pause", "label": "Pause", "keys": ["Escape"], "buttons": ["Start"] },
     { "name": "debug_help", "label": "Help", "keys": ["F1"], "buttons": ["Back"] },
     { "name": "debug_arc", "label": "Arc preview", "keys": ["F2"], "buttons": ["DpadUp"] },

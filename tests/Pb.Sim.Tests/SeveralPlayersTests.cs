@@ -204,7 +204,61 @@ public class SeveralPlayersTests
         Assert.True(copy.FindPlayer(1)!.Present);
     }
 
-    /// <summary>A live round on Oxbarrow Works: person 0 (team 0) outside the gate, person 1 (team 1) in the yard.</summary>
+    [Fact]
+    public void The_callout_key_calls_out_the_opponent_nearest_the_aim_once_a_press_and_not_too_often()
+    {
+        // You at the origin facing −Z; an opponent ahead, one off to the side, a teammate beside you.
+        SimWorld sim = Ground((0, 0, 0f, 0f), (1, 1, 1f, -20f), (2, 1, 15f, -20f), (3, 0, 4f, 0f));
+        sim.StartMatch(Setup(MatchModeKind.Teams, new[] { 0 }));
+        sim.GoLive();
+        static InputCommand Press(PlayerState p) => new() { Buttons = InputButtons.Callout, Yaw = p.Yaw, Pitch = p.Pitch };
+        List<SimEvent> called = Run(sim, 1, (_, p) => p.Id == 0 ? Press(p) : default);
+        SimEvent e = Assert.Single(called, x => x.Type == SimEventType.CalledOut);
+        Assert.Equal((0, 1, (byte)0), (e.PlayerId, e.TargetId, e.Team));
+        Assert.Equal(new Vector3(1f, 0f, -20f), e.Position);
+
+        // Held, it doesn't call again; pressed again within the cooldown, neither.
+        Assert.DoesNotContain(Run(sim, Second, (_, p) => p.Id == 0 ? Press(p) : default), x => x.Type == SimEventType.CalledOut);
+        Assert.DoesNotContain(Run(sim, 1, (_, p) => p.Id == 0 ? Press(p) : default), x => x.Type == SimEventType.CalledOut);
+        Run(sim, (int)(Config.Rules.Callout.Cooldown * Second));
+
+        // Turned away from everyone: where you're looking, nobody named.
+        sim.FindPlayer(0)!.Yaw = MathF.PI;
+        e = Assert.Single(Run(sim, 1, (_, p) => p.Id == 0 ? Press(p) : default), x => x.Type == SimEventType.CalledOut);
+        Assert.Equal(-1, e.TargetId);
+        Assert.True(e.Position.Z > 1f, $"looking +Z, called {e.Position}");
+
+        // A joining copy leaves it to the server.
+        SimWorld copy = Ground((0, 0, 0f, 0f), (1, 1, 1f, -20f));
+        copy.Role = SimRole.Client;
+        copy.LocalPlayerId = 0;
+        copy.StartMatch(Setup(MatchModeKind.Teams, new[] { 0 }));
+        Assert.DoesNotContain(Run(copy, 2, (_, p) => p.Id == 0 ? Press(p) : default), x => x.Type == SimEventType.CalledOut);
+    }
+
+    [Fact]
+    public void Your_bot_teammates_take_your_callout_as_a_contact()
+    {
+        var sim = new SimWorld(Config);
+        sim.Collision.Add(new PlaneShape(Vector3.UnitY, 0f), Config.Surfaces.Get("turf"), "ground");
+        PlayerState you = sim.AddPlayer(0, 0, Vector3.Zero, 0f);
+        PlayerState them = sim.AddPlayer(1, 1, new Vector3(0f, 0f, -30f), MathF.PI);
+        // The squad only passes contacts on here: no searches, so a shared level's grid and cover do.
+        (_, Pb.Sim.AI.NavGrid grid, Pb.Sim.AI.CoverSet cover) = BotArena.SharedFor("oxbarrow_works");
+        var squad = new Pb.Sim.AI.BotSquad(sim, TestData.Data.Bots, grid, cover);
+        sim.StartMatch(Setup(MatchModeKind.Teams, new[] { 0 }));
+        sim.GoLive();
+        var commands = new InputCommand[2];
+        commands[0] = new InputCommand { Buttons = InputButtons.Callout, Yaw = you.Yaw, Pitch = you.Pitch };
+        sim.Step(commands);
+        squad.HearAll(sim.Events.Items);
+        sim.Events.Clear();
+        Pb.Sim.AI.BotSquad.Contact contact = Assert.Single(squad.ContactsFor(sim.Tick).ToArray());
+        Assert.Equal((0, (byte)0, them.Id), (contact.From, contact.Team, contact.TargetId));
+        Assert.Equal(them.Position, contact.At);
+    }
+
+    /// <summary>A live round on Oxbarrow Works: person 0 (team 0) outside the gate, person 1 (team 1) in the yard.</summary>    /// <summary>A live round on Oxbarrow Works: person 0 (team 0) outside the gate, person 1 (team 1) in the yard.</summary>
     private static SimWorld Oxbarrow(MatchSetup setup)
     {
         var sim = new SimWorld(Config, 1);

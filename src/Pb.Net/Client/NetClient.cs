@@ -1,4 +1,5 @@
 using Pb.Net.Packing;
+using Pb.Net.Lobby;
 using Pb.Net.Protocol;
 using Pb.Net.Transport;
 using Pb.Sim.Events;
@@ -71,6 +72,7 @@ public sealed class NetClient : IDisposable
     private int _ownSnapshot = -1;
     private bool _clockSet;
 
+    private readonly List<ChatLine> _chat = new();
     private bool _helloWanted;
 
     public NetClient(ITransport transport, NetSettings settings, Func<double> clock, HelloMessage hello, float tickRate)
@@ -133,6 +135,43 @@ public sealed class NetClient : IDisposable
 
     /// <summary>Asks to join: the request goes as soon as the connection is up (a connection drops what's sent before).</summary>
     public void Join() => _helloWanted = true;
+
+    /// <summary>The lobby as the host last sent it (null until it has), and how many times it has come.</summary>
+    public LobbyState? Lobby { get; private set; }
+
+    public int LobbyVersion { get; private set; }
+
+    /// <summary>When the lobby last came (the clock's time).</summary>
+    public double LobbyAt { get; private set; }
+
+    /// <summary>Chat lines the host has sent on since the last call.</summary>
+    public IReadOnlyList<ChatLine> TakeChat()
+    {
+        if (_chat.Count == 0)
+        {
+            return Array.Empty<ChatLine>();
+        }
+
+        ChatLine[] lines = _chat.ToArray();
+        _chat.Clear();
+        return lines;
+    }
+
+    /// <summary>Asks the host's lobby for something (a side, ready, a character, a vote).</summary>
+    public void Ask(LobbyAsk ask, int value)
+    {
+        _writer.Reset();
+        LobbyRequest.Write(_writer, ask, value);
+        _transport.Send(0, NetChannel.Reliable, _writer.Finish());
+    }
+
+    /// <summary>Says something in the chat, to everyone or only your side.</summary>
+    public void Say(string text, bool teamOnly)
+    {
+        _writer.Reset();
+        ChatMessage.WriteSay(_writer, text, teamOnly);
+        _transport.Send(0, NetChannel.Reliable, _writer.Finish());
+    }
 
     /// <summary>A new round's setup, once (null if none has come since the last call).</summary>
     public RoundSetupMessage? TakeRoundSetup()
@@ -240,6 +279,9 @@ public sealed class NetClient : IDisposable
 
     /// <summary>The newest snapshot held (null: none yet).</summary>
     internal ReceivedSnapshot? Newest => Find(NewestTick);
+
+    /// <summary>When the newest snapshot came (the clock's time; −∞ before any).</summary>
+    public double NewestAt => Newest?.ReceivedAt ?? double.NegativeInfinity;
 
     /// <summary>The newest snapshot's own state, once each: the last command the server ran, and its state after it.</summary>
     internal bool TakeOwn(out int lastRun, out ReadOnlySpan<uint> fields)
@@ -413,10 +455,19 @@ public sealed class NetClient : IDisposable
             case MessageType.RoundOver when RoundOverMessage.Read(packet) is { } over:
                 _over = over;
                 break;
+            case MessageType.Lobby when LobbyState.Read(packet) is { } lobby:
+                Lobby = lobby;
+                LobbyVersion++;
+                LobbyAt = _clock();
+                break;
+            case MessageType.Chat when ChatMessage.ReadLine(packet) is { } line:
+                _chat.Add(line);
+                break;
             case MessageType.Snapshot:
                 ReadSnapshot(packet);
                 break;
-            case MessageType.None or MessageType.Welcome or MessageType.Refused or MessageType.RoundSetup or MessageType.RoundOver:
+            case MessageType.None or MessageType.Welcome or MessageType.Refused or MessageType.RoundSetup or MessageType.RoundOver
+                or MessageType.Lobby or MessageType.Chat:
                 break;
             default:
                 if (channel == NetChannel.Reliable)

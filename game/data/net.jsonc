@@ -54,7 +54,28 @@
   // The most people in one game, the host included (the rules' maxPlayers caps people and bots together).
   "maxPeople": 10,
 
-  // A round waits this long at most for everyone to have it built, then counts down this long and goes live.
+  // The lobby counts down this long once everyone's ready (or the host starts). The round then waits this long at most
+  // for everyone to have it built, and shows the briefing this long before it goes live.
+  "countdown_s": 5,
   "loadTimeout_s": 30,
-  "countdown_s": 5
+  "briefing_s": 5,
+
+  // Between rounds: the summary stays up this long before the host goes back to the lobby by itself (0: until the
+  // host does), and a vote on where to play next (when the host turns it on) offers this many places for this long.
+  "summary_s": 20,
+  "voteOptions": 3,
+  "voteTime_s": 15,
+
+  // Text chat: a line is cut to this length, and someone may say at most this many lines in this long.
+  "chatMost_chars": 200,
+  "chatLines": 4,
+  "chatPer_s": 5,
+
+  // During a round the lobby (everyone's ping, for the scoreboard) goes out again this often.
+  "lobbyRefresh_s": 2,
+
+  // A joining copy warns you the connection's poor past this round trip, and that it's interrupted when nothing has
+  // come from the host for this long.
+  "poorRoundTrip_ms": 250,
+  "poorSilence_ms": 400
 }

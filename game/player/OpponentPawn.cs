@@ -16,6 +16,9 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
     private Label3D _callout = null!;
     private float _calloutLeft;
     private bool _removed;
+    private Label3D? _name;
+    private float _nameAbove;
+    private float _nameRange;
 
     public CharacterVisual Visual { get; private set; } = null!;
 
@@ -52,6 +55,27 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
             TopLevel = true,
         };
         AddChild(_callout);
+    }
+
+    /// <summary>
+    /// Playing with others (and with bot teammates): the name over their head, in their side's colour, while they're
+    /// still in and within <paramref name="range"/> of the camera.
+    /// </summary>
+    public void ShowName(string name, Color colour, float above, float range)
+    {
+        _nameAbove = above;
+        _nameRange = range;
+        _name ??= new Label3D
+        {
+            Name = "Name", FontSize = 40, PixelSize = 0.0011f, OutlineSize = 10, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            NoDepthTest = true, FixedSize = true, TopLevel = true,
+        };
+        _name.Text = name;
+        _name.Modulate = colour;
+        if (_name.GetParent() is null)
+        {
+            AddChild(_name);
+        }
     }
 
     /// <summary>Hands the opponent to another pilot (a scripted scene's).</summary>
@@ -111,6 +135,14 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
 
     public override void _Process(double delta)
     {
+        if (_name is not null)
+        {
+            Vector3 head = (State.Position + new System.Numerics.Vector3(0f, State.EyeHeight + _nameAbove, 0f)).ToGodot();
+            Camera3D? camera = GetViewport().GetCamera3D();
+            _name.Visible = State.Alive && State.Present && camera is not null && camera.GlobalPosition.DistanceTo(head) <= _nameRange;
+            _name.GlobalPosition = head;
+        }
+
         if (_calloutLeft > 0f)
         {
             _calloutLeft -= (float)delta;

@@ -62,6 +62,7 @@ public static class EventCodec
         SimEventType.CaseExtracted => Field.Player | Field.Team | Field.Position | Field.Extra,
         SimEventType.HoldChanged => Field.Team | Field.Position | Field.Value | Field.Extra,
         NetEventTypes.Callout => Field.Player | Field.Target | Field.Position | Field.Extra,
+        SimEventType.CalledOut => Field.Player | Field.Target | Field.Team | Field.Position,
         _ => Field.None,
     };
 

@@ -151,13 +151,14 @@ public static class RoundCasting
     }
 
     /// <summary>
-    /// The round's size made to fit everyone who's in: free-for-all needs a place each, teams a side as big as the larger
-    /// half, and co-op (the size is the opponents) leaves room in the round for every person, keeping one opponent at least.
+    /// The round's size made to fit everyone who's in: free-for-all needs a place each, teams a side as big as the side
+    /// with the most people (<paramref name="largestSide"/>; the larger half when the sides aren't chosen yet), and co-op
+    /// (the size is the opponents) leaves room in the round for every person, keeping one opponent at least.
     /// </summary>
-    public static int FitSize(GameMode mode, int size, int people, int maxPlayers) => mode.Kind switch
+    public static int FitSize(GameMode mode, int size, int people, int maxPlayers, int largestSide = -1) => mode.Kind switch
     {
         MatchModeKind.FreeForAll => Math.Max(size, people),
-        MatchModeKind.Teams => Math.Max(size, (people + 1) / 2),
+        MatchModeKind.Teams => Math.Max(size, largestSide >= 0 ? largestSide : (people + 1) / 2),
         _ => Math.Clamp(size, 1, Math.Max(1, maxPlayers - people)),
     };
 

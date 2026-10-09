@@ -196,15 +196,26 @@ The lobby is bare until M4.4: hosting, who's in and Start round; joined, you wai
 
 ### M4.4 Lobby, menus and the HUD
 
-- [ ] Main menu: **Play with others** → Host or Join (games on your network, an address, the last few you used), and
+- [x] Main menu: **Play with others** → Host or Join (games on your network, an address, the last few you used), and
   your name.
-- [ ] The lobby: sides with their places, people and bots; switching sides, auto-balance; the host's choices (area,
+- [x] The lobby: sides with their places, people and bots; switching sides, auto-balance; the host's choices (area,
   place, mode, size, objective, difficulty); the map vote; your character turning in your colour; ready-up and the
   countdown; text chat; removing a player.
-- [ ] Between rounds: everyone's summary, the session's score, then the lobby.
-- [ ] In the round: names over teammates, the scoreboard on Tab with pings, names in the kill feed, a warning when the
+- [x] Between rounds: everyone's summary, the session's score, then the lobby.
+- [x] In the round: names over teammates, the scoreboard on Tab with pings, names in the kill feed, a warning when the
   connection is poor, the callout key, Esc without pausing.
-- [ ] Settings: your name and the pretend lag; the callout, scoreboard and chat keys are rebindable like the rest.
+- [x] Settings: your name and the pretend lag; the callout, scoreboard and chat keys are rebindable like the rest.
+
+*As built:*
+- **Lobby.** It's engine-free (`Pb.Net/Lobby`): the host decides every request, and sends the lobby to everyone when
+  it changes and every 2 s during a round, for the pings.
+- **Callout key.** It's a button in your command. The host's sim calls out the opponent nearest your aim, within 10°
+  and 90 m and in sight, at most once every 3 s (`rules.jsonc`). Your bot teammates take it as one of their shared
+  contacts. Your side sees a mark over the spot with who called and how far it is, and hears the shout in your
+  character's voice. The callout key works offline too, with bot teammates.
+- **Scoreboard and teammates' names.** These show offline too.
+- **Hits.** Only hits on players still in count; paint on someone walking off doesn't. This changes Phase 2's
+  accuracy figure too.
 
 ### M4.5 Dedicated server
 

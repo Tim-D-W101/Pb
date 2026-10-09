@@ -144,6 +144,25 @@ public partial class SettingsMenu : VBoxContainer
         page.AddChild(UiKit.CheckRow("Head-bob", _settings.HeadBob, on => Set(() => _settings.HeadBob = on)));
         page.AddChild(UiKit.SliderRow("Camera jolt", 0, 1, 0.05, _settings.CameraJolt, v => Set(() => _settings.CameraJolt = (float)v), v => $"{v * 100:0}%"));
         page.AddChild(UiKit.SliderRow("Paint on your mask", 0, 1, 0.05, _settings.MaskSpray, v => Set(() => _settings.MaskSpray = (float)v), v => $"{v * 100:0}%"));
+
+        page.AddChild(UiKit.Body("PLAYING WITH OTHERS", 18, UiKit.Accent));
+        HBoxContainer name = UiKit.Row(16);
+        Label label = UiKit.Body("Your name");
+        label.CustomMinimumSize = new Vector2(220, 0);
+        name.AddChild(label);
+        var field = new LineEdit
+        {
+            Name = "PlayerName", Text = _settings.PlayerName, PlaceholderText = "Type your name", MaxLength = GameSettings.NameLength,
+            CustomMinimumSize = new Vector2(280, 40),
+        };
+        field.TextChanged += t => Set(() => _settings.PlayerName = GameSettings.CleanName(t));
+        name.AddChild(field);
+        page.AddChild(name);
+        float[] lags = { 0f, 50f, 100f, 150f, 200f, 300f };
+        page.AddChild(UiKit.OptionRow("Pretend lag", lags.Select(l => l == 0f ? "Off" : $"{l:0} ms").ToArray(),
+            Math.Max(0, Array.FindIndex(lags, l => Math.Abs(l - _settings.PretendLag_ms) < 1f)), i => Set(() => _settings.PretendLag_ms = lags[i])));
+        page.AddChild(UiKit.Body("A slower connection on purpose, from the next game you host or join: to feel what a far-away friend plays with.", 16,
+            UiKit.Dim, wrap: true));
     }
 
     private void Accessibility(VBoxContainer page)

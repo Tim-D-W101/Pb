@@ -200,6 +200,11 @@ public sealed class ClientSession
             {
                 PuppetFields.Pose(players[i], Fields.Puppet(a.World, i), Fields.Puppet(b.World, i), t, Fields.Grid, move);
             }
+            else if (Client.Newest is { } latest)
+            {
+                // This copy's own numbers come from the server too (it never decides a hit itself).
+                PuppetFields.Scores(players[i], Fields.Puppet(latest.World, i));
+            }
         }
 
         Fields.ApplyDoors(Sim, (t < 0.5f ? a : b).World);

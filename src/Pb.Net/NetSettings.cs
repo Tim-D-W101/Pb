@@ -53,6 +53,26 @@ public sealed class NetDef : IValidatable
 
     public float Countdown_s { get; set; }
 
+    public float Briefing_s { get; set; }
+
+    public float Summary_s { get; set; }
+
+    public int VoteOptions { get; set; }
+
+    public float VoteTime_s { get; set; }
+
+    public int ChatMost_chars { get; set; }
+
+    public int ChatLines { get; set; }
+
+    public float ChatPer_s { get; set; }
+
+    public float LobbyRefresh_s { get; set; }
+
+    public float PoorRoundTrip_ms { get; set; }
+
+    public float PoorSilence_ms { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(Port), Port, 1024, 65535);
@@ -83,6 +103,16 @@ public sealed class NetDef : IValidatable
         v.InRange(nameof(MaxPeople), MaxPeople, 1, 10);
         v.InRange(nameof(LoadTimeout_s), LoadTimeout_s, 1, 600);
         v.InRange(nameof(Countdown_s), Countdown_s, 0, 60);
+        v.InRange(nameof(Briefing_s), Briefing_s, 0, 60);
+        v.InRange(nameof(Summary_s), Summary_s, 0, 600);
+        v.InRange(nameof(VoteOptions), VoteOptions, 2, 8);
+        v.InRange(nameof(VoteTime_s), VoteTime_s, 3, 120);
+        v.InRange(nameof(ChatMost_chars), ChatMost_chars, 10, 200);
+        v.InRange(nameof(ChatLines), ChatLines, 1, 20);
+        v.InRange(nameof(ChatPer_s), ChatPer_s, 1, 60);
+        v.InRange(nameof(LobbyRefresh_s), LobbyRefresh_s, 0.25, 30);
+        v.InRange(nameof(PoorRoundTrip_ms), PoorRoundTrip_ms, 50, 5000);
+        v.InRange(nameof(PoorSilence_ms), PoorSilence_ms, 50, 10000);
     }
 }
 
@@ -132,10 +162,35 @@ public sealed class NetSettings
 
     public required int MaxPeople { get; init; }
 
-    /// <summary>The longest a round waits for everyone to have it built (s), and its countdown after (s).</summary>
+    /// <summary>The lobby's countdown (s), the longest a round waits for everyone to have it built (s), and its briefing after (s).</summary>
+    public required float Countdown { get; init; }
+
     public required float LoadTimeout { get; init; }
 
-    public required float Countdown { get; init; }
+    public required float Briefing { get; init; }
+
+    /// <summary>How long the summary stays up before the host goes back to the lobby (s; 0: until the host does).</summary>
+    public required float Summary { get; init; }
+
+    /// <summary>The vote: how many places it offers, and for how long (s).</summary>
+    public required int VoteOptions { get; init; }
+
+    public required float VoteTime { get; init; }
+
+    /// <summary>Chat: the longest line (characters), and at most this many lines in this long (s).</summary>
+    public required int ChatMostChars { get; init; }
+
+    public required int ChatLines { get; init; }
+
+    public required float ChatPer { get; init; }
+
+    /// <summary>During a round, the lobby goes out again this often (s).</summary>
+    public required float LobbyRefresh { get; init; }
+
+    /// <summary>A joining copy's warnings: the connection's poor past this round trip (s), interrupted after this long without a word (s).</summary>
+    public required float PoorRoundTrip { get; init; }
+
+    public required float PoorSilence { get; init; }
 
     public static NetSettings From(NetDef d) => new()
     {
@@ -160,8 +215,18 @@ public sealed class NetSettings
         LinkTimeoutMax = d.LinkTimeoutMax_ms / 1000f,
         PacketBudget = d.PacketBudget_bytes,
         MaxPeople = d.MaxPeople,
-        LoadTimeout = d.LoadTimeout_s,
         Countdown = d.Countdown_s,
+        LoadTimeout = d.LoadTimeout_s,
+        Briefing = d.Briefing_s,
+        Summary = d.Summary_s,
+        VoteOptions = d.VoteOptions,
+        VoteTime = d.VoteTime_s,
+        ChatMostChars = d.ChatMost_chars,
+        ChatLines = d.ChatLines,
+        ChatPer = d.ChatPer_s,
+        LobbyRefresh = d.LobbyRefresh_s,
+        PoorRoundTrip = d.PoorRoundTrip_ms / 1000f,
+        PoorSilence = d.PoorSilence_ms / 1000f,
     };
 
     public static NetSettings Load(IDataSource source) => From(Jsonc.Load<NetDef>(source, NetDef.File));

@@ -340,4 +340,27 @@ public class ProtocolTests
         Assert.Equal((over.Round, over.Result, over.Elapsed, over.EndTick), (o.Round, o.Result, o.Elapsed, o.EndTick));
         Assert.Equal(over.Stats, o.Stats);
     }
+
+    [Fact]
+    public void A_search_on_the_network_is_answered_with_the_game()
+    {
+        var w = new BitWriter(256);
+        Pb.Net.Discovery.DiscoveryMessage.WriteSearch(w);
+        byte[] search = w.Finish().ToArray();
+        Assert.True(Pb.Net.Discovery.DiscoveryMessage.IsSearch(search));
+        Assert.False(Pb.Net.Discovery.DiscoveryMessage.IsSearch(new byte[] { 1, 2, 3, 4, 5 }));
+        Assert.Null(Pb.Net.Discovery.DiscoveryMessage.ReadAnswer(search));
+
+        var game = new Pb.Net.Discovery.GameAnnouncement
+        {
+            Name = "Ada's game", Port = 47820, Where = "Oxbarrow Works: the warehouse", How = "Teams · 3 v 3 · Normal", People = 4, MaxPeople = 10,
+            Build = "515146a", Password = true, InRound = true,
+        };
+        w.Reset();
+        Pb.Net.Discovery.DiscoveryMessage.WriteAnswer(w, game);
+        byte[] answer = w.Finish().ToArray();
+        Assert.Equal(game, Pb.Net.Discovery.DiscoveryMessage.ReadAnswer(answer));
+        Assert.False(Pb.Net.Discovery.DiscoveryMessage.IsSearch(answer));
+        Assert.Null(Pb.Net.Discovery.DiscoveryMessage.ReadAnswer(answer.AsSpan(0, answer.Length - 3)));
+    }
 }

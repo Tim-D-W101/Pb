@@ -48,8 +48,8 @@ public enum MessageType : byte
 
 public static class NetProtocol
 {
-    /// <summary>Bumped whenever a message changes: copies on different versions refuse each other.</summary>
-    public const int Version = 1;
+    /// <summary>Bumped whenever a message changes: copies on different versions refuse each other (2: the callout key).</summary>
+    public const int Version = 2;
 
     public static MessageType TypeOf(ReadOnlySpan<byte> packet) => packet.Length > 0 ? (MessageType)packet[0] : MessageType.None;
 }

@@ -3,9 +3,12 @@ using System.Globalization;
 using Godot;
 using Pb.Game.Core;
 using Pb.Net;
+using Pb.Net.Discovery;
+using Pb.Net.Lobby;
 using Pb.Net.Protocol;
 using Pb.Net.Server;
 using Pb.Net.Transport;
+using Pb.Sim.Data;
 
 namespace Pb.Game.Net;
 
@@ -19,16 +22,36 @@ public static class NetStart
 {
     public static NetSettings Settings() => NetSettings.Load(new GodotDataSource());
 
-    /// <summary>Hosting: others join on <paramref name="port"/> (net.jsonc's when null).</summary>
-    public static NetSession Host(SceneTree tree, string name, byte look, int? port = null, string password = "")
+    /// <summary>
+    /// Hosting: others join on <paramref name="port"/> (net.jsonc's when null). The lobby starts with the round the menus
+    /// last chose (or the command line's).
+    /// </summary>
+    public static NetSession Host(SceneTree tree, GameData data, string name, byte look, int? port = null, string password = "", float pretendLag_ms = 0f)
     {
         NetSettings settings = Settings();
         var identity = new ServerIdentity($"{name}'s game", BuildStamp.Build, BuildStamp.DataHash, password);
-        return NetSession.Host(tree, settings, identity, port ?? settings.Port, Lag(), name, look);
+        int gamePort = port ?? settings.Port;
+        NetSession session = NetSession.Host(tree, settings, identity, gamePort, Lag(pretendLag_ms), name, look, data.Config.Rules,
+            RoundChoices.FromMenu(data));
+        session.Announce(() => Announcement(data, session, gamePort));
+        return session;
+    }
+
+    /// <summary>What a search on the network is told about the game hosted here.</summary>
+    public static GameAnnouncement Announcement(GameData data, NetSession session, int port)
+    {
+        LobbyState lobby = session.Lobby!.State;
+        ChosenRound round = RoundChoices.Resolve(data, lobby.Choices);
+        return new GameAnnouncement
+        {
+            Name = lobby.ServerName, Port = port, Where = round.Where, How = round.How, People = lobby.Members.Count, MaxPeople = lobby.MaxPeople,
+            Build = BuildStamp.Build, Password = session.Server!.Identity.Password.Length > 0,
+            InRound = lobby.Phase is LobbyPhase.Loading or LobbyPhase.Round or LobbyPhase.Summary,
+        };
     }
 
     /// <summary>Joining the host at <paramref name="address"/> ("host" or "host:port").</summary>
-    public static NetSession Join(SceneTree tree, string address, string name, byte look, string password = "")
+    public static NetSession Join(SceneTree tree, string address, string name, byte look, string password = "", float pretendLag_ms = 0f)
     {
         NetSettings settings = Settings();
         (string host, int port) = Address(address, settings.Port);
@@ -36,7 +59,7 @@ public static class NetStart
         {
             Protocol = NetProtocol.Version, Build = BuildStamp.Build, DataHash = BuildStamp.DataHash, Name = name, Password = password, Look = look,
         };
-        return NetSession.Join(tree, settings, host, port, hello, Lag());
+        return NetSession.Join(tree, settings, host, port, hello, Lag(pretendLag_ms));
     }
 
     /// <summary>"host" or "host:port" (an IPv6 address in brackets: "[::1]:47820").</summary>
@@ -62,10 +85,12 @@ public static class NetStart
         return (a, defaultPort);
     }
 
-    /// <summary>The connection made worse on purpose, from the command line (none by default).</summary>
-    public static LagSettings Lag() => new()
+    /// <summary>
+    /// The connection made worse on purpose: the command line's, else the settings' pretend round trip (none by default).
+    /// </summary>
+    public static LagSettings Lag(float pretendLag_ms = 0f) => new()
     {
-        RoundTrip_ms = Number("--net-lag"), Jitter_ms = Number("--net-jitter"), Loss_pct = Number("--net-loss"),
+        RoundTrip_ms = Args.Has("--net-lag") ? Number("--net-lag") : pretendLag_ms, Jitter_ms = Number("--net-jitter"), Loss_pct = Number("--net-loss"),
     };
 
     private static float Number(string flag) =>

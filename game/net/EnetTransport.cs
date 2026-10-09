@@ -90,6 +90,9 @@ public sealed class EnetTransport : ITransport
         return _arrived.TryDequeue(out received);
     }
 
+    public float RoundTrip(int peer) =>
+        _byId.TryGetValue(peer, out ENetPacketPeer? target) ? (float)target.GetStatistic(ENetPacketPeer.PeerStatistic.RoundTripTime) / 1000f : -1f;
+
     public void Disconnect(int peer)
     {
         if (_byId.TryGetValue(peer, out ENetPacketPeer? target))

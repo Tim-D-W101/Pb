@@ -982,9 +982,12 @@ public sealed class RulesDef : IValidatable
 
     public ObjectivesDef Objectives { get; set; } = new();
 
+    public CalloutDef Callout { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MaxPlayers), MaxPlayers, 2, 32);
+        Callout.Validate(v.Scope(nameof(Callout)));
         Objectives.Validate(v.Scope(nameof(Objectives)));
         v.InRange(nameof(SettleTime_s), SettleTime_s, 0, 10);
         v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.1, 5);
@@ -1009,6 +1012,26 @@ public sealed class RulesDef : IValidatable
         {
             v.Error(nameof(Modes), "two modes share an id");
         }
+    }
+}
+
+/// <summary>The callout key (rules.jsonc "callout"): whom a shout of "Contact!" is about, and how often one may come.</summary>
+public sealed class CalloutDef : IValidatable
+{
+    /// <summary>The opponent called out is the one nearest the aim, within this angle of it…</summary>
+    public float Cone_deg { get; set; }
+
+    /// <summary>… and this far, in sight.</summary>
+    public float Range_m { get; set; }
+
+    /// <summary>At most one callout this often.</summary>
+    public float Cooldown_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Cone_deg), Cone_deg, 1, 45);
+        v.InRange(nameof(Range_m), Range_m, 5, 300);
+        v.InRange(nameof(Cooldown_s), Cooldown_s, 0, 30);
     }
 }
 

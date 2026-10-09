@@ -54,6 +54,11 @@ public sealed class PlayerState
     /// <summary>Playing with others: they left the game mid-round (<see cref="SimWorld.Withdraw"/>).</summary>
     public bool Left { get; internal set; }
 
+    /// <summary>The callout key was held last tick, and when the last callout went (sim time): the authority's own record.</summary>
+    internal bool CalloutHeld { get; set; }
+
+    internal double CalledOutAt { get; set; } = double.NegativeInfinity;
+
     /// <summary>Can't sprint (carrying the case, when the rules say a carrier can't).</summary>
     public bool SprintBlocked { get; set; }
 
@@ -66,6 +71,9 @@ public sealed class PlayerState
 
     /// <summary>Opponents this player has eliminated.</summary>
     public int Eliminations { get; set; }
+
+    /// <summary>Balls of theirs that broke on an opponent this round (the scoreboard; the round's stats keep the same).</summary>
+    public int Hits { get; set; }
 
     public Vector3 Position { get; set; }
 

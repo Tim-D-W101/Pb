@@ -82,6 +82,20 @@ public class MatchTests
     }
 
     [Fact]
+    public void Paint_on_someone_already_out_isnt_a_hit()
+    {
+        (SimWorld sim, PlayerState hero, PlayerState[] opponents) = Field(10f, 12f);
+        MatchState match = sim.StartMatch(Setup());
+        sim.GoLive();
+        // Out already, walking off with the marker up: still on the field, so the ball breaks on them.
+        opponents[0].Alive = false;
+        List<SimEvent> events = Run(sim, 120, (t, p) => p == hero ? Shoot(hero, opponents[0], t, 20) : default);
+        Assert.Contains(events, e => e.Type == SimEventType.BallBroke && e.TargetId == PlayerHitboxes.ReceiverIdBase + opponents[0].Id);
+        Assert.Equal(0, match.StatsFor(hero.Id)!.Hits);
+        Assert.Equal(0, hero.Hits);
+    }
+
+    [Fact]
     public void Clearing_every_opponent_wins_and_the_stats_add_up()
     {
         (SimWorld sim, PlayerState hero, PlayerState[] opponents) = Field(10f, 12f);

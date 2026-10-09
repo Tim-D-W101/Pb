@@ -110,9 +110,14 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         Body?.Capture();
     }
 
+    /// <summary>Typing in the chat: your keys don't move you (the mouse still looks round).</summary>
+    public bool Muted { get; set; }
+
     public InputCommand Step(int tick, float dt)
     {
-        InputCommand cmd = AutoPilot is not null ? AutoPilot.Next(tick, State) : SampleDevices(tick);
+        InputCommand cmd = AutoPilot is not null ? AutoPilot.Next(tick, State)
+            : Muted ? new InputCommand { Tick = tick, Yaw = _yaw, Pitch = _pitch }
+            : SampleDevices(tick);
         if (AutoPilot is not null)
         {
             _yaw = cmd.Yaw;
@@ -320,5 +325,6 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         ("swap_shoulder", InputButtons.SwapShoulder),
         ("slide", InputButtons.Slide),
         ("jump", InputButtons.Jump),
+        ("callout", InputButtons.Callout),
     };
 }

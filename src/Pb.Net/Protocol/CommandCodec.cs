@@ -9,9 +9,9 @@ namespace Pb.Net.Protocol;
 /// </summary>
 public static class CommandCodec
 {
-    public const InputButtons KnownButtons = (InputButtons)0x0FFF;
+    public const InputButtons KnownButtons = (InputButtons)0x1FFF;
 
-    private const int ButtonBits = 12;
+    private const int ButtonBits = 13;
     private const int YawBits = 16;
     private const int PitchBits = 14;
     private const int HeadBits = 12;

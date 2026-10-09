@@ -58,6 +58,8 @@ public partial class Hud : CanvasLayer, ISimEventListener
     private double _toastTimer;
     private double _helpTimer = 12;
 
+    private Label? _connection;
+
     public bool ShowPerf { get; set; } = true;
 
     public bool ShowHelp
@@ -152,6 +154,27 @@ public partial class Hud : CanvasLayer, ISimEventListener
         var hud = new ObjectiveHud { Name = "Objective" };
         GetNode<Control>("Root").AddChild(hud);
         hud.Initialize(_sim, _player, objective, view);
+    }
+
+    /// <summary>Playing with others: a warning that the connection's poor (null takes it away).</summary>
+    public void Connection(string? warning)
+    {
+        if (_connection is null)
+        {
+            if (warning is null)
+            {
+                return;
+            }
+
+            _connection = MakeLabel(GetNode<Control>("Root"), 20, Control.LayoutPreset.CenterTop, new Vector2(0, 58), HorizontalAlignment.Center);
+            _connection.Modulate = new Color(1f, 0.62f, 0.3f);
+        }
+
+        _connection.Visible = warning is not null;
+        if (warning is not null && _connection.Text != warning)
+        {
+            _connection.Text = warning;
+        }
     }
 
     /// <summary>A subtitle for something a player shouted (unless subtitles are off).</summary>

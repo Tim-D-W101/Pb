@@ -56,6 +56,8 @@ public sealed class LaggedTransport : ITransport
         Flush();
     }
 
+    public float RoundTrip(int peer) => _inner.RoundTrip(peer) is >= 0f and float inner ? inner + Settings.RoundTrip_ms / 1000f : -1f;
+
     public bool Poll(out TransportEvent received)
     {
         if (_lent is not null)

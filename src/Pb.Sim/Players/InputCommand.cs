@@ -18,6 +18,9 @@ public enum InputButtons : ushort
     SwapShoulder = 1 << 9,
     Slide = 1 << 10,
     Jump = 1 << 11,
+
+    /// <summary>The callout key: "Contact!" about the opponent nearest the aim, for your side.</summary>
+    Callout = 1 << 12,
 }
 
 /// <summary>

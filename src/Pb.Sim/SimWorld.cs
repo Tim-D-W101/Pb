@@ -304,6 +304,7 @@ public sealed class SimWorld
                 if (!client)
                 {
                     Doors.Interact(this, player, IsLive && player.Alive && !climbing && cmd.Has(InputButtons.Interact), dt);
+                    CallOut(player, cmd.Has(InputButtons.Callout), t0);
                 }
             }
         }
@@ -328,6 +329,64 @@ public sealed class SimWorld
 
         Tick++;
         Time += dt;
+    }
+
+    /// <summary>
+    /// The callout key, on its press: "Contact!" about the opponent nearest the aim (within the rules' cone and range, in
+    /// sight), or where the caller is looking when there's none, for the caller's side to take as a contact.
+    /// </summary>
+    private void CallOut(PlayerState player, bool held, double now)
+    {
+        bool pressed = held && !player.CalloutHeld;
+        player.CalloutHeld = held;
+        CalloutRules rules = Config.Rules.Callout;
+        if (!pressed || !player.Alive || !IsLive || now - player.CalledOutAt < rules.Cooldown)
+        {
+            return;
+        }
+
+        player.CalledOutAt = now;
+        Vector3 eye = player.EyePosition;
+        Vector3 aim = ViewAngles.Forward(player.Yaw, player.Pitch);
+        int best = -1;
+        float bestCos = rules.ConeCos;
+        Vector3 at = default;
+        for (int i = 0; i < _players.Count; i++)
+        {
+            PlayerState other = _players[i];
+            if (other == player || !other.Alive || !other.Present || other.Team == player.Team)
+            {
+                continue;
+            }
+
+            Vector3 to = other.EyePosition - eye;
+            float distance = to.Length();
+            if (distance < 0.5f || distance > rules.Range)
+            {
+                continue;
+            }
+
+            float cos = Vector3.Dot(to / distance, aim);
+            if (cos < bestCos || Collision.SweepSphere(eye, other.EyePosition, 0.01f, out _))
+            {
+                continue;
+            }
+
+            best = other.Id;
+            bestCos = cos;
+            at = other.Position;
+        }
+
+        if (best < 0)
+        {
+            Vector3 end = eye + aim * rules.Range;
+            at = Collision.SweepSphere(eye, end, 0.01f, out SweepHit hit) ? hit.Point : end;
+        }
+
+        Events.Add(new SimEvent
+        {
+            Type = SimEventType.CalledOut, Tick = Tick, PlayerId = player.Id, TargetId = best, Team = player.Team, Position = at, ColliderId = -1,
+        });
     }
 
     /// <summary>Someone who left: out (if they were still in) and off the field at once.</summary>

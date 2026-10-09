@@ -73,6 +73,12 @@ public readonly record struct MatchResult(RoundEnd Reason, int Winner)
 }
 
 /// <summary>Round rules (SI), from rules.jsonc.</summary>
+/// <summary>
+/// The callout key: whom "Contact!" is about (the opponent nearest the aim, within the cone's cosine and the range, in
+/// sight), and the cooldown between callouts (s).
+/// </summary>
+public sealed record CalloutRules(float ConeCos, float Range, float Cooldown);
+
 public sealed class MatchRules
 {
     /// <summary>The modes the menu offers, in order.</summary>
@@ -97,6 +103,9 @@ public sealed class MatchRules
 
     /// <summary>The objectives the menu offers and how each is played.</summary>
     public required ObjectiveRules Objectives { get; init; }
+
+    /// <summary>The callout key's rules.</summary>
+    public required CalloutRules Callout { get; init; }
 
     /// <summary>The mode with this id, or null.</summary>
     public GameMode? FindMode(string id)
@@ -577,10 +586,15 @@ public sealed class MatchState
                     s.Shots++;
                     break;
                 case SimEventType.BallBroke when PlayerHitboxes.IsPlayer(e.TargetId) && StatsFor(e.PlayerId) is { } s:
+                    // A hit on an opponent still in (or the one that put them out): paint on someone walking off doesn't count.
                     PlayerState? victim = sim.FindPlayer(PlayerHitboxes.PlayerIdOf(e.TargetId));
-                    if (victim is not null && victim.Team != e.Team)
+                    if (victim is not null && victim.Team != e.Team && (victim.Alive || victim.EliminatedTick == e.Tick))
                     {
                         s.Hits++;
+                        if (sim.FindPlayer(e.PlayerId) is { } hitter)
+                        {
+                            hitter.Hits++;
+                        }
                     }
 
                     break;

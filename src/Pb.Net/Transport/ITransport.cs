@@ -42,4 +42,7 @@ public interface ITransport : IDisposable
 
     /// <summary>Hangs up on a peer (a player, or for a player the server).</summary>
     void Disconnect(int peer);
+
+    /// <summary>The connection's own measure of the round trip to a peer (s), or −1 if it has none.</summary>
+    float RoundTrip(int peer) => -1f;
 }

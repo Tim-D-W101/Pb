@@ -15,7 +15,8 @@ namespace Pb.Game.Ui;
 /// </summary>
 public partial class BindingsList : VBoxContainer
 {
-    private static readonly (string Id, string Name)[] Groups = { ("movement", "Movement"), ("combat", "Combat"), ("shortcuts", "Shortcuts") };
+    private static readonly (string Id, string Name)[] Groups =
+        { ("movement", "Movement"), ("combat", "Combat"), ("others", "Playing with others"), ("shortcuts", "Shortcuts") };
 
     private readonly Dictionary<(string Action, BindingSet.Slot Slot), Button> _buttons = new();
     private GameSettings _settings = null!;

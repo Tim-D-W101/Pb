@@ -12,6 +12,7 @@ using Pb.Game.Ui;
 using Pb.Game.World;
 using Pb.Net;
 using Pb.Net.Client;
+using Pb.Net.Lobby;
 using Pb.Net.Protocol;
 using Pb.Net.Server;
 using Pb.Sim;
@@ -146,6 +147,9 @@ public partial class LevelMain : Node3D, ISimEventListener
     private CastRound? _cast;
     private readonly List<ClientLink> _netPeople = new();
 
+    /// <summary>Hosting: the lobby member each person in the round is, in the roster's order (you first).</summary>
+    private readonly List<int> _netMembers = new();
+
     /// <summary>Joined: the round on this copy (prediction, everyone else posed from snapshots, the server's events).</summary>
     private ClientSession? _session;
 
@@ -154,7 +158,22 @@ public partial class LevelMain : Node3D, ISimEventListener
     private double _netCountdown = -1;
     private bool _netOverSent;
     private bool _netGone;
+    private bool _netLeft;
+    private bool _netScored;
     private NetServer? _listening;
+
+    /// <summary>The summary: the lobby's version it was shown with (shown again when the score comes), and, hosting, the time left before going back to the lobby by itself.</summary>
+    private int _summaryLobby;
+    private double _backIn = -1;
+
+    /// <summary>The scoreboard (held on Tab), teammates' callout marks, and playing with others the chat.</summary>
+    private Scoreboard _scoreboard = null!;
+    private CalloutMarks _marks = null!;
+    private ChatBox? _chat;
+    private double _sinceSnapshotCheck;
+    private int _callouts;
+    private double _snapAt = -1;
+    private int _snaps;
 
     /// <summary>Joined: the server's result and numbers have come; the bot match waits for them to report.</summary>
     private bool _netOver;
@@ -193,10 +212,16 @@ public partial class LevelMain : Node3D, ISimEventListener
                 _net.RoundWaiting = false;
             }
 
-            (_entry, _tier, _mode, _size, _objective) = _netSetup is { } sent ? JoinedRound(_data, sent) : PickRound(_data);
+            // Hosting, it's the lobby's choice.
+            LobbyChoices? hostChoice = _net?.Lobby?.State.Choices;
+            (_entry, _tier, _mode, _size, _objective) = _netSetup is { } sent ? JoinedRound(_data, sent)
+                : hostChoice is not null ? HostedRound(_data, hostChoice)
+                : PickRound(_data);
             // The whole area, or the part of it chosen: walled in, with its own entries, starts, pickups and objectives.
             LevelLayout area = _data.Levels[_entry.Id];
-            string? placeId = _netSetup is not null ? _netSetup.PlaceId : GameSession.LevelId is not null ? GameSession.PlaceId : Args.Value("--place");
+            string? placeId = _netSetup is not null ? _netSetup.PlaceId
+                : hostChoice is not null ? RoundChoices.Resolve(_data, hostChoice).Place.Id
+                : GameSession.LevelId is not null ? GameSession.PlaceId : Args.Value("--place");
             if (placeId is not null && area.Places.All(p => p.Id != placeId))
             {
                 throw new InvalidOperationException($"{area.DisplayName} has no place '{placeId}' (known: {string.Join(", ", area.Places.Select(p => p.Id))})");
@@ -448,6 +473,7 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _match = _sim.StartMatch(setup);
         _hud.InitializeObjective(_view.Objectives);
+        BuildOthersHud(state);
         var objectiveViews = new ObjectiveViews { Name = "Objective" };
         AddChild(objectiveViews);
         objectiveViews.Build(_sim, _view.Objectives);
@@ -548,7 +574,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             var you = new OpponentSpawn { Id = "you", Position = start.Position, Yaw = start.Yaw, Roles = new[] { "hunter" } };
             BotBrain brain = _squad.Add(state, _data.Bots.Archetypes["hunter"], _data.Bots.Difficulty[_tier.Bots], you);
-            _player.AutoPilot = new BotPilot(brain);
+            _player.AutoPilot = Args.Has("--call-outs") ? new CallingPilot(brain) : new BotPilot(brain);
             _hud.ShowPerf = false;
             if (Args.Has("--fast"))
             {
@@ -660,6 +686,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             }
         }
 
+        if (e.Type == SimEventType.CalledOut)
+        {
+            _callouts++;
+            OnCalledOut(e);
+        }
+
         if (e.Type == SimEventType.ShotFired && e.PlayerId == _player.State.Id)
         {
             _player.ViewModel.Kick();
@@ -758,6 +790,13 @@ public partial class LevelMain : Node3D, ISimEventListener
         return (entry, tier, mode, setup.Size, objective);
     }
 
+    /// <summary>Hosting: the round the lobby chose.</summary>
+    private static (AreaEntryDef Entry, TierDef Tier, GameMode Mode, int Size, ObjectiveChoice Objective) HostedRound(GameData data, LobbyChoices choices)
+    {
+        ChosenRound round = RoundChoices.Resolve(data, choices);
+        return (round.Entry, round.Tier, round.Mode, round.Size, round.Objective);
+    }
+
     /// <summary>
     /// Hosting: casts the round with everyone in the game (you first, then whoever has joined, in the order they came) and
     /// bots in the places left, everyone's start dealt from the round's seed. The round is made big enough for everyone.
@@ -765,18 +804,34 @@ public partial class LevelMain : Node3D, ISimEventListener
     private void CastWithEveryone(ulong seed)
     {
         NetSession session = _net!;
-        var people = new List<Person> { new(session.LocalName, session.LocalLook) };
+        NetServer server = session.Server!;
+        // Everyone in the lobby, in the order they came (you first), with the side and character they chose there.
+        var people = new List<Person>();
         _netPeople.Clear();
-        foreach (ClientLink link in session.Server!.Clients)
+        _netMembers.Clear();
+        foreach (LobbyMember m in session.Lobby!.State.Members)
         {
-            if (link.Welcomed)
+            ClientLink? link = m.Host ? null : server.Clients.FirstOrDefault(c => c.Welcomed && c.Peer == m.Id);
+            if (!m.Host && link is null)
             {
-                _netPeople.Add(link);
-                people.Add(new Person(link.Name, link.Look));
+                continue;
             }
+
+            var person = new Person(m.Name, m.Look, m.Side);
+            if (m.Host)
+            {
+                people.Insert(0, person);
+                _netMembers.Insert(0, m.Id);
+                continue;
+            }
+
+            people.Add(person);
+            _netMembers.Add(m.Id);
+            _netPeople.Add(link!);
         }
 
-        int size = RoundCasting.FitSize(_mode, _size, people.Count, _data.Config.Rules.MaxPlayers);
+        int largest = Math.Max(people.Count(p => p.Side == 0), people.Count(p => p.Side == 1));
+        int size = RoundCasting.FitSize(_mode, _size, people.Count, _data.Config.Rules.MaxPlayers, largest);
         if (size != _size)
         {
             _size = size;
@@ -920,6 +975,139 @@ public partial class LevelMain : Node3D, ISimEventListener
         _netPeople.Remove(link);
     }
 
+    /// <summary>
+    /// The scoreboard (held on Tab) and teammates' callout marks in every round, names over your teammates (not in
+    /// free-for-all), and, playing with others, the chat (T to everyone, Y to your side).
+    /// </summary>
+    private void BuildOthersHud(PlayerState state)
+    {
+        var layer = new CanvasLayer { Name = "OthersHud", Layer = 6 };
+        AddChild(layer);
+        var root = new Control { Name = "Root", MouseFilter = Control.MouseFilterEnum.Ignore, Theme = UiKit.Theme };
+        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        layer.AddChild(root);
+        _marks = new CalloutMarks { Name = "CalloutMarks", Show_s = _view.Hud.CalloutMark_s };
+        root.AddChild(_marks);
+
+        _scoreboard = new Scoreboard { Name = "Scoreboard" };
+        var centre = new CenterContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        centre.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        centre.AddChild(_scoreboard);
+        root.AddChild(centre);
+        _scoreboard.Initialize(_sim, _mode.Kind, state.Id, t => TeamColor(t), PingOf,
+            p => _netSetup?.Roster.FirstOrDefault(r => r.PlayerId == p.Id)?.Person ?? p == state, $"{_round.Where} · {_round.Line}");
+
+        if (_mode.Kind != MatchModeKind.FreeForAll)
+        {
+            foreach (OpponentPawn pawn in _pawns.Where(o => o.State.Team == state.Team))
+            {
+                pawn.ShowName(pawn.State.Name, TeamColor(pawn.State.Team), _view.Hud.NameAbove_m, _view.Hud.NameRange_m);
+            }
+        }
+
+        if (_net is null)
+        {
+            return;
+        }
+
+        _chat = new ChatBox { Name = "Chat", Fades = true, ShowFor_s = _view.Hud.ChatShow_s };
+        _chat.Build(620f, _view.Hud.ChatLines, teams: _mode.Kind == MatchModeKind.Teams);
+        _chat.SideColor = side => side < 0 ? UiKit.Accent : TeamColor(side);
+        _chat.Send = (text, team) => _net?.Say(text, team);
+        _chat.Closed = () => _player.Muted = false;
+        root.AddChild(_chat);
+        _chat.SetAnchorsPreset(Control.LayoutPreset.BottomLeft);
+        _chat.Position = new Vector2(24, -330);
+        _chat.GrowVertical = Control.GrowDirection.Begin;
+    }
+
+    /// <summary>
+    /// <c>--snap-every=S</c> (with <c>--snap-dir=DIR</c>, default user://snaps): the screen saved every S seconds of real
+    /// time, for pictures of a round that runs at its real speed (filming at a fixed frame rate would slow a joining copy's
+    /// clock against the host's).
+    /// </summary>
+    private void Snap()
+    {
+        if (!float.TryParse(Args.Value("--snap-every"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
+                out float every) || every <= 0f)
+        {
+            return;
+        }
+
+        double now = Time.GetTicksMsec() / 1000.0;
+        if (_snapAt < 0)
+        {
+            _snapAt = now + every;
+            return;
+        }
+
+        if (now < _snapAt)
+        {
+            return;
+        }
+
+        _snapAt = now + every;
+        string dir = Args.Value("--snap-dir") ?? "user://snaps";
+        DirAccess.MakeDirRecursiveAbsolute(dir);
+        string path = $"{dir}/snap{_snaps++:000}.png";
+        GetViewport().GetTexture().GetImage().SavePng(path);
+        GD.Print($"SNAP {path} at {_match.Elapsed:0.0} s ({_match.Phase})");
+    }
+
+    /// <summary>A person's ping as the lobby has it (ms; none for the host, or a bot).</summary>
+    private int? PingOf(PlayerState p) =>
+        _net?.LobbyView?.Members.FirstOrDefault(m => m.Name == p.Name) is { Host: false } m ? m.Ping_ms : null;
+
+    /// <summary>
+    /// Someone's callout key: "Contact!" in their character's voice from where they stand, and for their side a mark
+    /// over the spot (and a subtitle when they're close).
+    /// </summary>
+    private void OnCalledOut(in SimEvent e)
+    {
+        if (_sim.FindPlayer(e.PlayerId) is not { } caller)
+        {
+            return;
+        }
+
+        string[] lines = _view.Hud.Callouts.For(CalloutKind.Spotted);
+        string line = lines.Length > 0 ? lines[(caller.Id * 31 + e.Tick) % lines.Length] : "Contact!";
+        int look = _netSetup?.Roster.FirstOrDefault(r => r.PlayerId == caller.Id)?.Look ?? 0;
+        _audio.Callout(caller, look, line);
+        PlayerState you = _player.State;
+        bool ours = caller == you || (_mode.Kind != MatchModeKind.FreeForAll && caller.Team == you.Team);
+        if (!ours)
+        {
+            return;
+        }
+
+        string who = caller == you ? "You" : caller.Name;
+        string about = e.TargetId >= 0 && _sim.FindPlayer(e.TargetId) is { } target ? $"{who}: {target.Name}" : $"{who}: contact";
+        _marks.Add(e.Position.ToGodot(), TeamColor(caller.Team), about);
+        if (System.Numerics.Vector3.Distance(caller.Position, you.Position) <= _view.Hud.SubtitleRange_m)
+        {
+            _hud.Subtitle(caller.Name, caller.Team, line);
+        }
+    }
+
+    /// <summary>Joined: a warning on the HUD when the connection's poor, or nothing has come from the host for a while.</summary>
+    private void ConnectionWarning(double delta)
+    {
+        _sinceSnapshotCheck += delta;
+        if (_net?.Client is not { } client || _session is null || _sinceSnapshotCheck < 0.25)
+        {
+            return;
+        }
+
+        _sinceSnapshotCheck = 0;
+        NetSettings settings = _net.Settings;
+        double quiet = _net.Now - client.NewestAt;
+        string? warning = _match.Phase == MatchPhase.Ended ? null
+            : quiet > settings.PoorSilence ? "Connection interrupted: waiting for the host…"
+            : client.RoundTrip > settings.PoorRoundTrip ? $"Connection poor: {client.RoundTrip * 1000f:0} ms to the host"
+            : null;
+        _hud.Connection(warning);
+    }
+
     /// <summary>Hosting: someone who's out is walked off the field the way the bots go, so nobody's left standing in the way.</summary>
     private ICommandSource WalkOffPilot(PlayerState state)
     {
@@ -994,6 +1182,7 @@ public partial class LevelMain : Node3D, ISimEventListener
                 return at >= 0 ? cast.PersonIds[at + 1] : -1;
             });
             session.Round = setup;
+            session.Lobby?.RoundStarted();
             _netWaited = 0;
             GD.Print($"NET round {setup.Round} sent to {_netPeople.Count} joined: {string.Join(", ", _netPeople.Select(l => $"{l.Name} as player {l.PlayerId}"))}");
             return;
@@ -1024,7 +1213,7 @@ public partial class LevelMain : Node3D, ISimEventListener
                 return;
             }
 
-            _netCountdown = settings.Countdown;
+            _netCountdown = settings.Briefing;
         }
 
         _netCountdown -= delta;
@@ -1038,6 +1227,49 @@ public partial class LevelMain : Node3D, ISimEventListener
         BeginRound();
     }
 
+    /// <summary>
+    /// Playing with others, once the round's over: hosting, back to the lobby by itself after a while; joined, the summary
+    /// again when the session's score comes, and back to the lobby when the host goes.
+    /// </summary>
+    private void NetSummary(double delta)
+    {
+        if (_net is not { } session || _match.Phase != MatchPhase.Ended || _netLeft)
+        {
+            return;
+        }
+
+        if (session.Hosting)
+        {
+            if (!_summaryShown || _botMatch || session.Settings.Summary <= 0f)
+            {
+                return;
+            }
+
+            if (_backIn < 0)
+            {
+                _backIn = session.Settings.Summary;
+            }
+
+            _backIn -= delta;
+            SetStatus(SummaryNote(over: true));
+            if (_backIn <= 0)
+            {
+                BackToLobby();
+            }
+
+            return;
+        }
+
+        if (session.LobbyView is { Phase: LobbyPhase.Lobby or LobbyPhase.Vote or LobbyPhase.Countdown } && !_botMatch)
+        {
+            FollowToLobby();
+        }
+        else if (_summaryShown && session.LobbyVersion != _summaryLobby)
+        {
+            RefreshSummary();
+        }
+    }
+
     /// <summary>The waiting briefing's (or summary's) status line.</summary>
     private void SetStatus(string text)
     {
@@ -1047,12 +1279,83 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
     }
 
-    /// <summary>Hosting: the next round, with everyone in the game now (new starts; with people on both sides, the other attacks).</summary>
-    private void NextHostedRound()
+    /// <summary>Hosting: back to the lobby (or the vote first) for everyone, then the next round from there.</summary>
+    private void BackToLobby()
     {
-        _net!.RoundsPlayed = _netSetup!.Round;
+        if (_net?.Lobby is not { } lobby || _netLeft)
+        {
+            return;
+        }
+
+        _netLeft = true;
+        _net.RoundsPlayed = _netSetup!.Round;
+        LobbyChoices choices = lobby.State.Choices;
+        IReadOnlyList<VoteOption>? options = choices.Vote ? RoundChoices.VoteOptions(_data, choices, _net.Settings.VoteOptions, _sim.MatchSeed ^ 0x5EED) : null;
+        lobby.BackToLobby(options);
         StopNetwork();
-        GetTree().ReloadCurrentScene();
+        GetTree().ChangeSceneToFile(GameSession.LobbyScene);
+    }
+
+    /// <summary>Joined: the host has gone back to the lobby; so do you.</summary>
+    private void FollowToLobby()
+    {
+        if (_netLeft || _net is null)
+        {
+            return;
+        }
+
+        _netLeft = true;
+        StopNetwork();
+        GetTree().ChangeSceneToFile(GameSession.LobbyScene);
+    }
+
+    /// <summary>Hosting: the round's result in the session's score (each person's lobby member, their player and side).</summary>
+    private void ScoreRound()
+    {
+        if (_net?.Lobby is not { } lobby || _cast is null || _netScored)
+        {
+            return;
+        }
+
+        _netScored = true;
+        var people = new List<PersonInRound>();
+        for (int i = 0; i < _cast.PersonIds.Count && i < _netMembers.Count; i++)
+        {
+            int playerId = _cast.PersonIds[i];
+            people.Add(new PersonInRound(_netMembers[i], playerId, _sim.FindPlayer(playerId)?.Team ?? -1));
+        }
+
+        var stats = _match.Stats.Select(p => new StatsEntry(p.PlayerId, p.Shots, p.Hits, p.Eliminations, p.Pickups, p.TimeIn, p.OutTick)).ToList();
+        lobby.RoundOver(_match.Result, people, stats);
+    }
+
+    /// <summary>The summary's line playing with others: the session's score, and what happens next.</summary>
+    private string SummaryNote(bool over)
+    {
+        NetSession session = _net!;
+        string next = !over ? "The round goes on without you."
+            : session.Hosting ? session.Settings.Summary > 0f ? $"Back to the lobby in {Math.Ceiling(_backIn):0} s, or now." : "Back to the lobby when everyone's ready."
+            : "Back to the lobby when the host is.";
+        return SessionLine() is { } score ? $"{score}\n{next}" : next;
+    }
+
+    /// <summary>"After 3 rounds: your side 2, theirs 1." (or each person's wins in free-for-all).</summary>
+    private string? SessionLine()
+    {
+        if (_net?.LobbyView is not { RoundsPlayed: > 0 } lobby)
+        {
+            return null;
+        }
+
+        string after = $"After {lobby.RoundsPlayed} round{(lobby.RoundsPlayed == 1 ? "" : "s")}";
+        int me = _net.MemberId;
+        return _mode.Kind switch
+        {
+            MatchModeKind.FreeForAll => $"{after}, rounds won: " +
+                string.Join(" · ", lobby.Members.OrderByDescending(m => m.RoundsWon).Select(m => $"{(m.Id == me ? "you" : m.Name)} {m.RoundsWon}")) + ".",
+            MatchModeKind.Teams => $"{after}: your side {lobby.SideWins[_player.State.Team % 2]}, theirs {lobby.SideWins[1 - _player.State.Team % 2]}.",
+            _ => $"{after}: you've won {lobby.SideWins[0]}, the squad {lobby.SideWins[1]}.",
+        };
     }
 
     /// <summary>Joined: the host has started the next round: build it (or, not playing in it, wait for the one after).</summary>
@@ -1290,6 +1593,8 @@ public partial class LevelMain : Node3D, ISimEventListener
             RecordRound();
         }
 
+        ScoreRound();
+
         // Skipped ahead to the summary: it shows the final result now.
         if (_summaryEarly)
         {
@@ -1350,7 +1655,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         string objective = ObjectiveLine() is { } line ? $" ({line})" : "";
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +
                  $"{you.Eliminations} of {_sim.Players.Count(p => p.Team != _player.State.Team)}, {you.Shots} shots, {you.Hits} hits, " +
-                 $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
+                 $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; callouts heard {_callouts}; simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
         if (_net is { } session)
         {
             // Every copy prints the round as it ended there: the host's and each joiner's lines must match (CI compares them).
@@ -1448,11 +1753,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         if (_net is { } session)
         {
             actions = session.Hosting && over
-                ? new (string, Action)[] { ("Next round", NextHostedRound), ("Leave", LeaveGame) }
+                ? new (string, Action)[] { ("Back to the lobby", BackToLobby), ("End the game", LeaveGame) }
                 : new (string, Action)[] { ("Leave", LeaveGame) };
-            note = session.Hosting
-                ? over ? "Start the next round when everyone's ready: the same place, new starts." : "The round goes on without you."
-                : over ? "Waiting for the host to start the next round…" : "The round goes on without you.";
+            note = SummaryNote(over);
+            _summaryLobby = session.LobbyVersion;
         }
 
         ShowOverlay(RoundScreens.Summary(_round, _match, _match.StatsFor(you.Id)!, facts,
@@ -1529,6 +1833,17 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         NetCountdown(delta);
+        NetSummary(delta);
+        ConnectionWarning(delta);
+        Snap();
+        _scoreboard.Visible = (Input.IsActionPressed("scoreboard") || Args.Has("--show-scoreboard")) && _overlay is null && _chat?.Typing != true && !_pause.Open;
+        if (_net is not null && _chat is not null)
+        {
+            foreach (Pb.Net.Lobby.ChatLine line in _net.TakeChat())
+            {
+                _chat.Add(line);
+            }
+        }
         HudDef hud = _view.Hud;
         for (int i = 0; i < _bots.Count; i++)
         {
@@ -1562,10 +1877,45 @@ public partial class LevelMain : Node3D, ISimEventListener
         public InputCommand Next(int tick, PlayerState state) => new() { Tick = tick, Yaw = state.Yaw, Pitch = state.Pitch };
     }
 
+    /// <summary>The bot playing your slot (<c>--call-outs</c>) that also presses the callout key whenever it spots someone.</summary>
+    private sealed class CallingPilot : ICommandSource
+    {
+        private readonly BotPilot _pilot;
+        private readonly BotBrain _brain;
+        private int _called = -1;
+
+        public CallingPilot(BotBrain brain)
+        {
+            _brain = brain;
+            _pilot = new BotPilot(brain);
+        }
+
+        public InputCommand Next(int tick, PlayerState state)
+        {
+            InputCommand cmd = _pilot.Next(tick, state);
+            if (_brain.Callout == CalloutKind.Spotted && _brain.CalloutTick > _called)
+            {
+                _called = _brain.CalloutTick;
+                cmd.Buttons |= InputButtons.Callout;
+            }
+
+            return cmd;
+        }
+    }
+
     public override void _UnhandledInput(InputEvent e)
     {
         if (!_ready)
         {
+            return;
+        }
+
+        if (_chat is { Typing: false } chat && _overlay is null && !_pause.Open && (e.IsActionPressed("chat") || e.IsActionPressed("chat_team")))
+        {
+            // Playing with others: typing, your keys don't move you.
+            _player.Muted = true;
+            chat.Open(teamOnly: e.IsActionPressed("chat_team"));
+            GetViewport().SetInputAsHandled();
             return;
         }
 

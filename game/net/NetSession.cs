@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Godot;
 using Pb.Net;
 using Pb.Net.Client;
+using Pb.Net.Lobby;
 using Pb.Net.Protocol;
 using Pb.Net.Server;
 using Pb.Net.Transport;
+using Pb.Sim.Match;
 
 namespace Pb.Game.Net;
 
@@ -18,6 +21,8 @@ namespace Pb.Game.Net;
 public partial class NetSession : Node
 {
     private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private int _hostVersion;
+    private LanAnnouncer? _announcer;
 
     /// <summary>The session under way, if any.</summary>
     public static NetSession? Current { get; private set; }
@@ -29,6 +34,24 @@ public partial class NetSession : Node
     public NetClient? Client { get; private set; }
 
     public bool Hosting => Server is not null;
+
+    /// <summary>Hosting: the lobby (who's in, sides, ready, the choices, the countdown, the vote, chat, the score).</summary>
+    public LobbyHost? Lobby { get; private set; }
+
+    /// <summary>The lobby as this copy sees it: its own when hosting, else as the host last sent it (null until it has).</summary>
+    public LobbyState? LobbyView => Lobby?.State ?? Client?.Lobby;
+
+    /// <summary>Goes up whenever the lobby changes (for screens to know when to refresh).</summary>
+    public int LobbyVersion => Lobby is not null ? _hostVersion : Client?.LobbyVersion ?? 0;
+
+    /// <summary>Your member number in the lobby (the host's is 0; −1 until let in).</summary>
+    public int MemberId => Hosting ? LobbyHost.HostId : Client?.Welcome?.ClientId ?? -1;
+
+    public LobbyMember? Me => LobbyView?.Find(MemberId);
+
+    /// <summary>The lobby's countdown or vote: its time left now (s).</summary>
+    public float TimeLeft => Lobby?.TimeLeft
+        ?? (Client?.Lobby is { } seen ? (float)Math.Max(0.0, seen.TimeLeft - (Now - Client.LobbyAt)) : 0f);
 
     /// <summary>Seconds since the session began (the network's clock).</summary>
     public double Now => _clock.Elapsed.TotalSeconds;
@@ -59,8 +82,9 @@ public partial class NetSession : Node
     /// <summary>The session is over, and why.</summary>
     public event Action<string>? Ended;
 
-    /// <summary>Starts hosting on <paramref name="port"/>; your own player is player 0.</summary>
-    public static NetSession Host(SceneTree tree, NetSettings settings, ServerIdentity identity, int port, LagSettings lag, string name, byte look)
+    /// <summary>Starts hosting on <paramref name="port"/> with these choices in the lobby; your own player is player 0.</summary>
+    public static NetSession Host(SceneTree tree, NetSettings settings, ServerIdentity identity, int port, LagSettings lag, string name, byte look,
+        MatchRules rules, LobbyChoices choices)
     {
         Current?.Leave("a new game");
         var session = new NetSession { Name = "NetSession", Settings = settings, LocalName = name, LocalLook = look };
@@ -70,7 +94,9 @@ public partial class NetSession : Node
             transport = new LaggedTransport(transport, lag, () => session.Now);
         }
 
-        session.Server = new NetServer(transport, settings, identity, () => session.Now, 1f / 120f);
+        session.Server = new NetServer(transport, settings, identity, () => session.Now, 1f / 120f) { HostName = name };
+        session.Lobby = new LobbyHost(session.Server, settings, rules, choices, () => session.Now, new LobbyMember { Name = name, Look = look });
+        session.Lobby.Changed += () => session._hostVersion++;
         session.Server.Violation += (link, what) => GD.Print($"NET {link.Name} sent {what}");
         session.Server.Joined += link => GD.Print($"NET {link.Name} joined ({link.Peer})");
         session.Server.Left += link => GD.Print($"NET {link.Name} left");
@@ -107,6 +133,9 @@ public partial class NetSession : Node
 
         Client?.Leave(reason);
         Client?.Dispose();
+        Lobby?.Dispose();
+        _announcer?.Dispose();
+        _announcer = null;
         if (Server is { } server)
         {
             // Everyone who joined is told why the game ended, then the host stops listening.
@@ -150,12 +179,52 @@ public partial class NetSession : Node
         }
     }
 
+    /// <summary>Hosting: answers searches for games on your network with what <paramref name="game"/> says.</summary>
+    public void Announce(Func<Pb.Net.Discovery.GameAnnouncement> game)
+    {
+        _announcer?.Dispose();
+        _announcer = new LanAnnouncer(Settings.DiscoveryPort, game);
+    }
+
+    /// <summary>Asks the lobby for something: a side, ready, a character, a vote (hosting, it's decided here).</summary>
+    public void Ask(LobbyAsk ask, int value)
+    {
+        if (Lobby is { } lobby)
+        {
+            lobby.Ask(LobbyHost.HostId, ask, value);
+        }
+        else
+        {
+            Client?.Ask(ask, value);
+        }
+    }
+
+    /// <summary>Says something in the chat, to everyone or only your side.</summary>
+    public void Say(string text, bool teamOnly)
+    {
+        if (Lobby is { } lobby)
+        {
+            lobby.Say(LobbyHost.HostId, text, teamOnly);
+        }
+        else
+        {
+            Client?.Say(text, teamOnly);
+        }
+    }
+
+    /// <summary>Chat lines since the last call.</summary>
+    public IReadOnlyList<ChatLine> TakeChat() => Lobby?.TakeChat() ?? Client?.TakeChat() ?? Array.Empty<ChatLine>();
+
     public override void _Process(double delta)
     {
         if (!InRound)
         {
             Poll();
         }
+
+        // The lobby keeps time (the countdown, the vote) and goes out to everyone, between rounds and during them.
+        Lobby?.Update();
+        _announcer?.Poll();
     }
 
     public override void _ExitTree()

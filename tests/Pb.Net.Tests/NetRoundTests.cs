@@ -273,9 +273,15 @@ public class NetRoundTests
             return new InputCommand { Tick = t, Yaw = yaw, Pitch = pitch, Buttons = t % 30 == 0 ? InputButtons.Fire : InputButtons.None };
         };
         rig.Run(20 * Second);
+        me.Script = null;
         rig.Run(Second / 2);
         int shots = rig.ServerEvents.Count(e => e.Type == SimEventType.ShotFired && e.PlayerId == 0);
         int hits = rig.ServerEvents.Count(e => e.Type == SimEventType.BallBroke && e.PlayerId == 0 && e.TargetId == PlayerHitboxes.ReceiverIdBase + 1);
+        // Your copy shows your hits as the server counted them (for the scoreboard), though it never decides one itself.
+        // (The bot is put back each time, so the round may already be over: hits after it don't count.)
+        int counted = rig.Sim!.FindPlayer(0)!.Hits;
+        Assert.InRange(counted, Math.Min(1, hits), hits);
+        Assert.Equal(counted, me.Session!.Local!.Hits);
         return shots == 0 ? 0f : hits / (float)shots;
     }
 
