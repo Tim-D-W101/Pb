@@ -30,6 +30,9 @@ public sealed record SummaryFacts
     /// <summary>The round is over (false when you skip ahead to the summary while the others play on).</summary>
     public required bool Over { get; init; }
 
+    /// <summary>How it ended for your side (<see cref="MatchState.OutcomeFor"/>).</summary>
+    public required RoundOutcome Outcome { get; init; }
+
     public required bool YouAreOut { get; init; }
 
     /// <summary>Who got you, if anyone did: "Magpie got you: mask, 25 m."</summary>
@@ -183,7 +186,7 @@ public static class RoundScreens
     public static Control Summary(RoundInfo round, MatchState match, PlayerStats you, SummaryFacts facts, Action retry, Action levelSelect,
         Action mainMenu)
     {
-        (string title, Color colour, string line) = Verdict(round.Mode, match.Outcome, facts);
+        (string title, Color colour, string line) = Verdict(round.Mode, facts.Outcome, facts);
 
         VBoxContainer column = UiKit.Column(12);
         column.AddChild(UiKit.Body($"{round.Where} · {round.Line}", 20, UiKit.Dim));
@@ -258,6 +261,17 @@ public static class RoundScreens
         if (outcome == RoundOutcome.TimeUp && f.ObjectiveLine is { } how)
         {
             return ("TIME UP", UiKit.Bad, how);
+        }
+
+        // Defending an objective against people (online).
+        switch (outcome)
+        {
+            case RoundOutcome.HeldOff:
+                return ("HELD THEM OFF", UiKit.Good, "The clock ran out before the other side could do it.");
+            case RoundOutcome.CaseLost:
+                return ("CASE LOST", UiKit.Bad, f.ObjectiveLine ?? "The other side carried the case out.");
+            case RoundOutcome.RoomLost:
+                return ("ROOM LOST", UiKit.Bad, f.ObjectiveLine ?? "The other side held the room.");
         }
 
         return (mode.Kind, outcome) switch

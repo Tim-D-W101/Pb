@@ -30,6 +30,8 @@ public sealed class BallPool
         Bounces = new byte[capacity];
         Bounced = new bool[capacity];
         Rng = new Pcg32[capacity];
+        Rewind = new byte[capacity];
+        Remote = new bool[capacity];
     }
 
     public int Capacity { get; }
@@ -62,7 +64,17 @@ public sealed class BallPool
     /// <summary>Each ball's own random stream (seeded per shot) for its break rolls.</summary>
     public Pcg32[] Rng { get; }
 
-    public int Add(Vector3 position, Vector3 velocity, int owner, uint sequence, byte team, in Pcg32 rng, float firstStep)
+    /// <summary>Lag compensation: how many ticks back its shooter was seeing; it's tested against players as they were then.</summary>
+    public byte[] Rewind { get; }
+
+    /// <summary>
+    /// On a joining copy, a ball someone else fired, flown here for show: it passes through players (the server says
+    /// whom it hit) and can't put anyone out.
+    /// </summary>
+    public bool[] Remote { get; }
+
+    public int Add(Vector3 position, Vector3 velocity, int owner, uint sequence, byte team, in Pcg32 rng, float firstStep, byte rewind = 0,
+        bool remote = false)
     {
         if (Count == Capacity)
         {
@@ -81,7 +93,23 @@ public sealed class BallPool
         Bounces[i] = 0;
         Bounced[i] = false;
         Rng[i] = rng;
+        Rewind[i] = rewind;
+        Remote[i] = remote;
         return i;
+    }
+
+    /// <summary>The slot of the ball <paramref name="owner"/> fired as <paramref name="sequence"/>, or −1.</summary>
+    public int Find(int owner, uint sequence)
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            if (Sequence[i] == sequence && Owner[i] == owner)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     public void RemoveAt(int i)
@@ -103,6 +131,8 @@ public sealed class BallPool
         Bounces[i] = Bounces[last];
         Bounced[i] = Bounced[last];
         Rng[i] = Rng[last];
+        Rewind[i] = Rewind[last];
+        Remote[i] = Remote[last];
     }
 
     public void Clear() => Count = 0;

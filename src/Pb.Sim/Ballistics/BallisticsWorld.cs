@@ -41,12 +41,16 @@ public sealed class BallisticsWorld
     /// <summary>
     /// Adds a ball at <paramref name="origin"/>. <paramref name="firstStep"/> is how much of the
     /// current tick is left after the shot's sub-tick fire time; the ball's first integration step
-    /// uses it so rapid fire stays evenly spaced.
+    /// uses it so rapid fire stays evenly spaced. <paramref name="rewind"/> is its shooter's lag compensation
+    /// (<see cref="BallPool.Rewind"/>); a <paramref name="remote"/> ball is one a joining copy flies for show
+    /// (<see cref="BallPool.Remote"/>). The shot's event carries the first step in <see cref="SimEvent.Value"/> and, in
+    /// <see cref="SimEvent.Extra"/>, <paramref name="streamDraws"/>: how many numbers the shot drew from its random
+    /// stream before the ball took it over, so another copy can fly the same ball.
     /// </summary>
     public bool Spawn(Vector3 origin, Vector3 velocity, int owner, uint sequence, byte team, in Pcg32 rng,
-        float firstStep, int tick, SimEventQueue events)
+        float firstStep, int tick, SimEventQueue events, byte rewind = 0, bool remote = false, int streamDraws = 0)
     {
-        int index = Pool.Add(origin, velocity, owner, sequence, team, rng, firstStep);
+        int index = Pool.Add(origin, velocity, owner, sequence, team, rng, firstStep, rewind, remote);
         if (index < 0)
         {
             events.Add(new SimEvent
@@ -61,7 +65,7 @@ public sealed class BallisticsWorld
         events.Add(new SimEvent
         {
             Type = SimEventType.ShotFired, Tick = tick, PlayerId = owner, ShotSequence = sequence, Team = team,
-            Position = origin, Velocity = velocity, TargetId = -1, ColliderId = -1,
+            Position = origin, Velocity = velocity, TargetId = -1, ColliderId = -1, Value = firstStep, Extra = streamDraws,
         });
         return true;
     }
@@ -125,11 +129,12 @@ public sealed class BallisticsWorld
             hitWorld = World.SweepSphere(p, pNew, radius, out worldHit);
         }
 
+        // Players as they were when the shooter saw them (lag compensation); a ball flown for show passes through them.
         bool hitReceiver = false;
         HitboxHit receiverHit = default;
-        if (Hitboxes is not null)
+        if (Hitboxes is not null && !pool.Remote[i])
         {
-            hitReceiver = Hitboxes.SweepSphere(p, pNew, radius, tick, pool.Owner[i], out receiverHit);
+            hitReceiver = Hitboxes.SweepSphere(p, pNew, radius, tick - pool.Rewind[i], pool.Owner[i], out receiverHit);
         }
 
         if (hitReceiver && (!hitWorld || receiverHit.T <= worldHit.T))

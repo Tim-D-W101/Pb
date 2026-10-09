@@ -13,7 +13,7 @@ public enum MatchPhase : byte
     Ended,
 }
 
-/// <summary>How a round ended, from your side.</summary>
+/// <summary>How a round ended, from one side (yours, offline): see <see cref="MatchState.OutcomeFor"/>.</summary>
 public enum RoundOutcome : byte
 {
     None,
@@ -28,12 +28,48 @@ public enum RoundOutcome : byte
     Extracted,
     /// <summary>Hold: your side held the room for the hold time.</summary>
     Held,
+    /// <summary>Defending an objective (online, with people on both sides): the clock ran out before the other side did it.</summary>
+    HeldOff,
+    /// <summary>Retrieve, defending: the other side carried the case out.</summary>
+    CaseLost,
+    /// <summary>Hold, defending: the other side held the room.</summary>
+    RoomLost,
 }
 
 public static class RoundOutcomes
 {
-    /// <summary>The round was won from your side: the last one standing, or the objective done.</summary>
-    public static bool IsWin(this RoundOutcome outcome) => outcome is RoundOutcome.Cleared or RoundOutcome.Extracted or RoundOutcome.Held;
+    /// <summary>The round was won from your side: the last one standing, the objective done, or defended to the end.</summary>
+    public static bool IsWin(this RoundOutcome outcome) =>
+        outcome is RoundOutcome.Cleared or RoundOutcome.Extracted or RoundOutcome.Held or RoundOutcome.HeldOff;
+}
+
+/// <summary>Why a round ended: the same for everyone in it.</summary>
+public enum RoundEnd : byte
+{
+    None,
+    /// <summary>One team is the last standing: <see cref="MatchResult.Winner"/>.</summary>
+    LastStanding,
+    /// <summary>The last ones standing went out together: nobody is left.</summary>
+    Traded,
+    /// <summary>The clock ran out. With an objective its defenders win; without one, nobody does.</summary>
+    TimeUp,
+    /// <summary>Retrieve: the attackers carried the case out.</summary>
+    Extracted,
+    /// <summary>Hold: the attackers held the room for the hold time.</summary>
+    Held,
+    /// <summary>
+    /// Online (<see cref="MatchSetup.EndWhenPeopleOut"/>): no person was still in, so nobody was left to play it out
+    /// for. The team with the most players still in wins; a tie, nobody.
+    /// </summary>
+    PeopleOut,
+}
+
+/// <summary>How a round stands, or how it ended, from nobody's side: why, and the winning team (−1 for none).</summary>
+public readonly record struct MatchResult(RoundEnd Reason, int Winner)
+{
+    public static readonly MatchResult Undecided = new(RoundEnd.None, -1);
+
+    public bool Decided => Reason != RoundEnd.None;
 }
 
 /// <summary>Round rules (SI), from rules.jsonc.</summary>
@@ -158,8 +194,43 @@ public sealed class SpawnRules
 /// <summary>One round's settings: who the hero is and the mode, plus an area's difficulty tier.</summary>
 public sealed class MatchSetup
 {
-    /// <summary>The human player: everyone on another team is an opponent.</summary>
-    public required int HeroId { get; init; }
+    private static readonly int[] NoPeople = Array.Empty<int>();
+
+    /// <summary>The players who are people; everyone else is a bot. Offline, it's you alone.</summary>
+    public IReadOnlyList<int> People { get; init; } = NoPeople;
+
+    /// <summary>
+    /// The one person in a round played alone (it sets <see cref="People"/>): everyone on another team is an opponent.
+    /// Reads the first person, or −1 if there's nobody.
+    /// </summary>
+    public int HeroId
+    {
+        get => People.Count > 0 ? People[0] : -1;
+        init => People = new[] { value };
+    }
+
+    /// <summary>The team that attacks the objective; null for the first person's.</summary>
+    public byte? Attackers { get; init; }
+
+    /// <summary>
+    /// Online: the round also ends once no person is still in it, since nobody is left to play it out for (see
+    /// <see cref="RoundEnd.PeopleOut"/>). Offline the bots play on behind your summary.
+    /// </summary>
+    public bool EndWhenPeopleOut { get; init; }
+
+    /// <summary>Whether <paramref name="playerId"/> is one of <see cref="People"/>.</summary>
+    public bool IsPerson(int playerId)
+    {
+        for (int i = 0; i < People.Count; i++)
+        {
+            if (People[i] == playerId)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     public MatchModeKind Mode { get; init; } = MatchModeKind.Solo;
 
@@ -167,12 +238,12 @@ public sealed class MatchSetup
 
     public required int StartPods { get; init; }
 
-    /// <summary>Spare pods every bot starts with, teammates and opponents alike.</summary>
+    /// <summary>Spare pods every bot starts with, teammates and opponents alike (<see cref="StartPods"/> is every person's).</summary>
     public required int BotPods { get; init; }
 
     public required bool Pickups { get; init; }
 
-    /// <summary>How the round is won besides being the last team standing; your side attacks it, the others defend.</summary>
+    /// <summary>How the round is won besides being the last team standing; <see cref="Attackers"/> attack it, the others defend.</summary>
     public ObjectiveKind Objective { get; init; } = ObjectiveKind.Eliminate;
 
     public static MatchSetup From(TierDef tier, int heroId, MatchModeKind mode = MatchModeKind.Solo,
@@ -219,27 +290,25 @@ public sealed class PlayerStats
 /// <summary>Decides how a round stands. Modes plug in here, so a new way to win is a new mode, not a rewrite.</summary>
 public interface IMatchMode
 {
-    /// <summary>The outcome if the round ended now, or <see cref="RoundOutcome.None"/> while it's still on.</summary>
-    RoundOutcome Evaluate(SimWorld sim, MatchState match);
+    /// <summary>The result if the round ended now, or <see cref="MatchResult.Undecided"/> while it's still on.</summary>
+    MatchResult Evaluate(SimWorld sim, MatchState match);
 }
 
 /// <summary>
-/// The last team standing wins, in every mode: solo is you (a team of one) against the squad's team,
-/// teams is two teams, and free-for-all is everyone on a team of their own. The round goes on while
-/// your team and another are both in, or, once yours is out, while two others still are (free-for-all:
-/// the rest play on without you).
+/// The last team standing wins, in every mode: solo is you (a team of one, or everyone who joined) against the squad's
+/// team, teams is two teams, and free-for-all is everyone on a team of their own. The round goes on while at least two
+/// teams are in, so in free-for-all the rest play on without you. Online it also ends once no person is still in it
+/// (<see cref="MatchSetup.EndWhenPeopleOut"/>).
 /// </summary>
 public sealed class LastTeamStandingMode : IMatchMode
 {
     public static readonly LastTeamStandingMode Instance = new();
 
-    public RoundOutcome Evaluate(SimWorld sim, MatchState match)
+    public MatchResult Evaluate(SimWorld sim, MatchState match)
     {
-        PlayerState? hero = sim.FindPlayer(match.Setup.HeroId);
-        int heroTeam = hero?.Team ?? -1;
-        bool oursIn = false;
-        int otherTeam = -1;
-        bool othersFighting = false;
+        int firstTeam = -1;
+        bool twoTeams = false;
+        bool personIn = false;
         IReadOnlyList<PlayerState> players = sim.Players;
         for (int i = 0; i < players.Count; i++)
         {
@@ -249,28 +318,57 @@ public sealed class LastTeamStandingMode : IMatchMode
                 continue;
             }
 
-            if (p.Team == heroTeam)
+            personIn |= match.Setup.IsPerson(p.Id);
+            if (firstTeam < 0)
             {
-                oursIn = true;
+                firstTeam = p.Team;
             }
-            else if (otherTeam < 0)
+            else if (p.Team != firstTeam)
             {
-                otherTeam = p.Team;
-            }
-            else if (p.Team != otherTeam)
-            {
-                othersFighting = true;
+                twoTeams = true;
             }
         }
 
-        bool othersIn = otherTeam >= 0;
-        return (oursIn, othersIn) switch
+        if (twoTeams)
         {
-            (true, true) => RoundOutcome.None,
-            (true, false) => RoundOutcome.Cleared,
-            (false, true) => othersFighting ? RoundOutcome.None : RoundOutcome.Eliminated,
-            _ => match.Rules.TradeCountsAsClear ? RoundOutcome.Cleared : RoundOutcome.Traded,
-        };
+            return match.Setup.EndWhenPeopleOut && !personIn && match.Setup.People.Count > 0
+                ? new MatchResult(RoundEnd.PeopleOut, MostStillIn(players))
+                : MatchResult.Undecided;
+        }
+
+        return firstTeam >= 0 ? new MatchResult(RoundEnd.LastStanding, firstTeam) : new MatchResult(RoundEnd.Traded, -1);
+    }
+
+    /// <summary>The team with the most players still in, or −1 if two share the most.</summary>
+    private static int MostStillIn(IReadOnlyList<PlayerState> players)
+    {
+        Span<int> counts = stackalloc int[256];
+        counts.Clear();
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (players[i].Alive)
+            {
+                counts[players[i].Team]++;
+            }
+        }
+
+        int best = -1, bestCount = 0;
+        bool tie = false;
+        for (int t = 0; t < counts.Length; t++)
+        {
+            if (counts[t] > bestCount)
+            {
+                best = t;
+                bestCount = counts[t];
+                tie = false;
+            }
+            else if (counts[t] == bestCount && bestCount > 0)
+            {
+                tie = true;
+            }
+        }
+
+        return tie ? -1 : best;
     }
 }
 
@@ -285,11 +383,13 @@ public sealed class MatchState
     private readonly List<PlayerStats> _stats = new();
     private int _settleFrom = -1;
 
-    internal MatchState(MatchSetup setup, MatchRules rules, IMatchMode mode, ObjectiveState? objective = null)
+    internal MatchState(MatchSetup setup, MatchRules rules, IMatchMode mode, byte attackers, int heroTeam, ObjectiveState? objective = null)
     {
         Setup = setup;
         Rules = rules;
         Mode = mode;
+        Attackers = attackers;
+        HeroTeam = heroTeam;
         Objective = objective;
     }
 
@@ -304,7 +404,28 @@ public sealed class MatchState
 
     public MatchPhase Phase { get; private set; } = MatchPhase.Briefing;
 
-    public RoundOutcome Outcome { get; private set; }
+    /// <summary>The team that attacks the objective (the first person's, unless the setup names one).</summary>
+    public byte Attackers { get; }
+
+    /// <summary>The first person's team: whose side <see cref="Outcome"/> is told from (−1 with nobody).</summary>
+    public int HeroTeam { get; }
+
+    /// <summary>How the round ended, from nobody's side; <see cref="MatchResult.Undecided"/> until it has.</summary>
+    public MatchResult Result { get; private set; } = MatchResult.Undecided;
+
+    /// <summary>How the round ended for the first person's side (offline: yours); <see cref="RoundOutcome.None"/> until it has.</summary>
+    public RoundOutcome Outcome => OutcomeFor(HeroTeam);
+
+    /// <summary>How the round ended for <paramref name="team"/>; <see cref="RoundOutcome.None"/> until it has.</summary>
+    public RoundOutcome OutcomeFor(int team) => Result.Reason switch
+    {
+        RoundEnd.LastStanding or RoundEnd.PeopleOut => team == Result.Winner ? RoundOutcome.Cleared : RoundOutcome.Eliminated,
+        RoundEnd.Traded => Rules.TradeCountsAsClear ? RoundOutcome.Cleared : RoundOutcome.Traded,
+        RoundEnd.TimeUp => Objective is not null && team == Result.Winner ? RoundOutcome.HeldOff : RoundOutcome.TimeUp,
+        RoundEnd.Extracted => team == Attackers ? RoundOutcome.Extracted : RoundOutcome.CaseLost,
+        RoundEnd.Held => team == Attackers ? RoundOutcome.Held : RoundOutcome.RoomLost,
+        _ => RoundOutcome.None,
+    };
 
     public int LiveFromTick { get; private set; } = -1;
 
@@ -400,12 +521,13 @@ public sealed class MatchState
         Objective?.Update(sim, dt);
         if (Elapsed >= Setup.TimeLimit && Objective is not { Done: true })
         {
-            End(sim, RoundOutcome.TimeUp);
+            // Without an objective nobody wins on time; with one, its defenders do.
+            End(sim, new MatchResult(RoundEnd.TimeUp, Objective is null ? -1 : DefendingTeam(sim)));
             return;
         }
 
-        RoundOutcome now = Mode.Evaluate(sim, this);
-        if (now == RoundOutcome.None)
+        MatchResult now = Mode.Evaluate(sim, this);
+        if (!now.Decided)
         {
             return;
         }
@@ -461,14 +583,34 @@ public sealed class MatchState
         }
     }
 
-    private void End(SimWorld sim, RoundOutcome outcome)
+    /// <summary>The team defending the objective: the first team in the round that isn't the attackers (−1 if none).</summary>
+    private int DefendingTeam(SimWorld sim)
+    {
+        IReadOnlyList<PlayerState> players = sim.Players;
+        for (int i = 0; i < players.Count; i++)
+        {
+            if (players[i].Team != Attackers)
+            {
+                return players[i].Team;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Ends the round. Its event carries the result: <see cref="SimEvent.Extra"/> the reason, <see cref="SimEvent.TargetId"/>
+    /// the winning team (−1 for none), <see cref="SimEvent.Value"/> the outcome for the first person's side.
+    /// </summary>
+    private void End(SimWorld sim, MatchResult result)
     {
         Phase = MatchPhase.Ended;
-        Outcome = outcome;
+        Result = result;
         EndTick = sim.Tick;
         sim.Events.Add(new SimEvent
         {
-            Type = SimEventType.RoundEnded, Tick = sim.Tick, PlayerId = -1, TargetId = -1, ColliderId = -1, Extra = (int)outcome,
+            Type = SimEventType.RoundEnded, Tick = sim.Tick, PlayerId = -1, TargetId = result.Winner, ColliderId = -1,
+            Extra = (int)result.Reason, Value = (int)Outcome,
         });
     }
 }

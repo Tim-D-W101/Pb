@@ -64,7 +64,7 @@ public partial class RefereeCalls : Node, ISimEventListener
                 break;
             case SimEventType.RoundEnded:
                 _audio?.Round(Sfx.WhistleTriple);
-                if (OutcomeLines((RoundOutcome)e.Extra) is { } outcome)
+                if (OutcomeLines(_sim.Match?.OutcomeFor(_player.Team) ?? RoundOutcome.None) is { } outcome)
                 {
                     Say(outcome);
                 }
@@ -117,7 +117,8 @@ public partial class RefereeCalls : Node, ISimEventListener
         RoundOutcome.Held => _lines.RoomHeld,
         RoundOutcome.Cleared => _sim.Match?.Setup.Mode == MatchModeKind.FreeForAll ? _lines.LastStanding : _lines.Won,
         RoundOutcome.Traded => _lines.Won,
-        RoundOutcome.Eliminated => _lines.Lost,
+        RoundOutcome.HeldOff => _lines.Won,
+        RoundOutcome.Eliminated or RoundOutcome.CaseLost or RoundOutcome.RoomLost => _lines.Lost,
         RoundOutcome.TimeUp => _lines.TimeUp,
         _ => null,
     };

@@ -21,8 +21,8 @@ public enum InputButtons : ushort
 }
 
 /// <summary>
-/// Everything a participant does in one tick. Humans, bots and (Phase 3) remote clients all
-/// produce these; buttons are levels, and the sim detects edges itself.
+/// Everything a participant does in one tick. Humans, bots and remote players all produce these;
+/// buttons are levels, and the sim detects edges itself.
 /// </summary>
 public struct InputCommand
 {
@@ -42,6 +42,13 @@ public struct InputCommand
     public float HeadYaw;
 
     public InputButtons Buttons;
+
+    /// <summary>
+    /// Lag compensation: how many ticks behind the server the shooter was seeing everyone else when they pressed (a server
+    /// works it out from the player's view tick). Their shots are checked against players as they were that far back,
+    /// at most <see cref="PlayerHitboxes.HistoryTicks"/> − 1; 0 for bots and anyone playing on the server's own copy.
+    /// </summary>
+    public byte Rewind;
 
     public readonly bool Has(InputButtons button) => (Buttons & button) != 0;
 }

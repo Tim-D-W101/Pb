@@ -839,12 +839,14 @@ public partial class LevelMain : Node3D, ISimEventListener
         _summaryEarly = !over;
         Input.MouseMode = Input.MouseModeEnum.Visible;
         IReadOnlyList<PlayerState> players = _sim.Players;
-        PlayerState? winner = _mode.Kind == MatchModeKind.FreeForAll && over && _match.Outcome == RoundOutcome.Eliminated
+        RoundOutcome outcome = _match.OutcomeFor(you.Team);
+        PlayerState? winner = _mode.Kind == MatchModeKind.FreeForAll && over && outcome == RoundOutcome.Eliminated
             ? players.FirstOrDefault(p => p.Alive)
             : null;
         var facts = new SummaryFacts
         {
             Over = over,
+            Outcome = outcome,
             YouAreOut = !you.Alive,
             HitBy = _hitBy,
             Opponents = players.Count(p => p.Team != you.Team),
