@@ -37,4 +37,7 @@ public static class GameSession
 
     /// <summary>Playing with others: who's in, between rounds.</summary>
     public const string LobbyScene = "res://scenes/Lobby.tscn";
+
+    /// <summary>The dedicated server (-- --server).</summary>
+    public const string ServerScene = "res://scenes/Server.tscn";
 }

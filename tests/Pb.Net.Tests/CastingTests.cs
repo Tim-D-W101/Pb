@@ -24,14 +24,30 @@ public class CastingTests
 
     private static readonly string[] Callsigns = { "Kestrel", "Magpie", "Heron", "Rook", "Wren", "Plover", "Shrike", "Lapwing", "Dunlin", "Merlin" };
 
-    private static CastRound Cast(string modeId, int size, ObjectiveKind objective, int round, params Person[] people)
+    private static CastRound Cast(string modeId, int size, ObjectiveKind objective, int round, params Person[] people) =>
+        CastWith(modeId, size, objective, round, bots: true, people);
+
+    private static CastRound CastWith(string modeId, int size, ObjectiveKind objective, int round, bool bots, params Person[] people)
     {
         (LevelLayout level, CoverSet cover, CollisionWorld world) = Oxbarrow.Value;
         GameMode mode = TestData.Config.Rules.FindMode(modeId)!;
         ObjectiveChoice choice = TestData.Config.Rules.Objectives.Find(objective)!;
         TierDef tier = TestData.Data.Areas.Areas[0].Tiers[1];
         return RoundCasting.Cast(level, cover, world, TestData.Config, TestData.Data.Bots, mode, size, choice, tier, people, 77, round, Callsigns,
-            level.Id, null);
+            level.Id, null, fillWithBots: bots);
+    }
+
+    [Fact]
+    public void Without_bots_teams_and_free_for_all_are_people_alone_and_co_op_keeps_the_squad()
+    {
+        CastRound teams = CastWith("teams", 3, ObjectiveKind.Eliminate, 1, bots: false, new Person("Ada", Side: 0), new Person("Bo", Side: 1), new Person("Cy", Side: 1));
+        Assert.Equal(3, teams.Setup.Roster.Count);
+        Assert.All(teams.Setup.Roster, e => Assert.True(e.Person));
+        CastRound ffa = CastWith("ffa", 6, ObjectiveKind.Eliminate, 1, bots: false, new Person("Ada"), new Person("Bo"));
+        Assert.Equal(2, ffa.Setup.Roster.Count);
+        CastRound coop = CastWith("solo", 4, ObjectiveKind.Eliminate, 1, bots: false, new Person("Ada"), new Person("Bo"));
+        Assert.Equal(6, coop.Setup.Roster.Count);
+        Assert.Equal(4, coop.Setup.Roster.Count(e => !e.Person && e.Team == 1));
     }
 
     [Fact]

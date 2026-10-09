@@ -100,10 +100,37 @@ public partial class NetSession : Node
         session.Server.Violation += (link, what) => GD.Print($"NET {link.Name} sent {what}");
         session.Server.Joined += link => GD.Print($"NET {link.Name} joined ({link.Peer})");
         session.Server.Left += link => GD.Print($"NET {link.Name} left");
+        session.Server.Refused += (name, why) => GD.Print($"NET turned away {name}: {why}");
         Attach(tree, session);
         GD.Print($"NET hosting \"{identity.Name}\" on UDP port {port} (build {identity.Build})");
         return session;
     }
+
+    /// <summary>
+    /// A dedicated server: hosts on <paramref name="port"/> with nobody of its own playing, the lobby starting with
+    /// <paramref name="choices"/>.
+    /// </summary>
+    public static NetSession Serve(SceneTree tree, NetSettings settings, ServerIdentity identity, int port, MatchRules rules, LobbyChoices choices,
+        int maxPeople)
+    {
+        Current?.Leave("a new game");
+        var limited = maxPeople == settings.MaxPeople ? settings : settings.WithMaxPeople(maxPeople);
+        var session = new NetSession { Name = "NetSession", Settings = limited, Dedicated = true };
+        ITransport transport = EnetTransport.Listen(port, limited.MaxPeople, limited.LinkTimeoutMin, limited.LinkTimeoutMax);
+        session.Server = new NetServer(transport, limited, identity, () => session.Now, 1f / 120f) { Dedicated = true };
+        session.Lobby = new LobbyHost(session.Server, limited, rules, choices, () => session.Now);
+        session.Lobby.Changed += () => session._hostVersion++;
+        session.Server.Violation += (link, what) => ServerLog.Line($"{link.Name} sent {what}");
+        session.Server.Joined += link => ServerLog.Line($"{link.Name} joined ({session.Server.Clients.Count(c => c.Welcomed)} in the game)");
+        session.Server.Left += link => ServerLog.Line($"{link.Name} left");
+        session.Server.Refused += (name, why) => ServerLog.Line($"turned away {name}: {why}");
+        Attach(tree, session);
+        ServerLog.Line($"serving \"{identity.Name}\" on UDP port {port} (build {identity.Build}, at most {limited.MaxPeople} people)");
+        return session;
+    }
+
+    /// <summary>A dedicated server: nobody of its own plays.</summary>
+    public bool Dedicated { get; private set; }
 
     /// <summary>Starts joining the host at <paramref name="address"/>.</summary>
     public static NetSession Join(SceneTree tree, NetSettings settings, string address, int port, HelloMessage hello, LagSettings lag)

@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://core/ServerMain.cs" id="1_server"]
+[ext_resource type="Script" path="res://core/SimDriver.cs" id="2_driver"]
+
+[node name="Server" type="Node3D"]
+script = ExtResource("1_server")
+
+[node name="SimDriver" type="Node" parent="."]
+script = ExtResource("2_driver")

@@ -77,6 +77,11 @@ Windows may ask you to confirm ("More info" → "Run anyway") because the game i
 run publishes the build there (and as the run's "Pb-windows" artifact); `tools/package/windows-build.sh`
 makes the same build locally.
 
+**Playing together:** **Play with others** in the menu hosts a game or joins one, on your network or over the internet.
+A dedicated server runs on its own, on your PC or a rented Linux machine. The release has both:
+`Pb-server-windows.zip` and `Pb-server-linux.tar.gz` (`tools/package/server-build.sh` makes them locally). Port
+forwarding, the firewall and the server's settings, step by step: [docs/hosting.md](docs/hosting.md).
+
 To run it from Godot:
 
 1. Install **Godot 4.7.2 – .NET** (the ".NET" download, not the standard one) and the

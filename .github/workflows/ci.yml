@@ -77,15 +77,15 @@ jobs:
       - name: Install Godot ${{ env.GODOT_VERSION }} (.NET)
         if: steps.cache-godot.outputs.cache-hit != 'true'
         run: tools/ci/install-godot.sh "$GODOT_VERSION" ~/.local/godot
-      - name: Cache the Windows export templates
+      - name: Cache the export templates
         id: cache-templates
         uses: actions/cache@v4
         with:
           path: ~/.local/share/godot/export_templates
-          key: godot-templates-${{ env.GODOT_VERSION }}-mono-windows-x86_64
-      - name: Fetch the Windows export templates (just those, not the whole archive)
+          key: godot-templates-${{ env.GODOT_VERSION }}-mono-windows-linux-x86_64
+      - name: Fetch the Windows and Linux export templates (just those, not the whole archive)
         if: steps.cache-templates.outputs.cache-hit != 'true'
-        run: python3 tools/package/fetch-templates.py "$GODOT_VERSION" windows_release_x86_64.exe windows_release_x86_64_console.exe
+        run: python3 tools/package/fetch-templates.py "$GODOT_VERSION" windows_release_x86_64.exe windows_release_x86_64_console.exe linux_release.x86_64
       - name: Build game assembly
         run: dotnet build game/Pb.csproj -c Debug
       - name: Import project
@@ -96,11 +96,19 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           # Reuse each published art pack while its asset is unchanged, so players don't download it again.
           PB_RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/test-build
+      - name: Package the dedicated servers (Linux and Windows; the Linux one is started once to check it serves)
+        run: tools/package/server-build.sh ~/.local/godot/godot builds/windows/Pb builds/server
       - name: Offer it for download
         uses: actions/upload-artifact@v4
         with:
           name: Pb-windows
           path: builds/windows/Pb
+          retention-days: 30
+      - name: Offer the dedicated servers for download
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pb-servers
+          path: builds/server/release
           retention-days: 30
       # One link that always has the newest build, which Play.bat updates from (not for pull requests from forks).
       - name: Publish it as the latest test build
@@ -110,16 +118,19 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           notes="The newest build of Pb ($(grep '^version=' builds/windows/release/manifest.txt | cut -d= -f2), $(grep '^date=' builds/windows/release/manifest.txt | cut -d= -f2)).
-          First time: download Pb-windows.zip, unzip it and double-click Play.bat. Play.bat keeps the game up to date: before starting the game it downloads only the files that changed (the art comes in packs of its own, one per asset, Pb-art-*.pck)."
+          First time: download Pb-windows.zip, unzip it and double-click Play.bat. Play.bat keeps the game up to date: before starting the game it downloads only the files that changed (the art comes in packs of its own, one per asset, Pb-art-*.pck).
+          To run a dedicated server: Pb-server-windows.zip (Server.bat) or Pb-server-linux.tar.gz (run-server.sh), which keep themselves up to date the same way. Step by step: https://github.com/${GITHUB_REPOSITORY}/blob/${HEAD_SHA}/docs/hosting.md"
           gh release view test-build --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
             gh release create test-build --repo "$GITHUB_REPOSITORY" --prerelease --target "$HEAD_SHA" --title "Pb: latest test build" --notes "$notes"
-          # The files first and the manifest last, so a launcher never reads a manifest whose files aren't up yet.
-          find builds/windows/release -maxdepth 1 -type f ! -name manifest.txt -print0 |
+          # The files first and the manifest last, so a launcher or a server's update never reads a manifest whose
+          # files aren't up yet.
+          find builds/windows/release builds/server/release -maxdepth 1 -type f ! -name manifest.txt -print0 |
             xargs -0 gh release upload test-build --repo "$GITHUB_REPOSITORY" --clobber
           gh release upload test-build builds/windows/release/manifest.txt --repo "$GITHUB_REPOSITORY" --clobber
           # Then whatever an older build published and this one doesn't (an art pack whose asset is gone,
           # the single art pack of builds before there was one per asset).
           gh release view test-build --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | while read -r name; do
-            [ -f "builds/windows/release/$name" ] || gh release delete-asset test-build "$name" --repo "$GITHUB_REPOSITORY" -y
+            [ -f "builds/windows/release/$name" ] || [ -f "builds/server/release/$name" ] ||
+              gh release delete-asset test-build "$name" --repo "$GITHUB_REPOSITORY" -y
           done
           gh release edit test-build --repo "$GITHUB_REPOSITORY" --notes "$notes"

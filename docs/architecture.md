@@ -1053,14 +1053,28 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 ### 16.12 Dedicated server builds
 
 - **Linux.** `tools/package/server-build.sh` exports the Linux server (Godot's `linux_release.x86_64` template, fetched
-  like the Windows ones by `fetch-templates.py`). It packages `Pb-server-linux.zip`: the binary, the pack, the .NET
-  assemblies, `server.jsonc` and `run-server.sh`.
-- **Windows.** The Windows server is the Windows build with `Server.bat`, which runs
-  `Pb.console.exe --headless -- --server`.
-- **Release.** Both go on the test-build release.
+  like the Windows ones by `fetch-templates.py`), stamped with the Windows build's version. It packages
+  `Pb-server-linux.tar.gz`:
+  - the binary, the pack, the .NET assemblies and `server.jsonc`;
+  - `run-server.sh` (updates, then starts it headless; the game's .NET needs no ICU, as `Directory.Build.props` sets
+    `InvariantGlobalization`);
+  - `update-server.sh`;
+  - `pb-server.service` (systemd).
+
+  Before packaging, it starts the exported server once to check that it serves.
+- **Windows.** `Pb-server-windows.zip` is made from the Windows build: `Pb.exe`, its pack and its runtime, without the
+  art. It adds `Pb.console.exe` (Godot's console template, the program a console-wrapper export makes) and `Server.bat`,
+  which updates, then runs `Pb.console.exe --headless -- --server`.
+- **Updates.** `update-server.sh` and `update-server.ps1` compare `version.txt` with the release manifest's version. When
+  they differ, they fetch the package and put its files in place, all except `server.jsonc`. The Linux script renames
+  each file into place, so nothing is half written.
+- **Release.** Both go on the test-build release, uploaded before the manifest.
 - **`server.jsonc`** holds: name, port, password, the most people, a rotation of area, place, mode, size, objective and
-  difficulty, bots on or off, the vote, and the time between rounds.
-- **Logs.** The server logs joins, leaves, rounds and violations to stdout and `user://logs`.
+  difficulty, bots on or off, the vote, and the time between rounds. Only `res://data` is hashed for the handshake, so
+  editing the copy beside the program doesn't change which players can join.
+- **Logs.** The server logs settings, joins, leaves, refusals, rounds and violations to stdout (flushed on each line)
+  and to `user://logs/server.log`. Past 10 MB, the next start sets the log aside as `server.old.log`.
+- **Guide.** `docs/hosting.md`.
 
 ### 16.13 Platform services (`game/platform`)
 

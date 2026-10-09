@@ -36,6 +36,8 @@ dotnet test                                           # Pb.Sim tests (fast, no e
 dotnet run -c Release --project tools/Pb.Bench        # ballistics report + tick cost
 tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end check
 tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in art/*.pck
+tools/package/server-build.sh godot                   # then the dedicated servers: Pb-server-linux.tar.gz, Pb-server-windows.zip
+godot --headless --path game -- --server              # a dedicated server from the source (game/data/server.jsonc; docs/hosting.md)
 tools/package/godot-project.sh                        # self-contained project zip for Godot's Import
 python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate the hospital wings (edit the script, not the files)
 ```

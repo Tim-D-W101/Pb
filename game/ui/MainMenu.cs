@@ -44,6 +44,14 @@ public partial class MainMenu : Control
                 + $"QuickJitForLoops={AppContext.GetData("System.Runtime.TieredCompilation.QuickJitForLoops") ?? "default"}");
         }
 
+        if (Args.Has("--server") && !_skippedToLevel)
+        {
+            // The dedicated server: no menu at all.
+            _skippedToLevel = true;
+            Callable.From(() => GetTree().ChangeSceneToFile(GameSession.ServerScene)).CallDeferred();
+            return;
+        }
+
         SetAnchorsPreset(LayoutPreset.FullRect);
         Theme = UiKit.Theme;
         _backdrop = Backdrop();

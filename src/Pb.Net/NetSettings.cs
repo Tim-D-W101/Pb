@@ -119,6 +119,8 @@ public sealed class NetDef : IValidatable
 /// <summary>How the network behaves, in sim ticks and seconds (from net.jsonc).</summary>
 public sealed class NetSettings
 {
+    private int _maxPeople;
+
     public required int Port { get; init; }
 
     public required int DiscoveryPort { get; init; }
@@ -160,7 +162,7 @@ public sealed class NetSettings
 
     public required int PacketBudget { get; init; }
 
-    public required int MaxPeople { get; init; }
+    public required int MaxPeople { get => _maxPeople; init => _maxPeople = value; }
 
     /// <summary>The lobby's countdown (s), the longest a round waits for everyone to have it built (s), and its briefing after (s).</summary>
     public required float Countdown { get; init; }
@@ -230,4 +232,12 @@ public sealed class NetSettings
     };
 
     public static NetSettings Load(IDataSource source) => From(Jsonc.Load<NetDef>(source, NetDef.File));
+
+    /// <summary>The same settings taking at most <paramref name="people"/> people (a dedicated server's own limit).</summary>
+    public NetSettings WithMaxPeople(int people)
+    {
+        var copy = (NetSettings)MemberwiseClone();
+        copy._maxPeople = Math.Clamp(people, 1, MaxPeople);
+        return copy;
+    }
 }

@@ -49,6 +49,9 @@ public sealed class NetServer : IDisposable
     /// <summary>The name the host plays under in their own game, which nobody joining may take too.</summary>
     public string? HostName { get; set; }
 
+    /// <summary>A dedicated server: nobody of its own plays, so every place is for someone joining.</summary>
+    public bool Dedicated { get; set; }
+
     public IReadOnlyList<ClientLink> Clients => _clients;
 
     /// <summary>The round under way (−1: none).</summary>
@@ -74,6 +77,9 @@ public sealed class NetServer : IDisposable
 
     /// <summary>Something a player sent that the server dropped, for the host's log.</summary>
     public event Action<ClientLink, string>? Violation;
+
+    /// <summary>Someone turned away as they tried to join (the name they gave, and what they were told), for the host's log.</summary>
+    public event Action<string, string>? Refused;
 
     /// <summary>The connection's own measure of the round trip to a player (s; 0 if it has none).</summary>
     public float TransportRoundTrip(ClientLink link) => Math.Max(0f, _transport.RoundTrip(link.Peer));
@@ -442,9 +448,11 @@ public sealed class NetServer : IDisposable
         (RefusedReason reason, string text)? refusal = hello is null ? (RefusedReason.Protocol, "That isn't a copy of this game.")
             : hello.Protocol != NetProtocol.Version ? (RefusedReason.Protocol, $"The host speaks version {NetProtocol.Version} and you {hello.Protocol}: update with Play.bat.")
             : hello.Build != Identity.Build || hello.DataHash != Identity.DataHash
-                ? (RefusedReason.Version, $"The host runs build {Identity.Build} and you {hello.Build}: both of you update with Play.bat.")
+                ? (RefusedReason.Version, Dedicated
+                    ? $"The server runs build {Identity.Build} and you {hello.Build}: update with Play.bat, and whoever runs the server starts it again."
+                    : $"The host runs build {Identity.Build} and you {hello.Build}: both of you update with Play.bat.")
             : Identity.Password.Length > 0 && hello.Password != Identity.Password ? (RefusedReason.Password, "Wrong password.")
-            : _clients.Count(c => c.Welcomed) >= Settings.MaxPeople - 1 ? (RefusedReason.Full, "The game is full.")
+            : _clients.Count(c => c.Welcomed) >= Settings.MaxPeople - (Dedicated ? 0 : 1) ? (RefusedReason.Full, "The game is full.")
             : null;
         if (refusal is { } r)
         {
@@ -453,6 +461,7 @@ public sealed class NetServer : IDisposable
             Send(link, _writer.Finish());
             _transport.Disconnect(link.Peer);
             _clients.Remove(link);
+            Refused?.Invoke(hello is null ? "?" : Printable(hello.Name), r.text);
             return;
         }
 
@@ -467,10 +476,10 @@ public sealed class NetServer : IDisposable
 
     private string UniqueName(string wanted, ClientLink self)
     {
-        string name = string.IsNullOrWhiteSpace(wanted) ? "Player" : wanted.Trim();
-        if (name.Length > 24)
+        string name = Printable(wanted);
+        if (name.Length == 0)
         {
-            name = name[..24];
+            name = "Player";
         }
 
         string candidate = name;
@@ -480,6 +489,26 @@ public sealed class NetServer : IDisposable
         }
 
         return candidate;
+    }
+
+    /// <summary>A name as given, without anything unprintable (line breaks, control codes), at most 24 characters.</summary>
+    private static string Printable(string given)
+    {
+        var name = new System.Text.StringBuilder(Math.Min(given.Length, 24));
+        foreach (char c in given.Trim())
+        {
+            if (name.Length >= 24)
+            {
+                break;
+            }
+
+            if (!char.IsControl(c))
+            {
+                name.Append(c);
+            }
+        }
+
+        return name.ToString().Trim();
     }
 
     private void ReceiveCommands(ClientLink link, ReadOnlySpan<byte> packet)

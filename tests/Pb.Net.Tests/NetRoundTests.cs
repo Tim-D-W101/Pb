@@ -30,10 +30,13 @@ public class NetRoundTests
     public void Players_get_in_with_the_same_build_and_password_and_are_turned_away_otherwise()
     {
         var rig = new NetRig(password: "pw");
+        var turnedAway = new List<(string Name, string Why)>();
+        rig.Server.Refused += (name, why) => turnedAway.Add((name, why));
         RigClient ada = rig.Join("Ada", password: "pw");
         RigClient twin = rig.Join("Ada", password: "pw");
         RigClient old = rig.Join("Old", build: "build-0", password: "pw");
-        RigClient guess = rig.Join("Guess", password: "nope");
+        RigClient guess = rig.Join("Guess\n\u0007", password: "nope");
+        RigClient odd = rig.Join(" Line\nbreak\u0007 and a name far too long to show ", password: "pw");
         rig.Run(5);
         Assert.Equal(ClientState.Joined, ada.Net.State);
         Assert.Equal("Ada", ada.Net.Welcome!.Name);
@@ -43,7 +46,11 @@ public class NetRoundTests
         Assert.Equal(RefusedReason.Version, old.Net.Refusal!.Reason);
         Assert.Contains("build-1", old.Net.Refusal.Text);
         Assert.Equal(RefusedReason.Password, guess.Net.Refusal!.Reason);
-        Assert.Equal(2, rig.Server.Clients.Count(c => c.Welcomed));
+        Assert.Equal(3, rig.Server.Clients.Count(c => c.Welcomed));
+
+        // Names lose anything unprintable and are cut to 24 characters; the host's log hears who was turned away and why.
+        Assert.Equal("Linebreak and a name far", odd.Net.Welcome!.Name);
+        Assert.Equal(new[] { ("Guess", "Wrong password."), ("Old", old.Net.Refusal.Text) }, turnedAway.OrderBy(t => t.Name));
     }
 
     [Fact]

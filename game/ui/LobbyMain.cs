@@ -28,7 +28,7 @@ namespace Pb.Game.Ui;
 /// </summary>
 public partial class LobbyMain : Control
 {
-    private static bool _autoStarted;
+    private bool _autoStarted;
     private NetSession? _session;
     private GameData _data = null!;
     private PresentationDef _view = null!;

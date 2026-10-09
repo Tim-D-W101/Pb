@@ -219,13 +219,46 @@ The lobby is bare until M4.4: hosting, who's in and Start round; joined, you wai
 
 ### M4.5 Dedicated server
 
-- [ ] The game started with `-- --server` runs headless: no window and no sound, building only what walking and paint
+- [x] The game started with `-- --server` runs headless: no window and no sound, building only what walking and paint
   need. It logs who joined and left, each round, and anything it dropped.
-- [ ] `server.jsonc` next to it: name, port, password, the most people, the areas and places it plays in turn, mode,
+- [x] `server.jsonc` next to it: name, port, password, the most people, the areas and places it plays in turn, mode,
   size, objective, difficulty, bots, the vote, and how long it waits between rounds.
-- [ ] CI builds a Linux server and a Windows one with each test build and puts them on the release page.
-- [ ] `docs/hosting.md`, step by step: hosting from your PC (the router's port and the firewall), and on a rented
+- [x] CI builds a Linux server and a Windows one with each test build and puts them on the release page.
+- [x] `docs/hosting.md`, step by step: hosting from your PC (the router's port and the firewall), and on a rented
   Linux machine (copying it up, starting it with the machine, updating it).
+
+*As built:*
+- **Scene.** `-- --server` goes from the menu straight to `scenes/Server.tscn` (`ServerMain`). Each round it builds
+  only what walking needs, and drives each player's bare body (`ServerPawn`) from their commands or their bot:
+  - the ground and the level's collision (`LevelBuilder.BuildWalking`);
+  - the doors (`DoorBodies`).
+- **Lobby.** Every place is for people joining; there's no host player (`NetServer.Dedicated`). A round starts once
+  everyone in is ready, or `lobbyWait_s` after the first person readied up. With nobody in, it waits.
+- **Bots off.** Rounds have only people in them, so teams and free-for-all need two. Co-op keeps the squad.
+- **Settings.** The server reads `--server-config=PATH`, else the `server.jsonc` beside the program, else the game's
+  own. A round in the rotation that the data doesn't have (a misspelt area, a size too big) is logged with what's
+  played instead.
+- **Log.** Timestamped lines on the console and in `user://logs/server.log` (set aside as `server.old.log` at the next
+  start once it passes 10 MB):
+  - the settings, and the port it serves on;
+  - joins and leaves, and anyone turned away and why;
+  - each round's result and each player's connection;
+  - anything it dropped.
+
+  The server also takes control characters out of the names people join with.
+- **Packages** (`tools/package/server-build.sh`):
+  - **Linux:** `Pb-server-linux.tar.gz`, with `run-server.sh`, `update-server.sh` and a systemd unit. It's a tarball,
+    not a zip: every Linux machine has `tar`, not all have `unzip`, and the scripts stay runnable. The game's .NET
+    already runs without the machine's language libraries (`InvariantGlobalization`), so a bare machine needs nothing
+    installed.
+  - **Windows:** `Pb-server-windows.zip`, made from the Windows build. It adds Godot's console program
+    (`Pb.console.exe`, which gives the server a window to log to) and `Server.bat`.
+  - **Updates:** both bring themselves up to date from the release before each start, as Play.bat does, and keep
+    `server.jsonc`.
+- **CI.** The Windows build job:
+  - packages both servers;
+  - starts the exported Linux server once, to check that it serves;
+  - offers them as the "Pb-servers" artifact, and publishes them on the test-build release.
 
 ### M4.6 Platform layer
 

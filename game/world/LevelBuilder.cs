@@ -176,6 +176,21 @@ public partial class LevelBuilder : Node3D
         }
     }
 
+    /// <summary>The dedicated server: only what walking needs (the level's walking colliders and the ground), nothing drawn.</summary>
+    public void BuildWalking(LevelLayout level)
+    {
+        foreach (Node child in GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        ColliderCount = 0;
+        var body = new StaticBody3D { Name = "GroundBody" };
+        body.AddChild(new CollisionShape3D { Shape = new WorldBoundaryShape3D() });
+        AddChild(body);
+        BuildCollision(level);
+    }
+
     private void BuildGround(LevelLayout level)
     {
         Pb.Sim.Collision.Aabb b = level.Bounds;

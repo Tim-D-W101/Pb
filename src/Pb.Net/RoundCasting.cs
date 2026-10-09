@@ -33,9 +33,13 @@ public sealed class CastRound
 /// </summary>
 public static class RoundCasting
 {
+    /// <param name="fillWithBots">
+    /// Bots take the places nobody does (the usual). Off (a dedicated server can say so), teams and free-for-all are
+    /// played by the people alone; co-op still has the squad.
+    /// </param>
     public static CastRound Cast(LevelLayout level, CoverSet cover, CollisionWorld world, SimConfig config, BotConfig bots, GameMode mode, int size,
         ObjectiveChoice objective, TierDef tier, IReadOnlyList<Person> people, ulong seed, int round, IReadOnlyList<string> callsigns,
-        string levelId, string? placeId, float? timeLimit = null)
+        string levelId, string? placeId, float? timeLimit = null, bool fillWithBots = true)
     {
         if (people.Count == 0)
         {
@@ -118,11 +122,11 @@ public static class RoundCasting
             ids.Add(i);
         }
 
-        // The bots: the teammates' places left, then the opponents'.
+        // The bots: the teammates' places left, then the opponents' (co-op's squad always).
         string[] names = Deal(callsigns, seed);
         int bot = 0;
         byte otherSide = (byte)(1 - entering);
-        for (int m = 0; m < plan.Teammates.Count; m++)
+        for (int m = 0; m < plan.Teammates.Count && fillWithBots; m++)
         {
             if (!usedMates.Contains(m))
             {
@@ -133,7 +137,7 @@ public static class RoundCasting
         int nextTeam = people.Count;
         for (int o = 0; o < plan.Opponents.Count; o++)
         {
-            if (usedOpponents.Contains(o))
+            if (usedOpponents.Contains(o) || (!fillWithBots && mode.Kind != MatchModeKind.Solo))
             {
                 continue;
             }

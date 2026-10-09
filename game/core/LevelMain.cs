@@ -175,6 +175,10 @@ public partial class LevelMain : Node3D, ISimEventListener
     private double _snapAt = -1;
     private int _snaps;
 
+    /// <summary>Bot matches played with others so far (--rounds=N), and how many of them failed.</summary>
+    private static int _roundsReported;
+    private static int _failedRounds;
+
     /// <summary>Joined: the server's result and numbers have come; the bot match waits for them to report.</summary>
     private bool _netOver;
     private bool _reportWhenOver;
@@ -1260,7 +1264,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
-        if (session.LobbyView is { Phase: LobbyPhase.Lobby or LobbyPhase.Vote or LobbyPhase.Countdown } && !_botMatch)
+        if (session.LobbyView is { Phase: LobbyPhase.Lobby or LobbyPhase.Vote or LobbyPhase.Countdown } && (!_botMatch || _reported))
         {
             FollowToLobby();
         }
@@ -1671,14 +1675,31 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
-        // Hosting, the others are given a moment to have the result before the game ends.
-        if (_net is { Hosting: true })
+        // Playing with others, --rounds=N plays N rounds before the game ends (CI): back to the lobby for the next.
+        _roundsReported++;
+        if (!ok)
         {
-            GetTree().CreateTimer(2.0).Timeout += () => QuitBotMatch(ok);
+            _failedRounds++;
+        }
+
+        if (_net is { } others && _roundsReported < (Args.Ticks("--rounds", 1) ?? 1))
+        {
+            if (others.Hosting)
+            {
+                GetTree().CreateTimer(2.0).Timeout += BackToLobby;
+            }
+
             return;
         }
 
-        QuitBotMatch(ok);
+        // Hosting, the others are given a moment to have the result before the game ends.
+        if (_net is { Hosting: true })
+        {
+            GetTree().CreateTimer(2.0).Timeout += () => QuitBotMatch(ok && _failedRounds == 0);
+            return;
+        }
+
+        QuitBotMatch(ok && _failedRounds == 0);
     }
 
     private void QuitBotMatch(bool ok)

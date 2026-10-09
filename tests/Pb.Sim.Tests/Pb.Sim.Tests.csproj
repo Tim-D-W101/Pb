@@ -21,5 +21,6 @@
     <!-- The game's settings and bindings are plain C#, so they're tested here without the engine. -->
     <Compile Include="..\..\game\core\GameSettings.cs" Link="Game\GameSettings.cs" />
     <Compile Include="..\..\game\core\BindingSet.cs" Link="Game\BindingSet.cs" />
+    <Compile Include="..\..\game\net\ServerDef.cs" Link="Game\ServerDef.cs" />
   </ItemGroup>
 </Project>
