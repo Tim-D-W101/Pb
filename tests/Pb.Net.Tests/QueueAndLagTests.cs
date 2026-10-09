@@ -170,8 +170,87 @@ public class QueueAndLagTests
         Assert.True(run <= 600, "never more than a command a tick");
         Assert.True(q.Merged > 100, "a queue that stays long runs two as one, every tick");
         Assert.Equal(0, q.TooFarAhead);
-        q.Receive(q.LastRun + settings.CommandAheadTicks + 50, Press(1), 0);
+
+        // A command beyond the queue's reach: it skips on to it (the ones in between never run) and runs it in its turn.
+        int far = q.LastRun + settings.CommandAheadTicks + 50;
+        q.Receive(far, Press(far), 0);
         Assert.Equal(1, q.TooFarAhead);
+        Assert.True(q.Skipped > 0);
+        for (int i = 0; i < Math.Max(1, settings.CommandQueueTicks); i++)
+        {
+            Assert.True(q.TryNext(out _, out _));
+        }
+
+        Assert.Equal(far, q.LastRun);
+    }
+
+    [Fact]
+    public void After_a_stall_longer_than_the_queue_reaches_the_player_is_back_at_once_not_shut_out()
+    {
+        NetSettings settings = Settings;
+        var q = new CommandQueue(settings, NetRig.Dt);
+        int sent = 0;
+        void Send()
+        {
+            q.Receive(sent, Press(sent), 0);
+            sent++;
+        }
+
+        // A second of play, a command a tick; then the host stalls for four seconds (no ticks run there) while the copy
+        // goes on sending.
+        for (int tick = 0; tick < 120; tick++)
+        {
+            Send();
+            q.TryNext(out _, out _);
+        }
+
+        for (int tick = 0; tick < 480; tick++)
+        {
+            Send();
+        }
+
+        // Then both go on: the queue is already running the copy's latest commands, never more than one a tick.
+        int run = 0, missing = q.Missing;
+        for (int tick = 0; tick < 120; tick++)
+        {
+            Send();
+            run += q.TryNext(out _, out _) ? 1 : 0;
+        }
+
+        Assert.Equal(120, run);
+        Assert.True(q.TooFarAhead >= 1);
+        Assert.Equal(missing, q.Missing);
+        Assert.True(sent - 1 - q.LastRun <= settings.CommandQueueMostTicks, $"{sent - 1 - q.LastRun} commands behind");
+    }
+
+    [Fact]
+    public void A_copy_running_twice_as_fast_as_a_struggling_host_gains_nothing_and_still_plays()
+    {
+        // The host manages four ticks in five (a busy computer) while the copy sends two commands a tick: running two in a
+        // tick can't keep up, so now and then the queue skips on. The player's commands keep running, one a tick at most.
+        NetSettings settings = Settings;
+        var q = new CommandQueue(settings, NetRig.Dt);
+        int sent = 0, run = 0, ticks = 0;
+        for (int step = 0; step < 2400; step++)
+        {
+            for (int k = 0; k < 2; k++)
+            {
+                q.Receive(sent, Press(sent), 0);
+                sent++;
+            }
+
+            if (step % 5 != 4)
+            {
+                ticks++;
+                run += q.TryNext(out _, out _) ? 1 : 0;
+            }
+        }
+
+        Assert.True(run <= ticks, "never more than a command a tick");
+        Assert.True(q.Merged > 100);
+        Assert.True(q.TooFarAhead >= 1);
+        Assert.True(q.Missing <= Math.Max(1, settings.CommandQueueTicks), $"{q.Missing} of {ticks} ticks without a command");
+        Assert.True(sent - 1 - q.LastRun <= settings.CommandAheadTicks, $"{sent - 1 - q.LastRun} commands behind");
     }
 
     [Fact]

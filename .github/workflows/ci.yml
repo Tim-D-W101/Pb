@@ -79,7 +79,18 @@ jobs:
       - name: Import project
         run: tools/ci/import.sh ~/.local/godot/godot
       - name: Four rounds over UDP at 100 ms with jitter and loss, a trigger flipper and a fast clock among the players
+        # "shell: bash" runs it with pipefail, so the script failing fails the step (tee alone would hide it).
+        shell: bash
+        env:
+          NET_ROUND_LOGS: ${{ runner.temp }}/net-round
         run: tools/ci/net-round.sh ~/.local/godot/godot | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Keep every copy's log (when the rounds fail)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: net-round-logs
+          path: ${{ runner.temp }}/net-round
+          retention-days: 14
 
   windows-build:
     name: Windows build (download it from the run's Artifacts)

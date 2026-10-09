@@ -33,8 +33,8 @@ namespace Pb.Game.Core;
 /// <item>After the summary it moves on to the rotation's next round, or to the vote.</item>
 /// </list>
 /// It logs who joined and left, each round and how it went, and anything it dropped (<see cref="ServerLog"/>).
-/// <c>--host-wait=N</c> starts the countdown once N people are in; <c>--rounds=N</c> stops after N rounds; and
-/// <c>--time-limit=S</c> shortens rounds (CI).
+/// <c>--host-wait=N</c> starts the first countdown once N people are in (and the next ones with whoever's in);
+/// <c>--rounds=N</c> stops after N rounds; and <c>--time-limit=S</c> shortens rounds (CI).
 /// </summary>
 public partial class ServerMain : Node3D, ISimEventListener
 {
@@ -175,7 +175,8 @@ public partial class ServerMain : Node3D, ISimEventListener
 
         double now = _session.Now;
         int people = _lobby.State.Members.Count;
-        if (!_autoStarted && Args.Ticks("--host-wait", 0) is > 0 and int wanted && people >= wanted)
+        // --host-wait=N (CI): the first countdown once N people are in; after a round, straight away with whoever's still in.
+        if (!_autoStarted && Args.Ticks("--host-wait", 0) is > 0 and int wanted && (people >= wanted || (_lobby.State.RoundsPlayed > 0 && people > 0)))
         {
             _autoStarted = true;
             ServerLog.Line($"{people} in: counting down");
@@ -395,7 +396,7 @@ public partial class ServerMain : Node3D, ISimEventListener
                 ? $"{s.Shots} shots in {s.TimeIn:0.0} s ({(s.TimeIn > 0f ? s.Shots / s.TimeIn : 0f):0.0}/s, cap {_data.Config.Fire.RateCap:0.0}/s)"
                 : "watching";
             ServerLog.Line($"  {link.Name}: round trip {link.RoundTrip * 1000f:0} ms, {rate:0.0} KB/s live, commands missing {link.Commands.Missing}, " +
-                           $"late {link.Commands.Late}, too far ahead {link.Commands.TooFarAhead}, merged {link.Commands.Merged}, " +
+                           $"late {link.Commands.Late}, too far ahead {link.Commands.TooFarAhead} ({link.Commands.Skipped} skipped), merged {link.Commands.Merged}, " +
                            $"violations {link.Violations}, {shots}");
         }
 

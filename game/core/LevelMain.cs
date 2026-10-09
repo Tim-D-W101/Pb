@@ -1745,7 +1745,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             {
                 GD.Print($"NET {link.Name}: player {link.PlayerId}, round trip {link.RoundTrip * 1000f:0} ms, {link.BytesSent / 1024f:0} KiB sent " +
                          $"({link.BytesPerSecond / 1024f:0.0} KiB/s), commands missing {link.Commands.Missing}, late {link.Commands.Late}, " +
-                         $"merged {link.Commands.Merged}, too far ahead {link.Commands.TooFarAhead}, violations {link.Violations}");
+                         $"merged {link.Commands.Merged}, too far ahead {link.Commands.TooFarAhead} ({link.Commands.Skipped} skipped), violations {link.Violations}");
             }
 
             GD.Print($"NET host sent {server.BytesSent / 1024f:0} KiB in all");

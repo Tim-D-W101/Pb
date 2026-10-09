@@ -416,6 +416,36 @@ public class NetRoundTests
     }
 
     [Fact]
+    public void Between_rounds_a_copy_that_sends_nothing_stays_in()
+    {
+        var rig = new NetRig();
+        RigClient a = rig.Join("A");
+        RigClient b = rig.Join("B");
+        rig.Run(30);
+        rig.StartRound("teams", 2f, (0, 0, true, 0f, 0f), (1, 1, true, 5f, -20f));
+        rig.GoLive();
+        rig.Run(4 * Second, () => rig.Sim!.Match!.Phase == MatchPhase.Ended);
+        Assert.Equal(MatchPhase.Ended, rig.Sim!.Match!.Phase);
+
+        // The round's over: the summary, then the lobby, where a copy needn't send anything. Nobody is dropped for it,
+        // however long the summary or the lobby takes.
+        a.Silent = true;
+        b.Silent = true;
+        rig.Run((int)(rig.Settings.DropAfter * 3f * Second));
+        Assert.Equal(2, rig.Server.Clients.Count(c => c.Welcomed));
+
+        // And in the next round, built and played, silence drops them again.
+        a.Silent = false;
+        b.Silent = false;
+        rig.StartRound("teams", 900f, (0, 0, true, 0f, 0f), (1, 1, true, 5f, -20f));
+        rig.GoLive();
+        rig.Run(Second);
+        b.Silent = true;
+        rig.Run((int)((rig.Settings.DropAfter + 0.5f) * Second));
+        Assert.Single(rig.Server.Clients, c => c.Welcomed);
+    }
+
+    [Fact]
     public void Once_out_your_copy_shows_you_where_the_server_walks_you()
     {
         var rig = new NetRig();

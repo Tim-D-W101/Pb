@@ -93,6 +93,10 @@ done < <(grep -E "^.{19}   [^:]+: round trip" "$logs/server.log")
 grep -qE "Clock sent commands (faster than the clock|too far ahead)" "$logs/server.log" || fail "the server didn't log Clock's extra commands"
 
 if [ "$failed" -ne 0 ]; then
+  for name in "${names[@]:1}"; do
+    echo "### The end of $name's log"
+    tail -n 12 "$logs/$name.log"
+  done
   echo "Logs: $logs"
   exit 1
 fi

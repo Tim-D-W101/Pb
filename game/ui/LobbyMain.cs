@@ -23,7 +23,8 @@ namespace Pb.Game.Ui;
 /// </list>
 /// Everyone ready starts the countdown. The host can also start without waiting, and can remove someone. Leave ends
 /// the game when you're hosting, and otherwise just leaves it. When the countdown runs out, the round starts for
-/// everyone. <c>--host-wait=N</c> starts the countdown by itself once N people are in, you included (CI); <c>--ready</c>
+/// everyone. <c>--host-wait=N</c> starts the first countdown by itself once N people are in, you included, and the next
+/// ones straight away (CI); <c>--ready</c>
 /// readies you up once you're in, and <c>--say=TEXT</c> says something in the chat (CI and screenshots).
 /// </summary>
 public partial class LobbyMain : Control
@@ -194,8 +195,9 @@ public partial class LobbyMain : Control
             return;
         }
 
+        // --host-wait=N (CI): the first countdown once N people are in; after a round, straight away with whoever's still in.
         if (_session.Lobby is { Phase: LobbyPhase.Lobby } lobby && !_autoStarted && Args.Ticks("--host-wait", 0) is > 0 and int wanted &&
-            lobby.State.Members.Count >= wanted)
+            (lobby.State.Members.Count >= wanted || lobby.State.RoundsPlayed > 0))
         {
             _autoStarted = true;
             GD.Print($"NET {lobby.State.Members.Count} in the game: counting down");

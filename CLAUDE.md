@@ -62,7 +62,7 @@ crashes Godot; exported builds take no scene path, and the menu's `--smoke-test`
 Playing with others from the command line (Phase 4; the menu's Play with others does the same):
 - **Hosting and joining:** `-- --host` (on `--port=N`, with `--password=WORD`) or `-- --join=ADDRESS`, as `--name=NAME`
   playing character `--look=N`.
-- **In the lobby:** `--host-wait=N` starts the countdown once N people are in, `--ready` readies you up, `--say=TEXT`
+- **In the lobby:** `--host-wait=N` starts the first countdown once N people are in (the next ones with whoever's in), `--ready` readies you up, `--say=TEXT`
   says something in the chat, and `--rounds=N` has a `--bot-match` copy play N rounds before it quits.
 - **A worse connection on purpose:** `--net-lag=MS` (round trip), `--net-jitter=MS`, `--net-loss=PCT`; and
   `--no-lag-compensation` on the host.

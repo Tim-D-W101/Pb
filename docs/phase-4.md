@@ -305,6 +305,11 @@ The lobby is bare until M4.4: hosting, who's in and Start round; joined, you wai
   - Clock's doubled commands are run two to a tick, so it moves no faster than the rules allow. Its commands came
     early, not too far ahead, so the plan's dropping showed up as merging; the server now logs merging that goes on for
     seconds, which a hiccup's catch-up never does.
+- **What a busier CI machine found** (fixed, in the report):
+  - the server dropped silent players between rounds;
+  - a level build outlasted the connection's 20 s (now a minute);
+  - commands more than 2 s ahead were thrown away, which shut a player out for the rest of the round once their copy
+    got that far ahead: Clock did on CI, and so would anyone after the host stalled. The queue now skips on to them.
 - **Wine** (`tools/ci/wine-join.sh`, in the Windows build job): the exported Windows build plays a round on the packaged
   Linux server, and both must end it the same, without errors.
 - **Benchmark** (`tools/Pb.Bench`, "Network"):

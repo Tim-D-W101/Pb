@@ -221,6 +221,25 @@ public class LobbyTests
     }
 
     [Fact]
+    public void The_host_going_back_to_the_lobby_mid_round_drops_nobody_for_sending_nothing()
+    {
+        (NetRig rig, LobbyHost lobby) = Game();
+        RigClient a = rig.Join("A");
+        Run(rig, lobby, 10);
+        rig.StartRound("teams", 900f, (0, 0, false, 0f, 0f), (1, 1, true, 5f, -20f));
+        lobby.RoundStarted();
+        rig.GoLive();
+        Run(rig, lobby, Second);
+
+        // The round hasn't ended when the host takes everyone back to the lobby, where A sends nothing for a while.
+        lobby.BackToLobby();
+        a.Silent = true;
+        Run(rig, lobby, (int)(rig.Settings.DropAfter * 2f * Second));
+        Assert.Single(rig.Server.Clients, c => c.Welcomed);
+        Assert.Equal(2, lobby.State.Members.Count);
+    }
+
+    [Fact]
     public void Someone_who_leaves_and_comes_back_has_their_session_score_again()
     {
         (NetRig rig, LobbyHost lobby) = Game();

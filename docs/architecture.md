@@ -1005,9 +1005,13 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 - **Commands:**
   - sequences only go forward;
-  - at most one a tick on average, with a small burst allowance: ones too far ahead of their turn are dropped, and a
-    queue that stays too long runs two to a tick until it's back to its depth (as built). Two seconds of that, which is
-    a clock running fast, not a hiccup's catch-up, is logged, and again every ten seconds while it goes on;
+  - at most one a tick on average, with a small burst allowance: a queue that stays too long runs two to a tick until
+    it's back to its depth (as built). Two seconds of that, which is a clock running fast, not a hiccup's catch-up, is
+    logged, and again every ten seconds while it goes on;
+  - a command further ahead of its turn than the queue reaches (`commandAheadTicks`) means the copy's clock has run on:
+    the host stalled, or the copy runs fast and the host can't keep up even two to a tick. The queue skips on to it
+    and never runs the commands in between, so a stall costs a player a moment rather than the rest of the round, and
+    running fast still gains nothing. Each skip is logged, at most every ten seconds for a player;
   - `Move` is clamped to the unit circle;
   - angles must be finite, and are clamped (pitch to `maxPitch`, head yaw to `maxHeadTurn`);
   - unknown buttons are masked off;

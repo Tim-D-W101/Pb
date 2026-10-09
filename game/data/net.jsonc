@@ -20,7 +20,9 @@
   "commandQueueMostTicks": 8,
   "commandQueuePatience_ms": 1000,
 
-  // How far ahead of the server's next one a command may arrive and still be kept (later ones are a cheat or a fault).
+  // How far ahead of the server's next one a command may arrive and still wait its turn. One further ahead means the
+  // copy's clock has run on (the host stalled, or the copy runs fast): the queue skips on to it, and the commands in
+  // between are never run.
   "commandAheadTicks": 240,
 
   // A command that hasn't come in time is replaced by the player's last one, for at most this long; after that the
@@ -44,9 +46,10 @@
   "dropAfter_ms": 5000,
 
   // The connection itself gives up on a copy that hasn't confirmed anything for this long at the least (and at the most,
-  // however the round trip goes). Generous: a copy hears nothing while it builds a level.
-  "linkTimeoutMin_ms": 20000,
-  "linkTimeoutMax_ms": 40000,
+  // however the round trip goes). Generous: a copy hears nothing while it builds a level, which can take half a minute on
+  // a slow or busy computer (CI's, running six copies at once, took 21 s). In a round the drop time above is what counts.
+  "linkTimeoutMin_ms": 60000,
+  "linkTimeoutMax_ms": 120000,
 
   // A snapshot's events stop at this many bytes (the rest go in the next); a UDP packet holds about 1,400.
   "packetBudget_bytes": 1100,

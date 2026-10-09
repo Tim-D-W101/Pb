@@ -226,8 +226,8 @@ From a round on the dedicated server, with players joining from 100 ms away:
 2026-10-09 18:38:27 everyone has the round built after 15.0 s
 2026-10-09 18:38:32 round 1 live
 2026-10-09 18:39:47 round 1 over: TimeUp, won by nobody after 75 s; Cy 1 out/1 hits, Ada 0 out/0 hits, Ferret 0 out/0 hits, …
-2026-10-09 18:39:47   Cy: round trip 133 ms, 9.9 KB/s live, commands missing 58, late 91, too far ahead 0, merged 15, violations 0, 17 shots in 75.0 s (0.2/s, cap 10.5/s)
-2026-10-09 18:39:47   Ada: round trip 125 ms, 9.9 KB/s live, commands missing 5, late 20, too far ahead 0, merged 0, violations 0, 6 shots in 75.0 s (0.1/s, cap 10.5/s)
+2026-10-09 18:39:47   Cy: round trip 133 ms, 9.9 KB/s live, commands missing 58, late 91, too far ahead 0 (0 skipped), merged 15, violations 0, 17 shots in 75.0 s (0.2/s, cap 10.5/s)
+2026-10-09 18:39:47   Ada: round trip 125 ms, 9.9 KB/s live, commands missing 5, late 20, too far ahead 0 (0 skipped), merged 0, violations 0, 6 shots in 75.0 s (0.1/s, cap 10.5/s)
 ```
 
 - **Rounds:** each has a line when it starts, when everyone has built it, when it goes live, and when it's over.
@@ -239,4 +239,6 @@ From a round on the dedicated server, with players joining from 100 ms away:
   for example `round 2: there's no area "rail_yrad", so it's oxbarrow_works`.
 - **Dropped commands:** anything a player sent that the server dropped gets a line too. A copy whose clock runs fast
   shows as `Clock sent commands faster than the clock (run two to a tick)` every few seconds; the server runs its
-  commands two to a tick, so it moves no faster than anyone else.
+  commands two to a tick, so it moves no faster than anyone else. `sent commands too far ahead of their turn (skipped on
+  to them)` means a player's commands got more than two seconds ahead: the server had stalled, or their clock runs fast.
+  The server skips on to their newest, so they're playing again at once, and gain nothing.

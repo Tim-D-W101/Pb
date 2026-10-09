@@ -58,6 +58,11 @@ public sealed class ClientLink
     /// <summary>How many of their commands had been run two in a tick when that was last logged.</summary>
     internal int MergesLogged { get; set; }
 
+    /// <summary>How many of their commands had come too far ahead when that was last logged, and when that was.</summary>
+    internal int TooFarLogged { get; set; }
+
+    internal double TooFarLoggedAt { get; set; } = double.NegativeInfinity;
+
     internal NetSettings Settings { get; }
 
     internal float Dt { get; }
@@ -84,6 +89,8 @@ public sealed class ClientLink
     {
         Commands = new CommandQueue(Settings, Dt);
         MergesLogged = 0;
+        TooFarLogged = 0;
+        TooFarLoggedAt = double.NegativeInfinity;
         AckedTick = -1;
         AckedEvent = 0;
         NewestSeen = -1;

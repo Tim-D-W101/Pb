@@ -74,6 +74,18 @@ The plan is [phase-4.md](../phase-4.md), with an as-built note for each mileston
 Along the way, M4.7's screenshots showed the lobby's chat pushed off the bottom of the screen once more than a few
 people were in. The list of people now scrolls in its column, and the chat always stays on screen.
 
+Then a CI run, on a busier machine than the one I test on, found three faults that only show on a slower computer or
+after a longer wait. All three are fixed; the first and the last have tests that fail without the fix:
+
+- **Dropped between rounds.** The server went on dropping anyone it hadn't heard from for 5 s after a round was over.
+  Sitting in the lobby after a round put you out of the game. Silence now counts only while a round is being played.
+- **A slow level build.** A copy can't answer while it builds a level, and the connection gave up after 20 s; one of
+  CI's copies took longer. It now waits a minute (`net.jsonc`). In a round, 5 s of silence still drops someone.
+- **Shut out after a stall.** A command more than 2 s ahead of its turn was thrown away. Once a copy got that far ahead,
+  everything it sent after was thrown away too, for the rest of the round. A host stalling for over 2 s would have done
+  that to every player. The server now skips on to such a command and never runs the ones in between: a stall costs a
+  moment, and running fast still gains nothing.
+
 ## How to play with others
 
 - **Two copies on one PC:** start the game twice: Play.bat, then Pb.exe in the same folder.
@@ -94,7 +106,7 @@ people were in. The list of people now scrolls in its column, and the chat alway
 |---|---|---|
 | Listen server: host from the game, others join | ✅, ⏳ your play | Real UDP rounds with two and three copies; CI's menu check finds Play with others; screenshots |
 | Dedicated server on Linux and Windows | ✅ | CI's networked rounds each push, on the dedicated server; the packaged Linux server served a round to packaged joiners; the published package downloads, updates and serves ([below](#the-dedicated-server)); the Windows build ran under Wine |
-| Lobby: create and join, sides with auto-balance, loadout preview, ready-up, map vote, countdown | ✅ | Nine lobby tests; the lobby screenshot below, with seven in |
+| Lobby: create and join, sides with auto-balance, loadout preview, ready-up, map vote, countdown | ✅ | Ten lobby tests; the lobby screenshot below, with seven in |
 | 10 players in a round | ✅ | CI's networked rounds fill to ten (five people and five bots) |
 | Hits feel fair at 100 ms simulated latency | ✅, ⏳ your play | The lag compensation test: leading a runner at 20 m hits as often at 100 ms as next to the server (within 5 points) |
 | No score desync | ✅ | CI compares every copy's result, scores and stats with the server's, every round |
@@ -104,7 +116,7 @@ people were in. The list of people now scrolls in its column, and the chat alway
 
 ### Tests
 
-`dotnet test` runs **418 sim tests** (412 at the end of M4.3) and **60 network tests**, all green. Against the plan's
+`dotnet test` runs **418 sim tests** (412 at the end of M4.3) and **64 network tests**, all green. Against the plan's
 test table:
 
 - **Rules for several players:** co-op, teams and free-for-all with 1–10 people end with the right side winning, read
@@ -123,6 +135,8 @@ test table:
 - **Validation:**
   - a trigger flipped every tick fires no more than the cap, never with an empty loader;
   - twice the commands move no faster than the rules, and are merged and logged;
+  - after a stall longer than the queue reaches, a player's latest commands run at once, and a copy running twice as
+    fast as a struggling host still plays, gaining nothing;
   - bad angles and unknown buttons are clamped and logged;
   - names lose control characters, and the host's log hears who was turned away and why.
 - **No desync:** after a networked round every copy's result, scores and stats equal the server's.
@@ -130,6 +144,7 @@ test table:
   - joining, leaving, sides and their balance, ready-up and the countdown;
   - the vote, chat and removing someone;
   - the session score, kept for someone who comes back (not for a second copy with the same id);
+  - nobody dropped for silence between rounds, after the summary or when the host leaves a round early;
   - another version refused with a message saying which.
 - **The dedicated server:** casting without bots, and the shipped `server.jsonc` naming only areas, places and modes the
   game has.
@@ -288,7 +303,7 @@ teammate, answers.*
 ## How to run
 
 ```bash
-dotnet test                                                    # 418 sim tests and 60 network tests
+dotnet test                                                    # 418 sim tests and 64 network tests
 tools/ci/net-round.sh godot                                    # CI's networked rounds, on one machine
 godot --headless --path game -- --server                       # a dedicated server from the source
 godot --path game -- --host --name=You                         # host from the command line (the menu does the same)
@@ -323,6 +338,10 @@ CLAUDE.md lists every flag for playing with others.
   matters if one of them leaves and comes back while the other is in.
 - **No friends lists, invites or relay** until a platform comes in. Over the internet, the host forwards a port, or
   you use a rented server.
+- **A host that stops answering** (its computer freezes or loses its connection, rather than ending the game):
+  - in a round, your screen says the connection is interrupted at once, and you can leave from the pause menu;
+  - in the lobby nothing changes until, after a minute, the game says the connection was lost.
+  - The minute is the time a level build is allowed.
 - **Joining mid-round:** you watch it, and play from the next round.
 - **Online rounds don't go in your records.**
 - **A race in Godot's .NET bindings.** Loading the same file again while its previous C# wrapper was being finalized
@@ -333,9 +352,10 @@ CLAUDE.md lists every flag for playing with others.
 
 - **CI's networked rounds.** The plan had one round with three players, and the cheats in the same run. CI plays four
   rounds instead, one on each area and in all three modes, with three fair players and the two cheats.
-- **The fast clock.** Its extra commands came early, not too far ahead, so the server runs them two to a tick (they
-  merge) rather than dropping them. It moves no faster either way. The server now logs merging that goes on for
-  seconds, which a hiccup's catch-up never does; before, only commands too far ahead were logged.
+- **The fast clock.** Its extra commands come early, so the server runs them two to a tick (they merge) rather than
+  dropping them. When the host can't keep up even so, it skips on to the newest. Either way it moves no faster. The
+  server logs both: merging that goes on for seconds (a hiccup's catch-up never does), and each skip, at most every ten
+  seconds.
 - **The traffic budget** is checked for each player while a round is live, from the server's own count. With 1,000 balls
   in the air, every packet fills to its budget instead; the benchmark shows both.
 - **The Wine join** runs in the Windows build job, which has the build and the Linux server to hand, rather than in the

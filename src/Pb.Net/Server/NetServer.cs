@@ -23,6 +23,9 @@ public sealed class NetServer : IDisposable
     private const int MergesBeforeLog = 240;
     private const int MergesBetweenLogs = 1200;
 
+    /// <summary>Commands too far ahead of their turn are logged straight away, then at most this often (s) for each player.</summary>
+    private const double TooFarBetweenLogs = 10.0;
+
     private const int WorldRing = ClientLink.Ring;
 
     private readonly ITransport _transport;
@@ -36,6 +39,7 @@ public sealed class NetServer : IDisposable
     private int[] _worldTicks = Array.Empty<int>();
     private WorldFields? _fields;
     private int _round = -1;
+    private bool _over;
 
     public NetServer(ITransport transport, NetSettings settings, ServerIdentity identity, Func<double> clock, float dt)
     {
@@ -126,12 +130,12 @@ public sealed class NetServer : IDisposable
             }
         }
 
-        // Silence drops someone only while they play a round they've built: building one, or between rounds, a copy needn't
-        // send anything (the connection itself notices one that has gone).
+        // Silence drops someone only while they play a round they've built: building one, or between rounds (the summary,
+        // the lobby), a copy needn't send anything (the connection itself notices one that has gone).
         for (int i = _clients.Count - 1; i >= 0; i--)
         {
             ClientLink c = _clients[i];
-            bool playing = _round >= 0 && c.PlayerId >= 0 && c.LoadedRound == _round;
+            bool playing = _round >= 0 && !_over && c.PlayerId >= 0 && c.LoadedRound == _round;
             if (playing && now - c.LastHeard > Settings.DropAfter)
             {
                 Drop(c, notify: true);
@@ -174,6 +178,7 @@ public sealed class NetServer : IDisposable
     public void BeginRound(SimWorld sim, RoundSetupMessage setup, Func<ClientLink, int> playerOf)
     {
         _round = setup.Round;
+        _over = false;
         _fields = new WorldFields(sim.Players.Count, sim.Doors.Count, Grid(sim));
         _zeros = new uint[Math.Max(OwnFields.Count, _fields.Count)];
         _world = new uint[WorldRing][];
@@ -287,9 +292,16 @@ public sealed class NetServer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Everyone's going back to the lobby (after the summary, or the host leaving a round before it ended): from now until
+    /// the next round begins, nobody is dropped for sending nothing.
+    /// </summary>
+    public void LeaveRound() => _over = true;
+
     /// <summary>The round is over: everyone is sent the result and the numbers the server kept.</summary>
     public void EndRound(SimWorld sim)
     {
+        _over = true;
         if (sim.Match is not { } match)
         {
             return;
@@ -567,9 +579,14 @@ public sealed class NetServer : IDisposable
             link.RoundTrip = link.RoundTrip <= 0f ? sample : link.RoundTrip + (sample - link.RoundTrip) * 0.1f;
         }
 
-        if (link.Commands.TooFarAhead > 0 && link.Commands.TooFarAhead % 60 == 1)
+        // Commands far ahead of their turn: the queue skipped on to them (a stall here, a fast clock there, or a cheat).
+        int farAhead = link.Commands.TooFarAhead - link.TooFarLogged;
+        if (farAhead > 0 && now - link.TooFarLoggedAt >= TooFarBetweenLogs)
         {
-            Flag(link, "commands too far ahead of their turn");
+            link.TooFarLogged = link.Commands.TooFarAhead;
+            link.TooFarLoggedAt = now;
+            Flag(link, farAhead == 1 ? "commands too far ahead of their turn (skipped on to them)"
+                : $"commands too far ahead of their turn {farAhead} times (skipped on to them)");
         }
     }
 

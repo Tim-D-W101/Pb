@@ -276,6 +276,7 @@ public sealed class LobbyHost : IDisposable
     /// </summary>
     public void BackToLobby(IReadOnlyList<VoteOption>? options = null)
     {
+        _server.LeaveRound();
         foreach (LobbyMember m in State.Members)
         {
             m.Ready = false;

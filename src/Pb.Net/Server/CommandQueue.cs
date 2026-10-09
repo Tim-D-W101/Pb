@@ -8,7 +8,9 @@ namespace Pb.Net.Server;
 /// that hasn't come when its turn does is replaced by the last one run (commands are mostly the same tick to tick, so
 /// that's usually exactly right) and the real one, if it comes, is dropped. If commands keep coming too late, it waits a
 /// tick for them (a tick more delay); if the queue stays too long, it runs two in each tick (one tick's moves, buttons of
-/// both) until it's back to its depth. So nobody gets more moves than ticks have passed, however fast they send.
+/// both) until it's back to its depth. A command further ahead than the queue reaches means the copy's clock has run on
+/// (the host stalled, or the copy runs fast): the queue skips on to it, and the commands it skips are never run. So nobody
+/// gets more moves than ticks have passed, however fast they send, and nobody is shut out for long, however far ahead.
 /// </summary>
 public sealed class CommandQueue
 {
@@ -29,6 +31,7 @@ public sealed class CommandQueue
     private float _missingFor;
     private float _lateFor;
     private int _lateSince;
+    private int _skippedBelow = -1;
 
     public CommandQueue(NetSettings settings, float dt)
     {
@@ -52,8 +55,11 @@ public sealed class CommandQueue
     /// <summary>Commands that came after their turn and were dropped.</summary>
     public int Late { get; private set; }
 
-    /// <summary>Commands that came too far ahead of their turn (a fault or a cheat) and were dropped.</summary>
+    /// <summary>Commands that came too far ahead of their turn (a fault, a stall or a cheat): the queue skipped on to each.</summary>
     public int TooFarAhead { get; private set; }
+
+    /// <summary>Commands passed over by those skips, never run.</summary>
+    public int Skipped { get; private set; }
 
     /// <summary>Times two commands were run as one, the queue having stayed too long.</summary>
     public int Merged { get; private set; }
@@ -72,8 +78,9 @@ public sealed class CommandQueue
         int floor = _started ? _next : _first;
         if (floor >= 0 && seq < floor)
         {
-            // A repeat of one already here is the packets' redundancy; one that's new missed its turn (noted, to wait for them).
-            if (_seqs[seq & (Capacity - 1)] != seq)
+            // A repeat of one already here is the packets' redundancy, and one from before a skip was passed over; one that's
+            // new missed its turn (noted, to wait for them).
+            if (_seqs[seq & (Capacity - 1)] != seq && seq >= _skippedBelow)
             {
                 Late++;
                 _lateSince += _started ? 1 : 0;
@@ -85,8 +92,7 @@ public sealed class CommandQueue
         int ceiling = (_started ? _next : Math.Max(_first, 0)) + _settings.CommandAheadTicks;
         if (floor >= 0 && seq > ceiling)
         {
-            TooFarAhead++;
-            return;
+            SkipTo(seq);
         }
 
         int slot = seq & (Capacity - 1);
@@ -175,6 +181,31 @@ public sealed class CommandQueue
         }
 
         return Run(stand, _lastView, out command, out viewTick);
+    }
+
+    /// <summary>
+    /// A command further ahead of its turn than the queue reaches: the queue goes on from its usual depth before it, the
+    /// commands in between passed over. The player loses those moves (they stood still meanwhile), never gains any.
+    /// </summary>
+    private void SkipTo(int seq)
+    {
+        TooFarAhead++;
+        int from = seq - Math.Max(1, _settings.CommandQueueTicks) + 1;
+        if (_started)
+        {
+            Skipped += from - _next;
+            _next = from;
+        }
+        else
+        {
+            _first = from;
+        }
+
+        _skippedBelow = from;
+        _longFor = 0f;
+        _catchingUp = false;
+        _lateFor = 0f;
+        _lateSince = 0;
     }
 
     private bool Run(in InputCommand next, int view, out InputCommand command, out int viewTick)
