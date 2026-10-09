@@ -68,8 +68,8 @@ public sealed class BallPool
     public byte[] Rewind { get; }
 
     /// <summary>
-    /// On a joining copy, a ball someone else fired, flown here for show: it passes through players (the server says
-    /// whom it hit) and can't put anyone out.
+    /// On a joining copy, a ball someone else fired, flown here for show: it hits nothing, and the server's events say
+    /// where it bounced, broke or went (so it can't put anyone out).
     /// </summary>
     public bool[] Remote { get; }
 

@@ -59,6 +59,7 @@ public class SeveralPlayersTests
 
     private static void Out(SimWorld sim, int id) => sim.FindPlayer(id)!.Alive = false;
 
+
     private static int PodsOf(SimWorld sim, int id) => sim.FindPlayer(id)!.Marker.Paint.PodsRemaining;
 
     [Fact]
@@ -302,22 +303,23 @@ public class SeveralPlayersTests
     }
 
     [Fact]
-    public void A_ball_flown_for_show_passes_through_players()
+    public void A_ball_flown_for_show_hits_nothing_on_its_own()
     {
         // Someone the server says fired (id 2) from beside you, through a player 10 m ahead, at a wall 20 m ahead.
         SimWorld sim = Ground((0, 0, 5f, 0f), (1, 1, 0f, -10f), (2, 2, 0f, 0f));
-        Collider wall = sim.Collision.Add(new BoxShape(new Vector3(0f, 1.5f, -20.5f), Quaternion.Identity, new Vector3(3f, 1.5f, 0.5f)),
+        sim.Collision.Add(new BoxShape(new Vector3(0f, 1.5f, -20.5f), Quaternion.Identity, new Vector3(3f, 1.5f, 0.5f)),
             Config.Surfaces.Get("concrete"), "wall");
         sim.Role = SimRole.Client;
         sim.LocalPlayerId = 0;
         Assert.True(sim.SpawnRemoteShot(2, 0, 2, new Vector3(0f, 1.15f, 0f), new Vector3(0f, 0f, -88f), Config.Dt, 3));
-        List<SimEvent> events = Run(sim, 60);
-        Assert.DoesNotContain(events, e => e.Type is SimEventType.BallBroke or SimEventType.BallBounced && PlayerHitboxes.IsPlayer(e.TargetId));
-        Assert.Contains(events, e => e.Type is SimEventType.BallBroke or SimEventType.BallBounced && e.ColliderId == wall.Id);
+        List<SimEvent> events = Run(sim, 40);
+        Assert.DoesNotContain(events, e => e.Type is SimEventType.BallBroke or SimEventType.BallBounced);
+        Assert.Equal(1, sim.Ballistics.Pool.Count);
+        Assert.True(sim.Ballistics.Pool.Position[0].Z < -21f, "it carries on until the server says it ended");
     }
 
     [Fact]
-    public void A_ball_flown_for_show_flies_and_breaks_as_the_servers_does()
+    public void A_ball_flown_for_show_follows_the_servers_until_it_ends()
     {
         // The same wall and ground on a server and on a joining copy; the server's shot glances off the ground first.
         static SimWorld World(SimRole role)
@@ -334,44 +336,41 @@ public class SeveralPlayersTests
         SimWorld client = World(SimRole.Client);
         var serverBalls = new List<Vector3>();
         var clientBalls = new List<Vector3>();
-        var serverEnds = new List<(SimEventType, int, Vector3)>();
-        var clientEnds = new List<(SimEventType, int, Vector3)>();
+        int ends = 0;
         var commands = new InputCommand[2];
         var idle = new InputCommand[2];
         for (int t = 0; t < 90; t++)
         {
             commands[0] = new InputCommand { Pitch = -0.08f, Buttons = t == 3 ? InputButtons.Fire : InputButtons.None };
             server.Step(commands);
+            client.Step(idle);
+            client.Events.Clear();
             foreach (SimEvent e in server.Events.Items)
             {
-                if (e.Type == SimEventType.ShotFired)
+                // What the server sends, applied on the copy after its step for the same tick: the shot, each bounce and the end.
+                int ball = client.Ballistics.Pool.Find(e.PlayerId, e.ShotSequence);
+                switch (e.Type)
                 {
-                    // What the server sends: the copy flies it from the start of its own step for that tick.
-                    client.SpawnRemoteShot(e.PlayerId, e.ShotSequence, e.Team, e.Position, e.Velocity, e.Value, e.Extra);
-                }
-                else if (e.Type is SimEventType.BallBounced or SimEventType.BallBroke or SimEventType.BallDespawned)
-                {
-                    serverEnds.Add((e.Type, e.Tick, e.Position));
+                    case SimEventType.ShotFired:
+                        client.SpawnRemoteShot(e.PlayerId, e.ShotSequence, e.Team, e.Position, e.Velocity, e.Value, e.Extra);
+                        break;
+                    case SimEventType.BallBounced when ball >= 0:
+                        client.Ballistics.Redirect(ball, server.Ballistics.Pool.Position[server.Ballistics.Pool.Find(e.PlayerId, e.ShotSequence)], e.Velocity);
+                        ends++;
+                        break;
+                    case SimEventType.BallBroke or SimEventType.BallDespawned when ball >= 0:
+                        client.Ballistics.Remove(ball);
+                        ends++;
+                        break;
                 }
             }
 
             server.Events.Clear();
-            client.Step(idle);
-            foreach (SimEvent e in client.Events.Items)
-            {
-                if (e.Type is SimEventType.BallBounced or SimEventType.BallBroke or SimEventType.BallDespawned)
-                {
-                    clientEnds.Add((e.Type, e.Tick, e.Position));
-                }
-            }
-
-            client.Events.Clear();
             serverBalls.Add(server.Ballistics.Pool.Count > 0 ? server.Ballistics.Pool.Position[0] : Vector3.Zero);
             clientBalls.Add(client.Ballistics.Pool.Count > 0 ? client.Ballistics.Pool.Position[0] : Vector3.Zero);
         }
 
-        Assert.NotEmpty(serverEnds);
-        Assert.Equal(serverEnds, clientEnds);
+        Assert.True(ends >= 1);
         Assert.Equal(serverBalls, clientBalls);
     }
 

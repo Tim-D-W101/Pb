@@ -118,6 +118,34 @@ public sealed class Marker
         return fired;
     }
 
+    /// <summary>Everything this marker remembers, its times relative to <paramref name="now"/> (sim time).</summary>
+    public MarkerState Capture(double now)
+    {
+        var state = new MarkerState
+        {
+            Trigger = _previousTrigger, RefillButton = _previousRefill, Toggle = _previousToggle, LowAirReported = _lowAirReported,
+            ShotSequence = ShotSequence, Pressure = Air.Pressure,
+        };
+        Paint.CaptureInto(ref state);
+        Refill.CaptureInto(ref state);
+        Fire.CaptureInto(ref state, now);
+        return state;
+    }
+
+    /// <summary>Puts back what <see cref="Capture"/> took, at <paramref name="now"/> on this copy's clock.</summary>
+    public void Restore(in MarkerState state, double now)
+    {
+        _previousTrigger = state.Trigger;
+        _previousRefill = state.RefillButton;
+        _previousToggle = state.Toggle;
+        _lowAirReported = state.LowAirReported;
+        ShotSequence = state.ShotSequence;
+        Air.Restore(state.Pressure);
+        Paint.Restore(state);
+        Refill.Restore(state);
+        Fire.Restore(state, now);
+    }
+
     /// <summary>Full loader, pods and tank (debug key; round start from Phase 2).</summary>
     public void ResetGear()
     {

@@ -75,6 +75,8 @@ public sealed class AirTank
 
     public void Fill() => Pressure = Params.FillPressure;
 
+    internal void Restore(float pressure) => Pressure = pressure;
+
     public void Reconfigure(AirParams parameters)
     {
         Params = parameters;

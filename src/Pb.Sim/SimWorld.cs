@@ -46,6 +46,7 @@ public sealed class SimWorld
 {
     private readonly List<PlayerState> _players = new();
     private readonly ShotRequest[] _shots = new ShotRequest[8];
+    private readonly SimEventQueue _replayEvents = new(64);
     private SimRole _role;
 
     /// <param name="matchSeed">Seeds the round's randomness (shots, bots); the data's seed when null. A host deals
@@ -271,21 +272,9 @@ public sealed class SimWorld
             if (i < commands.Length)
             {
                 InputCommand cmd = commands[i];
-                // On a ladder the body faces it and the head turns to look round (as far as a head turns); hands on
-                // the rungs, the marker can neither fire nor refill.
-                bool climbing = player.Ladder >= 0 && player.Ladder < Ladders.Count;
-                float body = climbing ? Ladders[player.Ladder].Facing : cmd.Yaw;
-                float head = climbing ? BotAim.Wrap(cmd.Yaw + cmd.HeadYaw - body) : cmd.HeadYaw;
-                player.Yaw = body;
-                player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
-                player.HeadYaw = player.Alive ? Math.Clamp(head, -Config.Movement.MaxHeadTurn, Config.Movement.MaxHeadTurn) : 0f;
-                UpdateTuck(player, dt);
+                bool climbing = Look(player, cmd, dt);
                 UpdateFootsteps(player);
-                bool live = IsLive;
-                var input = new MarkerInput(
-                    live && !climbing && cmd.Has(InputButtons.Fire), live && !climbing && cmd.Has(InputButtons.Refill),
-                    cmd.Has(InputButtons.ToggleFireMode), player.Sprinting, player.Alive, player.MarkerReady);
-                int count = player.Marker.Update(t0, dt, input, _shots, Events, player.Id, player.Team, Tick);
+                int count = MarkerStep(player, cmd, t0, dt, climbing, Events);
                 byte rewind = Math.Min(cmd.Rewind, (byte)(PlayerHitboxes.HistoryTicks - 1));
                 for (int k = 0; k < count; k++)
                 {
@@ -294,7 +283,7 @@ public sealed class SimWorld
 
                 if (!client)
                 {
-                    Doors.Interact(this, player, live && player.Alive && !climbing && cmd.Has(InputButtons.Interact), dt);
+                    Doors.Interact(this, player, IsLive && player.Alive && !climbing && cmd.Has(InputButtons.Interact), dt);
                 }
             }
         }
@@ -322,9 +311,47 @@ public sealed class SimWorld
     }
 
     /// <summary>
-    /// A joining copy: flies, for show, a ball the server says someone else fired (it passes through players; the server
-    /// says whom it hit). <paramref name="firstStep"/> and <paramref name="streamDraws"/> come with the shot's
-    /// <see cref="SimEventType.ShotFired"/>, so the ball flies and rolls its breaks as the server's does.
+    /// A joining copy correcting its own player after the server's state was put back: runs <paramref name="cmd"/>'s look,
+    /// tuck and marker for <paramref name="player"/> again as of <paramref name="t0"/>, the sim time it first ran at, firing
+    /// nothing and telling nobody (that all happened the first time). The host replays the movement first, as before a step.
+    /// </summary>
+    public void ReplayLocal(PlayerState player, in InputCommand cmd, double t0)
+    {
+        bool climbing = Look(player, cmd, Dt);
+        MarkerStep(player, cmd, t0, Dt, climbing, _replayEvents);
+        _replayEvents.Clear();
+    }
+
+    /// <summary>The look a command gives (on a ladder the body faces it and the head looks round) and the marker's tuck.</summary>
+    private bool Look(PlayerState player, in InputCommand cmd, float dt)
+    {
+        // On a ladder the body faces it and the head turns to look round (as far as a head turns); hands on the rungs,
+        // the marker can neither fire nor refill.
+        bool climbing = player.Ladder >= 0 && player.Ladder < Ladders.Count;
+        float body = climbing ? Ladders[player.Ladder].Facing : cmd.Yaw;
+        float head = climbing ? BotAim.Wrap(cmd.Yaw + cmd.HeadYaw - body) : cmd.HeadYaw;
+        player.Yaw = body;
+        player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
+        player.HeadYaw = player.Alive ? Math.Clamp(head, -Config.Movement.MaxHeadTurn, Config.Movement.MaxHeadTurn) : 0f;
+        UpdateTuck(player, dt);
+        return climbing;
+    }
+
+    /// <summary>The marker's tick: the shots it fires go in the step's buffer, its events in <paramref name="events"/>.</summary>
+    private int MarkerStep(PlayerState player, in InputCommand cmd, double t0, float dt, bool climbing, SimEventQueue events)
+    {
+        bool live = IsLive;
+        var input = new MarkerInput(
+            live && !climbing && cmd.Has(InputButtons.Fire), live && !climbing && cmd.Has(InputButtons.Refill),
+            cmd.Has(InputButtons.ToggleFireMode), player.Sprinting, player.Alive, player.MarkerReady);
+        return player.Marker.Update(t0, dt, input, _shots, events, player.Id, player.Team, Tick);
+    }
+
+    /// <summary>
+    /// A joining copy: flies, for show, a ball the server says someone else fired, as it is at the end of the shot's tick
+    /// (its first step already flown: a copy applies the server's events after its own step). It hits nothing here: the
+    /// server's events say where it bounced and ended. <paramref name="firstStep"/> and <paramref name="streamDraws"/> come
+    /// with the shot's <see cref="SimEventType.ShotFired"/>, so it flies as the server's does and picks up its random stream.
     /// </summary>
     public bool SpawnRemoteShot(int owner, uint sequence, byte team, Vector3 origin, Vector3 velocity, float firstStep, int streamDraws)
     {
@@ -334,7 +361,13 @@ public sealed class SimWorld
             rng.NextUInt();
         }
 
-        return Ballistics.Spawn(origin, velocity, owner, sequence, team, rng, firstStep, Tick, Events, remote: true, streamDraws: streamDraws);
+        if (!Ballistics.Spawn(origin, velocity, owner, sequence, team, rng, firstStep, Tick, Events, remote: true, streamDraws: streamDraws))
+        {
+            return false;
+        }
+
+        Ballistics.Advance(Ballistics.Pool.Count - 1, firstStep);
+        return true;
     }
 
     public void ResetGear(PlayerState player, bool resetTargets)

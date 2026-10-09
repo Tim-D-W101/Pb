@@ -165,6 +165,18 @@ public sealed class ObjectiveState
 
     public HoldStatus Status { get; private set; }
 
+    /// <summary>A joining copy: the objective as the server says it stands.</summary>
+    internal void ApplyServer(bool done, Vector3 casePosition, int carrier, bool caseMoved, int exitUsed, float held, HoldStatus status)
+    {
+        Done = done;
+        CasePosition = casePosition;
+        Carrier = carrier;
+        CaseMoved = caseMoved;
+        ExitUsed = exitUsed;
+        Held = held;
+        Status = status;
+    }
+
     internal void Update(SimWorld sim, float dt)
     {
         if (Done)

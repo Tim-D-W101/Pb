@@ -285,6 +285,17 @@ public sealed class PlayerStats
     public int OutTick { get; internal set; } = -1;
 
     public float Accuracy => Shots > 0 ? (float)Hits / Shots : 0f;
+
+    /// <summary>A joining copy: the numbers the server kept.</summary>
+    internal void ApplyServer(int shots, int hits, int eliminations, int pickups, float timeIn, int outTick)
+    {
+        Shots = shots;
+        Hits = hits;
+        Eliminations = eliminations;
+        Pickups = pickups;
+        TimeIn = timeIn;
+        OutTick = outTick;
+    }
 }
 
 /// <summary>Decides how a round stands. Modes plug in here, so a new way to win is a new mode, not a rewrite.</summary>
@@ -481,6 +492,16 @@ public sealed class MatchState
     }
 
     internal void AddPlayer(int playerId) => _stats.Add(new PlayerStats(playerId));
+
+    /// <summary>A joining copy: the round as the server says it stands (the copy never runs the round itself).</summary>
+    internal void ApplyServer(MatchPhase phase, int liveFromTick, int endTick, float elapsed, MatchResult result)
+    {
+        Phase = phase;
+        LiveFromTick = liveFromTick;
+        EndTick = endTick;
+        Elapsed = elapsed;
+        Result = result;
+    }
 
     internal void GoLive(SimWorld sim)
     {

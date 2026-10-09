@@ -1,0 +1,51 @@
+// Playing with others (Phase 4): how copies of the game talk to each other. The sim runs at 120 ticks a second;
+// network times are in milliseconds.
+{
+  // The UDP port a host listens on (forward this one on the host's router to play over the internet), and the one a
+  // host answers "who's there?" on, for the list of games on your own network.
+  "port": 47820,
+  "discoveryPort": 47821,
+
+  // Snapshots go out, and players' commands come in, every this many sim ticks (2: 60 a second).
+  "sendEveryTicks": 2,
+
+  // Each command packet repeats this many of the player's latest commands (6: three packets' worth), so a lost packet
+  // costs nothing.
+  "commandsPerPacket": 6,
+
+  // The server keeps each player's commands about this many ticks deep, to even out how unevenly they arrive. If a
+  // queue stays longer than the most for longer than the patience, the server runs two in a tick (one tick's moves)
+  // to catch up; if it keeps running dry, it waits a tick for them.
+  "commandQueueTicks": 2,
+  "commandQueueMostTicks": 8,
+  "commandQueuePatience_ms": 1000,
+
+  // How far ahead of the server's next one a command may arrive and still be kept (later ones are a cheat or a fault).
+  "commandAheadTicks": 240,
+
+  // A command that hasn't come in time is replaced by the player's last one, for at most this long; after that the
+  // player stands still, looking where they were, until their commands come again.
+  "repeatMissing_ms": 70,
+
+  // Others are drawn this many snapshot intervals behind the newest snapshot, plus the jitter measured, but no more
+  // than the most. Across a gap with no snapshots they carry on as they were for at most the extrapolation time.
+  "interpolationSnapshots": 2,
+  "interpolationMostSnapshots": 4,
+  "extrapolation_ms": 100,
+
+  // A prediction this close to the server's state is left alone; beyond it, the copy puts the server's state back and
+  // replays its later presses. A correction smaller than the snap is eased out over the ease time, a bigger one snaps.
+  "correctionTolerance_m": 0.001,
+  "correctionSnap_m": 0.5,
+  "correctionEase_ms": 100,
+
+  // Joining gives up after this long, and a player not heard from for this long is dropped.
+  "connectTimeout_ms": 10000,
+  "dropAfter_ms": 5000,
+
+  // A snapshot's events stop at this many bytes (the rest go in the next); a UDP packet holds about 1,400.
+  "packetBudget_bytes": 1100,
+
+  // The most people in one game, the host included (the rules' maxPlayers caps people and bots together).
+  "maxPeople": 10
+}

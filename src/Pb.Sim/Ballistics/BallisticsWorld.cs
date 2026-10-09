@@ -70,6 +70,48 @@ public sealed class BallisticsWorld
         return true;
     }
 
+    /// <summary>A joining copy: the server says this ball bounced here, so it carries on from there (the server's event says so).</summary>
+    public void Redirect(int index, Vector3 position, Vector3 velocity)
+    {
+        Pool.Position[index] = position;
+        Pool.Velocity[index] = velocity;
+        Pool.Bounced[index] = true;
+        Pool.Bounces[index]++;
+    }
+
+    /// <summary>Moves a ball along its flight for <paramref name="h"/> s, hitting nothing (a joining copy catching a shown ball up).</summary>
+    public void Advance(int index, float h)
+    {
+        Vector3 p = Pool.Position[index];
+        Vector3 v = Pool.Velocity[index];
+        Pool.PrevPosition[index] = p;
+        BallisticsIntegrator.Step(ref p, ref v, Projectile.DragFactor, Projectile.GravityVector, h);
+        Pool.Position[index] = p;
+        Pool.Velocity[index] = v;
+        Pool.Age[index] += h;
+        Pool.FirstStep[index] = 0f;
+    }
+
+    /// <summary>A joining copy: takes a ball out of the air without an event (the server's event says how it ended).</summary>
+    public void Remove(int index) => Pool.RemoveAt(index);
+
+    /// <summary>
+    /// A joining copy: puts a ball back in the air, already bounced, when the server says it carried on after this copy's
+    /// own flight of it ended. No event: the server's bounce is the one heard.
+    /// </summary>
+    public bool Resume(Vector3 position, Vector3 velocity, int owner, uint sequence, byte team, in Pcg32 rng, bool remote)
+    {
+        int index = Pool.Add(position, velocity, owner, sequence, team, rng, 0f, 0, remote);
+        if (index < 0)
+        {
+            return false;
+        }
+
+        Pool.Bounced[index] = true;
+        Pool.Bounces[index] = 1;
+        return true;
+    }
+
     /// <summary>
     /// The muzzle-in-cover rule: a shot fired with the barrel behind a wall breaks on that wall at
     /// once. Emits the shot and its break without a ball ever flying.
@@ -121,18 +163,20 @@ public sealed class BallisticsWorld
         Vector3 vNew = v;
         BallisticsIntegrator.Step(ref pNew, ref vNew, k, g, h);
 
+        // A ball flown for show on a joining copy hits nothing here: the server's events say where it bounced and ended.
         float radius = Projectile.Radius;
+        bool remote = pool.Remote[i];
         bool hitWorld = false;
         SweepHit worldHit = default;
-        if (World is not null)
+        if (World is not null && !remote)
         {
             hitWorld = World.SweepSphere(p, pNew, radius, out worldHit);
         }
 
-        // Players as they were when the shooter saw them (lag compensation); a ball flown for show passes through them.
+        // Players as they were when the shooter saw them (lag compensation).
         bool hitReceiver = false;
         HitboxHit receiverHit = default;
-        if (Hitboxes is not null && !pool.Remote[i])
+        if (Hitboxes is not null && !remote)
         {
             hitReceiver = Hitboxes.SweepSphere(p, pNew, radius, tick - pool.Rewind[i], pool.Owner[i], out receiverHit);
         }
