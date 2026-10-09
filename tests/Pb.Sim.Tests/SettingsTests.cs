@@ -271,4 +271,25 @@ public class SettingsTests
         Assert.Equal(s.PlayerName, back.PlayerName);
         Assert.Equal(new GameSettings().PlayerName, GameSettings.Defaults(Defaults).PlayerName);
     }
+
+    [Fact]
+    public void Your_profile_id_is_made_once_and_kept()
+    {
+        GameSettings first = GameSettings.FromJson(null, Defaults, out _);
+        Assert.True(first.ProfileIdMade);
+        Assert.Matches("^[0-9a-f]{32}$", first.ProfileId);
+        Assert.DoesNotContain("profileIdMade", first.ToJson(), StringComparison.OrdinalIgnoreCase);
+        GameSettings again = GameSettings.FromJson(first.ToJson(), Defaults, out _);
+        Assert.False(again.ProfileIdMade);
+        Assert.Equal(first.ProfileId, again.ProfileId);
+        Assert.NotEqual(GameSettings.FromJson(null, Defaults, out _).ProfileId, first.ProfileId);
+
+        // A file from before there were ids, or with a broken one, gets a new id.
+        GameSettings old = GameSettings.FromJson("{ \"playerName\": \"Ada\" }", Defaults, out _);
+        Assert.True(old.ProfileIdMade);
+        Assert.Matches("^[0-9a-f]{32}$", old.ProfileId);
+        GameSettings broken = GameSettings.FromJson("{ \"profileId\": \"../../not an id\" }", Defaults, out _);
+        Assert.True(broken.ProfileIdMade);
+        Assert.Matches("^[0-9a-f]{32}$", broken.ProfileId);
+    }
 }

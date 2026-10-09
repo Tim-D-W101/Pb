@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Pb.Game.Core;
+using Pb.Game.Platform;
+using Pb.Net.Platform;
 using Pb.Sim.Data;
 using Pb.Sim.Level;
 using Pb.Sim.Match;
@@ -78,6 +80,7 @@ public partial class MainMenu : Control
 
         _settings = GameSettings.Load(_view);
         InputSetup.Apply(_settings.Bindings);
+        Platforms.Attach(GetTree());
         _settings.ApplyWindow();
         Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
         Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
@@ -215,14 +218,15 @@ public partial class MainMenu : Control
     /// </summary>
     private void StartWithOthers()
     {
-        string name = Args.Value("--name") is { Length: > 0 } given ? given : _settings.PlayerName is { Length: > 0 } saved ? saved : "Player";
+        IIdentity you = Platforms.Current.Identity;
+        string name = Args.Value("--name") is { Length: > 0 } given ? given : you.Name;
         byte look = byte.TryParse(Args.Value("--look"), out byte l) ? l : (byte)_settings.PlayerLook;
         string password = Args.Value("--password") ?? "";
         try
         {
             if (Args.Value("--join") is { Length: > 0 } address)
             {
-                Pb.Game.Net.NetStart.Join(GetTree(), address, name, look, password);
+                Pb.Game.Net.NetStart.Join(GetTree(), address, name, look, password, key: you.Id);
             }
             else
             {

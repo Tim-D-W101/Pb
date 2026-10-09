@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Pb.Game.Core;
 
@@ -151,6 +152,16 @@ public sealed partial class GameSettings
     /// <summary>A pretend round trip added to your connection when you host or join (ms), to feel what lag does.</summary>
     public float PretendLag_ms { get; set; }
 
+    /// <summary>
+    /// Who you are when you play with others, offline: made once and kept, so a host knows you again when you rejoin
+    /// (32 hexadecimal digits; anything else is replaced).
+    /// </summary>
+    public string ProfileId { get; set; } = "";
+
+    /// <summary>The id was made as these settings were read (the file had none), so they want saving to keep it.</summary>
+    [JsonIgnore]
+    public bool ProfileIdMade { get; private set; }
+
     /// <summary>Which defaults these settings have caught up with (<see cref="CurrentVersion"/>).</summary>
     public int Version { get; set; }
 
@@ -197,6 +208,8 @@ public sealed partial class GameSettings
         Crosshair = d.Crosshair,
         HeadBob = d.HeadBob,
         Version = CurrentVersion,
+        ProfileId = Guid.NewGuid().ToString("N"),
+        ProfileIdMade = true,
     };
 
     /// <summary>
@@ -268,7 +281,14 @@ public sealed partial class GameSettings
         RecentAddresses = (RecentAddresses ?? new List<string>()).Where(a => !string.IsNullOrWhiteSpace(a) && a.Length <= 80).Select(a => a.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase).Take(Recent).ToList();
         PretendLag_ms = float.IsFinite(PretendLag_ms) ? Math.Clamp(PretendLag_ms, 0f, 500f) : 0f;
+        if (!IsProfileId(ProfileId))
+        {
+            ProfileId = Guid.NewGuid().ToString("N");
+            ProfileIdMade = true;
+        }
     }
+
+    private static bool IsProfileId(string? id) => id is { Length: 32 } && id.All(Uri.IsHexDigit);
 
     /// <summary>Settings saved before a default changed take the new default.</summary>
     private void CatchUp(SettingsDefaults d)

@@ -11,7 +11,8 @@ public readonly record struct PersonInRound(int MemberId, int PlayerId, int Team
 
 /// <summary>
 /// The lobby on the host, without the engine: who's in (people come and go through the <see cref="NetServer"/>), their
-/// sides, characters and ready flags, the host's choices, the countdown, the vote, text chat and the session's score.
+/// sides, characters and ready flags, the host's choices, the countdown, the vote, text chat and the session's score
+/// (kept for someone who leaves and comes back, known by their identity's id).
 /// It decides every request (a switch that would put the sides more than one apart is refused while balance is on;
 /// chat is cut to length and limited), and sends the lobby to everyone whenever it changes, and every few seconds
 /// during a round for the pings. The host's own player, if they play, is member 0; on a dedicated server there's none.
@@ -26,6 +27,7 @@ public sealed class LobbyHost : IDisposable
     private readonly Func<double> _clock;
     private readonly BitWriter _writer = new(4096);
     private readonly Dictionary<int, Queue<double>> _said = new();
+    private readonly Dictionary<string, (int Eliminations, int RoundsWon)> _gone = new(StringComparer.Ordinal);
     private readonly List<ChatLine> _heard = new();
     private double _deadline;
     private double _sentAt = double.NegativeInfinity;
@@ -422,12 +424,26 @@ public sealed class LobbyHost : IDisposable
             member.Side = SmallerSide();
         }
 
+        // Someone back this session has their score again (unless another copy with the same id is still in: two
+        // copies on one computer share it).
+        if (link.Key.Length > 0 && !_server.Clients.Any(c => c != link && c.Welcomed && c.Key == link.Key)
+            && _gone.Remove(link.Key, out (int Eliminations, int RoundsWon) score))
+        {
+            member.Eliminations = score.Eliminations;
+            member.RoundsWon = score.RoundsWon;
+        }
+
         State.Members.Add(member);
         Touch();
     }
 
     private void Leave(ClientLink link)
     {
+        if (link.Key.Length > 0 && State.Find(link.Peer) is { Host: false } member && (member.Eliminations > 0 || member.RoundsWon > 0))
+        {
+            _gone[link.Key] = (member.Eliminations, member.RoundsWon);
+        }
+
         State.Members.RemoveAll(m => m.Id == link.Peer && !m.Host);
         _said.Remove(link.Peer);
         Touch();

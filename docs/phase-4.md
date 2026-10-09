@@ -262,9 +262,19 @@ The lobby is bare until M4.4: hosting, who's in and Start round; joined, you wai
 
 ### M4.6 Platform layer
 
-- [ ] `IPlatformServices`: who you are (your name, and an id kept in your profile), finding games (on your network and
+- [x] `IPlatformServices`: who you are (your name, and an id kept in your profile), finding games (on your network and
   by address), friends and invites (none yet), and a store (later). There's an offline version now; a platform's (Steam,
   for crossplay) can come later without touching the game.
+
+*As built:*
+- **Where it lives.** The interfaces are engine-free (`Pb.Net/Platform`); the offline platform is in `game/platform`.
+  The game asks only them who you are and what games there are to join.
+- **The id.** Your profile id is made the first time the game reads its settings, and saved at once. It goes to the host
+  in the hello, so the protocol is version 3. A copy of version 2 is still told to update.
+- **Coming back.** The lobby gives the session's score back to someone who leaves and comes back, known by that id
+  (not while another copy with the same id is in, as two copies on one computer share it).
+- **A platform's name.** When a platform has its own name for you, the name field in Play with others shows it, and you
+  can't change it there.
 
 ### M4.7 Verify and report
 

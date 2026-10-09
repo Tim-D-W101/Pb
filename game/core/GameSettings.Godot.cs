@@ -21,6 +21,14 @@ public sealed partial class GameSettings
             GD.PushWarning($"Ignoring unreadable {Path}: {problem}");
         }
 
+        // A new profile id is kept from the start, so every screen reads the same one. An unreadable file is left as it
+        // is, for you to put right, and so is everything before the input actions are known (bindings for actions it
+        // didn't know yet would be lost).
+        if (settings.ProfileIdMade && problem is null && KnownActions.Length > 0)
+        {
+            settings.Save();
+        }
+
         return settings;
     }
 

@@ -48,8 +48,11 @@ public enum MessageType : byte
 
 public static class NetProtocol
 {
-    /// <summary>Bumped whenever a message changes: copies on different versions refuse each other (2: the callout key).</summary>
-    public const int Version = 2;
+    /// <summary>
+    /// Bumped whenever a message changes: copies on different versions refuse each other (2: the callout key; 3: who you
+    /// are, in the hello).
+    /// </summary>
+    public const int Version = 3;
 
     public static MessageType TypeOf(ReadOnlySpan<byte> packet) => packet.Length > 0 ? (MessageType)packet[0] : MessageType.None;
 }
@@ -89,6 +92,9 @@ public sealed class HelloMessage
     /// <summary>Which character they play.</summary>
     public byte Look { get; set; }
 
+    /// <summary>Who they are: their platform identity's id, which stays theirs from game to game (empty if unknown).</summary>
+    public string Key { get; set; } = "";
+
     public void Write(BitWriter w)
     {
         w.WriteByte((byte)MessageType.Hello);
@@ -98,6 +104,7 @@ public sealed class HelloMessage
         w.WriteString(Name, 48);
         w.WriteString(Password, 64);
         w.WriteByte(Look);
+        w.WriteString(Key, 64);
     }
 
     public static HelloMessage? Read(ReadOnlySpan<byte> packet)
@@ -113,6 +120,13 @@ public sealed class HelloMessage
             Protocol = (int)r.ReadVarUInt(), Build = r.ReadString(64), DataHash = r.ReadString(80), Name = r.ReadString(48),
             Password = r.ReadString(64), Look = r.ReadByte(),
         };
+
+        // Version 2's hello ends there; it's still read, so the copy is told which version to update to.
+        if (m.Protocol >= 3)
+        {
+            m.Key = r.ReadString(64);
+        }
+
         return r.Overflowed ? null : m;
     }
 }

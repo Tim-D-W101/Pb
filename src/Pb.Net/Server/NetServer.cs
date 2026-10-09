@@ -468,6 +468,7 @@ public sealed class NetServer : IDisposable
         link.Welcomed = true;
         link.Name = UniqueName(hello!.Name, link);
         link.Look = hello.Look;
+        link.Key = Printable(hello.Key, 64);
         _writer.Reset();
         new WelcomeMessage { ClientId = link.Peer, ServerName = Identity.Name, Name = link.Name }.Write(_writer);
         Send(link, _writer.Finish());
@@ -491,13 +492,13 @@ public sealed class NetServer : IDisposable
         return candidate;
     }
 
-    /// <summary>A name as given, without anything unprintable (line breaks, control codes), at most 24 characters.</summary>
-    private static string Printable(string given)
+    /// <summary>Text as given, without anything unprintable (line breaks, control codes), at most <paramref name="most"/> characters.</summary>
+    private static string Printable(string given, int most = 24)
     {
-        var name = new System.Text.StringBuilder(Math.Min(given.Length, 24));
+        var name = new System.Text.StringBuilder(Math.Min(given.Length, most));
         foreach (char c in given.Trim())
         {
-            if (name.Length >= 24)
+            if (name.Length >= most)
             {
                 break;
             }

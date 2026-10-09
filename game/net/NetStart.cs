@@ -50,14 +50,19 @@ public static class NetStart
         };
     }
 
-    /// <summary>Joining the host at <paramref name="address"/> ("host" or "host:port").</summary>
-    public static NetSession Join(SceneTree tree, string address, string name, byte look, string password = "", float pretendLag_ms = 0f)
+    /// <summary>
+    /// Joining the host at <paramref name="address"/> ("host" or "host:port") as <paramref name="name"/>, telling it who you
+    /// are (<paramref name="key"/>: your platform identity's id, so it knows you again if you come back).
+    /// </summary>
+    public static NetSession Join(SceneTree tree, string address, string name, byte look, string password = "", float pretendLag_ms = 0f,
+        string key = "")
     {
         NetSettings settings = Settings();
         (string host, int port) = Address(address, settings.Port);
         var hello = new HelloMessage
         {
             Protocol = NetProtocol.Version, Build = BuildStamp.Build, DataHash = BuildStamp.DataHash, Name = name, Password = password, Look = look,
+            Key = key,
         };
         return NetSession.Join(tree, settings, host, port, hello, Lag(pretendLag_ms));
     }

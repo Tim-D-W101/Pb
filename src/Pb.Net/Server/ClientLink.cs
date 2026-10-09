@@ -30,6 +30,9 @@ public sealed class ClientLink
     /// <summary>Which of the characters they play.</summary>
     public byte Look { get; internal set; }
 
+    /// <summary>Who they are: their identity's id, the same each time they join (empty if their copy didn't say).</summary>
+    public string Key { get; internal set; } = "";
+
     /// <summary>Let in: past the version and password checks.</summary>
     public bool Welcomed { get; internal set; }
 

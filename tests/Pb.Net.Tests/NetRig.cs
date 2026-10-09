@@ -108,7 +108,7 @@ internal sealed class NetRig
     }
 
     public RigClient Join(string name, LagSettings? lag = null, string build = "build-1", string data = "data-1", string password = "",
-        ulong seed = 1)
+        ulong seed = 1, string key = "")
     {
         ITransport end = Network.Connect();
         if (lag is { Any: true })
@@ -117,7 +117,7 @@ internal sealed class NetRig
         }
 
         var client = new NetClient(end, Settings, () => Now,
-            new HelloMessage { Build = build, DataHash = data, Name = name, Password = password }, TestData.Config.TickRate);
+            new HelloMessage { Build = build, DataHash = data, Name = name, Password = password, Key = key }, TestData.Config.TickRate);
         client.Join();
         var rc = new RigClient(this, client);
         Clients.Add(rc);

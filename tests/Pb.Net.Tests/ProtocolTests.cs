@@ -311,9 +311,22 @@ public class ProtocolTests
     public void The_reliable_messages_come_back()
     {
         var w = new BitWriter();
-        new HelloMessage { Build = "b", DataHash = "h", Name = "Ada", Password = "pw", Look = 2 }.Write(w);
+        new HelloMessage { Build = "b", DataHash = "h", Name = "Ada", Password = "pw", Look = 2, Key = "offline-0123abcd" }.Write(w);
         HelloMessage hello = HelloMessage.Read(w.Finish())!;
         Assert.Equal(("b", "h", "Ada", "pw", (byte)2, NetProtocol.Version), (hello.Build, hello.DataHash, hello.Name, hello.Password, hello.Look, hello.Protocol));
+        Assert.Equal("offline-0123abcd", hello.Key);
+
+        // A hello from version 2 (no id after the character) is still read, so its copy can be told to update.
+        w.Reset();
+        w.WriteByte((byte)MessageType.Hello);
+        w.WriteVarUInt(2);
+        w.WriteString("b", 64);
+        w.WriteString("h", 80);
+        w.WriteString("Old", 48);
+        w.WriteString("", 64);
+        w.WriteByte(1);
+        HelloMessage old = HelloMessage.Read(w.Finish())!;
+        Assert.Equal((2, "Old", ""), (old.Protocol, old.Name, old.Key));
 
         w.Reset();
         var setup = new RoundSetupMessage

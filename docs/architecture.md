@@ -1044,7 +1044,8 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   sequenced, channel 1 reliable. Its UDP port comes from `net.jsonc` (47820), and it takes up to nine peers besides the
   host.
 - **Handshake.** It checks the protocol version, the build stamp and a SHA-256 of the data files (`game/data/**`, hashed
-  as they load), plus the password if there is one. A mismatch is refused, naming both versions.
+  as they load), plus the password if there is one. A mismatch is refused, naming both versions. The hello also says
+  who's joining: the platform identity's id (§16.13).
 - **LAN discovery.** Hosts answer a broadcast query on port 47821 (`PacketPeerUdp`) with their name, area, mode, how
   many people they have and the most they take.
 - **Timeouts and the lag simulator** live in `net.jsonc`: connect within 10 s, dropped after 5 s of silence. The lag
@@ -1076,14 +1077,26 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   and to `user://logs/server.log`. Past 10 MB, the next start sets the log aside as `server.old.log`.
 - **Guide.** `docs/hosting.md`.
 
-### 16.13 Platform services (`game/platform`)
+### 16.13 Platform services (`Pb.Net/Platform`, `game/platform`)
 
-- **The interface.** `IPlatformServices` gathers `IIdentity` (name and a stable id), `ISessionBrowser` (finding and
-  joining games), `IFriends`, and an optional `IStore`.
-- **Offline first.** `OfflinePlatform` takes its identity from the profile: the name you typed and a random id made
-  once. It browses sessions by LAN discovery and typed addresses, and has no friends.
-- **Later.** A Steam implementation can be added (identity, lobbies, invites, and relay networking as another
-  `ITransport`) without touching the game.
+- **The interface.** `IPlatformServices` (engine-free, in `Pb.Net/Platform`) gathers:
+  - `IIdentity`: your name, a stable id, and whether the game asks for your name (offline) or takes the platform's;
+  - `ISessionBrowser`: the games found to join, searched while a screen lists them (a typed address needs no finding);
+  - `IFriends`: friends and invites;
+  - `IStore`: null while there's none.
+
+  It's polled once a frame (`PlatformPump`), and `Platforms.Current` picks the one in use. The game asks only these
+  interfaces who you are and what games there are: Play with others, and `--join` from the command line.
+- **Offline first.** `OfflinePlatform`:
+  - takes its identity from the profile: the name you typed, and an id (`GameSettings.ProfileId`, 32 hexadecimal
+    digits) made the first time the game reads its settings and saved at once;
+  - finds sessions by LAN discovery (`LanSessions` over `LanBrowser`);
+  - has no friends or store.
+- **The id on the wire.** The hello carries the identity's id (protocol 3). A version-2 hello is still read, so its copy
+  is told to update. The lobby keeps the session score of anyone who leaves and gives it back when the same id joins
+  again. It doesn't if another copy with that id is still in: two copies on one computer share a profile.
+- **Later.** A Steam implementation can be added without touching the game: identity, lobbies as found games,
+  invites, and relay networking as another `ITransport`.
 
 ### 16.14 Testing
 

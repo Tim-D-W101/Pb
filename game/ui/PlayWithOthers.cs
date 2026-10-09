@@ -4,7 +4,9 @@ using System.Linq;
 using Godot;
 using Pb.Game.Core;
 using Pb.Game.Net;
+using Pb.Game.Platform;
 using Pb.Net.Discovery;
+using Pb.Net.Platform;
 using Pb.Sim.Data;
 
 namespace Pb.Game.Ui;
@@ -16,7 +18,8 @@ namespace Pb.Game.Ui;
 /// internet they join by address once UDP port 47820 is forwarded to you;</item>
 /// <item><b>Join a game</b>: one on your network as it answers, an address typed in, or one you joined before.</item>
 /// </list>
-/// Both go to the lobby. The pretend lag (settings) makes your connection feel slower, to try it.
+/// Both go to the lobby. Who you are and the games on your network come from the platform (<see cref="Platforms"/>).
+/// The pretend lag (settings) makes your connection feel slower, to try it.
 /// </summary>
 public partial class PlayWithOthers : VBoxContainer
 {
@@ -30,9 +33,7 @@ public partial class PlayWithOthers : VBoxContainer
     private VBoxContainer _found = null!;
     private HBoxContainer _looks = null!;
     private Label _problem = null!;
-    private LanBrowser? _browser;
     private string _shown = "?";
-    private double _now;
 
     /// <summary>Back to the title.</summary>
     public Action? Back { get; set; }
@@ -61,10 +62,11 @@ public partial class PlayWithOthers : VBoxContainer
         Label nameLabel = UiKit.Body("Your name");
         nameLabel.CustomMinimumSize = new Vector2(150, 0);
         you.AddChild(nameLabel);
+        IIdentity identity = Platforms.Current.Identity;
         _name = new LineEdit
         {
-            Name = "Name", Text = settings.PlayerName, PlaceholderText = "Type your name", MaxLength = GameSettings.NameLength,
-            CustomMinimumSize = new Vector2(320, 44),
+            Name = "Name", Text = identity.ChoosesName ? settings.PlayerName : identity.Name, PlaceholderText = "Type your name",
+            MaxLength = GameSettings.NameLength, CustomMinimumSize = new Vector2(320, 44), Editable = identity.ChoosesName,
         };
         _name.TextChanged += _ => Remember();
         you.AddChild(_name);
@@ -140,23 +142,18 @@ public partial class PlayWithOthers : VBoxContainer
 
     public override void _Process(double delta)
     {
-        _now += delta;
-        if (!IsVisibleInTree())
+        // Only searching while the screen is up (the platform searches as it's polled).
+        ISessionBrowser sessions = Platforms.Current.Sessions;
+        sessions.Searching = IsVisibleInTree();
+        if (sessions.Searching)
         {
-            // Only searching while the screen is up.
-            _browser?.Dispose();
-            _browser = null;
-            return;
+            ShowFound(sessions.Found);
         }
-
-        _browser ??= new LanBrowser(NetStart.Settings().DiscoveryPort);
-        _browser.Poll(_now);
-        ShowFound(_browser.Games);
     }
 
-    public override void _ExitTree() => _browser?.Dispose();
+    public override void _ExitTree() => Platforms.Current.Sessions.Searching = false;
 
-    private void ShowFound(IReadOnlyList<(string Address, GameAnnouncement Game)> games)
+    private void ShowFound(IReadOnlyList<FoundGame> games)
     {
         string shown = string.Join("\n", games.Select(g => $"{g.Address} {g.Game}"));
         if (shown == _shown)
@@ -173,7 +170,8 @@ public partial class PlayWithOthers : VBoxContainer
 
         if (games.Count == 0)
         {
-            _found.AddChild(UiKit.Body(_browser is { Bound: false } ? "Can't search this network (no network?)." : "Looking for games…", 18, UiKit.Dim));
+            _found.AddChild(UiKit.Body(Platforms.Current.Sessions.CanSearch ? "Looking for games…" : "Can't search this network (no network?).", 18,
+                UiKit.Dim));
             return;
         }
 
@@ -245,11 +243,16 @@ public partial class PlayWithOthers : VBoxContainer
     /// <summary>Your name and character, saved as you change them.</summary>
     private void Remember()
     {
-        _settings.PlayerName = GameSettings.CleanName(_name.Text);
+        if (Platforms.Current.Identity.ChoosesName)
+        {
+            _settings.PlayerName = GameSettings.CleanName(_name.Text);
+        }
+
         _settings.Save();
     }
 
-    private string PlayName() => GameSettings.CleanName(_name.Text) is { Length: > 0 } name ? name : "Player";
+    private string PlayName() =>
+        !Platforms.Current.Identity.ChoosesName ? Platforms.Current.Identity.Name : GameSettings.CleanName(_name.Text) is { Length: > 0 } name ? name : "Player";
 
     private void Host()
     {
@@ -282,7 +285,8 @@ public partial class PlayWithOthers : VBoxContainer
         _settings.Save();
         try
         {
-            NetStart.Join(GetTree(), a, PlayName(), (byte)_settings.PlayerLook, _joinPassword.Text.Trim(), _settings.PretendLag_ms);
+            NetStart.Join(GetTree(), a, PlayName(), (byte)_settings.PlayerLook, _joinPassword.Text.Trim(), _settings.PretendLag_ms,
+                Platforms.Current.Identity.Id);
         }
         catch (InvalidOperationException ex)
         {

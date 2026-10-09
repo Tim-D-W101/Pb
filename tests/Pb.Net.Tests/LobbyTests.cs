@@ -221,6 +221,53 @@ public class LobbyTests
     }
 
     [Fact]
+    public void Someone_who_leaves_and_comes_back_has_their_session_score_again()
+    {
+        (NetRig rig, LobbyHost lobby) = Game();
+        RigClient a = rig.Join("A", key: "offline-a");
+        RigClient b = rig.Join("B", key: "offline-b");
+        Run(rig, lobby, 10);
+        var people = new[] { new PersonInRound(IdOf(a), 1, 0), new PersonInRound(IdOf(b), 2, 1) };
+        var stats = new[] { new StatsEntry(1, 10, 3, 2, 0, 50f, -1), new StatsEntry(2, 4, 1, 1, 0, 30f, 900) };
+        lobby.RoundOver(new MatchResult(RoundEnd.LastStanding, 0), people, stats);
+        lobby.BackToLobby();
+        Run(rig, lobby, 10);
+        a.Net.Leave();
+        b.Net.Leave();
+        Run(rig, lobby, 30);
+        Assert.Single(lobby.State.Members);
+
+        // A comes back as they were; someone new under B's name but another id starts from nothing.
+        RigClient again = rig.Join("A", key: "offline-a");
+        RigClient other = rig.Join("B", key: "offline-c");
+        Run(rig, lobby, 10);
+        LobbyMember back = lobby.State.Find(IdOf(again))!;
+        Assert.Equal((2, 1), (back.Eliminations, back.RoundsWon));
+        LobbyMember fresh = lobby.State.Find(IdOf(other))!;
+        Assert.Equal((0, 0), (fresh.Eliminations, fresh.RoundsWon));
+        Assert.Equal((2, 1), (again.Net.Lobby!.Find(IdOf(again))!.Eliminations, again.Net.Lobby.Find(IdOf(again))!.RoundsWon));
+    }
+
+    [Fact]
+    public void A_second_copy_with_the_same_id_doesnt_take_the_others_score()
+    {
+        // Two copies on one computer share the id in its profile.
+        (NetRig rig, LobbyHost lobby) = Game();
+        RigClient a = rig.Join("A", key: "offline-pc");
+        RigClient twin = rig.Join("Twin", key: "offline-pc");
+        Run(rig, lobby, 10);
+        lobby.RoundOver(new MatchResult(RoundEnd.LastStanding, 0), new[] { new PersonInRound(IdOf(a), 1, 0) },
+            new[] { new StatsEntry(1, 10, 3, 2, 0, 50f, -1) });
+        lobby.BackToLobby();
+        a.Net.Leave();
+        Run(rig, lobby, 30);
+        RigClient again = rig.Join("A", key: "offline-pc");
+        Run(rig, lobby, 10);
+        Assert.Equal((0, 0), (lobby.State.Find(IdOf(again))!.Eliminations, lobby.State.Find(IdOf(again))!.RoundsWon));
+        Assert.Equal(0, lobby.State.Find(IdOf(twin))!.Eliminations);
+    }
+
+    [Fact]
     public void The_lobby_comes_out_as_it_went_in()
     {
         var state = new LobbyState
