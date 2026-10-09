@@ -1,0 +1,19 @@
+// The dedicated server's settings for CI's networked rounds (tools/ci/net-round.sh): a round on every area, in all three
+// modes, with bots filling to ten. The rounds start as soon as everyone is in (the script's --host-wait), and each
+// round's summary is short.
+{
+  "name": "CI networked rounds",
+  "port": 47820,
+  "password": "",
+  "maxPeople": 10,
+  "rotation": [
+    { "level": "oxbarrow_works", "place": null, "mode": "teams", "size": 5, "objective": "eliminate", "tier": "normal" },
+    { "level": "rail_yard", "place": null, "mode": "ffa", "size": 10, "objective": "eliminate", "tier": "normal" },
+    { "level": "cold_store", "place": null, "mode": "solo", "size": 5, "objective": "eliminate", "tier": "normal" },
+    { "level": "hospital_wing", "place": null, "mode": "teams", "size": 5, "objective": "retrieve", "tier": "normal" }
+  ],
+  "bots": true,
+  "vote": false,
+  "lobbyWait_s": 0,
+  "summary_s": 3
+}

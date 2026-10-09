@@ -931,7 +931,17 @@ public partial class LevelMain : Node3D, ISimEventListener
         RoundSetupMessage setup = _netSetup!;
         var round = new ClientSession(client, _sim, setup.Round, state.Id, _player);
         _session = round;
-        _player.Predict = c => round.Predict(c);
+
+        // CI's cheating copies (--net-cheat): "fire" flips the trigger on every tick, and "fast" runs this copy's ticks twice
+        // as often, sending twice the commands. The server must hold the first to the fire rate and drop and log the second.
+        string cheat = Args.Value("--net-cheat") ?? "";
+        _player.Predict = cheat == "fire" ? c => round.Predict(FlipTrigger(c, _sim.Tick, state)) : c => round.Predict(c);
+        if (cheat == "fast")
+        {
+            int doubled = 2 * (int)MathF.Round(_sim.Config.TickRate);
+            Callable.From(() => Engine.PhysicsTicksPerSecond = doubled).CallDeferred();
+        }
+
         _player.CorrectionOffset = () => round.CorrectionOffset;
         _driver.BeforeTick = () => round.BeginTick(_sim.Dt);
         _driver.AfterStep = () =>
@@ -965,6 +975,22 @@ public partial class LevelMain : Node3D, ISimEventListener
                 Callable.From(HostGone).CallDeferred();
             }
         };
+    }
+
+    /// <summary>
+    /// The trigger flipped on every tick, and the loader refilled whenever it runs dry (a pull or a sprint would cancel the
+    /// refill, so neither while it lasts), so it fires all round.
+    /// </summary>
+    private static InputCommand FlipTrigger(InputCommand c, int tick, PlayerState you)
+    {
+        if (you.Marker.Refill.Active || you.Marker.Paint.Loader == 0)
+        {
+            c.Buttons = (c.Buttons & ~(InputButtons.Fire | InputButtons.Sprint)) | (you.Marker.Refill.Active ? InputButtons.None : InputButtons.Refill);
+            return c;
+        }
+
+        c.Buttons = tick % 2 == 0 ? c.Buttons | InputButtons.Fire : c.Buttons & ~InputButtons.Fire;
+        return c;
     }
 
     /// <summary>Hosting: someone left mid-round; they count as out and the round goes on without them.</summary>
@@ -1728,8 +1754,21 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         if (session.Client is { } client && _session is { } round)
         {
+            double replayMs = round.Corrections > 0 ? round.ReplayTime * 1000.0 / round.Corrections : 0.0;
+            var causes = new List<string>();
+            ReadOnlySpan<int> counts = round.CorrectionCauses;
+            for (int i = 0; i < counts.Length; i++)
+            {
+                if (counts[i] > 0)
+                {
+                    causes.Add($"{(PredictionDifference)i} {counts[i]}");
+                }
+            }
+
             GD.Print($"NET joined: round trip {client.RoundTrip * 1000f:0} ms (jitter {client.Jitter * 1000f:0} ms), {client.BytesReceived / 1024f:0} KiB " +
-                     $"received, {round.Corrections} corrections (last {round.LastCorrection * 100f:0.0} cm), {client.Undecodable} snapshots undecodable");
+                     $"received, {round.Corrections} corrections (last {round.LastCorrection * 100f:0.0} cm; {round.ReplayedTicks} ticks replayed, " +
+                     $"{replayMs:0.000} ms a correction; first difference: {(causes.Count > 0 ? string.Join(", ", causes) : "none")}), " +
+                     $"{client.Undecodable} snapshots undecodable");
         }
     }
 

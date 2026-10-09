@@ -19,6 +19,10 @@ public sealed record ServerIdentity(string Name, string Build, string DataHash, 
 /// </summary>
 public sealed class NetServer : IDisposable
 {
+    /// <summary>Commands run two to a tick before that's logged (two seconds of a clock running at double speed), and between logs after.</summary>
+    private const int MergesBeforeLog = 240;
+    private const int MergesBetweenLogs = 1200;
+
     private const int WorldRing = ClientLink.Ring;
 
     private readonly ITransport _transport;
@@ -224,6 +228,14 @@ public sealed class NetServer : IDisposable
         {
             command = default;
             return false;
+        }
+
+        // Two commands run in one tick, for seconds on end: a copy whose clock runs fast (a hiccup's backlog is gone in a moment).
+        int merged = link.Commands.Merged - link.MergesLogged;
+        if (merged >= (link.MergesLogged == 0 ? MergesBeforeLog : MergesBetweenLogs))
+        {
+            link.MergesLogged = link.Commands.Merged;
+            Flag(link, "commands faster than the clock (run two to a tick)");
         }
 
         command.Tick = tick;

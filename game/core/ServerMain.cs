@@ -47,6 +47,7 @@ public partial class ServerMain : Node3D, ISimEventListener
     private readonly List<int> _members = new();
     private readonly List<BotBrain> _bots = new();
     private readonly List<ServerPawn> _pawns = new();
+    private readonly Dictionary<ClientLink, long> _bytesAtLive = new();
     private GameData _data = null!;
     private PresentationDef _view = null!;
     private ServerConfig _config = null!;
@@ -64,6 +65,7 @@ public partial class ServerMain : Node3D, ISimEventListener
     private double _waited;
     private double _briefing = -1;
     private double _summaryLeft = -1;
+    private double _liveAt;
     private bool _overSent;
     private bool _scored;
     private bool _moving;
@@ -327,6 +329,14 @@ public partial class ServerMain : Node3D, ISimEventListener
         if (_briefing <= 0)
         {
             _sim!.GoLive();
+
+            // What each player is sent from here on, for the round's traffic in the log.
+            _liveAt = _session.Now;
+            _bytesAtLive.Clear();
+            foreach (ClientLink link in _server.Clients.Where(c => c.Welcomed))
+            {
+                _bytesAtLive[link] = link.BytesSent;
+            }
         }
     }
 
@@ -374,10 +384,19 @@ public partial class ServerMain : Node3D, ISimEventListener
         // Every copy prints the round as it ended there; CI compares these lines with the joiners'.
         GD.Print($"NET RESULT round {_session.Round?.Round}: {_match.Result.Reason} won by {_match.Result.Winner} at tick {_match.EndTick}; " +
                  string.Join(" ", _match.Stats.Select(p => $"{p.PlayerId}:{p.Shots}/{p.Hits}/{p.Eliminations}/{p.Pickups}/{p.OutTick}")));
+        // Each player's connection: what they were sent while the round was live (KB/s, a KB being 1,000 bytes), how their
+        // commands came, and how fast they fired against the cap (CI checks both).
+        double live = Math.Max(1.0, _session.Now - _liveAt);
         foreach (ClientLink link in _server.Clients.Where(c => c.Welcomed))
         {
-            ServerLog.Line($"  {link.Name}: round trip {link.RoundTrip * 1000f:0} ms, {link.BytesSent / 1024f:0} KiB sent, commands missing " +
-                           $"{link.Commands.Missing}, late {link.Commands.Late}, too far ahead {link.Commands.TooFarAhead}, violations {link.Violations}");
+            long from = _bytesAtLive.TryGetValue(link, out long atLive) ? atLive : link.BytesSent;
+            double rate = (link.BytesSent - from) / 1000.0 / live;
+            string shots = link.PlayerId >= 0 && _match.StatsFor(link.PlayerId) is { } s
+                ? $"{s.Shots} shots in {s.TimeIn:0.0} s ({(s.TimeIn > 0f ? s.Shots / s.TimeIn : 0f):0.0}/s, cap {_data.Config.Fire.RateCap:0.0}/s)"
+                : "watching";
+            ServerLog.Line($"  {link.Name}: round trip {link.RoundTrip * 1000f:0} ms, {rate:0.0} KB/s live, commands missing {link.Commands.Missing}, " +
+                           $"late {link.Commands.Late}, too far ahead {link.Commands.TooFarAhead}, merged {link.Commands.Merged}, " +
+                           $"violations {link.Violations}, {shots}");
         }
 
         _summaryLeft = Math.Max(0.5, _config.Summary);

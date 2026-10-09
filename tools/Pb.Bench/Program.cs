@@ -102,6 +102,53 @@ foreach ((string id, LevelLayout level) in data.Levels)
     Console.WriteLine();
 }
 
+// Phase 4 (architecture §16.14): the server's tick for a full round played over the network, and a correction's replay.
+Console.WriteLine($"## Network ({RuntimeLabel()})");
+Console.WriteLine();
+Console.WriteLine($"The server's tick with ten players, {NetBench.People} of them joined over the in-memory network: its step (taking in their " +
+                  "commands first), then packing and sending their snapshots and events. With 1,000 balls in the air, everyone standing:");
+Console.WriteLine();
+Console.WriteLine("| Area | Live balls | Step, mean ms | p95 | Packing for nine, mean ms | p95 | Sent to each, KB/s |");
+Console.WriteLine("|---|---|---|---|---|---|---|");
+// Budgets: the step is the sim's (0.5 ms a tick, §10); packing gets as much again, so a host's two ticks a frame keep the
+// network within 1 ms of the frame's 3 ms for UI, audio, AI and the network. In a full round, everyone firing at the cap,
+// each player is sent at most 25 KB/s (§16.5); with 1,000 balls the impacts fill every packet to its budget instead.
+const double stepBudget = 0.5, packBudget = 0.5, sendBudget = 25.0, replayBudget = 0.5;
+bool netWithin = true;
+var firing = new List<(string Area, NetBench.ServerCost Cost)>();
+foreach ((string id, LevelLayout level) in data.Levels)
+{
+    NetBench.ServerTick(data, level, 1000, 240); // warm-up
+    NetBench.ServerCost cost = NetBench.ServerTick(data, level, 1000, measureTicks);
+    netWithin &= cost.Step <= stepBudget && cost.Pack <= packBudget;
+    Console.WriteLine($"| {level.DisplayName} | {cost.Live} | {cost.Step:0.000} | {cost.StepP95:0.000} | {cost.Pack:0.000} | {cost.PackP95:0.000} | " +
+                      $"{cost.KBytesPerClientPerSecond:0.0} |");
+    firing.Add((level.DisplayName, NetBench.ServerTick(data, level, 0, Math.Min(measureTicks, 1800))));
+}
+
+Console.WriteLine();
+Console.WriteLine("A full round's traffic, all ten firing at the cap:");
+Console.WriteLine();
+Console.WriteLine("| Area | Live balls | Step, mean ms | Packing for nine, mean ms | Sent to each, KB/s |");
+Console.WriteLine("|---|---|---|---|---|");
+foreach ((string area, NetBench.ServerCost cost) in firing)
+{
+    netWithin &= cost.Step <= stepBudget && cost.Pack <= packBudget && cost.KBytesPerClientPerSecond <= sendBudget;
+    Console.WriteLine($"| {area} | {cost.Live} | {cost.Step:0.000} | {cost.Pack:0.000} | {cost.KBytesPerClientPerSecond:0.0} |");
+}
+
+Console.WriteLine();
+LevelLayout replayLevel = data.Levels.Values.First();
+NetBench.Replay(data, replayLevel, 12, 200); // warm-up
+(double replayMean, double replayP99) = NetBench.Replay(data, replayLevel, 12, quick ? 2000 : 10000);
+netWithin &= replayMean <= replayBudget;
+Console.WriteLine($"A correction's replay on a joining copy, 12 ticks (the round trip at 100 ms) of moving and the marker: mean {replayMean:0.000} ms, " +
+                  $"p99 {replayP99:0.000} ms. In the game the engine's collide-and-slide adds to each tick; joining copies print their own.");
+Console.WriteLine();
+Console.WriteLine($"Budgets: step {stepBudget} ms, packing {packBudget} ms, {sendBudget} KB/s to each player in a full round, replay {replayBudget} ms: " +
+                  $"{(netWithin ? "within" : "OVER")}.");
+Console.WriteLine();
+
 static (float Drop, float Speed) LevelProbe(SimConfig config, float distance)
 {
     var sim = new SimWorld(config);

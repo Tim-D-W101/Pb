@@ -129,6 +129,26 @@ public struct PredictedState
         player.Marker.Restore(Marker, now);
     }
 
+    /// <summary>What first differs from the server's state, in the order <see cref="Matches"/> checks it (for the log).</summary>
+    public readonly PredictionDifference DifferenceFrom(in PredictedState server, float tolerance)
+    {
+        const float Small = 1e-4f;
+        return Vector3.DistanceSquared(Position, server.Position) > tolerance * tolerance ? PredictionDifference.Position
+            : Vector3.DistanceSquared(Velocity, server.Velocity) > tolerance * tolerance * 3600f ? PredictionDifference.Velocity
+            : Stance != server.Stance || Ladder != server.Ladder || LadderPhase != server.LadderPhase ? PredictionDifference.Stance
+            : Sprinting != server.Sprinting || SprintBlocked != server.SprintBlocked ? PredictionDifference.Sprint
+            : Grounded != server.Grounded ? PredictionDifference.Grounded
+            : Alive != server.Alive || Present != server.Present ? PredictionDifference.Alive
+            : PreviousButtons != server.PreviousButtons ? PredictionDifference.Buttons
+            : MathF.Abs(EyeHeight - server.EyeHeight) >= Small || MathF.Abs(Lean - server.Lean) >= Small || MathF.Abs(Shoulder - server.Shoulder) >= Small
+              || ShoulderTarget != server.ShoulderTarget || MathF.Abs(Tuck - server.Tuck) >= Small ? PredictionDifference.Pose
+            : MathF.Abs(SlideTime - server.SlideTime) >= Small || MathF.Abs(SlideCooldown - server.SlideCooldown) >= Small
+              || MathF.Abs(JumpCooldown - server.JumpCooldown) >= Small || MathF.Abs(SprintRecovery - server.SprintRecovery) >= Small
+              || MathF.Abs(LadderTime - server.LadderTime) >= Small ? PredictionDifference.Timers
+            : !Marker.SameAs(server.Marker) ? PredictionDifference.Marker
+            : PredictionDifference.None;
+    }
+
     /// <summary>
     /// Whether a prediction matches the server's state: the feet within <paramref name="tolerance"/> (m), and everything
     /// else as good as equal.
@@ -148,4 +168,20 @@ public struct PredictedState
                MathF.Abs(SprintRecovery - server.SprintRecovery) < Small && MathF.Abs(LadderTime - server.LadderTime) < Small &&
                Marker.SameAs(server.Marker);
     }
+}
+
+/// <summary>What made a joining copy's prediction differ from the server's state.</summary>
+public enum PredictionDifference
+{
+    None,
+    Position,
+    Velocity,
+    Stance,
+    Sprint,
+    Grounded,
+    Alive,
+    Buttons,
+    Pose,
+    Timers,
+    Marker,
 }

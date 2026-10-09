@@ -71,8 +71,31 @@ public static class ArtFiles
 
     public static bool Disabled { get; } = Args.Has("--no-art");
 
-    public static T? Load<T>(string? path) where T : Resource =>
-        !Disabled && !string.IsNullOrWhiteSpace(path) && ResourceLoader.Exists(path) ? GD.Load<T>(path) : null;
+    /// <summary>Everything loaded so far, by path (null: not there), kept for as long as the game runs.</summary>
+    private static readonly Dictionary<string, Resource?> Loaded = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The art at <paramref name="path"/>, or null (art off, or not there). Each file is loaded once and kept: a prop's model
+    /// is asked for once for every prop of its kind, and a C# wrapper dropped after loading waits for the garbage collector.
+    /// When the engine loads the same file again while that wrapper's finalizer runs, Godot's .NET bindings can lose the
+    /// handle ("Handle is not initialized" in SwapGCHandleForType). A kept wrapper is never finalized, and loading the
+    /// same file again just hands it back. All the art together is a couple of hundred megabytes.
+    /// </summary>
+    public static T? Load<T>(string? path) where T : Resource
+    {
+        if (Disabled || string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        if (!Loaded.TryGetValue(path, out Resource? loaded))
+        {
+            loaded = ResourceLoader.Exists(path) ? GD.Load<T>(path) : null;
+            Loaded[path] = loaded;
+        }
+
+        return loaded as T;
+    }
 
     /// <summary>
     /// Registers the UID of every imported file under <paramref name="folder"/>, read from its .import file

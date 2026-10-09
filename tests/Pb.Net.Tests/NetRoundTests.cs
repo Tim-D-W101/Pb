@@ -308,6 +308,8 @@ public class NetRoundTests
     public void The_server_holds_a_cheat_to_the_rules()
     {
         var rig = new NetRig();
+        var logged = new List<string>();
+        rig.Server.Violation += (link, what) => logged.Add($"{link.Name} sent {what}");
         RigClient cheat = rig.Join("Cheat", Ping100);
         rig.Run(30);
         rig.StartRound("teams", 900f, (0, 0, true, 0f, 0f), (1, 1, false, 30f, -25f));
@@ -335,6 +337,8 @@ public class NetRoundTests
         _out.WriteLine($"in 5 s the cheat moved {distance:0.0} m and fired {shots} (merged {link.Commands.Merged})");
         Assert.True(distance <= TestData.Config.Movement.SprintSpeed * 5f + 0.5f, $"moved {distance:0.0} m in 5 s");
         Assert.True(link.Commands.Merged > 0);
+        Assert.Contains("Cheat sent commands faster than the clock (run two to a tick)", logged);
+        Assert.True(link.Violations > 0);
 
         // A command a tick again, the trigger flipped on every one, standing still: held to the rate cap. (Its doubled
         // commands were run two as one, so their flips merged into a held trigger; it waits for the queue to drain.)

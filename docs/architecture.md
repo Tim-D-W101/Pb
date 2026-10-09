@@ -1005,7 +1005,9 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 - **Commands:**
   - sequences only go forward;
-  - at most one a tick on average, with a small burst allowance; the rest are dropped;
+  - at most one a tick on average, with a small burst allowance: ones too far ahead of their turn are dropped, and a
+    queue that stays too long runs two to a tick until it's back to its depth (as built). Two seconds of that, which is
+    a clock running fast, not a hiccup's catch-up, is logged, and again every ten seconds while it goes on;
   - `Move` is clamped to the unit circle;
   - angles must be finite, and are clamped (pitch to `maxPitch`, head yaw to `maxHeadTurn`);
   - unknown buttons are masked off;
@@ -1106,14 +1108,25 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   - whole networked rounds without the engine: a server `SimWorld` and client `SimWorld`s joined by the loopback
     transport through the lag simulator, with bodies moved by `NavGridMover` (or the sim's own mover, if it comes) and
     bots included. The fairness test, the validation tests and the desync check run here.
-- **CI's `net-round` job:**
-  - a headless dedicated server and three headless clients (`--join=127.0.0.1 --bot-match --net-lag=100
-    --net-jitter=10 --net-loss=1`), each with a bot at its controls sending commands through the network like a person,
-    and bots filling to ten;
-  - each prints a hash of its final scoreboard;
-  - the job fails on a mismatch, an error, or traffic over budget;
-  - the Windows build joins under Wine, since the Windows .NET runtime has faulted where Linux didn't (§14.7).
-- **Bench.** `tools/Pb.Bench` adds the server's per-tick packing for ten players, and a 12-tick replay.
+- **CI's `net-round` job** (`tools/ci/net-round.sh`, as built):
+  - a headless dedicated server (`--server-config=tools/ci/net-round.jsonc`: one round on every area, in all three modes)
+    and five headless players (`--join=127.0.0.1 --bot-match --rounds=4 --net-lag=100 --net-jitter=10 --net-loss=1`),
+    each with a bot at its controls sending commands through the network like a person, and bots filling to ten;
+  - two of the five cheat: `--net-cheat=fire` flips the trigger every tick (and refills when dry), `--net-cheat=fast`
+    runs the copy's ticks twice as fast;
+  - every copy prints its `NET RESULT` line for each round (result, end tick, and every player's shots, hits,
+    eliminations, pickups and out tick), and the server logs each player's traffic and shot rate;
+  - the job fails on a line that differs from the server's, an error, more than 25 KB/s to a player while a round is
+    live, a shot rate over the cap, a trigger flipper that never reaches half the cap, or no log of the fast clock.
+- **Wine.** In the Windows build job, `tools/ci/wine-join.sh` has the exported Windows build play a round on the packaged
+  Linux server under Wine, since the Windows .NET runtime has faulted where Linux didn't (§14.7).
+- **Bench.** `tools/Pb.Bench` "Network":
+  - the server's tick with ten players (nine joined over the in-memory network) and 1,000 balls: its step, then the
+    packing for nine;
+  - the traffic of a full round with everyone firing at the cap;
+  - a 12-tick replay.
+
+  Joining copies print their own replays' cost, with what differed first in each correction.
 
 ### 16.15 Risks
 

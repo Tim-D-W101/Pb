@@ -214,25 +214,29 @@ message saying which.
 
 ## What the log says
 
-From a round on the Linux server, two players joining from 100 ms away:
+From a round on the dedicated server, with players joining from 100 ms away:
 
 ```text
-2026-10-09 17:39:58 serving "Pb dedicated server" on UDP port 47820 (build test123, at most 10 people)
-2026-10-09 17:39:58 settings from /opt/pb-server/server.jsonc: 4 rounds in turn, bots on, vote off, password none
-2026-10-09 17:40:02 Bo joined (1 in the game)
-2026-10-09 17:40:02 turned away Dev: The server runs build test123 and you dev: update with Play.bat, and whoever runs the server starts it again.
-2026-10-09 17:40:02 Ada joined (2 in the game)
-2026-10-09 17:40:08 round 1: Oxbarrow Works · Teams · 4 v 4 · Normal with Bo, Ada and 6 bots (seed 3266684063593546532)
-2026-10-09 17:40:15 everyone has the round built after 7.3 s
-2026-10-09 17:40:20 round 1 live
-2026-10-09 17:41:32 round 1 over: PeopleOut, won by side 0 after 72 s; Bo 1 out/1 hits, Ada 1 out/1 hits, Ferret 0 out/0 hits, …
-2026-10-09 17:41:32   Bo: round trip 125 ms, 584 KiB sent, commands missing 5, late 15, too far ahead 0, violations 0
-2026-10-09 17:41:32   Ada: round trip 124 ms, 573 KiB sent, commands missing 0, late 2, too far ahead 0, violations 0
+2026-10-09 18:38:02 serving "Pb dedicated server" on UDP port 47820 (build 5b1f2e0, at most 10 people)
+2026-10-09 18:38:02 settings from /opt/pb-server/server.jsonc: 4 rounds in turn, bots on, vote off, password none
+2026-10-09 18:38:05 Cy joined (1 in the game)
+2026-10-09 18:38:05 Ada joined (2 in the game)
+2026-10-09 18:38:05 turned away Dev: The server runs build 5b1f2e0 and you 3ccb5a6: update with Play.bat, and whoever runs the server starts it again.
+2026-10-09 18:38:12 round 1: Oxbarrow Works · Teams · 5 v 5 · Normal with Cy, Ada and 8 bots (seed 4270030047475795249)
+2026-10-09 18:38:27 everyone has the round built after 15.0 s
+2026-10-09 18:38:32 round 1 live
+2026-10-09 18:39:47 round 1 over: TimeUp, won by nobody after 75 s; Cy 1 out/1 hits, Ada 0 out/0 hits, Ferret 0 out/0 hits, …
+2026-10-09 18:39:47   Cy: round trip 133 ms, 9.9 KB/s live, commands missing 58, late 91, too far ahead 0, merged 15, violations 0, 17 shots in 75.0 s (0.2/s, cap 10.5/s)
+2026-10-09 18:39:47   Ada: round trip 125 ms, 9.9 KB/s live, commands missing 5, late 20, too far ahead 0, merged 0, violations 0, 6 shots in 75.0 s (0.1/s, cap 10.5/s)
 ```
 
 - **Rounds:** each has a line when it starts, when everyone has built it, when it goes live, and when it's over.
-  After the result come each player's connection figures.
+- **Each player's connection:** after the result, a line for each player:
+  - their round trip, and what they were sent while the round was live;
+  - how their commands came: missing, late, or two run in one tick to catch up;
+  - their shots against the fire-rate cap.
 - **Settings:** a round in `rotation` that the server can't play as written gets a line saying what it plays instead,
   for example `round 2: there's no area "rail_yrad", so it's oxbarrow_works`.
-- **Dropped commands:** anything a player sent that the server dropped gets a line too ("Ada sent …"), for example
-  too many commands, or angles out of range.
+- **Dropped commands:** anything a player sent that the server dropped gets a line too. A copy whose clock runs fast
+  shows as `Clock sent commands faster than the clock (run two to a tick)` every few seconds; the server runs its
+  commands two to a tick, so it moves no faster than anyone else.

@@ -34,6 +34,7 @@ public sealed class ClientSession
     private readonly double[] _t0 = new double[History];
     private readonly PredictedState[] _states = new PredictedState[History];
     private readonly int[] _seqs = new int[History];
+    private readonly int[] _causes = new int[Enum.GetValues<PredictionDifference>().Length];
     private readonly (uint Seq, int Target)[] _ownHits = new (uint, int)[OwnHits];
     private int _ownHitNext;
     private InputCommand _pending;
@@ -68,6 +69,14 @@ public sealed class ClientSession
 
     /// <summary>How far the last correction moved this copy's own player (m).</summary>
     public float LastCorrection { get; private set; }
+
+    /// <summary>The corrections by what differed first (indexed by <see cref="PredictionDifference"/>).</summary>
+    public ReadOnlySpan<int> CorrectionCauses => _causes;
+
+    /// <summary>Ticks replayed after corrections, and the time that took (s), the body's moves included.</summary>
+    public int ReplayedTicks { get; private set; }
+
+    public double ReplayTime { get; private set; }
 
     /// <summary>This copy's own player is out: it's shown where the server walks it, no longer predicted.</summary>
     public bool Following { get; private set; }
@@ -161,7 +170,10 @@ public sealed class ClientSession
             return;
         }
 
+        _causes[(int)_states[slot].DifferenceFrom(server, Client.Settings.CorrectionTolerance)]++;
+
         // The server saw it differently: its state back, then this copy's presses since, again.
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         Vector3 was = Local.Position;
         server.Restore(Local, _t0[slot] + dt);
         _states[slot] = server;
@@ -177,8 +189,10 @@ public sealed class ClientSession
             _body?.Move(_commands[s], dt);
             Sim.ReplayLocal(Local, _commands[s], _t0[s]);
             _states[s] = PredictedState.Capture(Local, _t0[s] + dt);
+            ReplayedTicks++;
         }
 
+        ReplayTime += System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalSeconds;
         Corrections++;
         Vector3 moved = was - Local.Position;
         LastCorrection = moved.Length();

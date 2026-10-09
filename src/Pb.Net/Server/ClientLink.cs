@@ -55,6 +55,9 @@ public sealed class ClientLink
     /// <summary>Things they sent that the server wouldn't take (logged by the host).</summary>
     public int Violations { get; internal set; }
 
+    /// <summary>How many of their commands had been run two in a tick when that was last logged.</summary>
+    internal int MergesLogged { get; set; }
+
     internal NetSettings Settings { get; }
 
     internal float Dt { get; }
@@ -80,6 +83,7 @@ public sealed class ClientLink
     internal void ResetForRound()
     {
         Commands = new CommandQueue(Settings, Dt);
+        MergesLogged = 0;
         AckedTick = -1;
         AckedEvent = 0;
         NewestSeen = -1;

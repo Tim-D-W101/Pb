@@ -278,15 +278,41 @@ The lobby is bare until M4.4: hosting, who's in and Start round; joined, you wai
 
 ### M4.7 Verify and report
 
-- [ ] CI plays a networked round on every push: a headless dedicated server and three headless players at 100 ms ping
+- [x] CI plays a networked round on every push: a headless dedicated server and three headless players at 100 ms ping
   with jitter and 1% loss, bots filling to ten, right through to its end. It fails on any error, any difference
   between a player's result and the server's, or more traffic than the budget.
-- [ ] In the same run, a player that toggles fire every tick is held to the cap, and one that sends too many commands
+- [x] In the same run, a player that toggles fire every tick is held to the cap, and one that sends too many commands
   has them dropped and logged.
-- [ ] The Windows build joins the Linux server under Wine, which catches faults only the Windows .NET runtime has.
-- [ ] The benchmark: the server's tick with ten players and 1,000 balls stays within budget, and so does the cost of a
+- [x] The Windows build joins the Linux server under Wine, which catches faults only the Windows .NET runtime has.
+- [x] The benchmark: the server's tick with ten players and 1,000 balls stays within budget, and so does the cost of a
   correction's replay.
 - [ ] `docs/reports/phase-4.md` with screenshots of the menus, the lobby and rounds from several players' screens.
+
+*As built (verification):*
+- **CI's networked rounds** (`net-round` job, `tools/ci/net-round.sh`):
+  - four rounds, one on every area and in all three modes (`tools/ci/net-round.jsonc`);
+  - five players with a bot at each one's controls, so with bots it's ten a round.
+- **The players:**
+  - three play fairly at 100 ms with jitter and 1% loss;
+  - "Trigger" flips its trigger every tick (`--net-cheat=fire`) and refills when it runs dry;
+  - "Clock" runs its ticks twice as fast (`--net-cheat=fast`).
+- **The checks:**
+  - every copy's result, scores and stats equal the server's, every round;
+  - no errors;
+  - each player is sent at most 25 KB/s while a round is live (they get 6–12 KB/s);
+  - Trigger fires right up against the cap (10.2 a second against 10.5) and never over it;
+  - Clock's doubled commands are run two to a tick, so it moves no faster than the rules allow. Its commands came
+    early, not too far ahead, so the plan's dropping showed up as merging; the server now logs merging that goes on for
+    seconds, which a hiccup's catch-up never does.
+- **Wine** (`tools/ci/wine-join.sh`, in the Windows build job): the exported Windows build plays a round on the packaged
+  Linux server, and both must end it the same, without errors.
+- **Benchmark** (`tools/Pb.Bench`, "Network"):
+  - **Ten players, nine joined, and 1,000 balls:** the server's step takes 0.3–0.4 ms, and packing for nine about
+    0.03 ms. The impacts then fill every packet to its 1,100-byte budget (67 KB/s each).
+  - **A full round with all ten firing at the cap:** each player is sent 11–12 KB/s.
+  - **A correction's 12-tick replay:** 0.003 ms in the sim. In the game, with the engine's collide-and-slide, joining
+    copies print their own: 0.3–0.8 ms for a correction of about 20 ticks.
+
 - [ ] Your check: a round with friends, or two copies on your PC with `--net-lag=100`. Hits feel fair, everyone sees
   the same score, and it runs at 60 fps on Medium.
 
