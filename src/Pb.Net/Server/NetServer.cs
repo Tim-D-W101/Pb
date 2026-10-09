@@ -54,6 +54,12 @@ public sealed class NetServer : IDisposable
     /// <summary>Everything sent so far (bytes).</summary>
     public long BytesSent { get; private set; }
 
+    /// <summary>
+    /// Whether players' shots are checked against where they saw everyone (on by default; off only to show what it does,
+    /// in tests and with <c>--no-lag-compensation</c>).
+    /// </summary>
+    public bool LagCompensation { get; set; } = true;
+
     /// <summary>A player got in (past the checks).</summary>
     public event Action<ClientLink>? Joined;
 
@@ -205,7 +211,7 @@ public sealed class NetServer : IDisposable
         }
 
         command.Tick = tick;
-        command.Rewind = viewTick < 0 ? (byte)0 : (byte)Math.Clamp(tick - viewTick, 0, PlayerHitboxes.HistoryTicks - 1);
+        command.Rewind = viewTick < 0 || !LagCompensation ? (byte)0 : (byte)Math.Clamp(tick - viewTick, 0, PlayerHitboxes.HistoryTicks - 1);
         return true;
     }
 

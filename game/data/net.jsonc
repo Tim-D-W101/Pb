@@ -16,7 +16,7 @@
   // The server keeps each player's commands about this many ticks deep, to even out how unevenly they arrive. If a
   // queue stays longer than the most for longer than the patience, the server runs two in a tick (one tick's moves)
   // to catch up; if it keeps running dry, it waits a tick for them.
-  "commandQueueTicks": 2,
+  "commandQueueTicks": 3,
   "commandQueueMostTicks": 8,
   "commandQueuePatience_ms": 1000,
 

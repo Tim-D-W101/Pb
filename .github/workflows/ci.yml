@@ -28,6 +28,8 @@ jobs:
         run: dotnet build Pb.sln -c Release
       - name: Sim tests
         run: dotnet test tests/Pb.Sim.Tests -c Release --no-build --logger "console;verbosity=normal"
+      - name: Network tests (messages, prediction, lag compensation, whole rounds without the engine)
+        run: dotnet test tests/Pb.Net.Tests -c Release --no-build --logger "console;verbosity=normal"
       - name: Ballistics report and tick benchmark (reported, not gating)
         run: dotnet run -c Release --no-build --project tools/Pb.Bench -- --quick | tee -a "$GITHUB_STEP_SUMMARY"
 

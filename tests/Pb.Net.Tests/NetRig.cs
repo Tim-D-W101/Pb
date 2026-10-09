@@ -69,6 +69,7 @@ internal sealed class NetRig
     public const float Dt = 1f / 120f;
 
     private InputCommand[] _commands = Array.Empty<InputCommand>();
+    private bool _overSent;
 
     public NetRig(string password = "", NetSettings? settings = null)
     {
@@ -141,6 +142,7 @@ internal sealed class NetRig
 
         Sim = RoundWorld.Build(TestData.Config, setup, null, Ground);
         _commands = new InputCommand[Sim.Players.Count];
+        _overSent = false;
         int[] people = roster.Where(r => r.Person).Select(r => r.Id).ToArray();
         int next = 0;
         var given = new Dictionary<ClientLink, int>();
@@ -219,6 +221,11 @@ internal sealed class NetRig
 
             Server.AfterStep(sim);
             sim.Events.Clear();
+            if (sim.Match is { Phase: Pb.Sim.Match.MatchPhase.Ended } && !_overSent)
+            {
+                _overSent = true;
+                Server.EndRound(sim);
+            }
         }
 
         foreach (RigClient c in Clients)
@@ -252,8 +259,11 @@ internal sealed class RigClient
     /// <summary>What this copy's player presses (null: nothing, looking where they look).</summary>
     public Func<int, PlayerState, InputCommand>? Script { get; set; }
 
-    /// <summary>Called each tick before the copy predicts (to send extra, made-up commands in cheat tests).</summary>
-    public Action<RigClient>? BeforePredict { get; set; }
+    /// <summary>
+    /// Instead of playing through prediction, sends made-up commands of its own (cheat tests): true skips this tick's
+    /// prediction and step.
+    /// </summary>
+    public Func<RigClient, bool>? Raw { get; set; }
 
     public bool KeepEvents { get; set; } = true;
 
@@ -281,7 +291,13 @@ internal sealed class RigClient
         }
 
         Array.Clear(_commands);
-        BeforePredict?.Invoke(this);
+        if (Raw?.Invoke(this) == true)
+        {
+            Session.EndTick(NetRig.Dt);
+            sim.Events.Clear();
+            return;
+        }
+
         if (Session.Local is { } me)
         {
             InputCommand raw = Script?.Invoke(sim.Tick, me) ?? new InputCommand { Yaw = me.Yaw, Pitch = me.Pitch };

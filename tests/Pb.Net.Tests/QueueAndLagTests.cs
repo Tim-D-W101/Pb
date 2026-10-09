@@ -116,24 +116,39 @@ public class QueueAndLagTests
         Assert.Equal(0, q.Missing);
     }
 
+    /// <summary>A queue with its first <see cref="NetSettings.CommandQueueTicks"/> commands in, all run: the next due is that many.</summary>
+    private static (CommandQueue Queue, int Next) Started(Func<int, InputCommand>? command = null)
+    {
+        NetSettings settings = Settings;
+        var q = new CommandQueue(settings, NetRig.Dt);
+        int depth = Math.Max(1, settings.CommandQueueTicks);
+        for (int seq = 0; seq < depth; seq++)
+        {
+            q.Receive(seq, (command ?? Press)(seq), 0);
+        }
+
+        for (int seq = 0; seq < depth; seq++)
+        {
+            Assert.True(q.TryNext(out _, out _));
+        }
+
+        return (q, depth);
+    }
+
     [Fact]
     public void A_command_that_isnt_there_in_time_is_replaced_by_the_last_and_dropped_when_it_comes()
     {
-        var q = new CommandQueue(Settings, NetRig.Dt);
-        q.Receive(0, Press(0), 0);
-        q.Receive(1, Press(1), 0);
-        q.TryNext(out _, out _);
-        q.TryNext(out _, out _);
-        // 2 hasn't come: 1 again in its place.
+        (CommandQueue q, int next) = Started();
+        // The next hasn't come: the last again in its place.
         Assert.True(q.TryNext(out InputCommand c, out _));
-        Assert.Equal(Press(1).Yaw, c.Yaw);
-        Assert.Equal(2, q.LastRun);
+        Assert.Equal(Press(next - 1).Yaw, c.Yaw);
+        Assert.Equal(next, q.LastRun);
         Assert.Equal(1, q.Missing);
-        q.Receive(2, Press(2), 0);
+        q.Receive(next, Press(next), 0);
         Assert.Equal(1, q.Late);
-        q.Receive(3, Press(3), 0);
+        q.Receive(next + 1, Press(next + 1), 0);
         Assert.True(q.TryNext(out c, out _));
-        Assert.Equal(Press(3).Yaw, c.Yaw);
+        Assert.Equal(Press(next + 1).Yaw, c.Yaw);
     }
 
     [Fact]
@@ -186,12 +201,8 @@ public class QueueAndLagTests
     public void A_player_whose_commands_stop_coming_soon_stands_still()
     {
         NetSettings settings = Settings;
-        var q = new CommandQueue(settings, NetRig.Dt);
         var running = new InputCommand { Move = new System.Numerics.Vector2(0f, 1f), Yaw = 1f, Buttons = InputButtons.Sprint };
-        q.Receive(0, running, 0);
-        q.Receive(1, running, 0);
-        q.TryNext(out _, out _);
-        q.TryNext(out _, out _);
+        (CommandQueue q, _) = Started(_ => running);
         int repeats = 0;
         for (int tick = 0; tick < 60; tick++)
         {
@@ -206,16 +217,14 @@ public class QueueAndLagTests
     [Fact]
     public void Commands_that_keep_coming_late_make_it_wait_for_them()
     {
-        var q = new CommandQueue(Settings, NetRig.Dt);
-        q.Receive(0, Press(0), 0);
-        q.Receive(1, Press(1), 0);
+        (CommandQueue q, int next) = Started();
         int lateBefore = 0;
-        // The player's copy runs three ticks behind what the queue needs: each command comes as its turn has gone.
+        // From here the player's copy runs behind what the queue needs: each command comes as its turn has gone.
         for (int tick = 0; tick < 900; tick++)
         {
             q.TryNext(out _, out _);
-            int seq = tick - 1;
-            if (seq >= 2)
+            int seq = next + tick - 1;
+            if (seq >= next)
             {
                 q.Receive(seq, Press(seq), 0);
             }
