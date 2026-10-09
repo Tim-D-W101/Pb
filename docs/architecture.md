@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **Status: approved (defaults accepted 2026-09-30); Phases 1 and 2 built.** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-open-areas) with [phase-3.md](phase-3.md) on 2026-10-05 (revised 2026-10-06: open areas, each with places). Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
+> **Status: approved (defaults accepted 2026-09-30); Phases 1–3 built (Phase 3 but for the owner's play-test).** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-open-areas) with [phase-3.md](phase-3.md) on 2026-10-05 (revised 2026-10-06: open areas, each with places). [§16](#16-phase-4-multiplayer) with [phase-4.md](phase-4.md) (multiplayer) was proposed on 2026-10-09 and waits for the owner's OK. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
@@ -183,6 +183,9 @@ The spec asks for decoupled systems: ballistics, weapons, player controller, mat
 - **Audio.** `AudioDirector` maps events and surface IDs to pooled `AudioStreamPlayer3D`s. Buses are Master, SFX, UI and Ambience.
 
 ## 6. Networking (Phase 3; the earlier phases already respect these constraints)
+
+> Networking is Phase 4 since the roadmap's revision ([§14.8](#148-revised-roadmap)); its detailed design is
+> [§16](#16-phase-4-multiplayer), which builds on what follows.
 
 - **Topology.** Server-authoritative. The dedicated server is a headless export of the same project. A listen server runs the server and a client in one process.
 - **Client → server.** Input commands are sent redundantly (last N), batched at 60 Hz. The server derives shots from commands. Clients predict their own shots with the same seed.
@@ -811,3 +814,288 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   the arms by two-bone IK. The first-person `ViewModel.Lowered` drops the marker out of view. The HUD prompt says what
   interact will do, and on a ladder how to climb and let go.
 - **Checks.** `LevelSmokeTest` climbs every ladder up and down through the real scene; `-- --ladder-demo` films one.
+
+## 16. Phase 4: multiplayer
+
+> **Status: proposed 2026-10-09 with the [Phase 4 plan](phase-4.md); waiting for the owner's OK.** This is the
+> technical design. It fills in §6, which still holds, and each part gains "as built" notes as its milestone lands.
+
+### 16.1 Processes and roles
+
+- **One project, run three ways:**
+  - the game, offline or **hosting** (a listen server);
+  - the game joined to a host (a **client**);
+  - the same export started with `-- --server` (**dedicated**, headless).
+
+  Offline play is a host nobody joins: the same authority path, with no transport.
+- **The authority** is the loop that exists now. `SimDriver` steps every `IPlayerDriver` (each moving its `PawnBody`),
+  then `SimWorld.Step`. Each player's driver depends on who they are:
+  - A remote player gets a `RemotePlayerDriver`, whose pawn takes its commands from that player's queue (§16.6).
+  - Bots keep `BotPilot`.
+  - The host's own player keeps `PlayerController`, with no prediction and no rewind.
+
+  After each step, the server's `Replicator` (an `ISimEventListener`) files the tick's events for each player.
+- **A client** builds the level as the game does now: presentation, walking collision, and a `SimWorld` for the level.
+  It steps that world in client mode (§16.4): its own player predicted, the others as puppets posed from snapshots, the
+  balls cosmetic.
+- **The dedicated server** is `scenes/Server.tscn` (`ServerMain`): no window, audio, dressing or art (as `--no-art`).
+  `LevelBuilder` builds only the walking collision, so the server has the same physics and the same movement code as
+  the game.
+
+### 16.2 Rules for several players (`Pb.Sim/Match`)
+
+- **Setup.** `MatchSetup.HeroId` gives way to the round's sides: each side's team number and the people on it (player
+  ids), and `Attackers`, the side that attacks an objective. Starting gear follows: `StartPods` for people, `BotPods`
+  for bots.
+- **Result.** The round's result becomes side-neutral: `MatchResult { WinnerTeam (−1 for none), Reason }`, where the
+  reason is cleared, extracted, held, traded or time up. `RoundOutcome For(team)` maps it to the outcomes there are now,
+  so the HUD, summary, referee and records keep their code.
+- **When a round ends.** `LastTeamStandingMode` already reads "the round goes on while at least two teams are in", which
+  holds for any number of people. Online, a round also ends once no person is still in it, since nobody is left to
+  play it out for. Offline, free-for-all bots still play on behind your summary, as now.
+- **Starts.** `SpawnPlanner` takes the sides and their people, and the same seed still deals the same starts:
+  - co-op: the people at the area's player spawns, together within `teammatesWithin_m`;
+  - teams: each side's people and bots round one spot, the two spots on opposite sides, out of each other's sight;
+  - free-for-all: everyone apart.
+- **Objectives.** The objective uses `Attackers`. With people on both sides, the session alternates the attackers.
+- **Records** take only rounds with one person (§16.10).
+
+### 16.3 Lag compensation in the sim
+
+- Each command carries `ViewTick`: the server tick (with a fraction) that the client's puppets were drawn at. When the
+  server fires a shot from that command, its rewind is `clamp(Tick − ViewTick, 0, HistoryTicks − 1)`, at most 23
+  ticks (192 ms, inside the spec's 200 ms cap). Bots and the host's own player fire with rewind 0.
+- The ball keeps its rewind for its whole flight. `BallisticsWorld` sweeps it against `PlayerHitboxes` at
+  `tick − rewind`; the 24-tick history is already kept. `SolveShot`'s aim point uses the same tick, so the shot
+  converges on what the shooter saw under the crosshair.
+- The static world and the doors are tested where they are now (a door is where it is).
+- Within that cap, everything RTT + interpolation delay + queue (§16.6) covers is compensated: a ping up to about 130 ms.
+  Beyond it, the shooter leads by the remainder.
+
+### 16.4 Client mode in the sim
+
+`SimWorld.Role = Client` changes what a step does:
+
+- **Markers.** Only the local player's marker runs, to predict its shots. The others' markers don't run, and their
+  shots come from the server's `ShotFired`.
+- **Balls.** A client's balls never eliminate anyone, and the match state isn't run (it's the server's, from the
+  snapshot):
+  - Others' balls are tested against the world and doors only; the server's events say where they end (§16.8).
+  - The local player's own balls are also tested against the puppets, for a provisional splat.
+- **Footsteps.** The puppets' footsteps are worked out locally from their interpolated movement (`UpdateFootsteps`), so
+  they cost no traffic.
+- **Server-driven state.** Door motion, pickups and objectives come from the server.
+
+### 16.5 `Pb.Net`: messages, channels, budget
+
+- **Projects.** `src/Pb.Net` references `Pb.Sim` and no Godot; its tests are `tests/Pb.Net.Tests`. Like the sim, its
+  per-tick paths use pooled buffers and allocate nothing.
+- **Packing.** `BitWriter` and `BitReader` work over pooled byte buffers, with quantisers for each kind of value:
+
+  | Value | Bits | Precision |
+  |---|---|---|
+  | Position (per axis, over the level's bounds plus a margin) | 16 | ≤ 2.5 mm over 160 m |
+  | Velocity (per axis, ±16 m/s) | 12 | 8 mm/s |
+  | Yaw | 16 | 0.006° |
+  | Pitch, head yaw | 12 each | |
+  | Lean, shoulder, tuck | 8 each | |
+- **Channels** (`ITransport`): unreliable sequenced (commands, snapshots), and reliable ordered (handshake, lobby, round
+  setup, chat).
+- **Client → server**, 60 packets a second:
+  - the last 4 commands, each with its sequence (the client's tick), `Move`, `Yaw`, `Pitch`, `HeadYaw`, `Buttons` and
+    `ViewTick`;
+  - the newest snapshot tick received (the ack).
+- **Server → client**, 60 packets a second (every other tick): a snapshot, delta-compressed against the client's last
+  acked one, then the events that client hasn't acked yet. The snapshot holds:
+  - the tick, and the client's last command processed;
+  - the client's own player at full precision: its whole movement state, and its marker (loader, pods, air, fire mode,
+    ramping, refill, shot sequence);
+  - the other players, quantised: position, velocity, angles, stance, lean, shoulder, tuck, eye height, and flags
+    (alive, present, grounded, sprinting, refilling, ladder and phase);
+  - the doors that moved, and the match: phase, clock, objective, pickups.
+- **Events** ride with the snapshots and are resent until a snapshot carrying them is acked, so a lost packet never
+  holds the others up:
+  - `ShotFired`: shooter, sequence, tick, origin, velocity;
+  - `BallBounced` (each bounce, with the outgoing velocity), `BallBroke` and `BallDespawned`: shooter, sequence, tick,
+    point and normal, and for a player the hit part and the point in that part's frame;
+  - `PlayerEliminated`, `MaskSprayed`, `DoorMoved`, `PickupTaken`, `CaseTaken`, `CaseDropped`, `CaseExtracted`,
+    `HoldChanged`, `MatchPhaseChanged`;
+  - `RoundEnded`, with the final stats;
+  - callouts: speaker, kind, line and contact position.
+- **Budget** for one client in a full round of ten, everyone firing:
+
+  | Traffic | Rate |
+  |---|---|
+  | Down: snapshots | ≈ 8–10 KB/s |
+  | Down: events | ≈ 2 KB/s |
+  | Down: UDP and ENet headers | ≈ 2.3 KB/s |
+  | **Down in all** | **≈ 13 KB/s (0.1 Mbit/s)** |
+  | Up: commands | ≈ 5 KB/s |
+  | Host's upload, with nine others | ≈ 120 KB/s (1 Mbit/s) |
+
+  CI fails a run over 25 KB/s down per client.
+
+### 16.6 Time, commands and the server's queue
+
+- **No shared clock.** A command's sequence is the client's tick. The server keeps a queue per player, aiming for 2
+  ticks deep (`net.jsonc`), and runs one command a tick, in order:
+  - If the queue is over its limit, it runs two in a tick.
+  - It never runs more commands than ticks since the player joined, plus a small allowance, so a client can't bank
+    time to move or fire faster.
+  - If the queue is empty, it repeats the last command; the redundancy in the next packet usually brings the real one
+    anyway.
+
+  The queue absorbs drift between the two machines' clocks.
+- **Round trip.** It's measured from the acks: each snapshot echoes the newest command sequence, and the client knows
+  when it sent that command. The client uses it for its interpolation delay and for the ping on the HUD.
+- **Interpolation.** The client draws the others at the newest snapshot tick minus a delay of 2 snapshot intervals
+  (33 ms) plus the measured jitter, normally at most 3 intervals (50 ms). Across a gap it extrapolates for at most
+  100 ms, then holds.
+
+### 16.7 Your own player: prediction and reconciliation
+
+- **Each tick** the client samples its command, moves its `PawnBody` (`MovementModel` and `MoveAndSlide`) and steps its
+  marker, as the game does now, and keeps the command with the predicted state by sequence.
+- **On each snapshot** it compares the server's state for the last command processed with its prediction:
+  - Within tolerance (1 mm of position, discrete state exact), it drops the history up to there.
+  - Otherwise it sets the body and player state to the server's and replays the stored commands after it through the
+    same `PawnBody`. Godot's `MoveAndSlide` can run several times in one physics frame; the first replayed step takes the
+    server's `Grounded` rather than the body's last floor contact. The camera eases out a small correction over about
+    100 ms and snaps a large one (over 0.5 m).
+- **The marker** is corrected likewise: loader, pods, air and the shot sequence come from the server. Balls are keyed by
+  shooter and sequence, so a replayed shot doesn't spawn a second ball.
+- **Not predicted:** doors (a door you open starts moving one ping later), pickups and objectives.
+- **The check first (M4.3).** Replaying a scripted run's commands from a stored state must land within 1 mm of the first
+  run on one machine. Between a Linux server and a Windows client, it must stay within tolerance on almost every tick.
+  If either fails, `Pb.Sim` gets its own walking mover: a capsule sweep with slide and floor snap against the level's
+  primitives (stairs are already ramps, doors and ladders already shapes). The server, the clients and the headless
+  tests would all use it (it would replace `NavGridMover`), and Godot's `CharacterBody3D` would only be drawn. §4.7 and
+  §12 named this fallback from the start.
+
+### 16.8 Other players and balls on a client
+
+- **Puppets.** Each remote player is a `RemotePawn`: an `OpponentPawn` without a pilot.
+  - Every tick its `PlayerState` is written from the interpolation buffer: position, velocity, angles, stance, lean,
+    shoulder, tuck, ladder.
+  - So `CharacterVisual` and its poser animate it exactly as they animate the bots now: planted steps from the
+    movement, leaning, climbing, the walk-off.
+  - Its hitboxes are recorded each tick, for the client's own shots.
+- **Others' balls.**
+  - On `ShotFired` for tick S, the client spawns a cosmetic ball when its display reaches S, so the ball leaves the
+    puppet's muzzle as the puppet fires.
+  - It flies with the shot's own random stream (`SeedHash.Shot`), against the world and the doors.
+  - Each event for that ball is applied when the display reaches its tick. It arrives about one interpolation delay
+    before that, and a loss is covered by the resend.
+  - A bounce takes the server's outgoing velocity.
+  - A break ends the ball with its splat. A break on a player lands on the hit part at the part-frame point, so it sits
+    on the puppet even though the server tested the rewound pose.
+- **Your balls** are predicted entirely:
+  - They fly at once.
+  - They're tested against the world and against the puppets as you see them, which is what the server checks with
+    your rewind.
+  - A splat on a puppet stays provisional until the server's result for that ball. If the result differs, the splat is
+    removed and the server's own is drawn.
+- **When events play.** Events about others (eliminations, door motion, pickups, callouts) play when the display reaches
+  their tick, so sound and sight agree with the puppets. Events about you (you're out, mask spray, your pickups) play
+  at once; the ball that put you out ends on you there and then.
+- **Presentation.** The existing presentation (`AudioDirector`, `SplatSystem`, the HUD, the kill feed, subtitles, voices)
+  takes all of these as `SimEvent`s through `ISimEventListener`, unchanged.
+
+### 16.9 Validation (server)
+
+- **Commands:**
+  - sequences only go forward;
+  - at most one a tick on average, with a small burst allowance; the rest are dropped;
+  - `Move` is clamped to the unit circle;
+  - angles must be finite, and are clamped (pitch to `maxPitch`, head yaw to `maxHeadTurn`);
+  - unknown buttons are masked off;
+  - `ViewTick` must lie within the history window.
+- **Fire rate, loader, pods and air** are the server's own marker, run from the commands. A trigger toggled every tick
+  is still held to `rateCap_bps`, and an empty loader or tank dry-fires.
+- **Speed** is the server's own movement, run from the commands. No client position is ever accepted.
+- **Every violation** is counted per player and logged, rate-limited. Nothing kicks automatically; the host can remove
+  a player.
+
+### 16.10 Lobby and session
+
+- **States.** A server-side state machine (`Pb.Net/Lobby`):
+  1. `Lobby`: joining, sides, the host's choices, ready-up.
+  2. `Countdown`: 5 s (`net.jsonc`).
+  3. `Loading`: everyone loads the level, for at most 30 s.
+  4. `Round`: briefing, live, ended.
+  5. `Summary`.
+  6. Back to `Lobby`, or to the vote first: 3 choices for 15 s.
+- **Sides.**
+  - A newcomer goes on the smaller side.
+  - While balance is on, a switch that would leave the sides more than one person apart is refused.
+  - Bots fill each side up to the size, at the host's difficulty.
+  - Free-for-all has no sides.
+- **The session's score:** rounds won per side (per player in free-for-all) and eliminations, kept across rounds until
+  the host closes the lobby.
+- **The round setup** (reliable) holds the level, place, mode, size, objective, tier and match seed, and the roster:
+  each player's id, name, team, person or bot, look and start. Clients don't re-run the spawn planner. Door starts
+  follow from the seed, as now.
+- **Records.** A round with more than one person isn't recorded.
+- **Chat** is reliable messages, to everyone or to a side, at most 200 characters and rate-limited.
+
+### 16.11 Transport and discovery (`game/net`)
+
+- **ENet.** `EnetTransport : ITransport` runs over Godot's `ENetConnection` and `ENetPacketPeer`: channel 0 unreliable
+  sequenced, channel 1 reliable. Its UDP port comes from `net.jsonc` (47820), and it takes up to nine peers besides the
+  host.
+- **Handshake.** It checks the protocol version, the build stamp and a SHA-256 of the data files (`game/data/**`, hashed
+  as they load), plus the password if there is one. A mismatch is refused, naming both versions.
+- **LAN discovery.** Hosts answer a broadcast query on port 47821 (`PacketPeerUdp`) with their name, area, mode, how
+  many people they have and the most they take.
+- **Timeouts and the lag simulator** live in `net.jsonc`: connect within 10 s, dropped after 5 s of silence. The lag
+  simulator wraps any transport: `--net-lag=MS` (round trip), `--net-jitter=MS`, `--net-loss=PCT`.
+
+### 16.12 Dedicated server builds
+
+- **Linux.** `tools/package/server-build.sh` exports the Linux server (Godot's `linux_release.x86_64` template, fetched
+  like the Windows ones by `fetch-templates.py`). It packages `Pb-server-linux.zip`: the binary, the pack, the .NET
+  assemblies, `server.jsonc` and `run-server.sh`.
+- **Windows.** The Windows server is the Windows build with `Server.bat`, which runs
+  `Pb.console.exe --headless -- --server`.
+- **Release.** Both go on the test-build release.
+- **`server.jsonc`** holds: name, port, password, the most people, a rotation of area, place, mode, size, objective and
+  difficulty, bots on or off, the vote, and the time between rounds.
+- **Logs.** The server logs joins, leaves, rounds and violations to stdout and `user://logs`.
+
+### 16.13 Platform services (`game/platform`)
+
+- **The interface.** `IPlatformServices` gathers `IIdentity` (name and a stable id), `ISessionBrowser` (finding and
+  joining games), `IFriends`, and an optional `IStore`.
+- **Offline first.** `OfflinePlatform` takes its identity from the profile: the name you typed and a random id made
+  once. It browses sessions by LAN discovery and typed addresses, and has no friends.
+- **Later.** A Steam implementation can be added (identity, lobbies, invites, and relay networking as another
+  `ITransport`) without touching the game.
+
+### 16.14 Testing
+
+- **`tests/Pb.Net.Tests`:**
+  - packing, quantisation, deltas, the event resend, the command queue and interpolation;
+  - prediction against a scripted mover;
+  - whole networked rounds without the engine: a server `SimWorld` and client `SimWorld`s joined by the loopback
+    transport through the lag simulator, with bodies moved by `NavGridMover` (or the sim's own mover, if it comes) and
+    bots included. The fairness test, the validation tests and the desync check run here.
+- **CI's `net-round` job:**
+  - a headless dedicated server and three headless clients (`--join=127.0.0.1 --bot-match --net-lag=100
+    --net-jitter=10 --net-loss=1`), each with a bot at its controls sending commands through the network like a person,
+    and bots filling to ten;
+  - each prints a hash of its final scoreboard;
+  - the job fails on a mismatch, an error, or traffic over budget;
+  - the Windows build joins under Wine, since the Windows .NET runtime has faulted where Linux didn't (§14.7).
+- **Bench.** `tools/Pb.Bench` adds the server's per-tick packing for ten players, and a 12-tick replay.
+
+### 16.15 Risks
+
+| Risk | Mitigation |
+|---|---|
+| Replays through Godot's movement diverge | Checked first (§16.7); the fallback is the sim's own mover. |
+| Head-of-line blocking under loss | Events ride with snapshots and are resent until acked; only the lobby, round setup and chat use the reliable channel. |
+| Bandwidth with 1,000 balls in the air | Balls are never sent per tick; a shot is one event, and where it ends is another. |
+| The two machines' clocks drift | No shared clock: the server's queue absorbs it. |
+| A cheat predicting the spread | Accepted (§6); server-only seeds can come later. |
+| Faults only Windows shows | The Windows build joins the Linux server under Wine in CI. |
+| Routers in the way | Port forwarding (in the hosting guide), a rented server, or later a platform relay. |
