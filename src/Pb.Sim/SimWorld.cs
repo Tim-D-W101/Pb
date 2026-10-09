@@ -249,6 +249,19 @@ public sealed class SimWorld
     /// <summary>Ends the briefing: the clock starts and everyone may move and fire.</summary>
     public void GoLive() => Match?.GoLive(this);
 
+    /// <summary>
+    /// Someone playing with others has left mid-round: at the next step they're off the field and count as out, put out by
+    /// nobody (a <see cref="SimEventType.PlayerEliminated"/> with no shooter and <see cref="SimEvent.Extra"/> −1). Only the
+    /// authority decides it; a joining copy hears it in the server's events.
+    /// </summary>
+    public void Withdraw(int playerId)
+    {
+        if (_role == SimRole.Authority && FindPlayer(playerId) is { } player)
+        {
+            player.Left = true;
+        }
+    }
+
     public void Step(ReadOnlySpan<InputCommand> commands)
     {
         double t0 = Time;
@@ -257,6 +270,13 @@ public sealed class SimWorld
         bool client = _role == SimRole.Client;
         Targets.Update(t0);
         PlayerHits.Record(Tick);
+        for (int i = 0; i < _players.Count; i++)
+        {
+            if (_players[i].Left && _players[i].Present)
+            {
+                TakeOff(_players[i]);
+            }
+        }
 
         for (int i = 0; i < _players.Count; i++)
         {
@@ -308,6 +328,26 @@ public sealed class SimWorld
 
         Tick++;
         Time += dt;
+    }
+
+    /// <summary>Someone who left: out (if they were still in) and off the field at once.</summary>
+    private void TakeOff(PlayerState player)
+    {
+        player.Present = false;
+        player.Sprinting = false;
+        if (!player.Alive)
+        {
+            return;
+        }
+
+        player.Alive = false;
+        player.EliminatedBy = -1;
+        player.EliminatedTick = Tick;
+        Events.Add(new SimEvent
+        {
+            Type = SimEventType.PlayerEliminated, Tick = Tick, PlayerId = -1, TargetId = player.Id, Team = player.Team,
+            Position = player.Position, Normal = Vector3.UnitY, Extra = -1, ColliderId = -1,
+        });
     }
 
     /// <summary>

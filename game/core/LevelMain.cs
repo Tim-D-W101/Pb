@@ -6,9 +6,14 @@ using Godot;
 using Pb.Game.Ai;
 using Pb.Game.Audio;
 using Pb.Game.Ballistics;
+using Pb.Game.Net;
 using Pb.Game.Player;
 using Pb.Game.Ui;
 using Pb.Game.World;
+using Pb.Net;
+using Pb.Net.Client;
+using Pb.Net.Protocol;
+using Pb.Net.Server;
 using Pb.Sim;
 using Pb.Sim.AI;
 using Pb.Sim.Data;
@@ -131,6 +136,32 @@ public partial class LevelMain : Node3D, ISimEventListener
     /// <summary>A real round (not a scripted run or a tour): it goes in your records when it ends.</summary>
     private bool _counts;
 
+    /// <summary>Playing with others: the session (null offline).</summary>
+    private NetSession? _net;
+
+    /// <summary>The round's setup when playing with others: cast here when hosting, as sent when joined.</summary>
+    private RoundSetupMessage? _netSetup;
+
+    /// <summary>Hosting: the round as cast (each bot's start), and who plays which person in it, in order after you.</summary>
+    private CastRound? _cast;
+    private readonly List<ClientLink> _netPeople = new();
+
+    /// <summary>Joined: the round on this copy (prediction, everyone else posed from snapshots, the server's events).</summary>
+    private ClientSession? _session;
+
+    /// <summary>Hosting: how long the round has waited for everyone to build it, and the countdown once they have (s).</summary>
+    private double _netWaited;
+    private double _netCountdown = -1;
+    private bool _netOverSent;
+    private bool _netGone;
+    private NetServer? _listening;
+
+    /// <summary>Joined: the server's result and numbers have come; the bot match waits for them to report.</summary>
+    private bool _netOver;
+    private bool _reportWhenOver;
+    private bool _reported;
+    private int[] _calloutsSent = Array.Empty<int>();
+
     /// <summary>True once you've been eliminated and the spectator view is showing.</summary>
     public bool Spectating => _spectator is not null;
 
@@ -152,10 +183,20 @@ public partial class LevelMain : Node3D, ISimEventListener
             _data = GameData.Load(source);
             _view = Jsonc.Load<PresentationDef>(source, PresentationDef.File);
             InputSetup.Apply(Jsonc.Load<InputDef>(source, InputDef.File));
-            (_entry, _tier, _mode, _size, _objective) = PickRound(_data);
+            // Joined to a host, the round is the one it sent; otherwise the menus' choice (or the command line's).
+            _net = NetSession.Current;
+            _netSetup = _net?.Client is not null
+                ? _net.Round ?? throw new InvalidOperationException("Joined to a host, but it hasn't sent a round to play.")
+                : null;
+            if (_net is not null)
+            {
+                _net.RoundWaiting = false;
+            }
+
+            (_entry, _tier, _mode, _size, _objective) = _netSetup is { } sent ? JoinedRound(_data, sent) : PickRound(_data);
             // The whole area, or the part of it chosen: walled in, with its own entries, starts, pickups and objectives.
             LevelLayout area = _data.Levels[_entry.Id];
-            string? placeId = GameSession.LevelId is not null ? GameSession.PlaceId : Args.Value("--place");
+            string? placeId = _netSetup is not null ? _netSetup.PlaceId : GameSession.LevelId is not null ? GameSession.PlaceId : Args.Value("--place");
             if (placeId is not null && area.Places.All(p => p.Id != placeId))
             {
                 throw new InvalidOperationException($"{area.DisplayName} has no place '{placeId}' (known: {string.Join(", ", area.Places.Select(p => p.Id))})");
@@ -200,13 +241,15 @@ public partial class LevelMain : Node3D, ISimEventListener
         _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
                     roleDemo is not null || gaitDemo || coverDemo || ladderDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
-        _counts = !_scripted && !roundTour;
+        // Rounds played with others don't go in your records: they stay your bests alone.
+        _counts = !_scripted && !roundTour && _net is null;
 
         // Every round deals a new seed and random starts, so you can't learn where everyone is. Scripted
         // runs keep the data's seed and, in solo, the level's roster, so they play out the same every time.
         bool repeatable = _scripted || roundTour;
-        ulong seed = ulong.TryParse(Args.Value("--seed"), out ulong given) ? given
-            : repeatable ? _data.Config.MatchSeed
+        ulong seed = _netSetup is { } joined ? joined.Seed
+            : ulong.TryParse(Args.Value("--seed"), out ulong given) ? given
+            : repeatable && _net is null ? _data.Config.MatchSeed
             : (ulong)System.Random.Shared.NextInt64();
         _sim = new SimWorld(_data.Config, seed);
         _sim.LoadLevel(_level);
@@ -218,12 +261,17 @@ public partial class LevelMain : Node3D, ISimEventListener
         double navMs = navWatch.Elapsed.TotalMilliseconds;
         // With an objective the opponents gather round it, so the starts are always dealt; so they are in part of an area.
         ObjectiveFocus? focus = ObjectiveFocus.For(_objective.Kind, _level.Objectives, _data.Config.Rules.Objectives, seed);
-        _starts = !repeatable || Args.Has("--random-spawns") || _mode.Kind != MatchModeKind.Solo || focus is not null || _level.Place is { Whole: false }
+        if (_net is { Hosting: true })
+        {
+            CastWithEveryone(seed);
+        }
+
+        _starts = _net is not null ? null
+            : !repeatable || Args.Has("--random-spawns") || _mode.Kind != MatchModeKind.Solo || focus is not null || _level.Place is { Whole: false }
             ? SpawnPlanner.Plan(_level, _squad.Cover, _sim.Collision, _data.Config.Rules.Spawning, _data.Bots,
                 RoundShape.Of(_mode, _size, focus), _data.Config.Movement.StandEyeHeight, seed)
             : null;
         SpawnPoint start = _starts?.You ?? _level.PlayerSpawns[0];
-        _start = start;
         if (_starts is not null)
         {
             static string Describe(OpponentSpawn o) => $"{o.Id} {o.Roles[0]}{(o.Patrol is null ? "" : " on " + o.Patrol.Id)}";
@@ -232,8 +280,28 @@ public partial class LevelMain : Node3D, ISimEventListener
                      "; against you: " + string.Join(", ", _starts.Opponents.Select(Describe)));
         }
 
-        PlayerState state = _sim.AddPlayer(0, 0, start.Position, start.Yaw);
-        state.Name = "You";
+        PlayerState state;
+        if (_netSetup is { } round)
+        {
+            // Everyone in the round's order, the same on every copy; you're player 0 when hosting.
+            foreach (RosterEntry e in round.Roster)
+            {
+                PlayerState p = _sim.AddPlayer(e.PlayerId, e.Team, e.Position, e.Yaw);
+                p.Name = e.Name;
+            }
+
+            int me = _net!.Client is not null ? round.YourPlayerId : 0;
+            state = _sim.FindPlayer(me) ?? throw new InvalidOperationException("The round has no player for this copy.");
+            start = new SpawnPoint(state.Position, state.Yaw);
+            GD.Print($"NET round {round.Round} ({_round.Line}, seed {seed}): {string.Join(", ", round.Roster.Select(e => $"{e.Name}{(e.Person ? "" : " (bot)")} on {e.Team}"))}");
+        }
+        else
+        {
+            state = _sim.AddPlayer(0, 0, start.Position, start.Yaw);
+            state.Name = "You";
+        }
+
+        _start = start;
         if (_view.TeamColors.Length < _mode.PlayersFor(_size) && _mode.Kind == MatchModeKind.FreeForAll)
         {
             GD.PushWarning($"presentation.jsonc has {_view.TeamColors.Length} team colours for a {_mode.PlayersFor(_size)}-player free-for-all: some players share one");
@@ -325,8 +393,15 @@ public partial class LevelMain : Node3D, ISimEventListener
         ApplyGraphics(preset);
 
         _player.Initialize(_sim, state, _view, _settings, teamColor);
-        _player.BuildBody(_view.Characters, teamColor, look: 0);
-        SpawnBots(hostile: botDemo || roleDemo is not null || _botMatch || (!_scripted && !roundTour));
+        _player.BuildBody(_view.Characters, teamColor, look: _netSetup?.Roster.FirstOrDefault(e => e.PlayerId == state.Id)?.Look ?? 0);
+        if (_netSetup is not null)
+        {
+            SpawnOthers();
+        }
+        else
+        {
+            SpawnBots(hostile: botDemo || roleDemo is not null || _botMatch || (!_scripted && !roundTour));
+        }
         _botDebug = new BotDebugOverlay { Name = "BotDebug" };
         AddChild(_botDebug);
         _botDebug.Initialize(_squad);
@@ -360,8 +435,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
         _hud.InitializeMatch(_view, MatchClock);
         _hud.ShowHelp = false;
-        MatchSetup setup = MatchSetup.From(_tier, state.Id, _mode.Kind, _objective.Kind);
-        if (float.TryParse(Args.Value("--time-limit"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float limit))
+        MatchSetup setup = _netSetup is { } cast ? RoundWorld.MatchSetupOf(_data.Config, cast) : MatchSetup.From(_tier, state.Id, _mode.Kind, _objective.Kind);
+        if (_netSetup is null &&
+            float.TryParse(Args.Value("--time-limit"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float limit))
         {
             setup = new MatchSetup
             {
@@ -383,7 +459,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         _pause = new PauseMenu { Name = "Pause" };
         AddChild(_pause);
         _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Effective(s.GraphicsPreset, s.Graphics)),
-            restart: () => GetTree().ReloadCurrentScene(), hudChanged: _ => _hud.ApplySettings());
+            restart: _net is null ? () => GetTree().ReloadCurrentScene() : null, hudChanged: _ => _hud.ApplySettings(),
+            quit: _net is null ? null : LeaveGame);
 
         var maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
         AddChild(maskSpray);
@@ -396,10 +473,10 @@ public partial class LevelMain : Node3D, ISimEventListener
             _doors.Capture();
             objectiveViews.Capture();
         };
-        _driver.AddDriver(_player);
-        foreach (OpponentPawn pawn in _pawns)
+        // One driver for each player, in the sim's order: its step takes their commands in that order.
+        foreach (PlayerState p in _sim.Players)
         {
-            _driver.AddDriver(pawn);
+            _driver.AddDriver(p == state ? _player : _pawns.First(o => o.State == p));
         }
 
         _driver.AddListener(maskSpray);
@@ -419,8 +496,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.AddListener(_referee);
         _driver.AddListener(_hud);
         _driver.AddListener(this);
+        if (_net is not null)
+        {
+            WireNetwork(state);
+        }
 
-        if (_scripted)
+        if (_scripted && _net is null)
         {
             _sim.GoLive();
         }
@@ -538,6 +619,11 @@ public partial class LevelMain : Node3D, ISimEventListener
                 BeginRound();
             }, () => _summaryShown, _pause, () => _spectator?.Following == true, ShowSummary);
         }
+        else if (_net is not null)
+        {
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, LeaveGame, BriefingMap(), _match.Objective,
+                waiting: _net.Hosting ? "Waiting for everyone to be ready…" : "The round starts once everyone's in."));
+        }
         else
         {
             ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective));
@@ -549,11 +635,31 @@ public partial class LevelMain : Node3D, ISimEventListener
                  $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");
         _ready = true;
+        if (_net is { } session)
+        {
+            StartNetRound(session);
+        }
     }
 
     public void OnSimEvent(in SimEvent e)
     {
         _squad.Hear(e);
+        if (e.Type == NetEventTypes.Callout)
+        {
+            HearCallout(e);
+            return;
+        }
+
+        if (e.Type == SimEventType.MatchPhaseChanged && e.Extra == (int)MatchPhase.Live && _net is not null && _overlay is not null && !_summaryShown)
+        {
+            // Playing with others the round goes live for everyone at once: the briefing card goes, the mouse is yours.
+            CloseOverlay();
+            if (_spectator is null)
+            {
+                Input.MouseMode = Input.MouseModeEnum.Captured;
+            }
+        }
+
         if (e.Type == SimEventType.ShotFired && e.PlayerId == _player.State.Id)
         {
             _player.ViewModel.Kick();
@@ -638,6 +744,407 @@ public partial class LevelMain : Node3D, ISimEventListener
         _calloutsSeen = Enumerable.Repeat(-1, _bots.Count).ToArray();
     }
 
+    /// <summary>A joining copy: the area, difficulty, mode, size and objective of the round the host sent.</summary>
+    private static (AreaEntryDef Entry, TierDef Tier, GameMode Mode, int Size, ObjectiveChoice Objective) JoinedRound(GameData data, RoundSetupMessage setup)
+    {
+        AreaEntryDef entry = data.Areas.Areas.FirstOrDefault(a => a.Id == setup.LevelId)
+            ?? throw new InvalidOperationException($"The host's round is in an area this copy doesn't have ('{setup.LevelId}').");
+        MatchRules rules = data.Config.Rules;
+        GameMode mode = rules.FindMode(setup.ModeId)
+            ?? throw new InvalidOperationException($"The host's round is a mode this copy doesn't know ('{setup.ModeId}').");
+        ObjectiveChoice objective = rules.Objectives.Find(setup.Objective)
+            ?? throw new InvalidOperationException($"The host's round has an objective this copy doesn't know ({setup.Objective}).");
+        TierDef tier = entry.Tiers.FirstOrDefault(t => t.Id == setup.TierId) ?? entry.Tiers[0];
+        return (entry, tier, mode, setup.Size, objective);
+    }
+
+    /// <summary>
+    /// Hosting: casts the round with everyone in the game (you first, then whoever has joined, in the order they came) and
+    /// bots in the places left, everyone's start dealt from the round's seed. The round is made big enough for everyone.
+    /// </summary>
+    private void CastWithEveryone(ulong seed)
+    {
+        NetSession session = _net!;
+        var people = new List<Person> { new(session.LocalName, session.LocalLook) };
+        _netPeople.Clear();
+        foreach (ClientLink link in session.Server!.Clients)
+        {
+            if (link.Welcomed)
+            {
+                _netPeople.Add(link);
+                people.Add(new Person(link.Name, link.Look));
+            }
+        }
+
+        int size = RoundCasting.FitSize(_mode, _size, people.Count, _data.Config.Rules.MaxPlayers);
+        if (size != _size)
+        {
+            _size = size;
+            _round = new RoundInfo(_level, _tier, _mode, _size, _objective);
+        }
+
+        float? limit = float.TryParse(Args.Value("--time-limit"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
+            out float given) ? given : null;
+        _cast = RoundCasting.Cast(_level, _squad.Cover, _sim.Collision, _data.Config, _data.Bots, _mode, _size, _objective, _tier, people, seed,
+            session.RoundsPlayed + 1, _view.Hud.Callsigns, _entry.Id, _level.Place?.Id, limit);
+        _netSetup = _cast.Setup;
+    }
+
+    /// <summary>
+    /// Playing with others: everyone in the round but you, in the roster's order. Hosting, the bots think here and the people
+    /// who joined move by the commands their copies send; joined, everyone is drawn where the server's snapshots put them.
+    /// </summary>
+    private void SpawnOthers()
+    {
+        var parent = new Node3D { Name = "Bots" };
+        AddChild(parent);
+        RoundSetupMessage setup = _netSetup!;
+        NetServer? server = _net!.Server;
+        for (int i = 0; i < setup.Roster.Count; i++)
+        {
+            RosterEntry entry = setup.Roster[i];
+            PlayerState state = _sim.FindPlayer(entry.PlayerId)!;
+            if (state == _player.State)
+            {
+                continue;
+            }
+
+            ICommandSource pilot;
+            if (server is null)
+            {
+                pilot = new IdlePilot();
+            }
+            else if (entry.Person)
+            {
+                pilot = new NetCommandSource(server);
+            }
+            else
+            {
+                OpponentSpawn spawn = _cast!.BotStarts[i]!;
+                BotBrain brain = _squad.Add(state, _data.Bots.ArchetypeFor(spawn.Roles)!, _data.Bots.Difficulty[_tier.Bots], spawn);
+                brain.RestlessAfter = _mode.RestlessAfter;
+                _bots.Add(brain);
+                pilot = new BotPilot(brain);
+            }
+
+            string kind = entry.Person ? "Person" : state.Team == _player.State.Team ? "Teammate" : "Opponent";
+            var pawn = new OpponentPawn { Name = $"{kind}_{entry.PlayerId}", Puppet = server is null };
+            parent.AddChild(pawn);
+            pawn.Initialize(_sim, state, TeamColor(state.Team), pilot, _view.Characters, entry.Look, _view.MarkerModel);
+            _pawns.Add(pawn);
+        }
+
+        _calloutsSeen = Enumerable.Repeat(-1, _bots.Count).ToArray();
+        _calloutsSent = Enumerable.Repeat(-1, _bots.Count).ToArray();
+    }
+
+    /// <summary>
+    /// Playing with others, the network's turn round each step. Hosting: what has arrived is taken in before anyone moves,
+    /// and after the step the bots' callouts and everyone's snapshot go out (and the result, once the round is over).
+    /// Joined: this copy's player is predicted and put right, everyone else is posed from the snapshots, and the server's
+    /// events are delivered as they come due.
+    /// </summary>
+    private void WireNetwork(PlayerState state)
+    {
+        NetSession session = _net!;
+        session.InRound = true;
+        _pause.PausesGame = false;
+        if (session.Server is { } server)
+        {
+            server.LagCompensation = !Args.Has("--no-lag-compensation");
+            server.Left += OnPersonLeft;
+            _listening = server;
+            _driver.BeforeTick = server.Poll;
+            _driver.AfterStep = () =>
+            {
+                SendCallouts(server);
+                server.AfterStep(_sim);
+                if (_match.Phase == MatchPhase.Ended && !_netOverSent)
+                {
+                    _netOverSent = true;
+                    server.EndRound(_sim);
+                }
+            };
+            return;
+        }
+
+        NetClient client = session.Client!;
+        RoundSetupMessage setup = _netSetup!;
+        var round = new ClientSession(client, _sim, setup.Round, state.Id, _player);
+        _session = round;
+        _player.Predict = c => round.Predict(c);
+        _player.CorrectionOffset = () => round.CorrectionOffset;
+        _driver.BeforeTick = () => round.BeginTick(_sim.Dt);
+        _driver.AfterStep = () =>
+        {
+            round.EndTick(_sim.Dt);
+            if (client.TakeRoundOver() is { } over && over.Round == setup.Round)
+            {
+                // The server's numbers: the summary shows them (again, if it's up already).
+                over.ApplyTo(_match);
+                _netOver = true;
+                if (_reportWhenOver)
+                {
+                    Callable.From(ReportBotMatch).CallDeferred();
+                }
+                else if (_summaryShown && _match.Phase == MatchPhase.Ended)
+                {
+                    Callable.From(RefreshSummary).CallDeferred();
+                }
+            }
+
+            if (client.TakeRoundSetup() is { } next)
+            {
+                session.Round = next;
+                session.RoundWaiting = true;
+                Callable.From(NextNetRound).CallDeferred();
+            }
+
+            if (client.State is ClientState.Gone or ClientState.Refused && !_netGone)
+            {
+                _netGone = true;
+                Callable.From(HostGone).CallDeferred();
+            }
+        };
+    }
+
+    /// <summary>Hosting: someone left mid-round; they count as out and the round goes on without them.</summary>
+    private void OnPersonLeft(ClientLink link)
+    {
+        if (link.PlayerId >= 0 && _match.Phase != MatchPhase.Ended)
+        {
+            _sim.Withdraw(link.PlayerId);
+            GD.Print($"NET {link.Name} left mid-round: player {link.PlayerId} is out");
+        }
+
+        _netPeople.Remove(link);
+    }
+
+    /// <summary>Hosting: someone who's out is walked off the field the way the bots go, so nobody's left standing in the way.</summary>
+    private ICommandSource WalkOffPilot(PlayerState state)
+    {
+        var spot = new OpponentSpawn { Id = $"out_{state.Id}", Position = state.Position, Yaw = state.Yaw, Roles = new[] { "sentry" } };
+        BotBrain brain = _squad.Add(state, _data.Bots.ArchetypeFor(spot.Roles)!, _data.Bots.Difficulty[_tier.Bots], spot);
+        return new BotPilot(brain);
+    }
+
+    /// <summary>Hosting: the bots' new callouts go to everyone with the step's events.</summary>
+    private void SendCallouts(NetServer server)
+    {
+        for (int i = 0; i < _bots.Count; i++)
+        {
+            BotBrain bot = _bots[i];
+            if (bot.CalloutTick <= _calloutsSent[i])
+            {
+                continue;
+            }
+
+            _calloutsSent[i] = bot.CalloutTick;
+            string[] lines = _view.Hud.Callouts.For(bot.Callout);
+            if (lines.Length == 0)
+            {
+                continue;
+            }
+
+            // The line the host plays itself (see _Process), so everyone hears the same words.
+            server.AddEvent(new SimEvent
+            {
+                Type = NetEventTypes.Callout, Tick = _sim.Tick - 1, PlayerId = bot.Self.Id, Extra = (int)bot.Callout,
+                TargetId = (bot.Self.Id * 31 + bot.CalloutTick) % lines.Length, Position = bot.Self.EyePosition, ColliderId = -1,
+            });
+        }
+    }
+
+    /// <summary>Joined: a bot's callout the host sent, in its voice from where it was called, and a subtitle when close.</summary>
+    private void HearCallout(in SimEvent e)
+    {
+        if (_netSetup is null || _net?.Client is null || _sim.FindPlayer(e.PlayerId) is not { } speaker)
+        {
+            return;
+        }
+
+        string[] lines = _view.Hud.Callouts.For((CalloutKind)e.Extra);
+        if (lines.Length == 0)
+        {
+            return;
+        }
+
+        string line = lines[Math.Abs(e.TargetId) % lines.Length];
+        int look = _netSetup.Roster.FirstOrDefault(r => r.PlayerId == speaker.Id)?.Look ?? 0;
+        _audio.Callout(speaker, look, line);
+        if (System.Numerics.Vector3.Distance(speaker.Position, _player.State.Position) <= _view.Hud.SubtitleRange_m)
+        {
+            _hud.Subtitle(speaker.Name, speaker.Team, line);
+        }
+    }
+
+    /// <summary>
+    /// The round is built here. Hosting: everyone who joined is sent its setup (and who they play), and the briefing waits
+    /// for them to have it built too. Joined: the host is told this copy is ready.
+    /// </summary>
+    private void StartNetRound(NetSession session)
+    {
+        RoundSetupMessage setup = _netSetup!;
+        if (session.Server is { } server)
+        {
+            CastRound cast = _cast!;
+            server.BeginRound(_sim, setup, link =>
+            {
+                int at = _netPeople.IndexOf(link);
+                return at >= 0 ? cast.PersonIds[at + 1] : -1;
+            });
+            session.Round = setup;
+            _netWaited = 0;
+            GD.Print($"NET round {setup.Round} sent to {_netPeople.Count} joined: {string.Join(", ", _netPeople.Select(l => $"{l.Name} as player {l.PlayerId}"))}");
+            return;
+        }
+
+        session.Client!.SendLoaded(setup.Round);
+    }
+
+    /// <summary>
+    /// Hosting: the briefing waits for everyone to have the round built (or for as long as it may), counts down, and the
+    /// round goes live for everyone at once.
+    /// </summary>
+    private void NetCountdown(double delta)
+    {
+        if (_net?.Server is not { } server || _match.Phase != MatchPhase.Briefing || _netSetup is null)
+        {
+            return;
+        }
+
+        NetSettings settings = _net.Settings;
+        if (_netCountdown < 0)
+        {
+            _netWaited += delta;
+            if (!server.AllLoaded() && _netWaited < settings.LoadTimeout)
+            {
+                string waiting = string.Join(", ", _netPeople.Where(l => l.PlayerId >= 0 && l.LoadedRound != server.Round).Select(l => l.Name));
+                SetStatus(waiting.Length == 0 ? "Waiting for everyone…" : $"Waiting for {waiting}…");
+                return;
+            }
+
+            _netCountdown = settings.Countdown;
+        }
+
+        _netCountdown -= delta;
+        if (_netCountdown > 0)
+        {
+            SetStatus($"Starting in {Math.Ceiling(_netCountdown):0}…");
+            return;
+        }
+
+        GD.Print($"NET round {_netSetup.Round} live after {_netWaited:0.0} s");
+        BeginRound();
+    }
+
+    /// <summary>The waiting briefing's (or summary's) status line.</summary>
+    private void SetStatus(string text)
+    {
+        if (_overlay?.FindChild("Status", true, false) is Label status && status.Text != text)
+        {
+            status.Text = text;
+        }
+    }
+
+    /// <summary>Hosting: the next round, with everyone in the game now (new starts; with people on both sides, the other attacks).</summary>
+    private void NextHostedRound()
+    {
+        _net!.RoundsPlayed = _netSetup!.Round;
+        StopNetwork();
+        GetTree().ReloadCurrentScene();
+    }
+
+    /// <summary>Joined: the host has started the next round: build it (or, not playing in it, wait for the one after).</summary>
+    private void NextNetRound()
+    {
+        if (_net is null)
+        {
+            return;
+        }
+
+        StopNetwork();
+        if (_net.Round is { YourPlayerId: >= 0 })
+        {
+            GetTree().ReloadCurrentScene();
+        }
+        else
+        {
+            GetTree().ChangeSceneToFile(GameSession.LobbyScene);
+        }
+    }
+
+    /// <summary>The summary again, with the server's numbers.</summary>
+    private void RefreshSummary()
+    {
+        if (!_summaryShown || _overlay is null)
+        {
+            return;
+        }
+
+        CloseOverlay();
+        ShowSummary();
+    }
+
+    /// <summary>Joined: the host has gone (it ended the game, or the connection was lost): say so, then back to the menu.</summary>
+    private void HostGone()
+    {
+        string why = _net?.Client?.State == ClientState.Refused ? _net.Client.Refusal?.Text ?? "The host turned you away."
+            : _net?.Client?.GoneReason is { Length: > 0 } reason ? reason : "The connection to the host was lost.";
+        GD.Print($"NET host gone: {why}");
+        StopNetwork();
+        _net?.Leave(why);
+        _net = null;
+        if (DisplayServer.GetName() == "headless")
+        {
+            // CI: the game ending after a round played is how a networked run finishes.
+            GetTree().Quit(_summaryShown || _match.Phase == MatchPhase.Ended ? 0 : 1);
+            return;
+        }
+
+        _spectator?.StopFollowing();
+        _hud.Visible = false;
+        VBoxContainer column = UiKit.Column(16);
+        column.AddChild(UiKit.Title("The game is over", 40));
+        Label line = UiKit.Body(why, 20, UiKit.Text, wrap: true);
+        line.CustomMinimumSize = new Vector2(480, 0);
+        column.AddChild(line);
+        Button back = UiKit.Button("Main menu", () => GetTree().ChangeSceneToFile(GameSession.MainScene), 240);
+        column.AddChild(back);
+        ShowOverlay(UiKit.Overlay(UiKit.Panel(column, 560f)));
+        back.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    /// <summary>Playing with others: leaves the game (hosting, it ends for everyone) and goes back to the menu.</summary>
+    private void LeaveGame()
+    {
+        StopNetwork();
+        _net?.Leave(_net.Hosting ? "The host ended the game." : "left");
+        _net = null;
+        GetTree().ChangeSceneToFile(GameSession.MainScene);
+    }
+
+    /// <summary>The network's turn comes off the tick (leaving, or going on to the next round).</summary>
+    private void StopNetwork()
+    {
+        _driver.BeforeTick = null;
+        _driver.AfterStep = null;
+        _player.Predict = null;
+        _player.CorrectionOffset = null;
+        if (_listening is not null)
+        {
+            _listening.Left -= OnPersonLeft;
+            _listening = null;
+        }
+
+        if (_net is not null)
+        {
+            _net.InRound = false;
+        }
+    }
+
+    public override void _ExitTree() => StopNetwork();
+
     private Color TeamColor(int team) => Color.FromHtml(_view.TeamColors[team % _view.TeamColors.Length]);
 
     /// <summary>The callsigns in a shuffled order for this round (the same order for the same match seed).</summary>
@@ -682,6 +1189,17 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
+        if (e.Extra < 0)
+        {
+            // Playing with others: they left the game (the kill feed says so).
+            return;
+        }
+
+        if (_net is { Hosting: true } && _pawns.FirstOrDefault(o => o.State == victim)?.Pilot is NetCommandSource person)
+        {
+            person.WalkOff = WalkOffPilot(victim);
+        }
+
         _pawns.FirstOrDefault(o => o.State == victim)?.CallHit();
         if (shooter == _player.State && victim.Team == shooter.Team)
         {
@@ -708,7 +1226,8 @@ public partial class LevelMain : Node3D, ISimEventListener
             _hitBy = $"{shooter.Name} got you: {SpectatorView.PartName(victim.EliminatedPart)}, {distance:0} m.";
         }
 
-        _player.AutoPilot = new IdlePilot();
+        // Hosting, you walk off the field like everyone else who's out (joined, the host walks you off).
+        _player.AutoPilot = _net is { Hosting: true } ? WalkOffPilot(victim) : new IdlePilot();
         _player.ViewModel.Visible = false;
         // The spectator camera starts behind and above where you stood: you're there, hit, marker up.
         if (_player.Body is { } body)
@@ -799,6 +1318,25 @@ public partial class LevelMain : Node3D, ISimEventListener
     /// <summary>The bot match is over: report how it went, pass if nothing went wrong on the way.</summary>
     private void FinishBotMatch()
     {
+        if (_net?.Client is not null && !_netOver)
+        {
+            // Joined: the round's numbers are the server's, so it's reported once they've come (or a few seconds on without).
+            _reportWhenOver = true;
+            GetTree().CreateTimer(5.0).Timeout += ReportBotMatch;
+            return;
+        }
+
+        ReportBotMatch();
+    }
+
+    private void ReportBotMatch()
+    {
+        if (_reported)
+        {
+            return;
+        }
+
+        _reported = true;
         if (Args.Has("--record"))
         {
             // CI: the round goes in the profile as if you'd played it, so saving it is exercised too.
@@ -807,20 +1345,66 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         PlayerStats you = _match.StatsFor(_player.State.Id)!;
         int errors = _driver.ErrorCount;
-        bool ok = errors == 0 && _match.Outcome != RoundOutcome.None;
+        bool ok = errors == 0 && _match.Outcome != RoundOutcome.None && (_net?.Client is null || _netOver);
         int botOnBot = _sim.Players.Count(p => !p.Alive && p != _player.State && p.EliminatedBy > 0);
         string objective = ObjectiveLine() is { } line ? $" ({line})" : "";
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +
                  $"{you.Eliminations} of {_sim.Players.Count(p => p.Team != _player.State.Team)}, {you.Shots} shots, {you.Hits} hits, " +
                  $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
+        if (_net is { } session)
+        {
+            // Every copy prints the round as it ended there: the host's and each joiner's lines must match (CI compares them).
+            GD.Print($"NET RESULT round {_netSetup!.Round}: {_match.Result.Reason} won by {_match.Result.Winner} at tick {_match.EndTick}; " +
+                     string.Join(" ", _match.Stats.Select(p => $"{p.PlayerId}:{p.Shots}/{p.Hits}/{p.Eliminations}/{p.Pickups}/{p.OutTick}")));
+            NetReport(session);
+        }
+
         if (Args.Has("--show-summary"))
         {
             ShowSummary();
-            GetTree().CreateTimer(3.0).Timeout += () => GetTree().Quit(ok ? 0 : 1);
+            GetTree().CreateTimer(3.0).Timeout += () => QuitBotMatch(ok);
             return;
         }
 
+        // Hosting, the others are given a moment to have the result before the game ends.
+        if (_net is { Hosting: true })
+        {
+            GetTree().CreateTimer(2.0).Timeout += () => QuitBotMatch(ok);
+            return;
+        }
+
+        QuitBotMatch(ok);
+    }
+
+    private void QuitBotMatch(bool ok)
+    {
+        StopNetwork();
+        _net?.Leave(_net.Hosting ? "The host ended the game." : "left");
+        _net = null;
         GetTree().Quit(ok ? 0 : 1);
+    }
+
+    /// <summary>How the network went this round, for the log: corrections, traffic, the round trip, what the server dropped.</summary>
+    private void NetReport(NetSession session)
+    {
+        if (session.Server is { } server)
+        {
+            foreach (ClientLink link in server.Clients.Where(c => c.Welcomed))
+            {
+                GD.Print($"NET {link.Name}: player {link.PlayerId}, round trip {link.RoundTrip * 1000f:0} ms, {link.BytesSent / 1024f:0} KiB sent " +
+                         $"({link.BytesPerSecond / 1024f:0.0} KiB/s), commands missing {link.Commands.Missing}, late {link.Commands.Late}, " +
+                         $"merged {link.Commands.Merged}, too far ahead {link.Commands.TooFarAhead}, violations {link.Violations}");
+            }
+
+            GD.Print($"NET host sent {server.BytesSent / 1024f:0} KiB in all");
+            return;
+        }
+
+        if (session.Client is { } client && _session is { } round)
+        {
+            GD.Print($"NET joined: round trip {client.RoundTrip * 1000f:0} ms (jitter {client.Jitter * 1000f:0} ms), {client.BytesReceived / 1024f:0} KiB " +
+                     $"received, {round.Corrections} corrections (last {round.LastCorrection * 100f:0.0} cm), {client.Undecodable} snapshots undecodable");
+        }
     }
 
     /// <summary>The summary, once the round is over or, when you're out, as soon as you ask (the others play on behind it).</summary>
@@ -858,10 +1442,24 @@ public partial class LevelMain : Node3D, ISimEventListener
             ObjectiveLine = ObjectiveLine(),
             ObjectiveRow = ObjectiveRow(),
         };
+        // Playing with others: the host starts the next round once this one is over; everyone may leave.
+        (string, Action)[]? actions = null;
+        string? note = null;
+        if (_net is { } session)
+        {
+            actions = session.Hosting && over
+                ? new (string, Action)[] { ("Next round", NextHostedRound), ("Leave", LeaveGame) }
+                : new (string, Action)[] { ("Leave", LeaveGame) };
+            note = session.Hosting
+                ? over ? "Start the next round when everyone's ready: the same place, new starts." : "The round goes on without you."
+                : over ? "Waiting for the host to start the next round…" : "The round goes on without you.";
+        }
+
         ShowOverlay(RoundScreens.Summary(_round, _match, _match.StatsFor(you.Id)!, facts,
             retry: () => GetTree().ReloadCurrentScene(),
             levelSelect: BackToLevelSelect,
-            mainMenu: () => GetTree().ChangeSceneToFile(GameSession.MainScene)));
+            mainMenu: () => GetTree().ChangeSceneToFile(GameSession.MainScene),
+            actions, note));
     }
 
     /// <summary>How the objective went, in a sentence, for the summary's headline.</summary>
@@ -930,6 +1528,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
+        NetCountdown(delta);
         HudDef hud = _view.Hud;
         for (int i = 0; i < _bots.Count; i++)
         {

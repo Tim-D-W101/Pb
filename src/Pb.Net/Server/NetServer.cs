@@ -110,11 +110,15 @@ public sealed class NetServer : IDisposable
             }
         }
 
+        // Silence drops someone only while they play a round they've built: building one, or between rounds, a copy needn't
+        // send anything (the connection itself notices one that has gone).
         for (int i = _clients.Count - 1; i >= 0; i--)
         {
-            if (now - _clients[i].LastHeard > Settings.DropAfter)
+            ClientLink c = _clients[i];
+            bool playing = _round >= 0 && c.PlayerId >= 0 && c.LoadedRound == _round;
+            if (playing && now - c.LastHeard > Settings.DropAfter)
             {
-                Drop(_clients[i], notify: true);
+                Drop(c, notify: true);
             }
         }
     }
@@ -324,7 +328,8 @@ public sealed class NetServer : IDisposable
         w.WriteVarUInt((uint)tick);
         w.WriteVarUInt(baseTick < 0 ? 0u : (uint)(tick - baseTick));
         w.WriteVarInt(c.Commands.LastRun);
-        w.WriteVarUInt((uint)Math.Clamp(c.NewestSeen - c.Commands.LastRun, 0, 255));
+        // Their newest command, from the last one run (unclamped: if their queue stalls, their round trip still reads true).
+        w.WriteVarUInt((uint)Math.Max(0, c.NewestSeen - c.Commands.LastRun));
         w.WriteByte((byte)Math.Clamp((now - c.NewestAt) * 1000.0, 0.0, 255.0));
         w.WriteBool(record.HasOwn);
         if (record.HasOwn)

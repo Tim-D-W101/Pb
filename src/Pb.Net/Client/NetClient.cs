@@ -71,6 +71,8 @@ public sealed class NetClient : IDisposable
     private int _ownSnapshot = -1;
     private bool _clockSet;
 
+    private bool _helloWanted;
+
     public NetClient(ITransport transport, NetSettings settings, Func<double> clock, HelloMessage hello, float tickRate)
     {
         _transport = transport;
@@ -129,13 +131,8 @@ public sealed class NetClient : IDisposable
 
     internal List<(uint Seq, SimEvent Event)> Events => _events;
 
-    /// <summary>Sends the request to join.</summary>
-    public void Join()
-    {
-        _writer.Reset();
-        Hello.Write(_writer);
-        _transport.Send(0, NetChannel.Reliable, _writer.Finish());
-    }
+    /// <summary>Asks to join: the request goes as soon as the connection is up (a connection drops what's sent before).</summary>
+    public void Join() => _helloWanted = true;
 
     /// <summary>A new round's setup, once (null if none has come since the last call).</summary>
     public RoundSetupMessage? TakeRoundSetup()
@@ -213,6 +210,12 @@ public sealed class NetClient : IDisposable
         {
             switch (e.Kind)
             {
+                case TransportEventKind.Connected when _helloWanted && State == ClientState.Joining:
+                    _helloWanted = false;
+                    _writer.Reset();
+                    Hello.Write(_writer);
+                    _transport.Send(0, NetChannel.Reliable, _writer.Finish());
+                    break;
                 case TransportEventKind.Disconnected:
                     if (State != ClientState.Refused)
                     {

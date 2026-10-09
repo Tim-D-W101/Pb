@@ -168,6 +168,42 @@ public class SeveralPlayersTests
         Assert.Equal(RoundOutcome.Eliminated, match.OutcomeFor(1));
     }
 
+    [Fact]
+    public void Someone_who_leaves_mid_round_is_out_put_out_by_nobody_and_the_round_goes_on_without_them()
+    {
+        // People 0 and 1 against people 2 and 3.
+        SimWorld sim = Ground((0, 0, 0f, 0f), (1, 0, 3f, 0f), (2, 1, 0f, -30f), (3, 1, 3f, -30f));
+        MatchState match = sim.StartMatch(Setup(MatchModeKind.Teams, new[] { 0, 1, 2, 3 }, endWhenPeopleOut: true));
+        sim.GoLive();
+        Run(sim, Second);
+        sim.Withdraw(3);
+        List<SimEvent> events = Run(sim, 2);
+        SimEvent left = Assert.Single(events, e => e.Type == SimEventType.PlayerEliminated);
+        Assert.Equal(3, left.TargetId);
+        Assert.Equal(-1, left.PlayerId);
+        Assert.Equal(-1, left.Extra);
+        PlayerState gone = sim.FindPlayer(3)!;
+        Assert.False(gone.Alive);
+        Assert.False(gone.Present);
+        Assert.Equal(-1, gone.EliminatedBy);
+        Assert.Equal(left.Tick, match.StatsFor(3)!.OutTick);
+        Assert.Equal(0, sim.Players.Sum(p => p.Eliminations));
+        Assert.Equal(MatchPhase.Live, match.Phase);
+
+        // Their side's last one leaves too: the other side has won.
+        sim.Withdraw(2);
+        Run(sim, 2);
+        Assert.Equal(new MatchResult(RoundEnd.LastStanding, 0), match.Result);
+
+        // Only the authority decides it.
+        SimWorld copy = Ground((0, 0, 0f, 0f), (1, 1, 0f, -30f));
+        copy.Role = SimRole.Client;
+        copy.LocalPlayerId = 0;
+        copy.Withdraw(1);
+        Assert.DoesNotContain(Run(copy, 2), e => e.Type == SimEventType.PlayerEliminated);
+        Assert.True(copy.FindPlayer(1)!.Present);
+    }
+
     /// <summary>A live round on Oxbarrow Works: person 0 (team 0) outside the gate, person 1 (team 1) in the yard.</summary>
     private static SimWorld Oxbarrow(MatchSetup setup)
     {

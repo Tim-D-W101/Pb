@@ -18,6 +18,12 @@ public partial class PawnBody : CharacterBody3D
 
     public PlayerState State { get; private set; } = null!;
 
+    /// <summary>
+    /// Whether the body is on the ground for its next move, instead of what its last collide-and-slide found: a joining
+    /// copy puts the server's state back before replaying, and the body hasn't moved since.
+    /// </summary>
+    protected bool? GroundedOverride { get; set; }
+
     protected SimWorld Sim { get; private set; } = null!;
 
     protected MovementParams Move { get; private set; } = null!;
@@ -47,6 +53,20 @@ public partial class PawnBody : CharacterBody3D
         AddChild(_collider);
     }
 
+    /// <summary>Puts the body where its state is (a joining copy: the server's pose for someone else, or a correction).</summary>
+    protected void FollowState(bool? grounded = null)
+    {
+        GlobalPosition = State.Position.ToGodot();
+        Velocity = State.Velocity.ToGodot();
+        GroundedOverride = grounded;
+        float height = Move.CapsuleHeightFor(State.Stance);
+        if (!Mathf.IsEqualApprox(_capsule.Height, height))
+        {
+            _capsule.Height = height;
+            _collider.Position = new Vector3(0, height * 0.5f, 0);
+        }
+    }
+
     /// <summary>Moves the body one tick by the sim's movement rules (with the sim's world for headroom and lean checks).</summary>
     protected MovementResult ApplyCommand(in InputCommand command, float dt)
     {
@@ -59,7 +79,8 @@ public partial class PawnBody : CharacterBody3D
             cmd.Buttons = InputButtons.None;
         }
 
-        bool grounded = IsOnFloor();
+        bool grounded = GroundedOverride ?? IsOnFloor();
+        GroundedOverride = null;
         MovementResult result = MovementModel.Step(State, cmd, Move, dt, grounded, Sim.Collision, Sim.Ladders);
 
         // On a ladder the rules give the climb itself: no gravity.

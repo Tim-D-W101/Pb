@@ -269,8 +269,16 @@ internal sealed class RigClient
 
     public List<SimEvent> Events { get; } = new();
 
+    /// <summary>Does nothing at all (a copy busy building a level, or one that has hung).</summary>
+    public bool Silent { get; set; }
+
     public void Tick()
     {
+        if (Silent)
+        {
+            return;
+        }
+
         if (Session is null)
         {
             Net.Poll();

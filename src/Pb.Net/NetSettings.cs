@@ -41,9 +41,17 @@ public sealed class NetDef : IValidatable
 
     public float DropAfter_ms { get; set; }
 
+    public float LinkTimeoutMin_ms { get; set; }
+
+    public float LinkTimeoutMax_ms { get; set; }
+
     public int PacketBudget_bytes { get; set; }
 
     public int MaxPeople { get; set; }
+
+    public float LoadTimeout_s { get; set; }
+
+    public float Countdown_s { get; set; }
 
     public void Validate(Validator v)
     {
@@ -69,8 +77,12 @@ public sealed class NetDef : IValidatable
         v.InRange(nameof(CorrectionEase_ms), CorrectionEase_ms, 0, 1000);
         v.InRange(nameof(ConnectTimeout_ms), ConnectTimeout_ms, 500, 120000);
         v.InRange(nameof(DropAfter_ms), DropAfter_ms, 500, 120000);
+        v.InRange(nameof(LinkTimeoutMin_ms), LinkTimeoutMin_ms, 1000, 120000);
+        v.InRange(nameof(LinkTimeoutMax_ms), LinkTimeoutMax_ms, LinkTimeoutMin_ms, 300000);
         v.InRange(nameof(PacketBudget_bytes), PacketBudget_bytes, 256, 1400);
         v.InRange(nameof(MaxPeople), MaxPeople, 1, 10);
+        v.InRange(nameof(LoadTimeout_s), LoadTimeout_s, 1, 600);
+        v.InRange(nameof(Countdown_s), Countdown_s, 0, 60);
     }
 }
 
@@ -111,9 +123,19 @@ public sealed class NetSettings
 
     public required float DropAfter { get; init; }
 
+    /// <summary>How long the connection waits at the least and at the most for a copy to confirm what it was sent (s).</summary>
+    public required float LinkTimeoutMin { get; init; }
+
+    public required float LinkTimeoutMax { get; init; }
+
     public required int PacketBudget { get; init; }
 
     public required int MaxPeople { get; init; }
+
+    /// <summary>The longest a round waits for everyone to have it built (s), and its countdown after (s).</summary>
+    public required float LoadTimeout { get; init; }
+
+    public required float Countdown { get; init; }
 
     public static NetSettings From(NetDef d) => new()
     {
@@ -134,8 +156,12 @@ public sealed class NetSettings
         CorrectionEase = d.CorrectionEase_ms / 1000f,
         ConnectTimeout = d.ConnectTimeout_ms / 1000f,
         DropAfter = d.DropAfter_ms / 1000f,
+        LinkTimeoutMin = d.LinkTimeoutMin_ms / 1000f,
+        LinkTimeoutMax = d.LinkTimeoutMax_ms / 1000f,
         PacketBudget = d.PacketBudget_bytes,
         MaxPeople = d.MaxPeople,
+        LoadTimeout = d.LoadTimeout_s,
+        Countdown = d.Countdown_s,
     };
 
     public static NetSettings Load(IDataSource source) => From(Jsonc.Load<NetDef>(source, NetDef.File));

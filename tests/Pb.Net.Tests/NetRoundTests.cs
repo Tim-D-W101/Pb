@@ -370,6 +370,60 @@ public class NetRoundTests
     }
 
     [Fact]
+    public void Someone_who_goes_quiet_in_a_round_is_dropped_and_counts_as_out_but_not_while_building_it()
+    {
+        var rig = new NetRig();
+        RigClient a = rig.Join("A");
+        RigClient b = rig.Join("B");
+        rig.Run(30);
+        rig.Server.Left += link => rig.Sim?.Withdraw(link.PlayerId);
+
+        // B takes its time building the round: nothing comes from it for twice the drop time, and it stays in.
+        b.Silent = true;
+        rig.StartRound("teams", 900f, (0, 0, true, 0f, 0f), (1, 1, true, 5f, -20f), (2, 1, false, -5f, -20f));
+        rig.Run((int)(rig.Settings.DropAfter * 2f * Second));
+        Assert.Equal(2, rig.Server.Clients.Count(c => c.Welcomed));
+        b.Silent = false;
+        rig.GoLive();
+        rig.Run(Second);
+
+        // Then it hangs mid-round: dropped once the drop time has passed, and out, put out by nobody.
+        b.Silent = true;
+        rig.Run((int)((rig.Settings.DropAfter + 0.5f) * Second));
+        Assert.Single(rig.Server.Clients, c => c.Welcomed);
+        PlayerState gone = rig.Sim!.FindPlayer(1)!;
+        Assert.False(gone.Alive);
+        Assert.False(gone.Present);
+        Assert.Contains(a.Events, e => e.Type == SimEventType.PlayerEliminated && e.TargetId == 1 && e.PlayerId == -1 && e.Extra == -1);
+        Assert.False(a.Sim!.FindPlayer(1)!.Present);
+    }
+
+    [Fact]
+    public void Once_out_your_copy_shows_you_where_the_server_walks_you()
+    {
+        var rig = new NetRig();
+        RigClient a = rig.Join("A", Ping100);
+        rig.Run(30);
+        rig.StartRound("teams", 900f, (0, 0, false, 0f, 0f), (1, 1, true, 5f, -20f));
+        rig.GoLive();
+        rig.Run(Second);
+
+        // The server puts A out and walks them off (the host's walk-off pilot; here, a centimetre a tick).
+        PlayerState onServer = rig.Sim!.FindPlayer(1)!;
+        onServer.Alive = false;
+        rig.AfterServerStep = sim => onServer.Position += new Vector3(0.01f, 0f, 0f);
+        rig.Run(Second / 4);
+        int corrections = a.Session!.Corrections;
+        rig.Run(Second);
+        PlayerState me = a.Session.Local!;
+        Assert.True(a.Session.Following);
+        Assert.False(me.Alive);
+        Assert.Equal(corrections, a.Session.Corrections);
+        float behind = Vector3.Distance(me.Position, onServer.Position);
+        Assert.True(behind < 0.2f, $"{behind * 100f:0} cm behind the server");
+    }
+
+    [Fact]
     public void Network_ticks_allocate_nothing()
     {
         var rig = new NetRig { KeepEvents = false };

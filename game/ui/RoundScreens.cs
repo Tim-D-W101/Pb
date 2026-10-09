@@ -68,7 +68,12 @@ public static class RoundScreens
     /// what to do, and Start (Enter, Space or a click begins the round) or Back to level select; with a
     /// plan of the level beside it if one is given.
     /// </summary>
-    public static Control Briefing(RoundInfo round, Action start, Action back, Control? map = null, ObjectiveState? objective = null)
+    /// <param name="waiting">
+    /// Playing with others: instead of Start, this line (a label named "Status" the level keeps up to date: who it's
+    /// waiting for, the countdown), and Back becomes Leave.
+    /// </param>
+    public static Control Briefing(RoundInfo round, Action start, Action back, Control? map = null, ObjectiveState? objective = null,
+        string? waiting = null)
     {
         TierDef tier = round.Tier;
         VBoxContainer column = UiKit.Column(12);
@@ -103,10 +108,23 @@ public static class RoundScreens
 
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
         HBoxContainer buttons = UiKit.Row(12);
-        Button go = UiKit.Button("Start", start, 240);
-        go.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        buttons.AddChild(go);
-        buttons.AddChild(UiKit.Button("Back", back, 200));
+        Button? go = null;
+        if (waiting is null)
+        {
+            go = UiKit.Button("Start", start, 240);
+            go.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            buttons.AddChild(go);
+        }
+        else
+        {
+            Label status = UiKit.Body(waiting, 20, UiKit.Accent);
+            status.Name = "Status";
+            status.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            buttons.AddChild(status);
+        }
+
+        Button leave = UiKit.Button(waiting is null ? "Back" : "Leave", back, 200);
+        buttons.AddChild(leave);
         column.AddChild(buttons);
         Control content = column;
         float width = 800f;
@@ -121,7 +139,8 @@ public static class RoundScreens
         }
 
         Control overlay = UiKit.Overlay(UiKit.Panel(content, width), dim: 0.35f);
-        go.CallDeferred(Control.MethodName.GrabFocus);
+        // Waiting for others, nothing has the focus: a press of Space or Enter mustn't leave the game.
+        go?.CallDeferred(Control.MethodName.GrabFocus);
         return overlay;
     }
 
@@ -183,8 +202,10 @@ public static class RoundScreens
     }
 
     /// <summary>The summary: how the round went from your side, your numbers, and what next.</summary>
+    /// <param name="actions">Playing with others: these buttons instead of Retry, Level select and Main menu.</param>
+    /// <param name="note">Playing with others: a line under the numbers (what happens next).</param>
     public static Control Summary(RoundInfo round, MatchState match, PlayerStats you, SummaryFacts facts, Action retry, Action levelSelect,
-        Action mainMenu)
+        Action mainMenu, IReadOnlyList<(string Text, Action Act)>? actions = null, string? note = null)
     {
         (string title, Color colour, string line) = Verdict(round.Mode, facts.Outcome, facts);
 
@@ -224,15 +245,27 @@ public static class RoundScreens
         }
 
         column.AddChild(grid);
+        if (note is not null)
+        {
+            Label status = UiKit.Body(note, 18, UiKit.Dim, wrap: true);
+            status.Name = "Status";
+            status.CustomMinimumSize = new Vector2(580, 0);
+            column.AddChild(status);
+        }
+
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
         HBoxContainer buttons = UiKit.Row(12);
-        Button again = UiKit.Button("Retry", retry, 200);
-        buttons.AddChild(again);
-        buttons.AddChild(UiKit.Button("Level select", levelSelect, 200));
-        buttons.AddChild(UiKit.Button("Main menu", mainMenu, 200));
+        Button? first = null;
+        foreach ((string text, Action act) in actions ?? new (string, Action)[] { ("Retry", retry), ("Level select", levelSelect), ("Main menu", mainMenu) })
+        {
+            Button b = UiKit.Button(text, act, 200);
+            first ??= b;
+            buttons.AddChild(b);
+        }
+
         column.AddChild(buttons);
         Control overlay = UiKit.Overlay(UiKit.Panel(column, 660f));
-        again.CallDeferred(Control.MethodName.GrabFocus);
+        first?.CallDeferred(Control.MethodName.GrabFocus);
         return overlay;
     }
 

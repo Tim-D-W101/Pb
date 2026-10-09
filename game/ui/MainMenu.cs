@@ -135,6 +135,12 @@ public partial class MainMenu : Control
         {
             _tourFrame = 0;
         }
+        else if ((Args.Has("--host") || Args.Has("--join")) && !_skippedToLevel)
+        {
+            // Playing with others from the command line (once): hosting, or joining the address given, then the lobby.
+            _skippedToLevel = true;
+            Callable.From(StartWithOthers).CallDeferred();
+        }
         else if (Args.Has("--level") && !_skippedToLevel)
         {
             // The level reads --level, --mode, --size and --tier itself. Only once, so the menu works after the round.
@@ -187,6 +193,43 @@ public partial class MainMenu : Control
                 GetTree().Quit();
                 break;
         }
+    }
+
+    /// <summary>
+    /// <c>--host</c> (on <c>--port=N</c>) or <c>--join=ADDRESS</c>, as <c>--name=NAME</c> playing character <c>--look=N</c>,
+    /// with <c>--password=WORD</c> if the game has one: starts the game with others and goes to its lobby. Hosting, the round
+    /// is the one the menus last chose, or <c>--level</c>, <c>--mode</c> and the rest.
+    /// </summary>
+    private void StartWithOthers()
+    {
+        string name = Args.Value("--name") is { Length: > 0 } given ? given : "Player";
+        byte look = byte.TryParse(Args.Value("--look"), out byte l) ? l : (byte)0;
+        string password = Args.Value("--password") ?? "";
+        try
+        {
+            if (Args.Value("--join") is { Length: > 0 } address)
+            {
+                Pb.Game.Net.NetStart.Join(GetTree(), address, name, look, password);
+            }
+            else
+            {
+                Pb.Game.Net.NetStart.Host(GetTree(), name, look, int.TryParse(Args.Value("--port"), out int port) ? port : null, password);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            GD.PushError(ex.Message);
+            if (DisplayServer.GetName() == "headless")
+            {
+                GetTree().Quit(1);
+                return;
+            }
+
+            AddChild(UiKit.Overlay(UiKit.Panel(UiKit.Body(ex.Message, 20, UiKit.Bad, wrap: true), 700f)));
+            return;
+        }
+
+        GetTree().ChangeSceneToFile(GameSession.LobbyScene);
     }
 
     /// <summary>Presses the first button on the place picker named like <paramref name="pattern"/> (the tour).</summary>
@@ -243,8 +286,17 @@ public partial class MainMenu : Control
         buttons.AddChild(UiKit.Button("Settings", () => Open(_settingsScreen)));
         buttons.AddChild(UiKit.Button("Quit", () => GetTree().Quit()));
         column.AddChild(buttons);
+        if (GameSession.Notice is { } notice)
+        {
+            // Why the last game with others ended.
+            Label said = UiKit.Body(notice, 18, UiKit.Bad, wrap: true);
+            said.CustomMinimumSize = new Vector2(380, 0);
+            column.AddChild(said);
+            GameSession.Notice = null;
+        }
+
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 20) });
-        column.AddChild(UiKit.Body("Working title · Phase 3 build", 16, UiKit.Dim));
+        column.AddChild(UiKit.Body("Working title · Phase 4 build", 16, UiKit.Dim));
         return Screen(column, left: true);
     }
 

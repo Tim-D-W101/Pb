@@ -69,6 +69,9 @@ public sealed class ClientSession
     /// <summary>How far the last correction moved this copy's own player (m).</summary>
     public float LastCorrection { get; private set; }
 
+    /// <summary>This copy's own player is out: it's shown where the server walks it, no longer predicted.</summary>
+    public bool Following { get; private set; }
+
     /// <summary>
     /// Where the last small correction moved this copy's own player from, less where it moved it to: the camera and body
     /// are drawn this far off and eased back, so a small correction never shows as a jump. Zero after a big one.
@@ -94,6 +97,14 @@ public sealed class ClientSession
         InputCommand cmd = CommandCodec.Quantize(raw);
         cmd.Tick = Sim.Tick;
         cmd.Rewind = 0;
+        if (!Sim.IsLive && Local is { Alive: true })
+        {
+            // Before the round goes live nobody moves or acts: the command says so, so the server runs it the same way
+            // even once it has gone live there.
+            cmd.Move = Vector2.Zero;
+            cmd.Buttons = InputButtons.None;
+        }
+
         _pending = cmd;
         _predicted = true;
         return cmd;
@@ -128,13 +139,23 @@ public sealed class ClientSession
             return;
         }
 
+        PredictedState server = OwnFields.Read(fields);
+        if (!server.Alive)
+        {
+            // Out: the server walks this copy's player off the field, so it's shown where the server has it, not predicted.
+            Following = true;
+            CorrectionOffset = Vector3.Zero;
+            server.Restore(Local, Sim.Time);
+            _body?.Reset(server);
+            return;
+        }
+
         int slot = lastRun & (History - 1);
         if (lastRun < 0 || _seqs[slot] != lastRun)
         {
             return;
         }
 
-        PredictedState server = OwnFields.Read(fields);
         if (_states[slot].Matches(server, Client.Settings.CorrectionTolerance))
         {
             return;

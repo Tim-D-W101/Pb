@@ -24,4 +24,10 @@ public interface IPlayerDriver
 public interface ICommandSource
 {
     InputCommand Next(int tick, PlayerState state);
+
+    /// <summary>
+    /// Asked every tick, even once its player has left the field: it takes a remote player's commands in turn, and
+    /// they'd pile up unread otherwise.
+    /// </summary>
+    bool EveryTick => false;
 }

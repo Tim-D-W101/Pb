@@ -346,6 +346,15 @@ public sealed class RoundOverMessage
         }
     }
 
+    /// <summary>A joining copy: puts the server's numbers in its own round, for the summary.</summary>
+    public void ApplyTo(Pb.Sim.Match.MatchState match)
+    {
+        foreach (StatsEntry s in Stats)
+        {
+            match.StatsFor(s.PlayerId)?.ApplyServer(s.Shots, s.Hits, s.Eliminations, s.Pickups, s.TimeIn, s.OutTick);
+        }
+    }
+
     public static RoundOverMessage? Read(ReadOnlySpan<byte> packet)
     {
         var r = new BitReader(packet);

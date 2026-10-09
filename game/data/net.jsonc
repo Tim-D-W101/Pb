@@ -39,13 +39,22 @@
   "correctionSnap_m": 0.5,
   "correctionEase_ms": 100,
 
-  // Joining gives up after this long, and a player not heard from for this long is dropped.
+  // Joining gives up after this long, and a player not heard from for this long while playing a round is dropped.
   "connectTimeout_ms": 10000,
   "dropAfter_ms": 5000,
+
+  // The connection itself gives up on a copy that hasn't confirmed anything for this long at the least (and at the most,
+  // however the round trip goes). Generous: a copy hears nothing while it builds a level.
+  "linkTimeoutMin_ms": 20000,
+  "linkTimeoutMax_ms": 40000,
 
   // A snapshot's events stop at this many bytes (the rest go in the next); a UDP packet holds about 1,400.
   "packetBudget_bytes": 1100,
 
   // The most people in one game, the host included (the rules' maxPlayers caps people and bots together).
-  "maxPeople": 10
+  "maxPeople": 10,
+
+  // A round waits this long at most for everyone to have it built, then counts down this long and goes live.
+  "loadTimeout_s": 30,
+  "countdown_s": 5
 }

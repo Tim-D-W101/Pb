@@ -305,9 +305,16 @@ public partial class Hud : CanvasLayer, ISimEventListener
             return;
         }
 
+        Color Of(PlayerState p) => _teams[p.Team % _teams.Length];
+        if (e.Extra < 0)
+        {
+            // Playing with others: someone who left mid-round is out.
+            _feed!.Add("", Colors.White, victim.Name, Of(victim), "left the game");
+            return;
+        }
+
         string part = SpectatorView.PartName((Pb.Sim.Collision.HitboxPart)e.Extra);
         string distance = shooter is null ? "" : $" · {System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition):0} m";
-        Color Of(PlayerState p) => _teams[p.Team % _teams.Length];
         _feed!.Add(shooter?.Name ?? "Stray ball", shooter is null ? Colors.White : Of(shooter), victim.Name, Of(victim), part + distance);
         if (shooter == _player && _settings.HitMarker)
         {

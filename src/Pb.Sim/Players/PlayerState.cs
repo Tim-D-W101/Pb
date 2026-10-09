@@ -51,6 +51,9 @@ public sealed class PlayerState
     /// <summary>On the field at all: an eliminated player is present until they've walked off.</summary>
     public bool Present { get; set; } = true;
 
+    /// <summary>Playing with others: they left the game mid-round (<see cref="SimWorld.Withdraw"/>).</summary>
+    public bool Left { get; internal set; }
+
     /// <summary>Can't sprint (carrying the case, when the rules say a carrier can't).</summary>
     public bool SprintBlocked { get; set; }
 

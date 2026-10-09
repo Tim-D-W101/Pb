@@ -4,9 +4,9 @@
 # project.godot, so the repo's layout (game/ beside src/, solution at the root) won't do. In the zip,
 # the simulation sits inside the project:
 #   Pb/project.godot        solution in the project folder (dotnet/project/solution_directory removed)
-#   Pb/Pb.csproj            references Pb.Sim/Pb.Sim.csproj and doesn't compile its sources itself
-#   Pb/Pb.sln               the game and the sim, with Godot's Export configurations
-#   Pb/Pb.Sim/              src/Pb.Sim, hidden from Godot's importer by a .gdignore
+#   Pb/Pb.csproj            references Pb.Sim/Pb.Sim.csproj and Pb.Net/Pb.Net.csproj and doesn't compile their sources itself
+#   Pb/Pb.sln               the game, the sim and the network, with Godot's Export configurations
+#   Pb/Pb.Sim/, Pb/Pb.Net/  src/Pb.Sim and src/Pb.Net, hidden from Godot's importer by a .gdignore
 #   Pb/Directory.Build.props, Pb/global.json, Pb/HOW-TO-PLAY.txt
 # Only files tracked by git go in.
 #   tools/package/godot-project.sh [out-dir]    (default: builds/)
@@ -18,31 +18,37 @@ trap 'rm -rf "$stage"' EXIT
 project="$stage/Pb"
 
 cd "$root"
-git ls-files -z -- game src/Pb.Sim | tar --null -T - -cf - | tar -xf - -C "$stage"
+git ls-files -z -- game src/Pb.Sim src/Pb.Net | tar --null -T - -cf - | tar -xf - -C "$stage"
 mv "$stage/game" "$project"
-mv "$stage/src/Pb.Sim" "$project/Pb.Sim"
-touch "$project/Pb.Sim/.gdignore"
+for lib in Pb.Sim Pb.Net; do
+  mv "$stage/src/$lib" "$project/$lib"
+  touch "$project/$lib/.gdignore"
+  sed -i "s|<ProjectReference Include=\"..\\\\src\\\\$lib\\\\$lib.csproj\" />|<ProjectReference Include=\"$lib\\\\$lib.csproj\" />\\n    <Compile Remove=\"$lib\\\\**\" />|" "$project/Pb.csproj"
+  grep -q "Include=\"$lib\\\\$lib.csproj\"" "$project/Pb.csproj" || { echo "Pb.csproj: the $lib reference wasn't rewritten" >&2; exit 1; }
+done
 cp Directory.Build.props global.json "$project/"
 
 sed -i '/^project\/solution_directory=/d' "$project/project.godot"
-sed -i 's|<ProjectReference Include="..\\src\\Pb.Sim\\Pb.Sim.csproj" />|<ProjectReference Include="Pb.Sim\\Pb.Sim.csproj" />\n    <Compile Remove="Pb.Sim\\**" />|' "$project/Pb.csproj"
 sed -i 's|Gameplay rules live in src/Pb.Sim.|Gameplay rules live in Pb.Sim/.|' "$project/Pb.csproj"
-grep -q 'Include="Pb.Sim\\Pb.Sim.csproj"' "$project/Pb.csproj" || { echo "Pb.csproj: the sim reference wasn't rewritten" >&2; exit 1; }
 
 sim="{9A400EE2-D34C-4432-B455-B8DA3D7232F0}"
+net="{3F6B2C11-7A9E-4D52-9C1B-5E0A7D4C2B10}"
 game="{267A4332-17E6-44FB-9BBA-12399CBEF23C}"
 {
   printf '\xef\xbb\xbf\r\n'
   printf 'Microsoft Visual Studio Solution File, Format Version 12.00\r\n'
   printf '# Visual Studio Version 17\r\n'
   printf 'Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pb.Sim", "Pb.Sim\\Pb.Sim.csproj", "%s"\r\nEndProject\r\n' "$sim"
+  printf 'Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pb.Net", "Pb.Net\\Pb.Net.csproj", "%s"\r\nEndProject\r\n' "$net"
   printf 'Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pb", "Pb.csproj", "%s"\r\nEndProject\r\n' "$game"
   printf 'Global\r\n\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\r\n'
   for c in Debug Release ExportDebug ExportRelease; do printf '\t\t%s|Any CPU = %s|Any CPU\r\n' "$c" "$c"; done
   printf '\tEndGlobalSection\r\n\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\r\n'
-  # The sim builds as Debug or Release; the game takes Godot's own configurations, as in Pb.sln.
-  for pair in Debug:Debug Release:Release ExportDebug:Debug ExportRelease:Release; do
-    printf '\t\t%s.%s|Any CPU.ActiveCfg = %s|Any CPU\r\n\t\t%s.%s|Any CPU.Build.0 = %s|Any CPU\r\n' "$sim" "${pair%%:*}" "${pair#*:}" "$sim" "${pair%%:*}" "${pair#*:}"
+  # The sim and the network build as Debug or Release; the game takes Godot's own configurations, as in Pb.sln.
+  for lib in "$sim" "$net"; do
+    for pair in Debug:Debug Release:Release ExportDebug:Debug ExportRelease:Release; do
+      printf '\t\t%s.%s|Any CPU.ActiveCfg = %s|Any CPU\r\n\t\t%s.%s|Any CPU.Build.0 = %s|Any CPU\r\n' "$lib" "${pair%%:*}" "${pair#*:}" "$lib" "${pair%%:*}" "${pair#*:}"
+    done
   done
   for pair in Debug:Debug Release:ExportRelease ExportDebug:ExportDebug ExportRelease:ExportRelease; do
     printf '\t\t%s.%s|Any CPU.ActiveCfg = %s|Any CPU\r\n\t\t%s.%s|Any CPU.Build.0 = %s|Any CPU\r\n' "$game" "${pair%%:*}" "${pair#*:}" "$game" "${pair%%:*}" "${pair#*:}"

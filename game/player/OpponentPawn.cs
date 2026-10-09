@@ -21,6 +21,12 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
 
     public ICommandSource Pilot => _pilot;
 
+    /// <summary>
+    /// On a joining copy: someone posed from the server's snapshots, not moved by the rules here. The body only follows
+    /// them (so you walk into them where they're drawn).
+    /// </summary>
+    public bool Puppet { get; set; }
+
     /// <param name="characters">How opponents look (models and tints); null draws the hitbox boxes.</param>
     /// <param name="look">Which model and tint this opponent gets, dealt in turn.</param>
     /// <param name="marker">The marker model in their hands; null draws the coded marker's shapes.</param>
@@ -61,17 +67,42 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
     public InputCommand Step(int tick, float dt)
     {
         InputCommand cmd = new() { Tick = tick, Yaw = State.Yaw };
+        if (Puppet)
+        {
+            if (State.Present)
+            {
+                FollowState();
+            }
+            else if (!_removed)
+            {
+                _removed = true;
+                CollisionLayer = 0;
+                CollisionMask = 0;
+            }
+
+            Visual.Capture();
+            return cmd;
+        }
+
         if (State.Present)
         {
             cmd = _pilot.Next(tick, State);
             ApplyCommand(cmd, dt);
         }
-        else if (!_removed)
+        else
         {
-            // Walked off: out of everyone's way.
-            _removed = true;
-            CollisionLayer = 0;
-            CollisionMask = 0;
+            if (!_removed)
+            {
+                // Walked off: out of everyone's way.
+                _removed = true;
+                CollisionLayer = 0;
+                CollisionMask = 0;
+            }
+
+            if (_pilot.EveryTick)
+            {
+                _pilot.Next(tick, State);
+            }
         }
 
         Visual.Capture();

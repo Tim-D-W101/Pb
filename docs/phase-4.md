@@ -143,50 +143,56 @@ Each milestone is pushed as it lands. M4.3 is the first you can play: two copies
 
 ### M4.1 Rules for several players
 
-- [ ] The round rules stop assuming one person ("the hero"). A round's setup lists who plays on which side, and its
+- [x] The round rules stop assuming one person ("the hero"). A round's setup lists who plays on which side, and its
   result is the winning side (or none) and how. Each player's screens read it from their side: won, lost, traded or
   time up.
-- [ ] Co-op is the solo round with everyone who joined on your side; teams take people on both sides; free-for-all
+- [x] Co-op is the solo round with everyone who joined on your side; teams take people on both sides; free-for-all
   takes any number of people.
-- [ ] Starts for several people, still dealt from the round's seed: in co-op they come in together at the area's
+- [x] Starts for several people, still dealt from the round's seed: in co-op they come in together at the area's
   entries; in teams each side starts at its own end, out of the other's sight; in free-for-all everyone starts apart.
-- [ ] Objectives name the side that attacks. In teams with people on both sides it changes round by round.
-- [ ] Every person starts with the difficulty's gear for players, and every bot with the bots'.
-- [ ] Lag compensation in the sim: each ball keeps how far back its shooter was seeing, and is checked against players
+- [x] Objectives name the side that attacks. In teams with people on both sides it changes round by round.
+- [x] Every person starts with the difficulty's gear for players, and every bot with the bots'.
+- [x] Lag compensation in the sim: each ball keeps how far back its shooter was seeing, and is checked against players
   as they were then (up to 200 ms back, the spec's cap). The shot's aim point is found the same way.
-- [ ] A step for a joining copy: its own player's movement and marker, and the balls in flight, without deciding hits
+- [x] A step for a joining copy: its own player's movement and marker, and the balls in flight, without deciding hits
   on players or how the round stands.
-- [ ] Playing alone becomes a round with one person, and nothing about it changes: every existing test still passes.
+- [x] Playing alone becomes a round with one person, and nothing about it changes: every existing test still passes.
 
 ### M4.2 The network core
 
-- [ ] `src/Pb.Net`, engine-free like the sim and with its own tests: the messages, packed bit by bit, with positions to
+- [x] `src/Pb.Net`, engine-free like the sim and with its own tests: the messages, packed bit by bit, with positions to
   a few millimetres and angles to a hundredth of a degree.
-- [ ] Snapshots 60 times a second, each sent as the difference from the last one that player confirmed. The events
+- [x] Snapshots 60 times a second, each sent as the difference from the last one that player confirmed. The events
   everyone must get (shots, where balls ended, eliminations, doors, pickups, the round's progress, callouts) ride with
   the snapshots and are repeated until confirmed, so a lost packet never holds the rest up.
-- [ ] Commands sent with the last few repeated. The server keeps a short queue of each player's commands and runs one a
+- [x] Commands sent with the last few repeated. The server keeps a short queue of each player's commands and runs one a
   tick, two now and then if they've built up, never more than time allows; a missing one is replaced by the last.
-- [ ] Your own player's history for replaying after a correction, and the buffer the others are shown from.
-- [ ] A loopback connection and a lag simulator (delay, jitter, loss, reordering, duplicates) for tests, CI and
+- [x] Your own player's history for replaying after a correction, and the buffer the others are shown from.
+- [x] A loopback connection and a lag simulator (delay, jitter, loss, reordering, duplicates) for tests, CI and
   `--net-lag`.
-- [ ] Sending and receiving allocate nothing per tick, like the sim.
+- [x] Sending and receiving allocate nothing per tick, like the sim.
 
 ### M4.3 Host and join
 
-- [ ] ENet over UDP, through the ENet built into Godot, with no new dependencies. A handshake checks both copies are the
+- [x] ENet over UDP, through the ENet built into Godot, with no new dependencies. A handshake checks both copies are the
   same version with the same data files, and the password if there is one.
-- [ ] First, a check that replaying your own moves through Godot's walking collision gives the server's result to the
+- [x] First, a check that replaying your own moves through Godot's walking collision gives the server's result to the
   millimetre. If it doesn't, walking moves into the sim (see Risks).
-- [ ] Host: everyone else's body is moved by their commands, the bots as now; snapshots and events go out to each
+- [x] Host: everyone else's body is moved by their commands, the bots as now; snapshots and events go out to each
   player.
-- [ ] Join: you're predicted and corrected. The others are shown between updates with all their movement (planted
+- [x] Join: you're predicted and corrected. The others are shown between updates with all their movement (planted
   steps, leaning, climbing, the walk-off), balls fly from the server's shots, and sound, splats, voices and the HUD
   all come from the server's events, through the same code as now.
-- [ ] Everyone loads the level; the briefing waits until all have (at most 30 s).
-- [ ] When you're out you watch the others. Someone who drops out mid-round counts as out; the host leaving ends the
+- [x] Everyone loads the level; the briefing waits until all have (at most 30 s).
+- [x] When you're out you watch the others. Someone who drops out mid-round counts as out; the host leaving ends the
   game for everyone, with a message.
-- [ ] `-- --host`, `-- --join=ADDRESS` and `-- --net-lag=MS` on the command line, and the two-copies-on-one-PC set-up.
+- [x] `-- --host`, `-- --join=ADDRESS` and `-- --net-lag=MS` on the command line, and the two-copies-on-one-PC set-up.
+
+*As built:* the replay check holds, so walking stays with Godot. In rounds of two and three copies over UDP on one
+machine (one joiner at 100 ms with jitter and 1% loss), every copy ended with the host's result and numbers to the
+shot; a joiner was put right 0–47 times a round, nearly always by under a millimetre (the largest 2.5 cm). Bodies
+of people who are out walk off the field like the bots, and their own copy shows them where the host has them.
+The lobby is bare until M4.4: hosting, who's in and Start round; joined, you wait for the host.
 
 ### M4.4 Lobby, menus and the HUD
 
