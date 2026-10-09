@@ -1,6 +1,6 @@
 # Phase 4 — Multiplayer: plan
 
-> **Status: proposed 2026-10-09; waiting for your OK.** Nothing in it is built yet. Phase 3 is finished but for your
+> **Status: approved 2026-10-09 with the defaults ("the plan is OK go ahead"); being built.** Phase 3 is finished but for your
 > play-test ([report](reports/phase-3.md)). Technical design: [architecture.md §16](architecture.md#16-phase-4-multiplayer).
 > Everything in [spec.md](spec.md) still applies: ballistics, paint rules, gear, metric units, original IP, data files,
 > tests.

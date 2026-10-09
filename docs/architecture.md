@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **Status: approved (defaults accepted 2026-09-30); Phases 1–3 built (Phase 3 but for the owner's play-test).** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-open-areas) with [phase-3.md](phase-3.md) on 2026-10-05 (revised 2026-10-06: open areas, each with places). [§16](#16-phase-4-multiplayer) with [phase-4.md](phase-4.md) (multiplayer) was proposed on 2026-10-09 and waits for the owner's OK. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
+> **Status: approved (defaults accepted 2026-09-30); Phases 1–3 built (Phase 3 but for the owner's play-test).** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-open-areas) with [phase-3.md](phase-3.md) on 2026-10-05 (revised 2026-10-06: open areas, each with places). [§16](#16-phase-4-multiplayer) with [phase-4.md](phase-4.md) (multiplayer) on 2026-10-09 (defaults taken). Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
@@ -817,7 +817,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 ## 16. Phase 4: multiplayer
 
-> **Status: proposed 2026-10-09 with the [Phase 4 plan](phase-4.md); waiting for the owner's OK.** This is the
+> **Status: approved 2026-10-09 with the [Phase 4 plan](phase-4.md) (defaults taken).** This is the
 > technical design. It fills in §6, which still holds, and each part gains "as built" notes as its milestone lands.
 
 ### 16.1 Processes and roles
