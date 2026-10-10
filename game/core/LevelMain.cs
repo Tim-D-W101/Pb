@@ -730,7 +730,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (roundTour)
         {
-            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective));
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective, race: _points?.Series.RaceTo));
             _hud.ShowPerf = false;
             var tour = new RoundTour { Name = "RoundTour" };
             AddChild(tour);

@@ -153,11 +153,12 @@ public static class RoundScreens
         return overlay;
     }
 
-    /// <summary>What's lying around to pick up where the round is.</summary>
+    /// <summary>What's lying around to pick up where the round is (nothing in a point of a match).</summary>
     private static string Pickups(RoundInfo round)
     {
-        bool pods = round.Tier.Pickups && round.Level.Pickups.Any(p => p.Kind == PickupKind.Pod);
-        bool air = round.Tier.Pickups && round.Level.Pickups.Any(p => p.Kind == PickupKind.Air);
+        bool lying = round.Tier.Pickups && !round.Mode.Format.IsMatch();
+        bool pods = lying && round.Level.Pickups.Any(p => p.Kind == PickupKind.Pod);
+        bool air = lying && round.Level.Pickups.Any(p => p.Kind == PickupKind.Air);
         return (pods, air) switch
         {
             (true, true) => "Paint pods and air are lying around.",
