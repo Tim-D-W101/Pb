@@ -137,8 +137,8 @@ CI also runs, on every push:
 ## Performance
 
 Release build on the 4-core cloud VM (`dotnet run -c Release --project tools/Pb.Bench`). The benchmark ran three times on
-Phase 5's code and, for comparison, twice on Phase 4's (`main`), on the same VM and back to back. Where the runs differ,
-the tables give the range of their means.
+Phase 5's code and, for comparison, twice on Phase 4's (`main`), all on the same VM in the same session. Where the runs
+differ, the tables give the range of their means.
 
 **The new formats, ten players in and no balls in the air** (the plan's budget: within 0.5 ms a tick). These are the first
 run's numbers; the other two came within 0.005 ms of them on average:
