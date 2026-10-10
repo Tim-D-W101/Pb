@@ -166,6 +166,81 @@ internal sealed class BotArena
         return this;
     }
 
+    /// <summary>
+    /// A capture the flag point with <paramref name="perSide"/> a side, you (a bot unless <paramref name="heroBot"/> is
+    /// false) and your side's bots on side 0. On the field (<c>sports_ground</c>, in <paramref name="place"/>'s layout)
+    /// everyone's in their start box playing the field's own behaviour; elsewhere the game's own team starts (dealt from
+    /// <paramref name="seed"/>), each bot playing the role it's dealt. <see cref="StartFlag"/> starts it.
+    /// </summary>
+    public static BotArena Flag(string level = "oxbarrow_works", int perSide = 4, string tier = "normal", ulong seed = 0, string? place = null,
+        bool heroBot = true)
+    {
+        var arena = new BotArena(tier, seed, level, place);
+        if (arena.Level.Field is { } field)
+        {
+            string role = TestData.Config.Rules.Flag.FieldRole;
+            arena.Hero.Position = field.StartOf(0, 0, perSide);
+            arena.Hero.Yaw = FieldSpec.StartYaw(0);
+            if (heroBot)
+            {
+                arena.HeroBot(role);
+            }
+
+            for (int side = 0; side < 2; side++)
+            {
+                for (int i = side == 0 ? 1 : 0; i < perSide; i++)
+                {
+                    var spawn = new OpponentSpawn
+                    {
+                        Id = $"{(side == 0 ? "south" : "north")}{i}", Position = field.StartOf(side, i, perSide), Yaw = FieldSpec.StartYaw(side),
+                        Roles = new[] { role },
+                    };
+                    arena.AddBotAt(spawn, (byte)side, role);
+                }
+            }
+
+            return arena;
+        }
+
+        // Elsewhere, the game's own team starts: you and your side at an entry, theirs round a spot on the far side, every bot
+        // playing a role dealt from the mode's chances.
+        GameMode mode = TestData.Config.Rules.FindMode("flag")!;
+        SpawnPlan plan = SpawnPlanner.Plan(arena.Level, SharedFor(level, place).Cover, arena.Sim.Collision, TestData.Config.Rules.Spawning,
+            TestData.Data.Bots, RoundShape.Of(mode, perSide), TestData.Config.Movement.StandEyeHeight, seed);
+        arena.Hero.Position = plan.You.Position;
+        arena.Hero.Yaw = plan.You.Yaw;
+        if (heroBot)
+        {
+            arena.HeroBot("hunter");
+        }
+
+        foreach (OpponentSpawn spawn in plan.Teammates)
+        {
+            arena.AddBotAt(spawn, 0);
+        }
+
+        foreach (OpponentSpawn spawn in plan.Opponents)
+        {
+            arena.AddBotAt(spawn, 1);
+        }
+
+        return arena;
+    }
+
+    /// <summary>Starts a capture the flag point: the briefing over, the countdown running (the horn comes by itself).</summary>
+    public BotArena StartFlag(int pods = 2)
+    {
+        FlagRules rules = Sim.Config.Rules.Flag;
+        Sim.StartMatch(new MatchSetup
+        {
+            HeroId = 0, Mode = MatchModeKind.Teams, Format = MatchFormat.Flag, TimeLimit = rules.ClockFor(Level.Field is not null),
+            Countdown = rules.Countdown, StartPods = pods, BotPods = pods, Pickups = false,
+        });
+        Sim.GoLive();
+        _commands = new InputCommand[Sim.Players.Count];
+        return this;
+    }
+
     /// <summary>Starts the round (gear, stats) and goes live.</summary>
     public BotArena Start(int heroPods = 2, int botPods = 2, float timeLimit = 900f, MatchModeKind mode = MatchModeKind.Solo,
         ObjectiveKind objective = ObjectiveKind.Eliminate)
@@ -216,7 +291,8 @@ internal sealed class BotArena
         Squad.HearAll(events);
         foreach (SimEvent e in events)
         {
-            if (e.Type is SimEventType.ShotFired or SimEventType.PlayerEliminated or SimEventType.RefillStarted or SimEventType.RoundEnded)
+            if (e.Type is SimEventType.ShotFired or SimEventType.PlayerEliminated or SimEventType.RefillStarted or SimEventType.RoundEnded
+                or SimEventType.FlagTaken or SimEventType.FlagDropped or SimEventType.FlagCaptured)
             {
                 Log.Add(e);
             }

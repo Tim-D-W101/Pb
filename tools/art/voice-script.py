@@ -11,9 +11,10 @@ from pathlib import Path
 
 ORDER = {
     "callouts": ["spotted", "lost", "underFire", "refill", "hit", "flanking", "pushing", "moving", "manDown", "caseTaken",
-                 "caseDown", "caseAlarm", "roomAlarm"],
+                 "caseDown", "caseAlarm", "roomAlarm", "flagTaken", "flagDown", "flagAlarm"],
     "referee": ["start", "oneMinute", "thirtySeconds", "timeUp", "youreOut", "won", "lost", "lastStanding", "caseOut",
-                "roomHeld", "roomTaken", "roomContested", "buzzer", "pointWon", "pointLost", "noPoint"],
+                "roomHeld", "roomTaken", "roomContested", "buzzer", "pointWon", "pointLost", "noPoint", "flagTaken", "flagDown",
+                "flagCaptured"],
 }
 
 

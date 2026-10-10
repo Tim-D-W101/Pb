@@ -245,19 +245,28 @@ public class SpeedballTests
     [Fact]
     public void Speedball_is_the_fields_mode_and_only_the_fields()
     {
+        // Phase 5 (M5.7): the field plays speedball and capture the flag; the compound areas every other mode, the flag too.
         MatchRules rules = TestData.Config.Rules;
         GameMode speedball = rules.FindMode("speedball")!;
+        GameMode flag = rules.FindMode("flag")!;
         Assert.Equal(MatchFormat.Speedball, speedball.Format);
         Assert.Equal(MatchModeKind.Teams, speedball.Kind);
+        Assert.Equal((MatchFormat.Flag, MatchModeKind.Teams), (flag.Format, flag.Kind));
         foreach (AreaEntryDef area in TestData.Data.Areas.Areas)
         {
             IReadOnlyList<GameMode> modes = rules.ModesFor(area);
             Assert.NotEmpty(modes);
             bool field = TestData.Data.Levels[area.Id].Field is not null;
             Assert.Equal(field, modes.Contains(speedball));
-            if (!field)
+            Assert.Contains(flag, modes);
+            if (field)
             {
-                Assert.All(modes, m => Assert.Equal(MatchFormat.Round, m.Format));
+                Assert.All(modes, m => Assert.True(m.Format.IsMatch(), $"{m.Id} on the field"));
+            }
+            else
+            {
+                Assert.All(modes, m => Assert.False(m.Format.NeedsField()));
+                Assert.Equal(rules.Modes.Count(m => !m.Format.NeedsField()), modes.Count);
             }
         }
     }

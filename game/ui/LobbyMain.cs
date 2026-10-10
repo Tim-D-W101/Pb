@@ -436,14 +436,14 @@ public partial class LobbyMain : Control
             k => Set(c with { LevelId = areas[k].Id, PlaceId = null })));
         PlaceSpec[] places = round.Area.Places.ToArray();
         _choices.AddChild(UiKit.OptionRow("Where in it", places.Select(p => p.DisplayName).ToArray(), Math.Max(0, Array.IndexOf(places, round.Place)),
-            k => Set(c with { PlaceId = places[k].Whole ? null : places[k].Id })));
+            k => Set(c with { PlaceId = RoundChoices.PlaceIdOf(round.Area, places[k]) })));
         IReadOnlyList<GameMode> modes = _data.Config.Rules.ModesFor(round.Entry);
         _choices.AddChild(UiKit.OptionRow("Mode", modes.Select(m => m.DisplayName).ToArray(), Math.Max(0, modes.ToList().IndexOf(round.Mode)),
             k => Set(c with { ModeId = modes[k].Id, Size = modes[k].DefaultSize })));
         int[] sizes = round.Mode.Sizes.ToArray();
         _choices.AddChild(UiKit.OptionRow(round.Mode.Kind == MatchModeKind.Solo ? "Opponents" : "Players",
             sizes.Select(n => ModeText.Size(round.Mode, n)).ToArray(), Math.Max(0, Array.IndexOf(sizes, round.Size)), k => Set(c with { Size = sizes[k] })));
-        if (round.Mode.Kind != MatchModeKind.FreeForAll && round.Mode.Format != MatchFormat.Speedball)
+        if (round.Mode.Kind != MatchModeKind.FreeForAll && !round.Mode.Format.IsMatch())
         {
             ObjectiveChoice[] offered = RoundChoices.Offered(_data, round.Area, round.Place);
             if (offered.Length > 1)

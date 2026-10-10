@@ -49,7 +49,7 @@ public sealed record LobbyChoices
     /// <summary>Between rounds, a vote on where to play next.</summary>
     public bool Vote { get; init; }
 
-    /// <summary>Speedball: the points a side needs to win the match (0: the rules' own).</summary>
+    /// <summary>A match of points: the points a side needs to win it (0: the rules' own).</summary>
     public int RaceTo { get; init; }
 }
 
@@ -113,10 +113,10 @@ public sealed class LobbyState
 
     public int RoundsPlayed { get; set; }
 
-    /// <summary>Rounds won by each side (co-op: side 0 is the people, side 1 the squad); in speedball, matches won.</summary>
+    /// <summary>Rounds won by each side (co-op: side 0 is the people, side 1 the squad); in a match of points, matches won.</summary>
     public int[] SideWins { get; } = new int[2];
 
-    /// <summary>Speedball: the match under way, each side's points and the points played (0: none under way).</summary>
+    /// <summary>A match of points under way: each side's points and the points played (0: none under way).</summary>
     public int[] MatchPoints { get; } = new int[2];
 
     public int MatchPlayed { get; set; }

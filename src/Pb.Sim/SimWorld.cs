@@ -241,7 +241,18 @@ public sealed class SimWorld
             mode = SpeedballMode.Instance;
         }
 
-        Match = new MatchState(setup, Config.Rules, mode, attackers, heroTeam, objective, buzzers);
+        FlagSet? flags = null;
+        if (setup.Format == MatchFormat.Flag)
+        {
+            // On a field the one flag stands on its centre bunker and scores at the other side's buzzer; elsewhere each
+            // side's stands at its base, where its first player starts (the same on every copy: the roster's order).
+            flags = Level?.Field is { } field && Level.FieldLayout is { } layout
+                ? FlagSet.Centre(layout.FlagHome, field.Buzzers, Config.Rules.Flag)
+                : FlagSet.Bases(BaseOf(0), BaseOf(1), Config.Rules.Flag);
+            mode = CaptureMode.Instance;
+        }
+
+        Match = new MatchState(setup, Config.Rules, mode, attackers, heroTeam, objective, buzzers, flags);
         foreach (PlayerState p in _players)
         {
             p.SprintBlocked = false;
@@ -261,6 +272,20 @@ public sealed class SimWorld
 
     /// <summary>Ends the briefing: the clock starts and everyone may move and fire.</summary>
     public void GoLive() => Match?.GoLive(this);
+
+    /// <summary>Side <paramref name="side"/>'s base in capture the flag: where its first player starts (the middle if it has none).</summary>
+    private Vector3 BaseOf(int side)
+    {
+        foreach (PlayerState p in _players)
+        {
+            if (p.Team == side)
+            {
+                return p.Position;
+            }
+        }
+
+        return Vector3.Zero;
+    }
 
     /// <summary>
     /// Someone playing with others has left mid-round: at the next step they're off the field and count as out, put out by

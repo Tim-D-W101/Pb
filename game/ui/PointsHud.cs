@@ -7,10 +7,11 @@ using Pb.Sim.Players;
 namespace Pb.Game.Ui;
 
 /// <summary>
-/// Speedball's part of the HUD: the countdown to the horn, big in the middle, then "GO"; the match's score under the top
-/// bar; and a bar while a buzzer is being hung, in your side's colour when it's theirs and in red when it's yours.
+/// A match of points' part of the HUD (speedball, capture the flag): the countdown to the horn, big in the middle, then
+/// "GO"; the match's score under the top bar; and in speedball a bar while a buzzer is being hung, in your side's colour
+/// when it's theirs and in red when it's yours.
 /// </summary>
-public partial class SpeedballHud : Control
+public partial class PointsHud : Control
 {
     private SimWorld _sim = null!;
     private PlayerState _you = null!;
@@ -61,7 +62,7 @@ public partial class SpeedballHud : Control
 
     public override void _Process(double delta)
     {
-        if (_sim?.Match is not { Buzzers: { } buzzers } match)
+        if (_sim?.Match is not { } match)
         {
             return;
         }
@@ -81,12 +82,13 @@ public partial class SpeedballHud : Control
         string line = _score() is { } s ? $"POINT {s.Point} · {s.Ours}–{s.Theirs} · FIRST TO {s.RaceTo}" : "";
         Color colour = Colors.White;
         int theirs = 1 - _you.Team;
-        if (buzzers.Hanger(_you.Team) >= 0)
+        BuzzerSet? buzzers = match.Buzzers;
+        if (buzzers is not null && buzzers.Hanger(_you.Team) >= 0)
         {
             line = "THEY'RE HANGING YOUR BUZZER";
             colour = UiKit.Bad;
         }
-        else if (buzzers.Hanger(theirs) is var hanger and >= 0)
+        else if (buzzers is not null && buzzers.Hanger(theirs) is var hanger and >= 0)
         {
             line = hanger == _you.Id ? "HANGING THEIR BUZZER: KEEP HOLDING"
                 : $"{(_sim.FindPlayer(hanger)?.Name ?? "YOUR SIDE").ToUpperInvariant()} IS HANGING THEIR BUZZER";

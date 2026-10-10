@@ -37,6 +37,11 @@ public sealed class BotSquad
     private float _hangLeft;
     private Pcg32 _dealer;
 
+    // Capture the flag: whether each side's parts have been given out (with a flag each), and when the chasers are next
+    // told where a carrier is.
+    private bool _flagsDealt;
+    private float _flagAlarmLeft;
+
     public BotSquad(SimWorld sim, BotConfig config, NavGrid grid, CoverSet cover)
     {
         Sim = sim;
@@ -172,6 +177,7 @@ public sealed class BotSquad
         _searchesLeft = Config.Navigation.SearchesPerTick;
         UpdateObjective();
         UpdateSpeedball();
+        UpdateFlags();
     }
 
     /// <summary>
@@ -287,13 +293,14 @@ public sealed class BotSquad
     }
 
     /// <summary>
-    /// Speedball, once a tick while a point is on: at the horn each side's bots are dealt their places and bunkers; then a
-    /// side ahead by the margin moves one of its bots up a bunker now and then, and one goes to hang the other side's
-    /// buzzer when none of that side still in can see it.
+    /// A point on the field (speedball, capture the flag), once a tick while it's on: at the horn each side's bots are
+    /// dealt their places and bunkers; then a side ahead by the margin moves one of its bots up a bunker now and then, and
+    /// one goes to hang the other side's buzzer when none of that side still in can see it (or to take the flag).
     /// </summary>
     private void UpdateSpeedball()
     {
-        if (Sim.Match is not { Buzzers: { HungSide: < 0 } buzzers } || Sim.Level?.FieldLayout is not { } layout || !Sim.IsLive)
+        if (Sim.Match is not { } match || !match.Setup.Format.IsMatch() || Sim.Level?.FieldLayout is not { } layout || !Sim.IsLive ||
+            match.Buzzers is { HungSide: >= 0 } || match.Flags is { CapturedBy: >= 0 })
         {
             return;
         }
@@ -319,8 +326,244 @@ public sealed class BotSquad
         if ((_hangLeft -= Sim.Dt) <= 0f)
         {
             _hangLeft = rules.HangCheck;
-            SendToHang(buzzers, 0);
-            SendToHang(buzzers, 1);
+            if (match.Buzzers is { } buzzers)
+            {
+                SendToHang(buzzers, 0);
+                SendToHang(buzzers, 1);
+            }
+            else if (match.Flags is { IsCentre: true } flags)
+            {
+                SendForFlag(flags, 0);
+                SendForFlag(flags, 1);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Capture the flag, once a tick while a point is on. With a flag each, at the horn: each side's defenders take posts
+    /// round its own flag and the rest go for the other side's. Every alarm interval: when the other side carries a flag,
+    /// a side's chasers nearest the carrier are told where they are; a side's own flag dropped, its defenders guard it
+    /// where it lies; and a side with nobody left going for the other flag sends one of its defenders.
+    /// </summary>
+    private void UpdateFlags()
+    {
+        if (Sim.Match is not { Flags: { CapturedBy: < 0 } flags } || !Sim.IsLive)
+        {
+            _flagAlarmLeft = 0f;
+            return;
+        }
+
+        if (!_flagsDealt)
+        {
+            _flagsDealt = true;
+            if (!flags.IsCentre)
+            {
+                DealFlagParts(flags, 0);
+                DealFlagParts(flags, 1);
+            }
+        }
+
+        if ((_flagAlarmLeft -= Sim.Dt) > 0f)
+        {
+            return;
+        }
+
+        _flagAlarmLeft = Config.Brain.Flag.AlarmInterval;
+        for (int side = 0; side < 2; side++)
+        {
+            for (int f = 0; f < flags.Count; f++)
+            {
+                if (flags.Carrier(f) >= 0 && Sim.FindPlayer(flags.Carrier(f)) is { Alive: true } carrier && carrier.Team != side)
+                {
+                    ChaseCarrier(carrier, side);
+                }
+            }
+
+            if (!flags.IsCentre && flags.FlagOfSide(side) is var own and >= 0 && flags.Status(own) == FlagStatus.Dropped)
+            {
+                GuardFlag(flags, own, side, flags.Position(own));
+            }
+
+            if (!flags.IsCentre)
+            {
+                SendAttacker(flags, side);
+            }
+        }
+    }
+
+    /// <summary>
+    /// With a flag each: when none of side <paramref name="side"/>'s bots still in goes for the other side's flag (they're
+    /// out), the defender nearest it goes, so a point doesn't stall with both sides minding their own.
+    /// </summary>
+    private void SendAttacker(FlagSet flags, int side)
+    {
+        int target = flags.TargetOf(side);
+        if (target < 0)
+        {
+            return;
+        }
+
+        SortSide(side, flags.Position(target));
+        foreach (BotBrain bot in _byDistance)
+        {
+            if (bot.AttacksFlag)
+            {
+                return;
+            }
+        }
+
+        if (_byDistance.Count > 0)
+        {
+            _byDistance[0].AttackFlag();
+        }
+    }
+
+    /// <summary>
+    /// With a flag each, at the horn: <see cref="FlagBrain.DefendShare"/> of side <paramref name="side"/>'s bots (those
+    /// nearest its flag; at least one, from two up) guard it, and the rest go for the other side's.
+    /// </summary>
+    private void DealFlagParts(FlagSet flags, int side)
+    {
+        int own = flags.FlagOfSide(side);
+        if (own < 0)
+        {
+            return;
+        }
+
+        SortSide(side, flags.Home(own));
+        int n = _byDistance.Count;
+        int defenders = n >= 2 ? Math.Max(1, (int)MathF.Round(n * Config.Brain.Flag.DefendShare)) : 0;
+        for (int k = defenders; k < n; k++)
+        {
+            _byDistance[k].AttackFlag();
+        }
+
+        _byDistance.RemoveRange(defenders, n - defenders);
+        GuardFlag(flags, own, side, flags.Home(own), sorted: true);
+    }
+
+    /// <summary>
+    /// Side <paramref name="side"/>'s defenders (those not going for the other flag) take posts across the way to its flag
+    /// <paramref name="flag"/> at <paramref name="at"/>, facing out towards the other side's base.
+    /// </summary>
+    private void GuardFlag(FlagSet flags, int flag, int side, Vector3 at, bool sorted = false)
+    {
+        if (!sorted)
+        {
+            SortSide(side, at);
+            for (int k = _byDistance.Count - 1; k >= 0; k--)
+            {
+                if (_byDistance[k].AttacksFlag)
+                {
+                    _byDistance.RemoveAt(k);
+                }
+            }
+        }
+
+        Vector3 other = flags.ScoreAt(1 - side); // the other side's base
+        Vector3 outward = Flat(other - at) > 1e-3f ? Vector3.Normalize((other - at) with { Y = 0f }) : Vector3.UnitZ;
+        Vector3 across = new(-outward.Z, 0f, outward.X);
+        for (int k = 0; k < _byDistance.Count; k++)
+        {
+            float slot = (k + 1) / 2 * (k % 2 == 0 ? 1f : -1f);
+            Guard(_byDistance[k], at + outward * Config.Brain.GuardSpacing + across * slot * Config.Brain.GuardSpacing, YawOf(outward));
+        }
+    }
+
+    /// <summary>Side <paramref name="side"/>'s chasers nearest <paramref name="carrier"/> learn where they are.</summary>
+    private void ChaseCarrier(PlayerState carrier, int side)
+    {
+        SortSide(side, carrier.Position);
+        for (int k = 0; k < _byDistance.Count && k < Config.Brain.Flag.Chasers; k++)
+        {
+            _byDistance[k].Alarm(carrier);
+        }
+    }
+
+    /// <summary>
+    /// Capture the flag on the field: when the flag lies (at home or dropped) and nobody of side <paramref name="side"/> is
+    /// going for it already, its bot nearest the flag goes, if none of the other side still in can see the flag or the side
+    /// has more players in.
+    /// </summary>
+    private void SendForFlag(FlagSet flags, int side)
+    {
+        if (flags.Status(0) is not (FlagStatus.Home or FlagStatus.Dropped))
+        {
+            return;
+        }
+
+        Vector3 flag = flags.Position(0) + new Vector3(0f, 0.6f, 0f);
+        BotBrain? nearest = null;
+        foreach (BotBrain bot in _bots)
+        {
+            if (!bot.Self.Alive || bot.Self.Team != side || bot.Archetype.Idle != BotIdle.Speedball)
+            {
+                continue;
+            }
+
+            if (bot.GoingForFlag)
+            {
+                return;
+            }
+
+            if (nearest is null || Flat(bot.Self.Position - flag) < Flat(nearest.Self.Position - flag))
+            {
+                nearest = bot;
+            }
+        }
+
+        if (nearest is null)
+        {
+            return;
+        }
+
+        int ours = 0, theirs = 0;
+        bool watched = false;
+        foreach (PlayerState p in Sim.Players)
+        {
+            if (!p.Alive || !p.Present)
+            {
+                continue;
+            }
+
+            if (p.Team == side)
+            {
+                ours++;
+            }
+            else
+            {
+                theirs++;
+                watched |= !Sim.Collision.SweepSphere(p.EyePosition, flag, 0.02f, out _);
+            }
+        }
+
+        if (!watched || ours > theirs)
+        {
+            nearest.GoForFlag();
+        }
+    }
+
+    /// <summary>Side <paramref name="side"/>'s bots still in, nearest <paramref name="at"/> first, into <see cref="_byDistance"/>.</summary>
+    private void SortSide(int side, Vector3 at)
+    {
+        _byDistance.Clear();
+        foreach (BotBrain bot in _bots)
+        {
+            if (!bot.Self.Alive || bot.Self.Team != side)
+            {
+                continue;
+            }
+
+            float d = Flat(bot.Self.Position - at);
+            int k = _byDistance.Count;
+            _byDistance.Add(bot);
+            while (k > 0 && Flat(_byDistance[k - 1].Self.Position - at) > d)
+            {
+                _byDistance[k] = _byDistance[k - 1];
+                k--;
+            }
+
+            _byDistance[k] = bot;
         }
     }
 

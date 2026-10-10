@@ -352,14 +352,16 @@ public static class LevelFactory
                     lanes.Add(new FieldLane(lane.Name, FieldTwin(ld.Symmetry, from, 0f).Position, FieldTwin(ld.Symmetry, to, 0f).Position, 1));
                 }
 
+                LevelPrimitive[] pieces = sink.Items.Skip(basePrimitives).ToArray();
                 layouts.Add(new FieldLayoutSpec
                 {
                     Id = ld.Id,
                     Symmetry = ld.Symmetry,
-                    Primitives = sink.Items.Skip(basePrimitives).ToArray(),
+                    Primitives = pieces,
                     Props = props.Skip(baseProps).ToArray(),
                     Bunkers = bunkers,
                     Lanes = lanes,
+                    FlagHome = FlagHome(pieces, fieldDef.Flag_m),
                 });
             }
 
@@ -430,6 +432,25 @@ public static class LevelFactory
     /// half round the field's middle. Every bunker is the same front to back (along its own z), so its mirror image is
     /// itself turned the other way (−yaw); a snake's curve stays on the same side of the field.
     /// </summary>
+    /// <summary>
+    /// The centre flag's home in a layout: the field's flag spot <paramref name="spot"/> ([x, z]), on top of the highest of
+    /// the layout's <paramref name="pieces"/> standing there (on the ground if none does).
+    /// </summary>
+    private static Vector3 FlagHome(IReadOnlyList<LevelPrimitive> pieces, float[] spot)
+    {
+        float x = spot.Length == 2 ? spot[0] : 0f, z = spot.Length == 2 ? spot[1] : 0f, top = 0f;
+        foreach (LevelPrimitive piece in pieces)
+        {
+            Aabb box = piece.Bounds;
+            if (x >= box.Min.X && x <= box.Max.X && z >= box.Min.Z && z <= box.Max.Z)
+            {
+                top = MathF.Max(top, box.Max.Y);
+            }
+        }
+
+        return new Vector3(x, top, z);
+    }
+
     public static (Vector3 Position, float Yaw) FieldTwin(FieldSymmetry symmetry, Vector3 position, float yaw) => symmetry == FieldSymmetry.Mirror
         ? (new Vector3(position.X, position.Y, -position.Z), -yaw)
         : (new Vector3(-position.X, position.Y, -position.Z), yaw + MathF.PI);

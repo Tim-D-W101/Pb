@@ -141,6 +141,9 @@ public sealed class FieldLayoutSpec
     public required IReadOnlyList<FieldBunker> Bunkers { get; init; }
 
     public required IReadOnlyList<FieldLane> Lanes { get; init; }
+
+    /// <summary>Capture the flag's centre flag: the field's flag spot, on top of the bunker there (on the ground if none).</summary>
+    public required Vector3 FlagHome { get; init; }
 }
 
 /// <summary>

@@ -6,15 +6,21 @@ namespace Pb.Net.Protocol;
 
 /// <summary>
 /// What every player's snapshot shares, as one list of fields: each player (<see cref="PuppetFields"/>), each door leaf's
-/// openness, then the round (its phase and clock, the result, the objective, the pickups taken, and in speedball the
-/// countdown and the buzzers). Laid out once per round, the same on every copy, from the round's players and level.
+/// openness, then the round (its phase and clock, the result, the objective, the pickups taken, in speedball the
+/// countdown and the buzzers, and in capture the flag each flag and who captured one). Laid out once per round, the same
+/// on every copy, from the round's players and level.
 /// </summary>
 public sealed class WorldFields
 {
     public const int DoorBits = 10;
     public const int MaxPickups = 64;
 
-    private const int MatchCount = 24;
+    private const int MatchCount = 36;
+
+    /// <summary>Capture the flag: each flag's fields (its position, carrier + 1, status), from <see cref="FlagsAt"/>.</summary>
+    private const int FlagsAt = 24;
+    private const int FlagFields = 5;
+    private const int MaxFlags = 2;
 
     /// <summary>A hang's progress, 0 to 1, in this many bits.</summary>
     private const int HangBits = 8;
@@ -65,6 +71,18 @@ public sealed class WorldFields
         m[21] = HangBits; // side 1's
         m[22] = 2; // the side whose buzzer was hung + 1
         m[23] = 5; // who hung it + 1
+        for (int f = 0; f < MaxFlags; f++)
+        {
+            Span<byte> flag = m.Slice(FlagsAt + f * FlagFields, FlagFields);
+            flag[0] = (byte)grid.BitsX; // where it is
+            flag[1] = (byte)grid.BitsY;
+            flag[2] = (byte)grid.BitsZ;
+            flag[3] = 5; // its carrier + 1
+            flag[4] = 2; // home, carried, dropped, captured
+        }
+
+        m[34] = 2; // the side that captured a flag + 1
+        m[35] = 5; // who carried it home + 1
     }
 
     public int Players { get; }
@@ -131,6 +149,20 @@ public sealed class WorldFields
                 m[22] = (uint)(buzzers.HungSide + 1);
                 m[23] = (uint)(buzzers.HungBy + 1);
             }
+
+            if (match.Flags is { } flags)
+            {
+                for (int f = 0; f < flags.Count && f < MaxFlags; f++)
+                {
+                    Span<uint> flag = m.Slice(FlagsAt + f * FlagFields, FlagFields);
+                    Grid.Quantize(flags.Position(f), out flag[0], out flag[1], out flag[2]);
+                    flag[3] = (uint)(flags.Carrier(f) + 1);
+                    flag[4] = (uint)flags.Status(f);
+                }
+
+                m[34] = (uint)(flags.CapturedBy + 1);
+                m[35] = (uint)(flags.ScoredBy + 1);
+            }
         }
 
         PickupSet pickups = sim.Pickups;
@@ -174,6 +206,14 @@ public sealed class WorldFields
             }
             match.Objective?.ApplyServer(m[6] != 0, Grid.Dequantize(m[7], m[8], m[9]), (int)m[10] - 1, m[11] != 0, (int)m[12] - 1,
                 BitConverter.UInt32BitsToSingle(m[13]), (HoldStatus)m[14]);
+            if (match.Flags is { } flags)
+            {
+                for (int f = 0; f < flags.Count && f < MaxFlags; f++)
+                {
+                    ReadOnlySpan<uint> flag = m.Slice(FlagsAt + f * FlagFields, FlagFields);
+                    flags.ApplyServer(f, Grid.Dequantize(flag[0], flag[1], flag[2]), (int)flag[3] - 1, (FlagStatus)flag[4], (int)m[34] - 1, (int)m[35] - 1);
+                }
+            }
         }
 
         PickupSet pickups = sim.Pickups;

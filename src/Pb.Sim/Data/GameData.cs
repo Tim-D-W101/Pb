@@ -115,6 +115,8 @@ public sealed class GameData
                 Callout = new CalloutRules(MathF.Cos(rules.Callout.Cone_deg * Units.DegreesToRadians), rules.Callout.Range_m, rules.Callout.Cooldown_s),
                 Speedball = new SpeedballRules(rules.Speedball.RaceTo, rules.Speedball.PointTime_s, rules.Speedball.Countdown_s, rules.Speedball.HangTime_s,
                     rules.Speedball.HangReach_m, rules.Speedball.BetweenPoints_s),
+                Flag = new FlagRules(rules.Flag.RaceTo, rules.Flag.PointTime_s, rules.Flag.FieldPointTime_s, rules.Flag.Countdown_s, rules.Flag.BetweenPoints_s,
+                    rules.Flag.PickupReach_m, rules.Flag.ScoreReach_m, rules.Flag.CarrierCanSprint, rules.Flag.FieldRole),
                 SettleTime = rules.SettleTime_s,
                 TradeCountsAsClear = rules.TradeCountsAsClear,
                 PickupRadius = rules.PickupRadius_m,
@@ -131,6 +133,7 @@ public sealed class GameData
                     TeammateSpacing = rules.Spawning.TeammateSpacing_m,
                     TeamSpread = rules.Spawning.TeamSpread_m,
                     ObjectiveClearance = rules.Spawning.ObjectiveClearance_m,
+                    BaseHeight = rules.Spawning.BaseHeight_m,
                 },
                 Doors = new DoorRules
                 {

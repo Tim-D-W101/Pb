@@ -85,6 +85,15 @@ public enum CalloutKind : byte
 
     /// <summary>Defending: the other side is in the room.</summary>
     RoomAlarm,
+
+    /// <summary>Capture the flag: took a flag.</summary>
+    FlagTaken,
+
+    /// <summary>Capture the flag: the teammate carrying a flag went out close by.</summary>
+    FlagDown,
+
+    /// <summary>Capture the flag: told the other side has a flag (sent after its carrier).</summary>
+    FlagAlarm,
 }
 
 /// <summary>Speedball: where on the field a bot plays (the layout tags its bunkers by it).</summary>
@@ -232,6 +241,9 @@ public sealed class BotBrain
     private float _breakoutLeft;
     private bool _hanging;
     private float _retryIn;
+    private bool _flagAttack;
+    private bool _goingForFlag;
+    private float _pressLeft;
 
     // Doors on the way.
     private int _doorLeaf = -1;
@@ -302,8 +314,8 @@ public sealed class BotBrain
     /// <summary>Hunting because it had nothing to go on for <see cref="RestlessAfter"/>.</summary>
     public bool Restless { get; private set; }
 
-    /// <summary>Hunts while idle: a hunter, or restless (unless the objective gives it something better to do).</summary>
-    private bool Hunts => (Archetype.Idle == BotIdle.Hunt || Restless) && _dutyPost is null && !Attacking;
+    /// <summary>Hunts while idle: a hunter, or restless (unless the objective or a flag gives it something better to do).</summary>
+    private bool Hunts => (Archetype.Idle == BotIdle.Hunt || Restless) && _dutyPost is null && !Attacking && !_flagAttack && !_goingForFlag;
 
     /// <summary>On the side playing for the round's objective, while it's still to do.</summary>
     private bool Attacking => _sim.Match?.Objective is { Done: false } objective && Self.Team == objective.Attackers;
@@ -313,6 +325,7 @@ public sealed class BotBrain
     /// off the task (no investigating sounds, no searching).
     /// </summary>
     private bool OnTask => (_hanging && _sim.Match?.Buzzers is { HungSide: < 0 }) ||
+                           (_sim.Match?.Flags is { CapturedBy: < 0 } flags && (_goingForFlag || flags.FlagOf(Self.Id) >= 0)) ||
                            (_sim.Match?.Objective is { Done: false } objective && Self.Team == objective.Attackers &&
                             (objective.Carrier == Self.Id ||
                              (objective.Room is { } room && room.Contains(Self.Position + new Vector3(0f, 0.1f, 0f)))));
@@ -334,6 +347,18 @@ public sealed class BotBrain
 
     /// <summary>Speedball: sent to hang the other side's buzzer.</summary>
     public bool Hanging => _hanging;
+
+    /// <summary>Capture the flag: sent for the other side's flag (with a flag each), escorting whoever of its side carries it.</summary>
+    public bool AttacksFlag => _flagAttack;
+
+    /// <summary>Capture the flag on the field: sent by the squad to take the flag.</summary>
+    public bool GoingForFlag => _goingForFlag;
+
+    /// <summary>Capture the flag: pressing on for the flag (or home with it) through a fight that wasn't ending.</summary>
+    public bool PressingOn => _pressLeft > 0f;
+
+    /// <summary>Capture the flag: going for a flag, escorting its carrier, or carrying one, while none is captured.</summary>
+    private bool PlaysForFlag => _sim.Match?.Flags is { CapturedBy: < 0 } flags && (_flagAttack || _goingForFlag || flags.FlagOf(Self.Id) >= 0);
 
     public BotMode Mode { get; private set; }
 
@@ -373,6 +398,7 @@ public sealed class BotBrain
         {
             NoticeTeammatesOut(heard);
             NoticeCase();
+            NoticeFlags(heard);
         }
 
         if (!live)
@@ -386,6 +412,7 @@ public sealed class BotBrain
         _modeTime += dt;
         _phaseTime += dt;
         _breakoutLeft = MathF.Max(0f, _breakoutLeft - dt);
+        _pressLeft = MathF.Max(0f, _pressLeft - dt);
         _sincePull += dt;
         _sinceCallout += dt;
         _sinceShare += dt;
@@ -518,6 +545,20 @@ public sealed class BotBrain
             }
 
             _breakoutLeft = 0f;
+        }
+
+        if (_pressLeft > 0f && PlaysForFlag)
+        {
+            // Capture the flag: pressing on through a fight that wasn't ending (shooting as it goes, if it can).
+            return;
+        }
+
+        if (Mode == BotMode.Engage && _modeTime >= _b.Flag.PressOnAfter && PlaysForFlag)
+        {
+            _pressLeft = _b.Flag.PressFor;
+            SetMode(BotMode.Idle);
+            Shout(CalloutKind.Pushing);
+            return;
         }
 
         if (OutOfPaint() && Mode != BotMode.Resupply && TryFindPod(out Vector3 pod))
@@ -782,6 +823,11 @@ public sealed class BotBrain
             return;
         }
 
+        if (_sim.Match?.Flags is { CapturedBy: < 0 } flags && ActFlag(flags, dt))
+        {
+            return;
+        }
+
         if (Archetype.Idle == BotIdle.Speedball && ActSpeedball(dt))
         {
             return;
@@ -989,6 +1035,119 @@ public sealed class BotBrain
     }
 
     /// <summary>
+    /// Capture the flag while there's nothing more pressing. Carrying a flag: take it to where its side scores. Else, sent
+    /// for the flag (or within reach of a dropped one it may take): go and take it; with a teammate carrying the flag it
+    /// went for, lead the way home if it's nearer home than they are, else keep within escort distance of them. False when
+    /// a flag gives it nothing to do (defenders hold their posts as any post; on the field the bots play their bunkers).
+    /// </summary>
+    private bool ActFlag(FlagSet flags, float dt)
+    {
+        Vector3 goal;
+        float within;
+        BotGait gait = BotGait.Run;
+        int target = flags.TargetOf(Self.Team);
+        if (flags.FlagOf(Self.Id) >= 0)
+        {
+            goal = flags.ScoreAt(Self.Team);
+            within = flags.Rules.ScoreReach * 0.5f;
+        }
+        else if (target < 0)
+        {
+            return false;
+        }
+        else
+        {
+            bool lying = flags.Status(target) is FlagStatus.Home or FlagStatus.Dropped;
+            if (!lying)
+            {
+                _goingForFlag = false;
+            }
+
+            PlayerState? carrier = flags.Carrier(target) >= 0 ? _sim.FindPlayer(flags.Carrier(target)) : null;
+            bool near = flags.Status(target) == FlagStatus.Dropped && flags.MayTake(Self, target) &&
+                        FlatDistance(Self.Position, flags.Position(target)) < _b.Flag.NearDropped;
+            if (carrier is { Alive: true } && carrier.Team == Self.Team && _flagAttack)
+            {
+                // Escorting: nearer home than the carrier, it leads the way there (one met head-on in a doorway would
+                // otherwise stop in its way for good); behind it, it keeps up.
+                Vector3 home = flags.ScoreAt(Self.Team);
+                bool ahead = FlatDistance(Self.Position, home) < FlatDistance(carrier.Position, home);
+                goal = ahead ? home : carrier.Position;
+                within = ahead ? flags.Rules.ScoreReach : _b.Escort;
+                gait = Archetype.MoveGait;
+            }
+            else if (lying && (_flagAttack || _goingForFlag || near))
+            {
+                goal = FlagApproach(flags, target);
+                within = 0.4f;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        if (FlatDistance(Self.Position, goal) > within || MathF.Abs(Self.Position.Y - goal.Y) > 1.5f)
+        {
+            if (!_hasGoal || FlatDistance(_goal, goal) > 1.0f)
+            {
+                GoTo(goal, gait);
+            }
+
+            FollowPath(dt);
+            LookAlongPath();
+            return true;
+        }
+
+        // There, or close enough to the carrier it escorts: stand and watch, away from them.
+        Stop();
+        float facing = flags.FlagOf(Self.Id) < 0 && target >= 0 && flags.Carrier(target) is var c and >= 0 && c != Self.Id &&
+                       _sim.FindPlayer(c) is { } escorted && FlatDistance(escorted.Position, Self.Position) > 0.5f
+            ? YawTo(escorted.Position, Self.Position)
+            : HomeYaw;
+        _wantYaw = Sweep(facing, dt);
+        _wantPitch = 0f;
+        return true;
+    }
+
+    /// <summary>
+    /// Where to stand to take flag <paramref name="flag"/>: beside the bunker its home is on (the centre flag at home, from
+    /// its own side's half), else where it lies.
+    /// </summary>
+    private Vector3 FlagApproach(FlagSet flags, int flag)
+    {
+        Vector3 at = flags.Position(flag);
+        if (flags.Status(flag) != FlagStatus.Home || at.Y < 0.3f)
+        {
+            return at;
+        }
+
+        float side = Self.Team == 0 ? 1f : -1f;
+        return new Vector3(at.X, 0f, at.Z + side * MathF.Min(1.35f, flags.Rules.PickupReach * 0.85f));
+    }
+
+    /// <summary>
+    /// Capture the flag, from the squad: go for the other side's flag, and escort whoever of this side carries it (a
+    /// defender sent leaves its post for good).
+    /// </summary>
+    internal void AttackFlag()
+    {
+        _flagAttack = true;
+        _dutyPost = null;
+    }
+
+    /// <summary>Capture the flag on the field, from the squad: go and take the flag.</summary>
+    internal void GoForFlag()
+    {
+        _goingForFlag = true;
+        _breakoutLeft = 0f;
+        if (Mode is BotMode.Return or BotMode.Suspicious or BotMode.Investigate or BotMode.Search)
+        {
+            SetMode(BotMode.Idle);
+        }
+    }
+
+    /// <summary>
     /// Playing for the objective while there's nothing more pressing. Retrieve: fetch the case where it lies; carrying
     /// it, take it to the nearest way out; with a teammate carrying it, keep within escort distance of them. Hold: take a
     /// spot in the room (a free cover point in it, else its middle) and watch from it. False when there's nothing to do.
@@ -1121,7 +1280,8 @@ public sealed class BotBrain
         if (!_onAlarm)
         {
             // The first alarm of a chase gets a shout; the ones that keep it going don't.
-            Shout(_sim.Match?.Objective?.Kind == ObjectiveKind.Hold ? CalloutKind.RoomAlarm : CalloutKind.CaseAlarm);
+            Shout(_sim.Match?.Flags is not null ? CalloutKind.FlagAlarm
+                : _sim.Match?.Objective?.Kind == ObjectiveKind.Hold ? CalloutKind.RoomAlarm : CalloutKind.CaseAlarm);
         }
 
         _onAlarm = true;
@@ -1138,7 +1298,7 @@ public sealed class BotBrain
             return;
         }
 
-        if (_dutyPost is null)
+        if (_dutyPost is null && _sim.Match?.Flags is null)
         {
             Shout(CalloutKind.CaseAlarm);
         }
@@ -1881,6 +2041,24 @@ public sealed class BotBrain
             }
 
             _lastCarrier = carrier;
+        }
+    }
+
+    /// <summary>Capture the flag: a shout when it takes a flag, or when the teammate carrying one goes out close by.</summary>
+    private void NoticeFlags(ReadOnlySpan<Events.SimEvent> heard)
+    {
+        for (int i = 0; i < heard.Length; i++)
+        {
+            ref readonly Events.SimEvent e = ref heard[i];
+            if (e.Type == Events.SimEventType.FlagTaken && e.PlayerId == Self.Id)
+            {
+                Shout(CalloutKind.FlagTaken, force: true);
+            }
+            else if (e.Type == Events.SimEventType.FlagDropped && e.Team == Self.Team && e.PlayerId != Self.Id &&
+                     Vector3.DistanceSquared(e.Position, Self.Position) < _b.CalloutRange * _b.CalloutRange)
+            {
+                Shout(CalloutKind.FlagDown, force: true);
+            }
         }
     }
 

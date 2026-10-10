@@ -540,17 +540,17 @@ public partial class MainMenu : Control
     {
         string[] won = entry.Tiers.Where(t => _records.WonOn(entry.Id, place.Id, t.Id)).Select(t => t.DisplayName).ToArray();
         string wins = won.Length > 0 ? $" Won here on {string.Join(", ", won)}." : "";
-        bool speedball = mode.Format == MatchFormat.Speedball;
-        ObjectiveKind kind = mode.Kind == MatchModeKind.FreeForAll || speedball ? ObjectiveKind.Eliminate : objective.Kind;
+        bool matches = mode.Format.IsMatch();
+        ObjectiveKind kind = mode.Kind == MatchModeKind.FreeForAll || matches ? ObjectiveKind.Eliminate : objective.Kind;
         LevelRecord? r = _records.Record(entry.Id, place.Id, mode.Id, tier.Id, RecordBook.IdOf(kind));
         string what = kind == ObjectiveKind.Eliminate ? $"{mode.DisplayName}, {tier.DisplayName}" : $"{mode.DisplayName}, {objective.DisplayName}, {tier.DisplayName}";
         if (r is null)
         {
-            return $"Your record here ({what}): no {(speedball ? "matches" : "rounds")} yet.{wins}";
+            return $"Your record here ({what}): no {(matches ? "matches" : "rounds")} yet.{wins}";
         }
 
-        // A speedball match goes in the records as one round.
-        var parts = new List<string> { speedball ? $"won {r.Wins} of {r.Rounds} matches" : $"won {r.Wins} of {r.Rounds}" };
+        // A match of points goes in the records as one round.
+        var parts = new List<string> { matches ? $"won {r.Wins} of {r.Rounds} matches" : $"won {r.Wins} of {r.Rounds}" };
         if (r.BestClear_s > 0f)
         {
             parts.Add($"fastest win {RoundScreens.Clock(r.BestClear_s)}");
@@ -619,7 +619,8 @@ public partial class MainMenu : Control
         var sizes = new VBoxContainer();
         var objectiveBox = new VBoxContainer();
         objectiveBox.AddThemeConstantOverride("separation", 8);
-        Label details = UiKit.Body(TierDetails(tier, mode), 17, UiKit.Dim, wrap: true);
+        bool field = level.Field is not null;
+        Label details = UiKit.Body(TierDetails(tier, mode, field), 17, UiKit.Dim, wrap: true);
         Label record = UiKit.Body("", 17, UiKit.Text, wrap: true);
         record.Name = $"Record_{entry.Id}";
         void ShowRecord() => record.Text = RecordLine(entry, place, mode, objective, tier);
@@ -634,7 +635,7 @@ public partial class MainMenu : Control
 
             objectives = Offered(place);
             objective = objectives.FirstOrDefault(o => o.Kind == objective.Kind) ?? objectives[0];
-            if (mode.Kind == MatchModeKind.FreeForAll || mode.Format == MatchFormat.Speedball || objectives.Length < 2)
+            if (mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch() || objectives.Length < 2)
             {
                 return;
             }
@@ -679,7 +680,7 @@ public partial class MainMenu : Control
             mode = modes[k];
             size = mode.DefaultSize;
             modeBlurb.Text = mode.Description;
-            details.Text = TierDetails(tier, mode);
+            details.Text = TierDetails(tier, mode, field);
             ShowSizes();
             ShowObjectives();
             ShowRecord();
@@ -692,7 +693,7 @@ public partial class MainMenu : Control
         how.AddChild(UiKit.ChoiceRow("Difficulty", tiers.Select(t => t.DisplayName).ToArray(), tierIndex, k =>
         {
             tier = tiers[k];
-            details.Text = TierDetails(tier, mode);
+            details.Text = TierDetails(tier, mode, field);
             ShowRecord();
         }, $"Tier_{entry.Id}_", buttonWidth: 140));
         how.AddChild(details);
@@ -709,13 +710,13 @@ public partial class MainMenu : Control
         how.AddChild(finish);
     }
 
-    private string TierDetails(TierDef tier, GameMode mode) =>
-        $"{tier.DisplayName}: {Clock(mode, tier)} · you start with {tier.StartPods} spare " +
+    private string TierDetails(TierDef tier, GameMode mode, bool field) =>
+        $"{tier.DisplayName}: {Clock(mode, tier, field)} · you start with {tier.StartPods} spare " +
         $"pod{(tier.StartPods == 1 ? "" : "s")}, every bot carries {tier.BotPods} · {(tier.Pickups ? "pickups out" : "no pickups")}.";
 
-    /// <summary>The round's clock: the tier's, or a speedball match's points and their clock.</summary>
-    private string Clock(GameMode mode, TierDef tier) => mode.Format == MatchFormat.Speedball
-        ? $"first to {_data.Config.Rules.Speedball.RaceTo} points, {RoundScreens.Clock(_data.Config.Rules.Speedball.PointTime)} a point"
+    /// <summary>The round's clock: the tier's, or a match's points and each point's clock (on a <paramref name="field"/> or not).</summary>
+    private string Clock(GameMode mode, TierDef tier, bool field) => _data.Config.Rules.PointsFor(mode.Format) is { } points
+        ? $"first to {points.RaceTo} points, {RoundScreens.Clock(points.ClockFor(field))} a point"
         : $"{RoundScreens.Clock(tier.TimeLimit_s)} on the clock";
 
     /// <summary>Play with others: your name and character, hosting, and joining (games on your network, an address, the last few).</summary>
@@ -741,20 +742,20 @@ public partial class MainMenu : Control
 
     private void Play(AreaEntryDef entry, PlaceSpec place, GameMode mode, int size, ObjectiveChoice objective, TierDef tier)
     {
-        string objectiveId = RecordBook.IdOf(mode.Kind == MatchModeKind.FreeForAll || mode.Format == MatchFormat.Speedball ? ObjectiveKind.Eliminate : objective.Kind);
+        string objectiveId = RecordBook.IdOf(mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch() ? ObjectiveKind.Eliminate : objective.Kind);
         GameSession.LevelId = entry.Id;
         GameSession.PlaceId = place.Id;
         GameSession.ModeId = mode.Id;
         GameSession.Size = size;
         GameSession.TierId = tier.Id;
         GameSession.ObjectiveId = objectiveId;
-        GameSession.Speedball = null; // a new match, whatever was left of the last one
+        GameSession.Points = null; // a new match, whatever was left of the last one
         _records.Remember(entry.Id, place.Id, mode.Id, size, tier.Id, objectiveId);
         Profile.Save(_records);
-        string what = objective.Kind == ObjectiveKind.Eliminate || mode.Kind == MatchModeKind.FreeForAll || mode.Format == MatchFormat.Speedball
+        string what = objective.Kind == ObjectiveKind.Eliminate || mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch()
             ? ""
             : $" · {objective.DisplayName}";
-        string part = place.Whole ? "" : $"{place.DisplayName} · ";
+        string part = Pb.Game.Net.RoundChoices.PlaceIdOf(_data.Levels[entry.Id], place) is null ? "" : $"{place.DisplayName} · ";
         Load(GameSession.LevelScene, entry.DisplayName, $"{part}{mode.DisplayName} · {ModeText.Size(mode, size)}{what} · {tier.DisplayName}");
     }
 
@@ -975,7 +976,7 @@ public partial class MainMenu : Control
                     }
 
                     int shown = _levels.FindChildren($"Objective_{entry.Id}_*", nameof(Button), owned: false).Count(b => !b.IsQueuedForDeletion());
-                    int wanted = modes[m].Kind != MatchModeKind.FreeForAll && modes[m].Format != MatchFormat.Speedball && objectives > 1 ? objectives : 0;
+                    int wanted = modes[m].Kind != MatchModeKind.FreeForAll && !modes[m].Format.IsMatch() && objectives > 1 ? objectives : 0;
                     if (shown != wanted)
                     {
                         problems.Add($"{entry.Id}, {level.Places[p].Id}: {modes[m].Id} offers {shown} objectives, not {wanted}");

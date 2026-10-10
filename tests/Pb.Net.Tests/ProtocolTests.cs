@@ -273,6 +273,13 @@ public class ProtocolTests
             TargetId = -1, ColliderId = -1 }],
         [new SimEvent { Type = SimEventType.BuzzerHung, Tick = 99, PlayerId = 3, Team = 0, Position = new Vector3(0f, 0f, -26f), Value = 1f, Extra = 1,
             TargetId = -1, ColliderId = -1 }],
+        // Capture the flag: the flag in Extra, its side in Value (−1, the one in the middle of a field).
+        [new SimEvent { Type = SimEventType.FlagTaken, Tick = 97, PlayerId = 4, Team = 1, Position = new Vector3(0f, 1.2f, 0f), Value = -1f, Extra = 0,
+            TargetId = -1, ColliderId = -1 }],
+        [new SimEvent { Type = SimEventType.FlagDropped, Tick = 98, PlayerId = 4, Team = 1, Position = new Vector3(-8f, 0f, 30f), Value = 0f, Extra = 0,
+            TargetId = -1, ColliderId = -1 }],
+        [new SimEvent { Type = SimEventType.FlagCaptured, Tick = 100, PlayerId = 2, Team = 0, Position = new Vector3(40f, 0f, -44f), Value = 1f, Extra = 1,
+            TargetId = -1, ColliderId = -1 }],
     ];
 
     [Theory]

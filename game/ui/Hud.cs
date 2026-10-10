@@ -159,15 +159,28 @@ public partial class Hud : CanvasLayer, ISimEventListener
         hud.Initialize(_sim, _player, objective, view);
     }
 
-    /// <summary>Speedball: the countdown, the match's score (<paramref name="score"/>) and the hang under way.</summary>
-    public void InitializeSpeedball(Func<(int Ours, int Theirs, int RaceTo, int Point)?> score)
+    /// <summary>Capture the flag: the flags' markers and how they stand, once the point has started.</summary>
+    public void InitializeFlags(FlagsViewDef view)
     {
-        if (_sim.Match?.Buzzers is null || _hudDef is null)
+        if (_sim.Match?.Flags is not { } flags)
         {
             return;
         }
 
-        var hud = new SpeedballHud { Name = "Speedball" };
+        var hud = new FlagHud { Name = "Flags" };
+        GetNode<Control>("Root").AddChild(hud);
+        hud.Initialize(_sim, _player, flags, view, side => _teams[side % _teams.Length]);
+    }
+
+    /// <summary>A match of points: the countdown, the match's score (<paramref name="score"/>) and in speedball the hang under way.</summary>
+    public void InitializePoints(Func<(int Ours, int Theirs, int RaceTo, int Point)?> score)
+    {
+        if (_sim.Match is not { } match || !Pb.Sim.Match.MatchFormats.IsMatch(match.Setup.Format) || _hudDef is null)
+        {
+            return;
+        }
+
+        var hud = new PointsHud { Name = "Points" };
         GetNode<Control>("Root").AddChild(hud);
         hud.Initialize(_sim, _player, _teams[_player.Team % _teams.Length], _hudDef.HornShow_s, score);
     }
@@ -283,6 +296,12 @@ public partial class Hud : CanvasLayer, ISimEventListener
             return;
         }
 
+        if (e.Type is SimEventType.FlagTaken or SimEventType.FlagDropped or SimEventType.FlagCaptured)
+        {
+            FlagToast(e);
+            return;
+        }
+
         if (e.PlayerId != _player?.Id)
         {
             return;
@@ -326,6 +345,28 @@ public partial class Hud : CanvasLayer, ISimEventListener
                 Pb.Sim.Match.HoldStatus.Theirs => $"They're in {room}",
                 _ => null,
             },
+            _ => null,
+        };
+        if (line is not null)
+        {
+            Toast(line, 3.0);
+        }
+    }
+
+    /// <summary>What just happened to a flag (its index in Extra, its side in Value: −1 for the one in the middle).</summary>
+    private void FlagToast(in SimEvent e)
+    {
+        bool you = e.PlayerId == _player.Id;
+        string who = you ? "You" : _sim.FindPlayer(e.PlayerId)?.Name ?? "Someone";
+        bool centre = e.Value < 0;
+        string flag = centre ? "the flag" : e.Value == _player.Team ? "your flag" : "their flag";
+        bool field = _sim.Match?.Flags?.IsCentre == true;
+        string? line = e.Type switch
+        {
+            SimEventType.FlagTaken when you => $"You have {flag}: get it to {(field ? "their buzzer" : "your base")} (you can't sprint with it)",
+            SimEventType.FlagTaken => $"{who} has {flag}",
+            SimEventType.FlagDropped => you ? $"You're out: {flag} is down" : $"{who} is out: {flag} is down",
+            SimEventType.FlagCaptured => $"{who} captured {flag}!",
             _ => null,
         };
         if (line is not null)

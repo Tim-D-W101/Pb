@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # CI's networked rounds (architecture §16.14): a headless dedicated server and five headless players on this machine, over
-# real UDP, playing a round on every area in all four modes (tools/ci/net-round.jsonc; on the Sports Ground a speedball
-# match, point after point, which counts once), with bots filling to ten. Each player has a bot at its controls, sending
+# real UDP, playing a round on every area in every mode (tools/ci/net-round.jsonc; on the Sports Ground a speedball
+# match, point after point, which counts once, and in the Cold Store a capture the flag match), with bots filling to ten. Each player has a bot at its controls, sending
 # its commands through the network as a person's would:
 #   Ada, Bo and Cy  play fairly at 100 ms round trip, with jitter and 1% loss, each in a brand's kit (--kit=BRAND);
 #   Trigger         flips its trigger on every tick (--net-cheat=fire): the server must hold it to the fire rate;
@@ -65,7 +65,7 @@ for name in "${names[@]}"; do
   fi
 done
 
-# Every copy ends every round (each point of a speedball match one of them) with the server's result, to the shot.
+# Every copy ends every round (each point of a match one of them) with the server's result, to the shot.
 played=$(grep -c "^NET RESULT round" "$logs/server.log")
 [ "$played" -gt "$rounds" ] || fail "the server played $played rounds: a speedball match should have had at least two points"
 for r in $(seq "$played"); do
@@ -114,4 +114,4 @@ if [ "$failed" -ne 0 ]; then
   echo "Logs: $logs"
   exit 1
 fi
-echo "NET ROUNDS PASS: $rounds rounds ($played with each point of the speedball match), every copy with the server's result; traffic within $budget_kBps KB/s; Trigger held to the cap ($trigger_shots shots); Clock's extra commands dropped and logged; everyone's kit on every copy"
+echo "NET ROUNDS PASS: $rounds rounds ($played with each point of the matches), every copy with the server's result; traffic within $budget_kBps KB/s; Trigger held to the cap ($trigger_shots shots); Clock's extra commands dropped and logged; everyone's kit on every copy"

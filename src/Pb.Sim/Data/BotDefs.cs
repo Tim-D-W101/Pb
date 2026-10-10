@@ -82,6 +82,38 @@ public sealed class SpeedballBrainDef : IValidatable
     }
 }
 
+/// <summary>How bots play capture the flag (bots/brain.jsonc "flag").</summary>
+public sealed class FlagBrainDef : IValidatable
+{
+    /// <summary>With a flag each, this share of a side's bots (at least one, from two up) guards its own; the rest go for theirs.</summary>
+    public float DefendShare { get; set; }
+
+    /// <summary>When the other side carries a flag, this many of a side's bots nearest the carrier go after them…</summary>
+    public int Chasers { get; set; }
+
+    /// <summary>… told where the carrier is this often.</summary>
+    public float AlarmInterval_s { get; set; }
+
+    /// <summary>Any bot within this far of a dropped flag it may take goes for it, whatever its part.</summary>
+    public float NearDropped_m { get; set; }
+
+    /// <summary>A bot going for a flag (or carrying one) that's been in a fight this long without it ending presses on…</summary>
+    public float PressOnAfter_s { get; set; }
+
+    /// <summary>… for this long: on for the flag, or home with it, whatever it sees (shooting as it goes if it can).</summary>
+    public float PressFor_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(DefendShare), DefendShare, 0, 1);
+        v.InRange(nameof(Chasers), Chasers, 0, 10);
+        v.InRange(nameof(AlarmInterval_s), AlarmInterval_s, 0.2, 30);
+        v.InRange(nameof(NearDropped_m), NearDropped_m, 0, 60);
+        v.InRange(nameof(PressOnAfter_s), PressOnAfter_s, 1, 120);
+        v.InRange(nameof(PressFor_s), PressFor_s, 0, 60);
+    }
+}
+
 public sealed class BrainDef : IValidatable
 {
     public float SuspiciousTime_s { get; set; }
@@ -193,9 +225,13 @@ public sealed class BrainDef : IValidatable
     /// <summary>How bots play speedball (the field's points).</summary>
     public SpeedballBrainDef Speedball { get; set; } = new();
 
+    /// <summary>How bots play capture the flag.</summary>
+    public FlagBrainDef Flag { get; set; } = new();
+
     public void Validate(Validator v)
     {
         Speedball.Validate(v.Scope(nameof(Speedball)));
+        Flag.Validate(v.Scope(nameof(Flag)));
         v.InRange(nameof(CalloutRange_m), CalloutRange_m, 0, 200);
         v.InRange(nameof(ContactError_m), ContactError_m, 0, 20);
         v.InRange(nameof(ShareInterval_s), ShareInterval_s, 0.2, 60);

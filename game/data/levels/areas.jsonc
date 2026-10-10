@@ -10,7 +10,7 @@
 // roster: the opponent spawns scripted solo runs over the whole area (smoke tests, demos) fill, in this
 // order, so they play out the same every time. Real rounds deal random starts (rules.jsonc "spawning").
 // modes (optional): the modes the area offers (rules.jsonc "modes" ids), in the menu's order; without it, every mode
-// played as one round.
+// but speedball (which needs a field).
 {
   // The menu keeps your best result in each area, place, mode, objective and difficulty (records only:
   // they unlock nothing). Accuracy only counts from rounds with at least this many shots.
@@ -67,9 +67,9 @@
     },
     {
       // The club's speedball field (Phase 5): its own modes, and no pickups on the field (you carry what you bring). A
-      // speedball point has the speedball clock (rules.jsonc "speedball"), not the tier's.
+      // point of speedball or capture the flag has its mode's clock (rules.jsonc "speedball", "flag"), not the tier's.
       "id": "sports_ground", "displayName": "The Sports Ground", "file": "levels/sports_ground.jsonc",
-      "modes": ["speedball"],
+      "modes": ["speedball", "flag"],
       "tiers": [
         { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 600, "startPods": 3, "botPods": 2, "pickups": false },
         { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 540, "startPods": 2, "botPods": 2, "pickups": false },

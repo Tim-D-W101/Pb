@@ -1461,8 +1461,8 @@ As built (M5.6):
   and that speedball has a field to play on). Scripted runs may still name any mode (`--mode`): CI's level smoke test
   plays solo on the field.
 - **The starts.** `FieldSpec.StartOf(side, i, n)` puts a side in a row across its start box, half a metre in from each
-  end, at the box's middle depth, everyone facing up the field (`FieldSpec.StartYaw`). `SpawnPlanner.Speedball` puts you
-  in the middle of the south's (side 0).
+  end, at the box's middle depth, everyone facing up the field (`FieldSpec.StartYaw`). `SpawnPlanner.Speedball` (since
+  M5.7 `StartBoxes`, for any match of points on a field) puts you in the middle of the south's (side 0).
 - **`BuzzerSet`** (`Pb.Sim/Match/Buzzers.cs`): a station at each side's post. `SimWorld.Step` passes each player's
   Interact to `Hold` on the authority (live, in, not climbing). The first player of the other side within
   `hangReach_m` hangs it, one at a time; `MatchState.Update` runs the hang on, and starts it again if they let go,
@@ -1470,7 +1470,7 @@ As built (M5.6):
 - **`SpeedballMode`** (`IMatchMode`): a hung buzzer wins the point for the hanger's side (`RoundEnd.Hung`); otherwise the
   last side standing wins it. At time up the side with more players still in takes it (`RoundEnd.MoreIn`), and a tie
   is `TimeUp`, nobody's. `RoundOutcome` gained `BuzzerHung`, `BuzzerLost`, `AheadAtTime` and `BehindAtTime`.
-- **The HUD** (`SpeedballHud`): the countdown; "POINT 2 · 1–0 · FIRST TO 4" under the top bar; and while a buzzer's being
+- **The HUD** (`SpeedballHud`, since M5.7 `PointsHud` for any match of points): the countdown; "POINT 2 · 1–0 · FIRST TO 4" under the top bar; and while a buzzer's being
   hung, a bar filling over the hang time and a line saying whose (in your side's colour when it's theirs, in red when
   it's yours). In reach of their station the prompt says to hold Interact. The referee calls the buzzer and whose point
   it is (`hud.referee`: `buzzer`, `pointWon`, `pointLost`, `noPoint`). Those lines are subtitled only until a take of
@@ -1513,6 +1513,86 @@ As built (M5.6), from `bots/brain.jsonc` → `speedball`:
 - **Bots:** attackers take, carry and escort; defenders guard their flag with the objectives' posts and alarms; anyone
   near a dropped flag goes for it.
 - **Levels:** a compound area offers it in the places both sides' starts fit (`LevelObjectives.Offers`).
+
+As built (M5.7):
+
+- **A match of points for any mode.** `MatchFormat` gained `Flag`. `MatchFormats.IsMatch()` is every format but `Round`,
+  and `NeedsField()` only speedball's, so `MatchRules.ModesFor` gives an area without a `modes` list every mode that
+  doesn't need a field: capture the flag is on every compound area, and the Sports Ground lists it too. Speedball's and
+  the flag's rules share `IPointRules` (`RaceTo`, `Countdown`, `BetweenPoints`, `ClockFor(onField)`), which
+  `MatchRules.PointsFor(format)` hands to the match series, the menus, the lobby, the server and `RoundCasting`.
+  `MatchRules.FieldRoleOf(mode)` is the role every bot plays from a start box.
+- **Data** (`rules.jsonc`): the `flag` mode (kind `teams`, `format: flag`, 3 to 5 a side, 4 by default; hunters, flankers,
+  rushers and a sentry; `restlessAfter_s` 40) and the `flag` block: `raceTo` 3, `pointTime_s` 300 (a compound),
+  `fieldPointTime_s` 180, `countdown_s` 3, `betweenPoints_s` 6, `pickupReach_m` 1.6, `scoreReach_m` 2.5,
+  `carrierCanSprint` false, and `fieldRole` (`speedball`). The field's layouts name the flag's spot (`flag_m`, [0, 0]);
+  `LevelFactory.FlagHome` stands it on the top of the layout's piece there, the centre bunker.
+- **`FlagSet`** (`Pb.Sim/Match/Flags.cs`), built by `SimWorld.StartMatch`:
+  - on a field, `FlagSet.Centre`: one flag on the centre bunker, nobody's, that either side may take; side 0 scores at
+    the north's buzzer station and side 1 at the south's;
+  - elsewhere, `FlagSet.Bases`: each side's flag where its first player starts, and nobody takes their own. A carrier
+    scores by bringing the other side's to their own base.
+  - `Update` (authority only, after everyone's moved): a flag lying anywhere is taken by the first player in reach who
+    may take it (`pickupReach_m`, and no more than 1.5 m above or below). A carried flag follows its carrier
+    (`SprintBlocked` while they carry it), falls where they go out or leave and stays there, and scores within
+    `scoreReach_m` of where its carrier's side scores. Events: `FlagTaken`, `FlagDropped`, `FlagCaptured` (the flag in
+    `Extra`, its side in `Value`, −1 for the centre flag). A joining copy is told how it stands (`ApplyServer`).
+- **The bases are on the ground.** `RoundShape.Bases` (a flag round) makes `SpawnPlanner` pick the other team's spot from
+  the far fair starts within `spawning.baseHeight_m` (0.3) of your height, and start their first player on it. You come
+  in at a player spawn, on the ground. Otherwise a base could be a cover point up on a container that nobody could
+  walk to. Over eight seeds per area the bases were never closer than 42 m (the Hospital Wing) to 102 m (the Rail
+  Yard).
+- **`CaptureMode`:** a capture wins the point (`RoundEnd.Captured`; `RoundOutcome.FlagCaptured` and `FlagLost`), and
+  otherwise the last side standing does. At time up the side with more players still in takes it (`MoreIn`), as in
+  speedball.
+- **The look** (`presentation.jsonc` → `flags`, `FlagViews`): a cloth on a pole, waving in a small vertex shader. Each
+  side's is in its colour, and the centre flag is chequered black and white. It stands in a weighted stand, which stays
+  at home while the flag's away. Carried, it rides on its carrier's back, leaning back with the cloth streaming behind;
+  dropped, it lies still where it fell. A ring on the ground in each side's colour marks where that side scores. Your own
+  carried flag isn't drawn in first person.
+- **The HUD** (`FlagHud`): markers with distances for the flag you're after, whoever of yours or theirs carries it (not
+  within 8 m, where their name shows), where you score while you carry one, and your own flag while it's away. A line
+  under the match's score says how the flags stand ("THEY HAVE YOUR FLAG · STOP WREN", in red when it's bad for you).
+  Toasts say who took, dropped or captured which flag. The briefing map marks the flags.
+- **The briefing and the summary** explain the variant (the centre flag to their buzzer, or theirs home and keep yours),
+  and the summary's headline is FLAG CAPTURED or FLAG LOST, with who carried it home and when.
+- **Referee, sound and callouts:** the referee calls a flag taken, a flag down and a flag captured (`hud.referee`:
+  `flagTaken`, `flagDown`, `flagCaptured`). A take or a drop sounds like the case's where it happens, and your side hears
+  the case's cues. Bots shout when they take a flag, when their carrier goes out close by, and when they're sent after
+  the other side's carrier (`hud.callouts`: `flagTaken`, `flagDown`, `flagAlarm`). The new lines are subtitled only
+  until takes of them are imported.
+- **Bots** (`bots/brain.jsonc` → `flag`):
+  - With a flag each, at the horn the squad gives `defendShare` (0.4) of each side's bots (one at least, from two up) a
+    post round their own flag; the rest go for theirs (`BotBrain.AttackFlag`).
+  - A carrier takes it home. An attacker escorts it, leading the way home if it's nearer home than the carrier,
+    else keeping up behind. Two bodies met head-on in a doorway would otherwise hold each other up for good.
+  - Every `alarmInterval_s` (4 s), the `chasers` (2) nearest the other side's carrier are told where it is. A side's
+    dropped flag gets its defenders' posts round it. A side with nobody left going for the other flag sends the bot
+    nearest it.
+  - Any bot within `nearDropped_m` (12) of a dropped flag it may take goes for it.
+  - A bot going for a flag, or carrying one, that's been in a fight for `pressOnAfter_s` (12) presses on for `pressFor_s`
+    (6) whatever it sees. Otherwise two bots peeking at each other from cover could hold a one-life point up until time
+    ran out.
+  - On the field every bot plays speedball. Every `hangCheck_s`, the squad sends a side's bot nearest the flag to take it
+    when none of the other side can see the flag, or when its side has more players in.
+- **`--flag-demo`** (with `--mode=flag`): one of your bots takes the flag you're after with the other side off the
+  field, and you follow it home until it scores (`--flag-drop`: it goes out on the way).
+- **Tests:**
+  - `FlagTests`: the centre flag on the bunker of both layouts, scoring only at the other side's station; a dropped
+    flag staying for either side; with two bases nobody taking their own, theirs scoring at yours; time up; no
+    allocation.
+  - `FlagBotTests`: the parts at the horn; unopposed attackers bringing theirs home; on the field the nearest bot going;
+    the chasers told where the carrier is; an escort met on the way leading the carrier home; whole points ending on
+    the field and in Oxbarrow Works.
+  - `SpawnPlannerTests`: the bases on the ground in every compound.
+  - `FlagNetTests`: the starts and the clock in a compound and on the field; the flag through the snapshot, taken,
+    dropped and captured; the lobby's match.
+- **Known:** with one life each, bots in a compound mostly settle a point by putting the other side out before a flag is
+  taken. Fights start 3 to 12 s after the horn, and the bases are often 70 to 150 m apart. Over twelve 4 v 4 bot points
+  per area (the headless arena), a flag was taken in 0 to 2 of them and captured in 0 or 1, the points lasting 48 to 94 s
+  on average. On the field (5 v 5) the flag was taken in 7 or 8 of 12 and captured in 0 or 1, in points of 16 to 19 s.
+  With people playing, the flags are up to them. The plan's other option, capture the flag with arcade's respawns, is
+  cheap to add once M5.8 has them.
 
 ### 17.10 Arcade
 
@@ -1585,6 +1665,15 @@ As built (M5.6), from `bots/brain.jsonc` → `speedball`:
     score after each point. The shipped `server.jsonc` plays a speedball match as its fifth round.
   - CI's networked rounds play a speedball match to two points on Crossfire, and check every point's result on every
     copy.
+- **As built (M5.7):** **protocol 6.** `WorldFields`' match block has 36 slots: each of the two flags' position, carrier
+  and status (home, carried, dropped, captured), the side that captured one and who carried it home. `EventCodec` carries
+  `FlagTaken`, `FlagDropped` and `FlagCaptured`. A carrier's sprint block reaches its own copy in the own-player fields,
+  as the case carrier's always has. `RoundCasting` casts a flag point on a field into the start boxes, on the field's
+  clock, and elsewhere at the bases. The lobby, the in-game host and the dedicated server play its match as they play
+  speedball's. CI's networked rounds play a flag match in the Cold Store.
+  - Fixed: a place goes by its id in the lobby's choices, the vote, the rotation and a round's setup, unless it's the
+    area's first (`RoundChoices.PlaceIdOf`). Before, any place covering the whole area went as no place at all (the
+    first), so online the field's Crossfire was played as Classic, and the server logged that it had no such place.
 
 ### 17.12 Testing
 

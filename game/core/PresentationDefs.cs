@@ -142,9 +142,13 @@ public sealed class PresentationDef : IValidatable
 
     public ObjectivesViewDef Objectives { get; set; } = new();
 
+    /// <summary>Capture the flag (Phase 5): the flags, their stands, the rings where each side scores, the HUD's markers.</summary>
+    public FlagsViewDef Flags { get; set; } = new();
+
     public void Validate(Validator v)
     {
         Objectives.Validate(v.Scope(nameof(Objectives)));
+        Flags.Validate(v.Scope(nameof(Flags)));
         if (TeamColors.Length < 2)
         {
             v.Error(nameof(TeamColors), "needs at least two colours");
@@ -2421,6 +2425,76 @@ public sealed class ObjectivesViewDef : IValidatable
     }
 }
 
+public sealed class FlagsViewDef : IValidatable
+{
+    /// <summary>The cloth: its width along the pole's top, and its height down it.</summary>
+    public float[] ClothSize_m { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>The colour of the one flag in the middle of a field (a side's flag is in its side's colour)…</summary>
+    public string CentreColor { get; set; } = "";
+
+    /// <summary>… chequered with black, this many squares along it.</summary>
+    public int CentreChequers { get; set; }
+
+    public float PoleHeight_m { get; set; }
+
+    public float PoleRadius_m { get; set; }
+
+    public string PoleColor { get; set; } = "";
+
+    /// <summary>How fast the cloth waves (cycles a second), and how far its free end moves.</summary>
+    public float WaveSpeed { get; set; }
+
+    public float WaveAmount_m { get; set; }
+
+    public float StandRadius_m { get; set; }
+
+    public string StandColor { get; set; } = "";
+
+    /// <summary>Carried: the pole's foot this far up the carrier's back and this far behind them, leaning back this much.</summary>
+    public float CarryFoot_m { get; set; }
+
+    public float CarryBack_m { get; set; }
+
+    public float CarryLean_deg { get; set; }
+
+    /// <summary>The rings where each side scores: their line's thickness and opacity (their radius is the rules' scoreReach_m).</summary>
+    public float RingWidth_m { get; set; }
+
+    public float RingAlpha { get; set; }
+
+    public float MarkerSize_px { get; set; }
+
+    public void Validate(Validator v)
+    {
+        foreach ((string key, string value) in new[] { (nameof(CentreColor), CentreColor), (nameof(PoleColor), PoleColor), (nameof(StandColor), StandColor) })
+        {
+            if (!Godot.Color.HtmlIsValid(value))
+            {
+                v.Error(key, $"'{value}' is not a valid colour");
+            }
+        }
+
+        if (ClothSize_m.Length != 2 || ClothSize_m.Any(s => s <= 0f || s > 3f))
+        {
+            v.Error(nameof(ClothSize_m), "needs a width and a height, each above 0 and up to 3 m");
+        }
+
+        v.InRange(nameof(CentreChequers), CentreChequers, 0, 16);
+        v.InRange(nameof(PoleHeight_m), PoleHeight_m, 0.5, 5);
+        v.InRange(nameof(PoleRadius_m), PoleRadius_m, 0.005, 0.1);
+        v.InRange(nameof(WaveSpeed), WaveSpeed, 0, 5);
+        v.InRange(nameof(WaveAmount_m), WaveAmount_m, 0, 0.5);
+        v.InRange(nameof(StandRadius_m), StandRadius_m, 0.05, 1);
+        v.InRange(nameof(CarryFoot_m), CarryFoot_m, 0, 2);
+        v.InRange(nameof(CarryBack_m), CarryBack_m, 0, 1);
+        v.InRange(nameof(CarryLean_deg), CarryLean_deg, 0, 60);
+        v.InRange(nameof(RingWidth_m), RingWidth_m, 0.01, 1);
+        v.InRange(nameof(RingAlpha), RingAlpha, 0, 1);
+        v.InRange(nameof(MarkerSize_px), MarkerSize_px, 4, 64);
+    }
+}
+
 public sealed class HudDef : IValidatable
 {
     public float IconSize_px { get; set; }
@@ -2541,10 +2615,17 @@ public sealed class RefereeDef : IValidatable
 
     public string[] NoPoint { get; set; } = System.Array.Empty<string>();
 
+    /// <summary>Capture the flag: a flag's been taken, one's down where its carrier went out, and (ending the point) one's captured.</summary>
+    public string[] FlagTaken { get; set; } = System.Array.Empty<string>();
+
+    public string[] FlagDown { get; set; } = System.Array.Empty<string>();
+
+    public string[] FlagCaptured { get; set; } = System.Array.Empty<string>();
+
     /// <summary>Every line, in order (the referee's script).</summary>
     public IEnumerable<string> All => Start.Concat(OneMinute).Concat(ThirtySeconds).Concat(TimeUp).Concat(YoureOut).Concat(Won).Concat(Lost)
         .Concat(LastStanding).Concat(CaseOut).Concat(RoomHeld).Concat(RoomTaken).Concat(RoomContested).Concat(Buzzer).Concat(PointWon)
-        .Concat(PointLost).Concat(NoPoint);
+        .Concat(PointLost).Concat(NoPoint).Concat(FlagTaken).Concat(FlagDown).Concat(FlagCaptured);
 
     public void Validate(Validator v)
     {
@@ -2587,9 +2668,17 @@ public sealed class CalloutsDef : IValidatable
 
     public string[] RoomAlarm { get; set; } = System.Array.Empty<string>();
 
+    /// <summary>Capture the flag: took a flag; its side's carrier went out close by; told the other side has one.</summary>
+    public string[] FlagTaken { get; set; } = System.Array.Empty<string>();
+
+    public string[] FlagDown { get; set; } = System.Array.Empty<string>();
+
+    public string[] FlagAlarm { get; set; } = System.Array.Empty<string>();
+
     /// <summary>Every line, in order (the bots' script).</summary>
     public IEnumerable<string> All => Spotted.Concat(Lost).Concat(UnderFire).Concat(Refill).Concat(Hit).Concat(Flanking).Concat(Pushing)
-        .Concat(Moving).Concat(ManDown).Concat(CaseTaken).Concat(CaseDown).Concat(CaseAlarm).Concat(RoomAlarm);
+        .Concat(Moving).Concat(ManDown).Concat(CaseTaken).Concat(CaseDown).Concat(CaseAlarm).Concat(RoomAlarm).Concat(FlagTaken).Concat(FlagDown)
+        .Concat(FlagAlarm);
 
     public string[] For(Pb.Sim.AI.CalloutKind kind) => kind switch
     {
@@ -2606,6 +2695,9 @@ public sealed class CalloutsDef : IValidatable
         Pb.Sim.AI.CalloutKind.CaseDown => CaseDown,
         Pb.Sim.AI.CalloutKind.CaseAlarm => CaseAlarm,
         Pb.Sim.AI.CalloutKind.RoomAlarm => RoomAlarm,
+        Pb.Sim.AI.CalloutKind.FlagTaken => FlagTaken,
+        Pb.Sim.AI.CalloutKind.FlagDown => FlagDown,
+        Pb.Sim.AI.CalloutKind.FlagAlarm => FlagAlarm,
         _ => System.Array.Empty<string>(),
     };
 
@@ -2613,7 +2705,8 @@ public sealed class CalloutsDef : IValidatable
     {
         foreach ((string name, string[] lines) in new[] { (nameof(Spotted), Spotted), (nameof(Lost), Lost), (nameof(UnderFire), UnderFire), (nameof(Refill), Refill), (nameof(Hit), Hit),
                      (nameof(Flanking), Flanking), (nameof(Pushing), Pushing), (nameof(Moving), Moving), (nameof(ManDown), ManDown),
-                     (nameof(CaseTaken), CaseTaken), (nameof(CaseDown), CaseDown), (nameof(CaseAlarm), CaseAlarm), (nameof(RoomAlarm), RoomAlarm) })
+                     (nameof(CaseTaken), CaseTaken), (nameof(CaseDown), CaseDown), (nameof(CaseAlarm), CaseAlarm), (nameof(RoomAlarm), RoomAlarm),
+                     (nameof(FlagTaken), FlagTaken), (nameof(FlagDown), FlagDown), (nameof(FlagAlarm), FlagAlarm) })
         {
             if (lines.Length == 0)
             {

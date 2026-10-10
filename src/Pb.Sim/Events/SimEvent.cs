@@ -78,6 +78,19 @@ public enum SimEventType : byte
 
     /// <summary>Speedball: a buzzer was hung, which wins the point. As <see cref="BuzzerHanging"/>.</summary>
     BuzzerHung,
+
+    /// <summary>
+    /// Capture the flag: someone took a flag. <see cref="SimEvent.PlayerId"/> who, <see cref="SimEvent.Team"/> their side,
+    /// <see cref="SimEvent.Extra"/> which flag, <see cref="SimEvent.Value"/> its side (−1: the centre flag),
+    /// <see cref="SimEvent.Position"/> where it was.
+    /// </summary>
+    FlagTaken,
+
+    /// <summary>Capture the flag: a carrier went out, and the flag lies where they fell. As <see cref="FlagTaken"/>.</summary>
+    FlagDropped,
+
+    /// <summary>Capture the flag: a carrier brought a flag to where their side scores, which wins the point. As <see cref="FlagTaken"/>.</summary>
+    FlagCaptured,
 }
 
 public enum FootstepKind : byte

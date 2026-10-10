@@ -126,5 +126,17 @@
   "speedball": {
     "backShare": 0.2, "midShare": 0.4, "breakoutFor_s": 5, "bunkerBias": 14,
     "advanceMargin": 1, "advanceEvery_s": 5, "hangCheck_s": 0.5
-  }
+  },
+
+  // Capture the flag. With a flag for each side (the compound areas), at the horn the squad gives defendShare of each
+  // side's bots (at least one, from two up) a post round their own flag, and sends the rest for the other side's. A bot
+  // that takes a flag carries it to where its side scores, and the attackers escort it there. On the field (one flag in
+  // the middle) everyone plays speedball, and every speedball hangCheck_s the squad sends a side's bot nearest the flag
+  // to take it when none of the other side can see it, or when its side has more players in. When the other side
+  // carries a flag, the chasers of a side nearest the carrier go after them, told where they are every alarmInterval_s;
+  // a side's own flag dropped, its defenders guard it where it lies. Any bot within nearDropped_m of a dropped flag it
+  // may take goes for it. A bot going for a flag, or carrying one, that has been in a fight for pressOnAfter_s without
+  // it ending presses on for pressFor_s: on for the flag, or home with it, whatever it sees (one life each, two bots
+  // peeking at each other from cover would otherwise hold the point up until time ran out).
+  "flag": { "defendShare": 0.4, "chasers": 2, "alarmInterval_s": 4, "nearDropped_m": 12, "pressOnAfter_s": 12, "pressFor_s": 6 }
 }

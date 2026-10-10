@@ -96,7 +96,7 @@ public class SpeedballNetTests
             lobby.Update();
         }
 
-        Assert.True(lobby.Speedball);
+        Assert.True(lobby.PlaysMatch);
         Assert.Equal(2, lobby.RaceTo);
         Assert.False(lobby.MatchOn);
         var people = new[] { new PersonInRound(LobbyHost.HostId, 0, 0), new PersonInRound(ada.Net.Welcome!.ClientId, 1, 1) };

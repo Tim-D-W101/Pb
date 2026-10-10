@@ -148,6 +148,33 @@ public class SpawnPlannerTests
         Assert.True(spread <= Rules.TeamSpread * 1.5f, $"the other team is spread {spread:0.0} m round its centre");
     }
 
+    [Fact]
+    public void In_capture_the_flag_the_other_teams_base_is_on_the_ground_on_the_far_side_of_every_compound()
+    {
+        GameMode flag = Mode("flag");
+        foreach (string id in TestData.Data.Areas.Areas.Select(a => a.Id).Where(id => TestData.Data.Levels[id].Field is null))
+        {
+            LevelLayout level = TestData.Data.Levels[id];
+            NavGrid grid = NavGrid.Build(level, TestData.Data.Bots.Navigation);
+            var world = new CollisionWorld();
+            level.BuildCollision(world);
+            CoverSet cover = CoverSet.Build(level, grid, TestData.Config.Movement.StandEyeHeight, TestData.Config.Movement.CrouchEyeHeight);
+            float nearest = float.MaxValue;
+            for (ulong seed = 500; seed < 508; seed++)
+            {
+                SpawnPlan plan = SpawnPlanner.Plan(level, cover, world, Rules, TestData.Data.Bots, RoundShape.Of(flag, 4), TestData.Config.Movement.StandEyeHeight, seed);
+                Vector3 you = plan.You.Position, theirs = plan.Opponents[0].Position;
+                Assert.True(MathF.Abs(theirs.Y - you.Y) <= Rules.BaseHeight, $"{id} seed {seed}: their base {theirs} isn't on the ground");
+                Assert.True(grid.TrySnap(theirs, out Vector3 onGrid) && MathF.Abs(onGrid.Y - theirs.Y) < 0.3f, $"{id} seed {seed}: nobody could walk to {theirs}");
+                Assert.Equal(4, plan.Opponents.Count);
+                nearest = MathF.Min(nearest, Vector3.Distance(you, theirs));
+            }
+
+            _out.WriteLine($"{id}: the bases at least {nearest:0} m apart");
+            Assert.True(nearest >= Rules.MinDistanceFromYou, $"{id}: the bases only {nearest:0} m apart");
+        }
+    }
+
     [Theory]
     [InlineData(2, 6)]
     [InlineData(4, 6)]

@@ -100,6 +100,9 @@
     "size_m": [36, 45],
     "startBox_m": [6, 3],
     "buzzer_m": [0, 25.5],
+    // Capture the flag's centre flag: on top of whatever bunker each layout has on this spot (the middle of the field,
+    // the one place both layouts' halves are alike about).
+    "flag_m": [0, 0],
     // The nets on the level's bounds, 5.5 m tall on posts 4 m apart with a skirt along their foot, the buzzer stations'
     // box and button, and the banners on the nets (yaw 0 faces +z): the club's at each end, the four brands' at the sides.
     "dressing": {

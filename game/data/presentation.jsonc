@@ -1159,7 +1159,12 @@
       "caseTaken": ["Got the case!", "I've got it, cover me!", "Case is mine, heading out!"],
       "caseDown": ["Case is down!", "We lost the case, grab it!", "Someone get the case!"],
       "caseAlarm": ["They've got the case!", "The case is moving, stop them!", "Cut them off!"],
-      "roomAlarm": ["They're in the room!", "Take the room back!", "They're holding it, go!"]
+      "roomAlarm": ["They're in the room!", "Take the room back!", "They're holding it, go!"],
+      // Capture the flag (no take of these yet: subtitled only): a bot takes a flag, sees its side's carrier go out
+      // close by, or is told the other side has one.
+      "flagTaken": ["Got the flag!", "I've got the flag, cover me!", "Flag's mine, keep them off me!"],
+      "flagDown": ["The flag is down!", "Flag's down, grab it!", "Someone get that flag!"],
+      "flagAlarm": ["They've got the flag!", "The flag's moving, stop them!", "Get that flag back!"]
     },
     // What the referee calls (subtitles, and the referee's voice): at the breakout, a minute and thirty seconds from
     // time, at time, when you're out, and how the round went (won: cleared or traded; lastStanding: free-for-all
@@ -1182,7 +1187,11 @@
       "buzzer": ["Buzzer!"],
       "pointWon": ["Point to you!"],
       "pointLost": ["Point to them."],
-      "noPoint": ["No point!"]
+      "noPoint": ["No point!"],
+      // Capture the flag's (subtitled only, too, until a take's imported).
+      "flagTaken": ["The flag is taken!"],
+      "flagDown": ["Flag down!"],
+      "flagCaptured": ["Flag captured!"]
     }
   },
 
@@ -1202,6 +1211,34 @@
     "beamAlpha": 0.22,
     "roomOutlineWidth_m": 0.1,
     "seenWithin_m": 30,
+    "markerSize_px": 16
+  },
+
+  // Capture the flag (rules.jsonc "flag"), looks only. Each flag is a cloth this size (width along the pole, height)
+  // in its side's colour (the one in the middle of a field, nobody's, centreColor chequered with black, centreChequers
+  // squares along it; the HUD and the map mark it in centreColor) on a pole this tall and thick, with a ball
+  // on top, waving at waveSpeed (cycles a second) by up to waveAmount_m at its free end. At home it stands in a weighted
+  // stand (standRadius_m, standColor), which stays there while the flag's away; carried, it rides on its carrier's back,
+  // the pole's foot carryFoot_m up and carryBack_m behind them, leaning back carryLean_deg; dropped, it lies where it
+  // fell, still. Where each side scores is a ring on the ground in that side's colour (as wide as the rules' scoreReach_m,
+  // ringWidth_m thick, ringAlpha opaque): round its own base, or on a field round the other side's buzzer station. The
+  // HUD marks the flags and where you score with markers this size.
+  "flags": {
+    "clothSize_m": [0.62, 0.42],
+    "centreColor": "#f4f1e8",
+    "centreChequers": 6,
+    "poleHeight_m": 1.9,
+    "poleRadius_m": 0.016,
+    "poleColor": "#cfd2d4",
+    "waveSpeed": 0.9,
+    "waveAmount_m": 0.07,
+    "standRadius_m": 0.22,
+    "standColor": "#2e312d",
+    "carryFoot_m": 0.95,
+    "carryBack_m": 0.2,
+    "carryLean_deg": 14,
+    "ringWidth_m": 0.12,
+    "ringAlpha": 0.65,
     "markerSize_px": 16
   },
 

@@ -56,7 +56,7 @@ public static class RoundWorld
             Attackers = setup.Attackers,
             EndWhenPeopleOut = setup.EndWhenPeopleOut,
             Format = format,
-            Countdown = format == MatchFormat.Speedball ? config.Rules.Speedball.Countdown : 0f,
+            Countdown = config.Rules.PointsFor(format)?.Countdown ?? 0f,
         };
     }
 }

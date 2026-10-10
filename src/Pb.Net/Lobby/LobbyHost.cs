@@ -16,7 +16,7 @@ public readonly record struct PersonInRound(int MemberId, int PlayerId, int Team
 /// It decides every request (a switch that would put the sides more than one apart is refused while balance is on;
 /// chat is cut to length and limited), and sends the lobby to everyone whenever it changes, and every few seconds
 /// during a round for the pings. The host's own player, if they play, is member 0; on a dedicated server there's none.
-/// A speedball match is played point after point without the lobby in between (<see cref="NextPoint"/>), its score kept
+/// A match of points (speedball, capture the flag) is played point after point without the lobby in between (<see cref="NextPoint"/>), its score kept
 /// here until it's won.
 /// </summary>
 public sealed class LobbyHost : IDisposable
@@ -78,16 +78,19 @@ public sealed class LobbyHost : IDisposable
     /// <summary>The mode chosen plays sides that people choose (teams).</summary>
     public bool HasSides => KindOf(State.Choices.ModeId) == MatchModeKind.Teams;
 
-    /// <summary>The mode chosen is speedball's: a match of points.</summary>
-    public bool Speedball => _rules.FindMode(State.Choices.ModeId)?.Format == MatchFormat.Speedball;
+    /// <summary>The mode chosen plays a match of points (speedball, capture the flag).</summary>
+    public bool PlaysMatch => Points is not null;
 
-    /// <summary>The points a side needs to win a speedball match.</summary>
-    public int RaceTo => State.Choices.RaceTo > 0 ? State.Choices.RaceTo : _rules.Speedball.RaceTo;
+    /// <summary>The points a side needs to win the match.</summary>
+    public int RaceTo => State.Choices.RaceTo > 0 ? State.Choices.RaceTo : Points?.RaceTo ?? 1;
 
-    /// <summary>A speedball match has begun and nobody has won it yet: its next point comes straight after the last.</summary>
-    public bool MatchOn => Speedball && State.MatchPlayed > 0 && State.MatchPoints[0] < RaceTo && State.MatchPoints[1] < RaceTo;
+    /// <summary>A match has begun and nobody has won it yet: its next point comes straight after the last.</summary>
+    public bool MatchOn => PlaysMatch && State.MatchPlayed > 0 && State.MatchPoints[0] < RaceTo && State.MatchPoints[1] < RaceTo;
 
-    /// <summary>The speedball match as it stands, for its next point's setup.</summary>
+    /// <summary>The match's rules (null when the mode chosen plays one round).</summary>
+    private IPointRules? Points => _rules.FindMode(State.Choices.ModeId) is { } mode ? _rules.PointsFor(mode.Format) : null;
+
+    /// <summary>The match as it stands, for its next point's setup.</summary>
     public MatchScore Score => new(RaceTo, State.MatchPoints[0], State.MatchPoints[1], State.MatchPlayed);
 
     /// <summary>Chat lines for the host's own screen (everything said that the host may read), each once.</summary>
@@ -279,7 +282,7 @@ public sealed class LobbyHost : IDisposable
     public void RoundOver(MatchResult result, IReadOnlyList<PersonInRound> people, IReadOnlyList<StatsEntry> stats)
     {
         MatchModeKind kind = KindOf(State.Choices.ModeId);
-        if (Speedball)
+        if (PlaysMatch)
         {
             // A point of the match: the side that reaches the target wins it, and that's what the session counts.
             State.MatchPlayed++;
@@ -332,7 +335,7 @@ public sealed class LobbyHost : IDisposable
             m.Vote = -1;
         }
 
-        // A speedball match won (or left unfinished) is over: the next one starts from nothing.
+        // A match won (or left unfinished) is over: the next one starts from nothing.
         State.MatchPoints[0] = State.MatchPoints[1] = 0;
         State.MatchPlayed = 0;
 
@@ -352,7 +355,7 @@ public sealed class LobbyHost : IDisposable
         Touch();
     }
 
-    /// <summary>A speedball point's over and the match goes on: its next point is being built now, everyone still in.</summary>
+    /// <summary>A point's over and the match goes on: its next point is being built now, everyone still in.</summary>
     public void NextPoint()
     {
         _server.LeaveRound();

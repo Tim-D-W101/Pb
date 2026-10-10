@@ -14,6 +14,8 @@
 #          solo round, a 3 v 3 hold and an eight-player free-for-all, and on the Hospital Wing a solo round, a 4 v 4
 #          retrieve and a ten-player free-for-all, and on the Sports Ground a speedball match to two points on each
 #          layout (5 v 5 on Classic, 4 v 4 on Crossfire: the level reloads between points, and every point must end);
+#          capture the flag matches to two points, 4 v 4 on the Sports Ground (one flag on the centre bunker) and 3 v 3
+#          in Oxbarrow Works (a flag at each side's base);
 #          and in parts of the areas (walled in and taped off): a
 #          six-player free-for-all in Oxbarrow Works' warehouse, a solo round in the Rail Yard's engine shed,
 #          a 3 v 3 hold inside the Cold Store and a 3 v 3 retrieve in the Hospital Wing's wings
@@ -69,6 +71,8 @@ run match-hospital-wing-ffa res://scenes/Level.tscn -- --bot-match --time-limit=
 run level-sports-ground res://scenes/Level.tscn -- "--smoke-test=$level_ticks" --level=sports_ground --mode=solo
 run match-sports-ground res://scenes/Level.tscn -- --bot-match --no-art --level=sports_ground --race-to=2
 run match-sports-ground-crossfire res://scenes/Level.tscn -- --bot-match --no-art --level=sports_ground --place=crossfire --size=4 --race-to=2
+run match-flag-field res://scenes/Level.tscn -- --bot-match --no-art --level=sports_ground --mode=flag --size=4 --race-to=2
+run match-flag res://scenes/Level.tscn -- --bot-match --no-art --mode=flag --size=3 --race-to=2
 run role-marksman res://scenes/Level.tscn -- --role-demo=marksman --level=rail_yard --no-art
 run role-flanker res://scenes/Level.tscn -- --role-demo=flanker --level=hospital_wing --no-art
 run match-place res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=ffa --size=6 --place=warehouse

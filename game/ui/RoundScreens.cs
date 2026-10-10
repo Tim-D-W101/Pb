@@ -23,7 +23,7 @@ public sealed record RoundInfo(LevelLayout Level, TierDef Tier, GameMode Mode, i
     /// <summary>"Oxbarrow Works" or "Oxbarrow Works: the warehouse".</summary>
     public string Where => Place is { } place ? $"{Level.DisplayName}: {place.DisplayName}" : Level.DisplayName;
 
-    /// <summary>The clock it's played on (s), once the round is set up: a speedball point's, not the tier's.</summary>
+    /// <summary>The clock it's played on (s), once the round is set up: a point of a match has its mode's, not the tier's.</summary>
     public float? TimeLimit { get; init; }
 }
 
@@ -75,7 +75,7 @@ public static class RoundScreens
     /// Playing with others: instead of Start, this line (a label named "Status" the level keeps up to date: who it's
     /// waiting for, the countdown), and Back becomes Leave.
     /// </param>
-    /// <param name="race">Speedball: the points a side needs to win the match.</param>
+    /// <param name="race">A match of points: the points a side needs to win it.</param>
     public static Control Briefing(RoundInfo round, Action start, Action back, Control? map = null, ObjectiveState? objective = null,
         string? waiting = null, int? race = null)
     {
@@ -88,7 +88,7 @@ public static class RoundScreens
             column.AddChild(UiKit.Title(place.DisplayName, 30, UiKit.Accent));
         }
 
-        string clock = round.Mode.Format == MatchFormat.Speedball && race is { } to
+        string clock = round.Mode.Format.IsMatch() && race is { } to
             ? $"first to {to} points, {Clock(round.TimeLimit ?? tier.TimeLimit_s)} a point"
             : $"{Clock(round.TimeLimit ?? tier.TimeLimit_s)} on the clock";
         column.AddChild(UiKit.Body($"{round.Line} · {clock}", 22, UiKit.Dim));
@@ -100,7 +100,7 @@ public static class RoundScreens
         {
             "One hit and you're out, them too. A bounce doesn't count.",
             $"You start with a full loader and {tier.StartPods} pod{(tier.StartPods == 1 ? "" : "s")}. " + Pickups(round),
-            round.Mode.Format == MatchFormat.Speedball
+            round.Mode.Format.IsMatch() && round.Level.Field is not null
                 ? "Sprint for a bunker at the horn, crouch in behind it, lean (Q/E) out round its edges, and swap shoulders (X) for left-hand ones."
                 : "Crouch to move quietly, lean (Q/E) round corners, and swap shoulders (X) for left-hand edges.",
         };
@@ -167,7 +167,8 @@ public static class RoundScreens
         };
     }
 
-    private static string[] Goal(RoundInfo round, int? race) => round.Mode.Format == MatchFormat.Speedball ? new[]
+    private static string[] Goal(RoundInfo round, int? race) => round.Mode.Format == MatchFormat.Flag ? FlagGoal(round, race)
+        : round.Mode.Format == MatchFormat.Speedball ? new[]
         {
             (race is { } to ? $"Your side against theirs, point after point: the first side to {to} point{(to == 1 ? "" : "s")} wins the match. "
                 : "Your side against theirs, point after point. ") +
@@ -194,6 +195,28 @@ public static class RoundScreens
             "eliminate every opponent before the time runs out.",
         },
     };
+
+    /// <summary>Capture the flag: one flag in the middle of a field, or one each elsewhere.</summary>
+    private static string[] FlagGoal(RoundInfo round, int? race)
+    {
+        string match = race is { } to ? $"Your side against theirs, point after point: the first side to {to} point{(to == 1 ? "" : "s")} wins the match. "
+            : "Your side against theirs, point after point. ";
+        return round.Level.Field is not null
+            ? new[]
+            {
+                match + "Each point starts from the start boxes at the horn, after a countdown.",
+                "One flag stands on the centre bunker: take it (walk up to it) and carry it to their buzzer, in their start box. " +
+                "You can't sprint with it, and if you're hit it drops where you fall, for either side to take.",
+                "Putting the whole other side out wins the point too; at time up the side with more players still in takes it.",
+            }
+            : new[]
+            {
+                match + "Each point starts at the horn, after a countdown, with your side at your base.",
+                "Your flag stands at your base and theirs at theirs: take theirs (walk up to it) and bring it to your base, and keep them off " +
+                "yours. You can't sprint with a flag, and if its carrier's hit it drops where they fall.",
+                "Putting the whole other side out wins the point too; at time up the side with more players still in takes it.",
+            };
+    }
 
     /// <summary>What to do in a round with an objective, with where it is.</summary>
     private static string[] Goal(GameMode mode, ObjectiveState objective)
@@ -222,14 +245,14 @@ public static class RoundScreens
     /// <summary>The summary: how the round went from your side, your numbers, and what next.</summary>
     /// <param name="actions">Playing with others: these buttons instead of Retry, Level select and Main menu.</param>
     /// <param name="note">Playing with others: a line under the numbers (what happens next).</param>
-    /// <param name="speedball">A speedball match: its result heads the summary, and its numbers over all its points fill it.</param>
-    /// <param name="team">Your side in <paramref name="speedball"/>.</param>
+    /// <param name="points">A match of points: its result heads the summary, and its numbers over all its points fill it.</param>
+    /// <param name="team">Your side in <paramref name="points"/>.</param>
     public static Control Summary(RoundInfo round, MatchState match, PlayerStats you, SummaryFacts facts, Action retry, Action levelSelect,
-        Action mainMenu, IReadOnlyList<(string Text, Action Act)>? actions = null, string? note = null, SpeedballMatch? speedball = null,
+        Action mainMenu, IReadOnlyList<(string Text, Action Act)>? actions = null, string? note = null, PointsMatch? points = null,
         int team = 0)
     {
         (string title, Color colour, string line) = Verdict(round.Mode, facts.Outcome, facts);
-        if (speedball is { Series: { Done: true } series })
+        if (points is { Series: { Done: true } series })
         {
             bool won = series.Winner == team;
             title = won ? "MATCH WON" : "MATCH LOST";
@@ -255,24 +278,24 @@ public static class RoundScreens
             rows.Add(("Placing", $"{ModeText.Ordinal(facts.Placing)} of {facts.Players}"));
         }
 
-        if (speedball is { Totals: true } points)
+        if (points is { Totals: true } whole)
         {
             // The whole match's numbers, over every point of it.
-            rows.Add(("Points", $"{points.Series.PointsOf(team)}–{points.Series.PointsOf(1 - team)} in {points.Series.Played}"));
-            rows.Add(("Time", Clock(points.Time)));
-            rows.Add(("Eliminations", points.Eliminations.ToString()));
-            rows.Add(("Shots", points.Shots.ToString()));
-            rows.Add(("Hits", points.Hits.ToString()));
-            rows.Add(("Accuracy", points.Shots > 0 ? $"{points.Hits / (float)points.Shots * 100:0}%" : "–"));
+            rows.Add(("Points", $"{whole.Series.PointsOf(team)}–{whole.Series.PointsOf(1 - team)} in {whole.Series.Played}"));
+            rows.Add(("Time", Clock(whole.Time)));
+            rows.Add(("Eliminations", whole.Eliminations.ToString()));
+            rows.Add(("Shots", whole.Shots.ToString()));
+            rows.Add(("Hits", whole.Hits.ToString()));
+            rows.Add(("Accuracy", whole.Shots > 0 ? $"{whole.Hits / (float)whole.Shots * 100:0}%" : "–"));
         }
         else
         {
-            if (speedball is { } played)
+            if (points is { } played)
             {
                 rows.Add(("Points", $"{played.Series.PointsOf(team)}–{played.Series.PointsOf(1 - team)} in {played.Series.Played}"));
             }
 
-            rows.Add((speedball is null ? "Time" : "Last point", Clock(match.Elapsed)));
+            rows.Add((points is null ? "Time" : "Last point", Clock(match.Elapsed)));
             if (facts.ObjectiveRow is { } objectiveRow)
             {
                 rows.Add(objectiveRow);
@@ -316,10 +339,10 @@ public static class RoundScreens
     }
 
     /// <summary>
-    /// Between a speedball match's points: who took the point and how (<paramref name="line"/>), the score, and the next
+    /// Between a match's points: who took the point and how (<paramref name="line"/>), the score, and the next
     /// point's countdown (the level reloads for it once <paramref name="wait"/> has passed).
     /// </summary>
-    public static Control BetweenPoints(RoundInfo round, SpeedballMatch match, int team, string line, float wait)
+    public static Control BetweenPoints(RoundInfo round, PointsMatch match, int team, string line, float wait)
     {
         MatchSeries series = match.Series;
         int winner = match.Last.Winner;
@@ -350,12 +373,17 @@ public static class RoundScreens
         next.HorizontalAlignment = HorizontalAlignment.Center;
         column.AddChild(next);
         Control overlay = UiKit.Overlay(UiKit.Panel(column, 660f), dim: 0.35f);
-        // The countdown to the next point, kept up by a timer of its own.
-        ulong until = Time.GetTicksMsec() + (ulong)(wait * 1000f);
-        void Count() => next.Text = $"Point {series.Played + 1} in {Math.Max(1, (int)Math.Ceiling(((long)until - (long)Time.GetTicksMsec()) / 1000.0))}…";
+        // The countdown to the next point, kept up by a timer of its own (in the game's time, as the reload's timer is).
+        const float step = 0.2f;
+        float left = wait;
+        void Count() => next.Text = $"Point {series.Played + 1} in {Math.Max(1, (int)Math.Ceiling(left))}…";
         Count();
-        var tick = new Timer { WaitTime = 0.2, Autostart = true };
-        tick.Timeout += Count;
+        var tick = new Timer { WaitTime = step, Autostart = true };
+        tick.Timeout += () =>
+        {
+            left -= step;
+            Count();
+        };
         overlay.AddChild(tick);
         return overlay;
     }
@@ -387,13 +415,17 @@ public static class RoundScreens
             return ("TIME UP", UiKit.Bad, how);
         }
 
-        // Defending an objective against people (online), and speedball's ways to win a point.
+        // Defending an objective against people (online), and the ways to win a point of a match.
         switch (outcome)
         {
             case RoundOutcome.BuzzerHung:
                 return ("BUZZER HUNG", UiKit.Good, f.ObjectiveLine ?? "Your side hung their buzzer.");
             case RoundOutcome.BuzzerLost:
                 return ("BUZZER LOST", UiKit.Bad, f.ObjectiveLine ?? "They hung your buzzer.");
+            case RoundOutcome.FlagCaptured:
+                return ("FLAG CAPTURED", UiKit.Good, f.ObjectiveLine ?? "Your side captured the flag.");
+            case RoundOutcome.FlagLost:
+                return ("FLAG LOST", UiKit.Bad, f.ObjectiveLine ?? "They captured the flag.");
             case RoundOutcome.AheadAtTime:
                 return ("AHEAD AT TIME", UiKit.Good, $"Time up with {f.OursLeft} of yours against {f.OthersLeft} of theirs still in.");
             case RoundOutcome.BehindAtTime:

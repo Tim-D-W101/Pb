@@ -275,12 +275,21 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
 
 ### M5.7 Capture the flag
 
-- [ ] Centre flag on the field, two bases in every compound area (each side's flag at its starts). Carry the flag to
+- [x] Centre flag on the field, two bases in every compound area (each side's flag at its starts). Carry the flag to
   where it scores, and a carrier who's put out drops it where they fell. One life each; a point ends on a capture, a
-  side out or the clock.
-- [ ] Built on the retrieve objective's carrying and dropping, with a flag for each side. The HUD marks both flags and
-  who carries them.
-- [ ] The bots take, carry and escort the flag, defend their own, and go for a dropped one.
+  side out or the clock. (A match of points like speedball's, first to 3: 5 minutes a point in a compound, 3 on the
+  field. The centre flag stands on the centre bunker and scores at the other side's buzzer. A side's base is where its
+  first player starts, always on the ground: the other team's is picked from the far starts at your height.)
+- [x] Built on the retrieve objective's carrying and dropping, with a flag for each side. The HUD marks both flags and
+  who carries them. (The flags are built in code, waving: each side's in its colour, the centre one chequered. They
+  ride on their carrier's back and lie where they fell. A ring in each side's colour marks where it scores. The HUD has
+  markers for the flag you're after, its carrier, where you score and your own flag while it's away, plus a line saying
+  how the flags stand. The referee calls flags taken, down and captured, and the bots shout when they take one. Online
+  too: protocol 6.)
+- [x] The bots take, carry and escort the flag, defend their own, and go for a dropped one. (With a flag each, 40 % of a
+  side guard theirs and the rest go for the other. Escorts lead the way home or keep up behind; the two nearest the
+  other side's carrier are told where it is. A bot that's been 12 s in a fight while going for a flag presses on.
+  Known: with one life each, bot points in a compound mostly end with a side out before a flag's taken.)
 
 ### M5.8 Arcade
 

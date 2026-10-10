@@ -54,9 +54,10 @@ public static class NetProtocol
     /// <summary>
     /// Bumped whenever a message changes: copies on different versions refuse each other (2: the callout key; 3: who you
     /// are, in the hello; 4: everyone's kit, in the hello, the lobby and the round's roster; 5: speedball's countdown,
-    /// buzzers and match score, in the snapshot, the round's setup and the lobby).
+    /// buzzers and match score, in the snapshot, the round's setup and the lobby; 6: capture the flag's flags and their
+    /// events, in the snapshot).
     /// </summary>
-    public const int Version = 5;
+    public const int Version = 6;
 
     public static MessageType TypeOf(ReadOnlySpan<byte> packet) => packet.Length > 0 ? (MessageType)packet[0] : MessageType.None;
 }

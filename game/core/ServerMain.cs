@@ -30,8 +30,8 @@ namespace Pb.Game.Core;
 /// <item>Each round it builds only what walking and paint need: no dressing, sound or HUD. It casts the round with
 /// everyone in and bots for the places left, sends it, waits for every copy to build it, shows the briefing, and runs
 /// it.</item>
-/// <item>After the summary it moves on to the rotation's next round, or to the vote. A speedball match goes point
-/// after point instead, everyone still in, until a side has won it.</item>
+/// <item>After the summary it moves on to the rotation's next round, or to the vote. A match of points (speedball,
+/// capture the flag) goes point after point instead, everyone still in, until a side has won it.</item>
 /// </list>
 /// It logs who joined and left, each round and how it went, and anything it dropped (<see cref="ServerLog"/>).
 /// <c>--host-wait=N</c> starts the first countdown once N people are in (and the next ones with whoever's in);
@@ -107,7 +107,7 @@ public partial class ServerMain : Node3D, ISimEventListener
         _server.Left += OnLeft;
         if (_lobby.Phase == LobbyPhase.Loading && _lobby.MatchOn)
         {
-            // A speedball match's next point, straight after the last.
+            // A match's next point, straight after the last.
             Callable.From(BuildRound).CallDeferred();
         }
     }
@@ -236,8 +236,8 @@ public partial class ServerMain : Node3D, ISimEventListener
         int size = RoundCasting.FitSize(chosen.Mode, chosen.Size, people.Count, _data.Config.Rules.MaxPlayers, largest);
         float? limit = float.TryParse(Args.Value("--time-limit"), NumberStyles.Float, CultureInfo.InvariantCulture, out float seconds) ? seconds : null;
         CastRound cast = RoundCasting.Cast(level, squad.Cover, sim.Collision, _data.Config, _data.Bots, chosen.Mode, size, chosen.Objective, chosen.Tier,
-            people, seed, _session.RoundsPlayed + 1, _view.Hud.Callsigns, chosen.Entry.Id, chosen.Place.Whole ? null : chosen.Place.Id, limit,
-            fillWithBots: _config.Bots, match: _lobby.Speedball ? _lobby.Score : null);
+            people, seed, _session.RoundsPlayed + 1, _view.Hud.Callsigns, chosen.Entry.Id, RoundChoices.PlaceIdOf(chosen.Area, chosen.Place), limit,
+            fillWithBots: _config.Bots, match: _lobby.PlaysMatch ? _lobby.Score : null);
         RoundSetupMessage setup = cast.Setup;
         foreach (RosterEntry e in setup.Roster)
         {
@@ -407,8 +407,8 @@ public partial class ServerMain : Node3D, ISimEventListener
         }
 
         // Between a speedball match's points, the rules' wait; after a round (or the match), the summary's.
-        _summaryLeft = _lobby.MatchOn ? _data.Config.Rules.Speedball.BetweenPoints : Math.Max(0.5, _config.Summary);
-        if (_lobby.Speedball)
+        _summaryLeft = _lobby.MatchOn ? _data.Config.Rules.PointsFor(_match.Setup.Format)?.BetweenPoints ?? 0.5 : Math.Max(0.5, _config.Summary);
+        if (_lobby.PlaysMatch)
         {
             ServerLog.Line($"match: {_lobby.State.MatchPoints[0]}–{_lobby.State.MatchPoints[1]} after {_lobby.State.MatchPlayed} point" +
                            $"{(_lobby.State.MatchPlayed == 1 ? "" : "s")}, first to {_lobby.RaceTo}{(_lobby.MatchOn ? "" : ": won")}");
@@ -417,7 +417,7 @@ public partial class ServerMain : Node3D, ISimEventListener
 
     /// <summary>
     /// After the summary: the rotation's next round (or the vote), everyone back in the lobby, the scene built afresh. A
-    /// speedball match still on has its next point built instead (it counts as one round served, once it's won).
+    /// match of points still on has its next point built instead (it counts as one round served, once it's won).
     /// </summary>
     private void NextRound()
     {

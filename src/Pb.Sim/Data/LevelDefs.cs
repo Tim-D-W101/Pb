@@ -1390,6 +1390,9 @@ public sealed class FieldDef : IValidatable
     /// <summary>Side 0's buzzer station, [x, z] (on or behind its back line); side 1's is its twin.</summary>
     public float[] Buzzer_m { get; set; } = Array.Empty<float>();
 
+    /// <summary>Capture the flag's centre flag, [x, z]: it stands on top of whatever bunker a layout has there.</summary>
+    public float[] Flag_m { get; set; } = Array.Empty<float>();
+
     public FieldLayoutDef[] Layouts { get; set; } = Array.Empty<FieldLayoutDef>();
 
     /// <summary>How the game dresses the field: the nets on the level's bounds, the banners on them, the buzzers' look (looks only).</summary>
@@ -1402,6 +1405,7 @@ public sealed class FieldDef : IValidatable
         LevelDefChecks.PositiveVector(v, nameof(Size_m), Size_m, 2);
         LevelDefChecks.PositiveVector(v, nameof(StartBox_m), StartBox_m, 2);
         v.Vector(nameof(Buzzer_m), Buzzer_m, 2);
+        v.Vector(nameof(Flag_m), Flag_m, 2);
         if (Layouts.Length == 0)
         {
             v.Error(nameof(Layouts), "needs at least one layout");
