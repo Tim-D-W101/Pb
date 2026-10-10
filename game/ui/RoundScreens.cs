@@ -111,9 +111,7 @@ public static class RoundScreens
         column.AddChild(new HSeparator());
         var lines = new List<string>(objective is null ? Goal(round, race) : Goal(round.Mode, objective))
         {
-            round.Mode.Format == MatchFormat.Arcade
-                ? "One hit and you're out, them too (a bounce doesn't count), but not for long: you're back at a new start a moment later."
-                : "One hit and you're out, them too. A bounce doesn't count.",
+            "One hit and you're out, them too. A bounce doesn't count.",
             $"You start with a full loader and {tier.StartPods} pod{(tier.StartPods == 1 ? "" : "s")}. " + Pickups(round),
             round.Mode.Format.IsMatch() && round.Level.Field is not null
                 ? "Sprint for a bunker at the horn, crouch in behind it, lean (Q/E) out round its edges, and swap shoulders (X) for left-hand ones."
