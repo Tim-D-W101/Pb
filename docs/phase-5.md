@@ -173,17 +173,18 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
 
 ### M5.1 Gear and brands
 
-- [ ] The catalogue in data (`gear/`): the four brands, and a marker, loader, tank, mask, jersey and pants from each,
-  with their names, colour zones and default colours. It's checked at load: every item has a brand, every slot has an
+- [x] The catalogue in data (`gear/catalog.jsonc`): the four brands, and a marker, loader, tank, mask, jersey and pants
+  from each, with their names and default colours. It's checked at load: every item has a brand, every slot has an
   item of each brand, and no item changes how the game plays.
-- [ ] The items built in code, each fitted to the hitbox it sits in: markers with their grips where the hands go,
-  loaders, tanks, and mask shells fitted to each character's head. The brands' marks are printed on.
-- [ ] The generated marker becomes Norrel's. If its loader and tank come apart from it cleanly, they're Norrel's loader
-  and tank; if not, it stays one piece that fills all three slots.
-- [ ] Each character's surface sorted into pants, jersey, head, gloves and boots by its bones. Their shader repaints
+- [x] The items built in code, each fitted to the hitbox it sits in: markers with their grips where the hands go,
+  loaders, tanks, and mask shells fitted to each character's face. The brands' marks are printed on.
+- [x] The generated marker becomes Norrel's. It's one piece, so it fills all three slots (with the field's coded marker,
+  bowl and bottle standing in when its art is missing).
+- [x] Each character's surface sorted into pants, jersey, head, gloves and boots by its bones. Their shader repaints
   the pants and jersey in the loadout's colours, with each item's pattern.
-- [ ] Worn in first person (your marker, loader and tank, the hands on its grips) and on every character. The bots get
-  a loadout dealt from the round's seed, in their side's colours.
+- [x] Worn in first person (your marker, loader and tank, the hands on its grips) and on every character. The bots get
+  a loadout dealt from the round's seed, in their side's colours. (You wear the field's own until the locker; `--kit=BRAND`
+  wears one brand's range. `--gear-demo` shows each brand's kit, `--gear-demo=masks` every mask on every character.)
 
 ### M5.2 The locker
 

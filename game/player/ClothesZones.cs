@@ -89,12 +89,14 @@ public sealed class ClothesZones
     {
         if (!Measured.TryGetValue(path, out ClothesZones? zones))
         {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
             zones = Measure(mesh, face);
             Measured[path] = zones;
             GD.Print(zones is null
                 ? $"Clothes on {path.GetFile()}: not the generator's rig; drawn as it is"
-                : $"Clothes on {path.GetFile()}: {zones.Counts[0]} vertices of pants, {zones.Counts[1]} of jersey, {zones.Counts[2]} of head, " +
-                  $"{zones.Counts[3]} of gloves and {zones.Counts[4]} of boots; the face from {zones.FaceFrom * 100f:0} cm ahead of the head's joint");
+                : $"Clothes on {path.GetFile()}: {zones.Counts[0]} vertices of pants, {zones.Counts[1]} of jersey, {zones.Counts[2]} of head " +
+                  $"({zones.FacePoints.Count} of them the face, from {zones.FaceFrom * 100f:0} cm ahead of the head's joint), {zones.Counts[3]} of gloves and " +
+                  $"{zones.Counts[4]} of boots, in {watch.Elapsed.TotalMilliseconds:0} ms");
         }
 
         return zones;

@@ -12,7 +12,8 @@ when hit (M3.14), and you and they can climb every ladder (M3.15).** **Phase 4 (
 vs player for up to ten, hosted from the game or on a dedicated server) is finished but for your check
 ([report](docs/reports/phase-4.md), [plan](docs/phase-4.md), [hosting](docs/hosting.md)), and merged.** **Phase 5 (the gear
 locker, four brands of our own, gear models, paint that looks like paint, and the speedball field with capture the flag
-and arcade) is under way: the plan is approved with its defaults ([plan](docs/phase-5.md)).** Phase 2 is built
+and arcade) is under way: the plan is approved with its defaults ([plan](docs/phase-5.md)); M5.1 is built (the four
+brands' kit, built in code, worn in first person and by every character, bots dealt theirs).** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a

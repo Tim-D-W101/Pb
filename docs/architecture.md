@@ -1172,6 +1172,16 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   - An item id the catalogue no longer has reads as its slot's default.
 - **The sim never reads a loadout.** Every player keeps `SimConfig`'s one marker, loader and air, and `HitboxRig`'s
   boxes.
+- **As built (M5.1):**
+  - The catalogue is one file, `gear/catalog.jsonc` (brands, items, defaults), loaded with the sim's data (`sim.jsonc`
+    → `files.gear`, `GameData.Gear`) so the game, the locker and the network share one list. An item's three colours
+    are its defaults; what each paints, and a marker's grip points, are its recipe's (in code). Checked at load: unique
+    ids, every brand makes every slot, defaults of the right slot, `#rrggbb` colours, marks in the stencil's letters,
+    `includes` only on a generated model.
+  - `GearCatalog.Deal` is the dealer (its own `Pcg32` from the match seed and the player's id); `Normalised` puts a
+    slot's default in for a pick the catalogue no longer has.
+  - Until the locker (M5.2), people wear the field's own kit on their character (`--kit=BRAND` wears one brand's
+    whole range). Bots wear their dealt kit in their side's colour, on every copy.
 
 ### 17.2 Drawing gear and clothes
 
@@ -1203,6 +1213,36 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   armbands stay.
 - **Cost.** Meshes are per item and colours are instance uniforms, so ten loadouts are ten material instances, not ten
   sets of meshes.
+- **As built (M5.1):**
+  - **Recipes** (`MarkerRecipes`, `LoaderRecipes`, `TankRecipes`) build into `ShapeMesh`es whose material ids are zones:
+    a finish (anodised, matt, polished, plastic, gloss, fabric, rubber, knurl, metal, steel, carbon, lens, shell, mark)
+    times what paints it (main, second, accent, its own colour, the paint). Every marker keeps the field marker's
+    ergonomics (the pistol grip, trigger and guard about the grip's top, the feed neck's top, the tank's mount), so the
+    hands, a loader and a bottle fit every one; the field's own is `MarkerShape` absorbed with its parts mapped to
+    zones. `GearModels` fits each item into its hitbox once, with levels of detail, and shares it; `gear.gdshader` and
+    `gear_clear.gdshader` are the zones' shared materials, the wearer's colours instance uniforms. The knurl, weave and
+    twill are pressed in by `gear_patterns.gdshaderinc` (bump from the height's screen-space slope, faded where too
+    fine), which the view model's shader includes too. The marks are an atlas painted at start (`BrandMarks`), each
+    printed as a cut-out quad.
+  - **First person:** each slot is its own mesh in its own colours (the loader on the marker's feed, the bottle at its
+    back), the trigger hand moved onto the recipe's grip and the support hand turning about its foregrip; a see-through
+    loader shows the paint as full as it is. The field's marker is the generated model when its art loads (its loader
+    and bottle are part of it, so the slots it `includes` aren't drawn). Your sleeves take your jersey's colour.
+  - **Clothes:** `ClothesZones` builds each model's mesh again once (about 50 ms), its zones as vertex colours and its
+    rest positions in `CUSTOM0`, keeping the levels of detail the import made. `character.gdshader` draws the model's
+    own maps and repaints the jersey and pants by their brightness over the zone's mean to the power `shading` (0.5).
+    The patterns (`ClothesPatterns`: own, yoke, panels, camo, patches, stripe) are laid out from the rest pose and the
+    joints (the arm's line, the leg's middle by height), mirrored across. A model whose exporter left glTF's default
+    full metalness without a map is drawn matt (cloth isn't metal).
+  - **Masks** (`MaskShapes`): the face is the head's front `faceDepth_m` back from its headfront joint, below
+    `faceBelow_m`, moved by the Head bone rather than the neck. The shell's surface is a grid of radii (12 heights by 40
+    angles about an upright axis 4 cm behind the cut) from the face's vertices, hair strands well out from the rest
+    left out, then swollen a cell and smoothed; each brand's parts are slabs laid on it (goggles standing upright over
+    their height), and the strap runs from the shell's sides round the back with the mark wrapped on it.
+    `--gear-demo=masks` shows every mask on every character from eight directions.
+  - **Sides:** in a Teams round people's jerseys and pants take the side's colour as their main; bots' always do (in
+    free-for-all, each its own paint colour).
+  - **The generated marker** is one connected piece, so it's Norrel's marker with its loader and bottle `includes`d.
 
 ### 17.3 The locker
 
