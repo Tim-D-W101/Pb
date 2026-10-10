@@ -52,6 +52,7 @@ namespace Pb.Game.Core;
 ///   --cover-demo          an opponent tucks in behind low cover, stands to shoot over it and tucks in again, from the side
 ///   --gear-demo           four opponents in a row, each in one brand's kit, close up; then each brand's marker in first person
 ///   --paint-demo          four opponents in a row painted by balls from every side, the ground and a wall too: wet, turning round, dry
+///   --wobble-demo         you shoot the inflatable nearest your start, filmed close up as its fabric dents in and shivers out
 ///   --kit=BRAND           you wear every slot from that brand's range (kilnmark, vellis, quarrow, norrel)
 ///   --cover-at=X,Z        with --cover-demo, the low cover nearest that point (else the nearest out in the open)
 ///   --ladder-demo         an opponent climbs a ladder, steps off at the top, turns round and climbs down, from the side
@@ -78,6 +79,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     private PresentationDef _view = null!;
     private GameSettings _settings = null!;
     private LevelLayout _level = null!;
+    private Pb.Game.World.InflatableWobble _wobble = null!;
     private AreaEntryDef _entry = null!;
     private TierDef _tier = null!;
     private GameMode _mode = null!;
@@ -272,9 +274,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool ladderDemo = Args.Has("--ladder-demo");
         bool gearDemo = Args.Has("--gear-demo");
         bool paintDemo = Args.Has("--paint-demo");
+        bool wobbleDemo = Args.Has("--wobble-demo");
         _botMatch = Args.Has("--bot-match");
         _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || gearDemo || paintDemo || _botMatch || Args.Has("--objective-demo");
+                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || gearDemo || paintDemo || wobbleDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
         // Rounds played with others don't go in your records: they stay your bests alone.
         _counts = !_scripted && !roundTour && _net is null;
@@ -521,6 +524,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.AddListener(_pickups);
         _driver.AddListener(_balls);
         _driver.AddListener(_splats);
+        // Inflatables dent and shiver where balls strike them.
+        _wobble = new Pb.Game.World.InflatableWobble { Name = "InflatableWobble" };
+        AddChild(_wobble);
+        _wobble.Initialize(_world.Materials, _sim.Config.Surfaces.Get(Pb.Game.World.InflatableWobble.Surface), _view.Inflatables);
+        _driver.AddListener(_wobble);
         _driver.AddListener(fx);
         _driver.AddListener(_dust);
         _driver.AddListener(_ripples);
@@ -574,7 +582,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             var take = new PlaceStills { Name = "PlaceStills" };
             AddChild(take);
-            take.Start(_data.Levels[_entry.Id], stills, _hud, _player.ViewModel, _pawns.Select(p => (Node3D)p), _view.Camera.FarClip_m);
+            take.Start(_data.Levels[_entry.Id], _level, stills, _hud, _player.ViewModel, _pawns.Select(p => (Node3D)p), _view.Camera.FarClip_m);
         }
         else if (Args.Has("--shots"))
         {
@@ -638,6 +646,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
             demo.Start(_sim, _data.Gear, _splats, _view.Splat, _player, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
         }
+        else if (wobbleDemo)
+        {
+            var demo = new WobbleDemo { Name = "WobbleDemo" };
+            AddChild(demo);
+            demo.Start(_sim, _wobble, _player, _hud, _view.Camera.FarClip_m);
+        }
         else if (ladderDemo)
         {
             var demo = new LadderDemo { Name = "LadderDemo" };
@@ -682,7 +696,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
-                 $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.FramedOpenings} framed openings and {_world.DressedBuildings} buildings with gutters or trusses, {_world.DressedWalls} dressed walls, {_world.SkirtedFaces} skirted wall faces, {_world.SceneryCount} pylons and poles beyond, {_world.ShapeTriangles} triangles), " +
+                 $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.FramedOpenings} framed openings and {_world.DressedBuildings} buildings with gutters or trusses, {_world.DressedWalls} dressed walls, {_world.SkirtedFaces} skirted wall faces, {_world.SceneryCount} pylons and poles beyond, {_world.FieldPieces} pieces of a field's nets, buzzers and banners, {_world.ShapeTriangles} triangles), " +
                  $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, {_doors.Count} door leaves, " +
                  $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");

@@ -18,7 +18,10 @@ locker** in the main menu and the lobby, an old changing room where you stand on
 character, each slot's item by brand and its three colours, saved to your profile and worn in every round; M5.3:
 online, everyone sees everyone's kit; and M5.4: paint that looks like paint, wet and glossy as it lands and drying to
 satin, wrapped round players and their gear and moving with them, spattering your own marker and gloves when a ball breaks
-close to you.** Phase 2 is built
+close to you; and M5.5: **the Sports Ground**, a fifth area, the paintball club's speedball field beside the works:
+inflatable bunkers on mown turf inside nets, in two layouts (Classic, mirrored, and Crossfire, turned half round), the
+club's pits and the brands' banners round it, and the works over the fence. Until speedball comes (M5.6) it plays the
+compound modes.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -217,7 +220,7 @@ reported with the file and key; the game won't silently use a wrong value.
 | `bots/navigation.jsonc` | The bots' navigation grid: cell size, clearance, headroom, step height |
 | `ranges/phase1.jsonc` | Range layout: targets, props, distance markers |
 | `kit/*.jsonc` | Level kit: surface materials, props, building templates |
-| `levels/*.jsonc` | Compound levels (layout, spawns, patrols, pickups) |
+| `levels/*.jsonc` | Compound levels (layout, spawns, patrols, pickups), and the Sports Ground's field (its layouts of bunkers, nets and banners) |
 | `levels/areas.jsonc` | The areas to play in, all open, in menu order, with their difficulty tiers (bot difficulty, time limits, starting pods, pickups), each area's roster for scripted runs, and what the records count. Where in an area to play is the level file's `places` |
 | `rules.jsonc` | Round rules: mode, settle window for balls in the air, trades, pickup radius |
 | `stress.jsonc` | Stress-mode ball count and cannons |
@@ -228,7 +231,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 355 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots…) — no Godot needed
+dotnet test                                          # 452 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots…) — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, a bot match and the art import (Linux/macOS)
 ```

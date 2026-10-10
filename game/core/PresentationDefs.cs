@@ -36,6 +36,8 @@ public sealed class PresentationDef : IValidatable
 
     public FxDef Fx { get; set; } = new();
 
+    public InflatablesDef Inflatables { get; set; } = new();
+
     public CameraDef Camera { get; set; } = new();
 
     public ViewModelDef ViewModel { get; set; } = new();
@@ -173,6 +175,7 @@ public sealed class PresentationDef : IValidatable
         Ball.Validate(v.Scope(nameof(Ball)));
         Splat.Validate(v.Scope(nameof(Splat)));
         Fx.Validate(v.Scope(nameof(Fx)));
+        Inflatables.Validate(v.Scope(nameof(Inflatables)));
         Camera.Validate(v.Scope(nameof(Camera)));
         ViewModel.Validate(v.Scope(nameof(ViewModel)));
         MarkerModel.Validate(v.Scope(nameof(MarkerModel)));
@@ -348,6 +351,29 @@ public sealed class SplatDef : IValidatable
         v.InRange(nameof(NormalFade), NormalFade, 0, 1);
         v.InRange(nameof(DistanceFadeBegin_m), DistanceFadeBegin_m, 1, 1000);
         v.InRange(nameof(DistanceFadeLength_m), DistanceFadeLength_m, 0.1, 1000);
+    }
+}
+
+/// <summary>How an inflatable's fabric dents in and shivers where a ball strikes it (game/world/InflatableWobble.cs).</summary>
+public sealed class InflatablesDef : IValidatable
+{
+    /// <summary>How far the fabric dents in at the hit (m).</summary>
+    public float WobbleDepth_m { get; set; }
+
+    /// <summary>How far round the hit the fabric moves (m).</summary>
+    public float WobbleReach_m { get; set; }
+
+    /// <summary>How long it takes to settle (s), and how fast it shivers meanwhile (Hz).</summary>
+    public float WobbleFade_s { get; set; }
+
+    public float WobbleHz { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(WobbleDepth_m), WobbleDepth_m, 0, 0.2);
+        v.InRange(nameof(WobbleReach_m), WobbleReach_m, 0.05, 3);
+        v.InRange(nameof(WobbleFade_s), WobbleFade_s, 0.05, 5);
+        v.InRange(nameof(WobbleHz), WobbleHz, 0, 60);
     }
 }
 

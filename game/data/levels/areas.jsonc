@@ -62,6 +62,19 @@
         "outpatients", "theatre", "womens_ward", "courtyard", "main_entrance", "east_stairs", "pharmacy", "sun_ward",
         "boiler_house", "fallen_end"
       ]
+    },
+    {
+      // The club's speedball field (Phase 5): short rounds, no pickups on the field (you carry what you bring).
+      "id": "sports_ground", "displayName": "The Sports Ground", "file": "levels/sports_ground.jsonc",
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 600, "startPods": 3, "botPods": 2, "pickups": false },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 540, "startPods": 2, "botPods": 2, "pickups": false },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 480, "startPods": 2, "botPods": 3, "pickups": false }
+      ],
+      "roster": [
+        "north_box", "north_snake", "north_wedges", "north_centre", "north_back_left", "north_back_right", "north_mid_left",
+        "north_mid_right", "north_box_left", "north_box_right"
+      ]
     }
   ]
 }

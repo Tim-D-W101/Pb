@@ -126,7 +126,7 @@ public static class RangeShapes
     }
 
     /// <summary>An upright inflatable cylinder, its edges rounded, with seams down it and round both ends, tethered at four points.</summary>
-    private static void Can(ShapeMesh m, float r, float h, InflatableMaterials mat)
+    internal static void Can(ShapeMesh m, float r, float h, InflatableMaterials mat, bool tethers = true)
     {
         float e = MathF.Min(0.12f, MathF.Min(r * 0.25f, h * 0.2f));
         var profile = new List<Vector2> { new(0f, 0f) };
@@ -148,7 +148,7 @@ public static class RangeShapes
             m.Lathe(mat.Seams, Vector3.Up * y, Basis.Identity, new[] { new Vector2(r + 0.003f, -0.007f), new Vector2(r + 0.006f, 0f), new Vector2(r + 0.003f, 0.007f) }, 36);
         }
 
-        for (int k = 0; k < 4; k++)
+        for (int k = 0; tethers && k < 4; k++)
         {
             float a = Mathf.Tau * (k + 0.5f) / 4f + 0.3f;
             var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
@@ -157,7 +157,7 @@ public static class RangeShapes
     }
 
     /// <summary>An inflatable block: a rounded box with seams down its upright edges and round its top and bottom, tethered at its corners.</summary>
-    private static void Brick(ShapeMesh m, Vector3 size, InflatableMaterials mat)
+    internal static void Brick(ShapeMesh m, Vector3 size, InflatableMaterials mat, bool tethers = true)
     {
         const float Squareness = 9f;
         Vector3 h = size * 0.5f;
@@ -175,7 +175,10 @@ public static class RangeShapes
             }
 
             Seam(m, mat.Seams, seam, closed: false);
-            Tether(m, mat.Tethers, Super(center, h, Squareness, -0.2f * Mathf.Pi, lon, 0f), new Vector3(Mathf.Cos(lon), 0f, Mathf.Sin(lon)), 0.38f);
+            if (tethers)
+            {
+                Tether(m, mat.Tethers, Super(center, h, Squareness, -0.2f * Mathf.Pi, lon, 0f), new Vector3(Mathf.Cos(lon), 0f, Mathf.Sin(lon)), 0.38f);
+            }
         }
 
         foreach (float lat in new[] { -0.25f * Mathf.Pi, 0.25f * Mathf.Pi })
@@ -194,7 +197,7 @@ public static class RangeShapes
     /// An inflatable wedge: a rounded triangle (its apex up, as the collider's) run along Z, with seams
     /// along its three edges and round both ends, tethered at its four bottom corners.
     /// </summary>
-    private static void Wedge(ShapeMesh m, Vector3 size, InflatableMaterials mat)
+    internal static void Wedge(ShapeMesh m, Vector3 size, InflatableMaterials mat, bool tethers = true)
     {
         float hw = size.X * 0.5f, hz = size.Z * 0.5f;
         var corners = new[] { new Vector2(-hw, 0f), new Vector2(hw, 0f), new Vector2(0f, size.Y) };
@@ -216,9 +219,45 @@ public static class RangeShapes
             }
 
             Seam(m, mat.Seams, ring, closed: true);
-            foreach (float side in new[] { -1f, 1f })
+            foreach (float side in tethers ? new[] { -1f, 1f } : Array.Empty<float>())
             {
                 Tether(m, mat.Tethers, new Vector3(side * (hw - 0.12f), 0.1f, z), new Vector3(side * 0.6f, 0f, MathF.Sign(z)).Normalized(), 0.36f);
+            }
+        }
+    }
+
+    /// <summary>
+    /// An inflatable tube lying along Z, <paramref name="length"/> from tip to tip with rounded ends, its feet on the ground:
+    /// seams round it every metre or so and along its top, a band of <paramref name="band"/> round its middle, tethered
+    /// at each end on both sides.
+    /// </summary>
+    internal static void Tube(ShapeMesh m, float r, float length, InflatableMaterials mat, int band, bool tethers = true)
+    {
+        float half = length * 0.5f - r;
+        var along = new Basis(Vector3.Right, Mathf.Pi / 2f);
+        var profile = new List<Vector2> { new(0f, -half - r) };
+        Arc(profile, new Vector2(0f, -half), r, -Mathf.Pi / 2f, 0f, 6);
+        Arc(profile, new Vector2(0f, half), r, 0f, Mathf.Pi / 2f, 6);
+        var center = new Vector3(0f, r, 0f);
+        m.Lathe(mat.Fabric, center, along, profile, 36);
+
+        // A wider band of the trim round its middle, standing a hair proud of the fabric.
+        float bandHalf = MathF.Min(0.3f, half * 0.25f);
+        m.Lathe(band, center, along, new[] { new Vector2(r + 0.004f, -bandHalf), new Vector2(r + 0.004f, bandHalf) }, 36);
+        int rings = Math.Max(1, (int)MathF.Round(half * 2f / 1.1f));
+        for (int k = 0; k <= rings; k++)
+        {
+            float z = -half + half * 2f * k / rings;
+            m.Lathe(mat.Seams, center + new Vector3(0f, 0f, z), along,
+                new[] { new Vector2(r + 0.003f, -0.007f), new Vector2(r + 0.006f, 0f), new Vector2(r + 0.003f, 0.007f) }, 36);
+        }
+
+        m.Rod(mat.Seams, new Vector3(0f, 2f * r + 0.002f, -half), new Vector3(0f, 2f * r + 0.002f, half), SeamRadius, 4, caps: false);
+        foreach (float z in tethers ? new[] { -half, half } : Array.Empty<float>())
+        {
+            foreach (float side in new[] { -1f, 1f })
+            {
+                Tether(m, mat.Tethers, new Vector3(side * r * 0.86f, r * 0.5f, z), new Vector3(side, 0f, 0f), 0.36f);
             }
         }
     }

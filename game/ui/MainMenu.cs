@@ -518,7 +518,7 @@ public partial class MainMenu : Control
             }
 
             holder.AddChild(AreaCard(areas[k]));
-        }, "Area_", buttonWidth: 230, wrap: true));
+        }, "Area_", buttonWidth: 212, wrap: true));
         holder.AddChild(AreaCard(areas[shown]));
         column.AddChild(holder);
         return Screen(column, left: true);

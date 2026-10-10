@@ -1370,22 +1370,56 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 ### 17.5 The field
 
-- **Data.** `levels/sports_ground.jsonc` is a level: the ground, the nets as walk-only bounds, the pits and the banners.
-  It also has a `field`:
-  - its size, the start boxes and the buzzer stations;
-  - `layouts`, each a list of the bunkers on one half (type, position, turn, tags), with a `symmetry`: `mirror` across
-    the halfway line, or `rotate` 180°;
-  - `lanes`: the segments runners cross.
+As built (M5.5):
 
-  The factory places each layout's bunkers and their twins as kit props.
-- **Bunkers** (`kit/bunkers.jsonc`): each type is a list of primitives in the `nylon` material, whose `inflatable`
-  surface is already in `break_model.jsonc` (and has its own break sound).
-  - The level's pieces gain a `Wedge` and a lying `Capsule` (the sim's collision already has `ConvexShape.Wedge`).
-    Walking gets the matching Godot shapes, and `NavGrid` and `CoverSet` learn their tops and sides.
-  - Snakes and cakes are 1.2 m tall (the plan's question 6). `CoverSet`'s half-cover rule (a top 1.15 m above the floor)
-    then gives every bunker peek points.
-- **The look.** `inflatable.gdshader`: a coated-nylon sheen, seam lines and panels from each bunker's UVs, the club's
-  colours, and a wobble where it's hit (a vertex offset decaying from the last few hits; presentation only).
+- **Data.** `levels/sports_ground.jsonc` is a level like the compound areas. Its bounds are the nets (x ±20 m,
+  z ±27.5 m): a ball leaving them is gone and nobody walks through them, as at any level's bounds. Inside are the turf
+  and the lines (its `markings`, with the halfway marks); outside, the pits as props and the works over the fence (a
+  wall run, the warehouse and a chimney, out of everyone's reach). Its `field` holds:
+  - its size, the start boxes behind each back line (`startBox_m`) and side 0's buzzer station (`buzzer_m`; side 1's is
+    its twin);
+  - `layouts`: each the bunkers on side 0's half (a kit prop, `[x, z]`, `yaw_deg`, and tags: `back`, `mid` or `front`,
+    and `snake`, `wedge` or `centre`), with a `symmetry`: `mirror` across the halfway line (a twin at (x, −z), turned to
+    −yaw) or `rotate` half round the middle ((−x, −z), turned a half turn more); and `lanes`, the runs from a start box
+    that shooters watch;
+  - `dressing`: the nets' height, post spacing and materials, the buzzer stations' look, and the banners (their words,
+    where they hang, their size and colours).
+- **Places are layouts.** Each of the level's `places` names a layout and plays the whole field (a place with a layout
+  has no rect). `LevelFactory` builds the level's own pieces first and every layout's bunkers and twins after them, and
+  `LevelLayout.ForPlace` keeps only the place's layout, so a round has its own bunkers and no others
+  (`FieldSpec.BasePrimitives` and `BaseProps` mark where they begin). `LevelLayout.FieldLayout` is the layout in play:
+  its bunkers (each with its prop's index, its side and its tags) and its lanes.
+- **Bunkers** are kit props (`kit/props.jsonc`, `bunker_*`): wedge, brick, can, cake, temple (a brick with a wedge for
+  a roof) and snake (three lying tubes). Their colliders are in the club's coated nylon (`nylon_yellow`,
+  `nylon_navy`), whose `inflatable` surface is in `break_model.jsonc`.
+  - The level's pieces gained `Wedge` (half a box, its ridge along Z on top) and `Capsule` (a tube lying along Z).
+    `LevelPrimitive.CreateShape` gives the paint collision `ConvexShape.Wedge` and `CapsuleShape`; walking gets a
+    `ConvexPolygonShape3D` and a `CapsuleShape3D`; the greybox, `KitGeometry` and `ContactShadows` know both.
+  - Snakes and cakes are 1.2 m tall (question 6), so they're half cover. `CoverSet` stacks a piece resting squarely on
+    another (the temple's roof) on the one below, so the temple is full cover.
+- **The look** (`PropShapes.Inflatables.cs`, shape `inflatable`). Each collider is drawn air-filled in its shape, in its
+  nylon, with seams and a band in the other club colour, and pegged down where it meets the ground. It keeps to its
+  collider, so paint lands on what you see. A ball striking one dents and shivers the fabric for a moment:
+  `InflatableWobble` hands the last 8 hits (where they landed, in world space, and when) to every `inflatable`
+  material, and `weathered.gdshader`'s `wobble` moves the vertices (`presentation.jsonc` → `inflatables`: the dent's
+  depth and reach, how fast it fades and shivers). The vertices dent, and each pixel's light leans with the ripple's
+  slope (worked out in the fragment shader, as the pillows' vertices are too far apart to show its rings). Presentation
+  only. `-- --wobble-demo` shoots the inflatable nearest your start and films it close up.
+- **The dressing** (`FieldDressing`, from `field.dressing`):
+  - the nets on posts round the bounds, with a skirt along their foot and a wire along their top. The netting is a
+    see-through `net` material (`kit/materials.jsonc`: a square of cord every `tile_m`, `cord_m` thick). Its texture is
+    made at load, and its mipmaps fade it into a veil with distance. It's drawn in meshes of its own: without levels of
+    detail, which would stretch the cords, and casting no shadow;
+  - each buzzer station: a post, a box, a button and a horn;
+  - the banners' backings, their words printed on by `Markings` (solid, unlike its sprayed stencils).
+- **The menu.** The fifth area, its two layouts its places, each with its still. Until speedball (M5.6) it plays the
+  compound areas' modes from its opponent spawns, eliminate only (it has no objectives).
+- **Tests** (`FieldTests`):
+  - each place plays its layout and only its bunkers, and every bunker has its twin;
+  - every bunker stops paint and feet and gives cover, and a ball leaving the nets is gone;
+  - the bots' grid reaches every bunker from both start boxes.
+  - CI plays a level smoke test, a 5 v 5 on Classic and a ten-player free-for-all on Crossfire, and a networked
+    5 v 5 on Crossfire. The level smoke test now checks only the stairs and doors inside a level's bounds.
 
 ### 17.6 A match of rounds, and the breakout
 

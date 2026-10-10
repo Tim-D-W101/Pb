@@ -116,6 +116,11 @@ public partial class RangeMain : Node3D, ISimEventListener
         _driver.AddDriver(_player);
         _driver.AddListener(_balls);
         _driver.AddListener(_splats);
+        // Inflatables dent and shiver where balls strike them.
+        var wobble = new Pb.Game.World.InflatableWobble { Name = "InflatableWobble" };
+        AddChild(wobble);
+        wobble.Initialize(_world.Materials, _sim.Config.Surfaces.Get(Pb.Game.World.InflatableWobble.Surface), _view.Inflatables);
+        _driver.AddListener(wobble);
         _driver.AddListener(GetNode<ImpactFx>("ImpactFx"));
         _driver.AddListener(dust);
         _driver.AddListener(_drips);

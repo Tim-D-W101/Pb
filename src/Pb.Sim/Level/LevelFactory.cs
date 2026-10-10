@@ -277,6 +277,116 @@ public static class LevelFactory
             places.Add(ToPlace(def.Places[i], errors.Item(nameof(LevelDef.Places), i), bounds, playerSpawns, deadZone, viewpoints));
         }
 
+        // A field's layouts, last of all: each one's bunkers and their twins follow the level's own pieces, so a place
+        // can play any of them; the level is built in its first place's.
+        FieldSpec? field = null;
+        FieldLayoutSpec? fieldLayout = null;
+        if (def.Field is { } fieldDef)
+        {
+            if (fieldDef.Dressing is { } dressing)
+            {
+                Validator scope = errors.Scope(nameof(LevelDef.Field)).Scope(nameof(FieldDef.Dressing));
+                foreach ((string property, string id) in new[]
+                         {
+                             (nameof(FieldDressingDef.Net), dressing.Net), (nameof(FieldDressingDef.Posts), dressing.Posts),
+                             (nameof(FieldDressingDef.Skirt), dressing.Skirt), (nameof(FieldDressingDef.BuzzerBox), dressing.BuzzerBox),
+                             (nameof(FieldDressingDef.BuzzerButton), dressing.BuzzerButton),
+                         })
+                {
+                    Material(scope, property, id);
+                }
+
+                for (int i = 0; i < dressing.Banners.Length; i++)
+                {
+                    Material(scope.Item(nameof(FieldDressingDef.Banners), i), nameof(FieldBannerDef.Material), dressing.Banners[i].Material);
+                }
+            }
+
+            int basePrimitives = sink.Items.Count, baseProps = props.Count;
+            var layouts = new List<FieldLayoutSpec>();
+            for (int i = 0; i < fieldDef.Layouts.Length; i++)
+            {
+                FieldLayoutDef ld = fieldDef.Layouts[i];
+                Validator scope = errors.Scope(nameof(LevelDef.Field)).Item(nameof(FieldDef.Layouts), i);
+                sink.Items.RemoveRange(basePrimitives, sink.Items.Count - basePrimitives);
+                props.RemoveRange(baseProps, props.Count - baseProps);
+                var bunkers = new List<FieldBunker>();
+                for (int b = 0; b < ld.Bunkers.Length; b++)
+                {
+                    FieldBunkerDef bd = ld.Bunkers[b];
+                    if (bd.At_m is not { Length: 2 } at)
+                    {
+                        continue;
+                    }
+
+                    var position = new Vector3(at[0], 0f, at[1]);
+                    float yaw = bd.Yaw_deg * Units.DegreesToRadians;
+                    (Vector3 twinPosition, float twinYaw) = FieldTwin(ld.Symmetry, position, yaw);
+                    bool ownTwin = Vector3.Distance(position, twinPosition) < 0.01f;
+                    for (int side = 0; side < (ownTwin ? 1 : 2); side++)
+                    {
+                        Vector3 p = side == 0 ? position : twinPosition;
+                        float y = side == 0 ? yaw : twinYaw;
+                        int before = props.Count;
+                        PlaceProp(scope.Item(nameof(FieldLayoutDef.Bunkers), b),
+                            new PropPlacementDef { Prop = bd.Prop, Position_m = new[] { p.X, 0f, p.Z }, Yaw_deg = y * Units.RadiansToDegrees }, PlanFrame.Identity,
+                            $"layout:{ld.Id}:");
+                        if (props.Count > before)
+                        {
+                            bunkers.Add(new FieldBunker(props[^1].Type, p, y, bd.Tags, ownTwin ? -1 : side, props.Count - 1));
+                        }
+                    }
+                }
+
+                var lanes = new List<FieldLane>();
+                foreach (FieldLaneDef lane in ld.Lanes)
+                {
+                    if (lane.From_m is not { Length: 2 } f || lane.To_m is not { Length: 2 } t)
+                    {
+                        continue;
+                    }
+
+                    var from = new Vector3(f[0], 0f, f[1]);
+                    var to = new Vector3(t[0], 0f, t[1]);
+                    lanes.Add(new FieldLane(lane.Name, from, to, 0));
+                    lanes.Add(new FieldLane(lane.Name, FieldTwin(ld.Symmetry, from, 0f).Position, FieldTwin(ld.Symmetry, to, 0f).Position, 1));
+                }
+
+                layouts.Add(new FieldLayoutSpec
+                {
+                    Id = ld.Id,
+                    Symmetry = ld.Symmetry,
+                    Primitives = sink.Items.Skip(basePrimitives).ToArray(),
+                    Props = props.Skip(baseProps).ToArray(),
+                    Bunkers = bunkers,
+                    Lanes = lanes,
+                });
+            }
+
+            if (layouts.Count > 0 && fieldDef.Size_m is { Length: 2 } size && fieldDef.StartBox_m is { Length: 2 } box && fieldDef.Buzzer_m is { Length: 2 } buzzer)
+            {
+                var south = new Vector3(buzzer[0], 0f, buzzer[1]);
+                field = new FieldSpec
+                {
+                    Size = new Vector2(size[0], size[1]),
+                    StartBox = new Vector2(box[0], box[1]),
+                    Buzzers = new[] { south, new Vector3(-south.X, 0f, -south.Z) },
+                    Layouts = layouts,
+                    BasePrimitives = basePrimitives,
+                    BaseProps = baseProps,
+                };
+                fieldLayout = field.Layout(places.FirstOrDefault(p => p.Whole)?.Layout);
+                sink.Items.RemoveRange(basePrimitives, sink.Items.Count - basePrimitives);
+                sink.Items.AddRange(fieldLayout.Primitives);
+                props.RemoveRange(baseProps, props.Count - baseProps);
+                props.AddRange(fieldLayout.Props);
+                if (MathF.Abs(south.Z) < size[1] * 0.5f - 0.01f)
+                {
+                    errors.Scope(nameof(LevelDef.Field)).Error(nameof(FieldDef.Buzzer_m), "must be on or behind side 0's back line (z ≥ length / 2)");
+                }
+            }
+        }
+
         errors.ThrowIfErrors();
 
         return new LevelLayout
@@ -296,6 +406,9 @@ public static class LevelFactory
             Walls = walls,
             Scenery = def.Scenery,
             Markings = def.Markings,
+            Field = field,
+            FieldLayout = fieldLayout,
+            FieldDressing = def.Field?.Dressing,
             Owners = owners,
             PlayerSpawns = playerSpawns,
             SpawnArea = spawnArea.Box,
@@ -311,6 +424,15 @@ public static class LevelFactory
             Place = places.FirstOrDefault(p => p.Whole),
         };
     }
+
+    /// <summary>
+    /// Where a field's bunker (or lane end) on side 0's half has its twin on the other: across the halfway line (z = 0), or
+    /// half round the field's middle. Every bunker is the same front to back (along its own z), so its mirror image is
+    /// itself turned the other way (−yaw); a snake's curve stays on the same side of the field.
+    /// </summary>
+    public static (Vector3 Position, float Yaw) FieldTwin(FieldSymmetry symmetry, Vector3 position, float yaw) => symmetry == FieldSymmetry.Mirror
+        ? (new Vector3(position.X, position.Y, -position.Z), -yaw)
+        : (new Vector3(-position.X, position.Y, -position.Z), yaw + MathF.PI);
 
     /// <summary>A place from its definition: its rect inside the level, with an entry, a walk-off spot and the viewpoint of its picture inside it.</summary>
     private static PlaceSpec ToPlace(PlaceDef d, Validator item, Aabb bounds, List<SpawnPoint> levelEntries, Vector3 levelDeadZone,
@@ -336,6 +458,7 @@ public static class LevelFactory
             DeadZone = d.DeadZone_m is { Length: 3 } z ? Validator.ToVector3(z) : null,
             SpawnScale = d.SpawnScale,
             Still = StillOf(d, item, rect, viewpoints),
+            Layout = d.Layout,
         };
 
         IReadOnlyList<SpawnPoint> entries = place.PlayerSpawns ?? levelEntries.Where(s => place.Contains(s.Position)).ToArray();

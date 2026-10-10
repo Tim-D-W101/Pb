@@ -1,0 +1,180 @@
+// The Sports Ground (Phase 5): the paintball club's speedball field on the edge of Oxbarrow Works, inflatable bunkers
+// on mown turf inside nets, the works' warehouse and water tower over the fence to the north.
+// World frame: metres, x east, z south (north is −Z), y up. The field is 36 m wide (x −18…18) and 45 m long between
+// its back lines (z −22.5…22.5), the halfway line at z = 0. Side 0 starts in the south start box, behind its back line
+// (z 22.5…25.5), side 1 in the north one. The nets stand round the field 2 m out at the sides and 5 m behind the back
+// lines: the level's bounds, so a ball leaving them is gone and nobody walks through them.
+// A layout gives the bunkers on side 0's half (z ≥ 0), each a kit prop ("bunker_*", kit/props.jsonc) at [x, z] turned by
+// yaw_deg, and how the other half is made: "mirror" across the halfway line (each bunker's twin is on the same side of
+// the field), or "rotate" half round the middle (each side has its own on its left). A bunker's tags say how far up the
+// field it is (back, mid, front) and which side it's on (the snake side, the wedge side, or the centre), for the bots;
+// lanes are the lines runners take that shooters watch. Each place is one layout, played on the whole field.
+{
+  "id": "sports_ground",
+  "displayName": "The Sports Ground",
+  "description": "The paintball club's speedball field beside the works: inflatable bunkers on mown turf inside nets, two sides starting at either end, the club's pits behind them.",
+  "boundsMin_m": [-20, -2, -27.5],
+  "boundsMax_m": [20, 9, 27.5],
+  "groundMaterial": "turf_pitch",
+  // In the south start box, off its middle (the line north from there runs clear up the field in both layouts).
+  "playerSpawns": [ { "position_m": [-2, 0, 24], "yaw_deg": 0 } ],
+  "spawnArea": "the field",
+  "deadZone_m": [18.5, 0, 26],
+  // Over the fence to the north, the works: its perimeter wall and, beyond, the warehouse with its loading bays towards
+  // the field, and a boiler chimney off to the east (all outside the nets: nobody gets there, paint never reaches).
+  "buildings": [ { "building": "warehouse", "position_m": [-20, 0, -74] } ],
+  "walls": [
+    {
+      "baseElevation_m": 0, "height_m": 2.6,
+      "points_m": [[-80, -38], [80, -38]], "closed": false,
+      "thickness_m": 0.2, "material": "concrete_wall",
+      "dressing": { "pierSpacing_m": 2.5, "pierSize_m": 0.3, "wire": "steel_rust", "rubble": false }
+    }
+  ],
+  // The club's pits behind the south net and by the east one: gazebos over benches and tables, the air station, bins.
+  "props": [
+    { "prop": "gazebo_yellow", "position_m": [-11, 0, 32] },
+    { "prop": "gazebo_navy", "position_m": [-7.5, 0, 32] },
+    { "prop": "gazebo_yellow", "position_m": [7.5, 0, 32] },
+    { "prop": "bench", "position_m": [-11, 0, 31], "yaw_deg": 180 },
+    { "prop": "bench", "position_m": [-7.5, 0, 31.2], "yaw_deg": 180 },
+    { "prop": "desk", "position_m": [-9.2, 0, 33] },
+    { "prop": "bench", "position_m": [7.5, 0, 31], "yaw_deg": 180 },
+    { "prop": "compressor", "position_m": [12, 0, 32.5], "yaw_deg": 90 },
+    { "prop": "oil_drum", "position_m": [3.2, 0, 30.6] },
+    { "prop": "oil_drum", "position_m": [3.9, 0, 30.9] },
+    { "prop": "pallet_stack", "position_m": [15.5, 0, 31.5], "yaw_deg": 8 },
+    { "prop": "gazebo_navy", "position_m": [24, 0, -2], "yaw_deg": 90 },
+    { "prop": "bench", "position_m": [23, 0, -2], "yaw_deg": 90 },
+    { "prop": "cable_reel", "position_m": [24.5, 0, 6] },
+    { "prop": "chimney", "position_m": [46, 0, -66] }
+  ],
+  "markings": {
+    "color": "#eeeee6",
+    "lineWidth_m": 0.1,
+    // The touchlines and back lines, the halfway line, the start boxes and a mark every 10 m up the touchlines.
+    "lines_m": [
+      [-18, -22.5, 18, -22.5], [-18, 22.5, 18, 22.5], [-18, -22.5, -18, 22.5], [18, -22.5, 18, 22.5], [-18, 0, 18, 0],
+      [-3, 22.5, -3, 25.5], [3, 22.5, 3, 25.5], [-3, 25.5, 3, 25.5],
+      [-3, -22.5, -3, -25.5], [3, -22.5, 3, -25.5], [-3, -25.5, 3, -25.5],
+      [-18, -12.5, -17, -12.5], [-18, 12.5, -17, 12.5], [17, -12.5, 18, -12.5], [17, 12.5, 18, 12.5]
+    ],
+    // The halfway marks by each touchline, read from the field (their tops towards the line), the halfway line between
+    // the 5 and the 0.
+    "stencils": [
+      { "text": "5 0", "at_m": [-16.4, 0, 0], "size_m": 0.8, "yaw_deg": 90 },
+      { "text": "5 0", "at_m": [16.4, 0, 0], "size_m": 0.8, "yaw_deg": -90 }
+    ]
+  },
+  "areas": [
+    { "name": "the sports ground", "rect_m": [-20, -27.5, 20, 27.5] },
+    { "name": "the field", "rect_m": [-18, -22.5, 18, 22.5] },
+    { "name": "the south half", "rect_m": [-18, 0, 18, 22.5] },
+    { "name": "the north half", "rect_m": [-18, -22.5, 18, 0] }
+  ],
+  // Bots start at either end and down the north half (solo and teams put you at the south end); a free-for-all
+  // scatters everyone across the field.
+  "opponentSpawns": [
+    { "id": "north_box", "position_m": [0, 0, -24], "yaw_deg": 180, "roles": ["rusher", "sentry"] },
+    { "id": "north_box_left", "position_m": [-2, 0, -24], "yaw_deg": 180, "roles": ["flanker"] },
+    { "id": "north_box_right", "position_m": [2, 0, -24], "yaw_deg": 180, "roles": ["sentry"] },
+    { "id": "north_snake", "position_m": [-11.5, 0, -12], "yaw_deg": 180, "roles": ["rusher", "flanker"] },
+    { "id": "north_wedges", "position_m": [16.5, 0, -16], "yaw_deg": 180, "roles": ["sentry", "flanker"] },
+    { "id": "north_centre", "position_m": [0, 0, -14], "yaw_deg": 180, "roles": ["sentry"] },
+    { "id": "north_back_left", "position_m": [-7, 0, -20], "yaw_deg": 180, "roles": ["marksman", "sentry"] },
+    { "id": "north_back_right", "position_m": [8, 0, -20], "yaw_deg": 180, "roles": ["marksman", "sentry"] },
+    { "id": "north_mid_left", "position_m": [-6, 0, -7], "yaw_deg": 180, "roles": ["rusher"] },
+    { "id": "north_mid_right", "position_m": [6, 0, -7], "yaw_deg": 180, "roles": ["flanker"] },
+    { "id": "south_snake", "position_m": [-9.5, 0, 12], "yaw_deg": 0, "roles": ["sentry", "flanker"] },
+    { "id": "south_wedges", "position_m": [12.5, 0, 15], "yaw_deg": 0, "roles": ["sentry"] }
+  ],
+  "viewpoints": [
+    { "name": "from the south start box", "position_m": [2.4, 1.65, 25.2], "yaw_deg": 3, "pitch_deg": -4 },
+    { "name": "from the north start box", "position_m": [-2.6, 1.65, -25.2], "yaw_deg": 183, "pitch_deg": -4 },
+    { "name": "over the field", "position_m": [-19, 6.5, 26.5], "yaw_deg": -38, "pitch_deg": -16 },
+    { "name": "down the snake side", "position_m": [-17, 1.2, 21], "yaw_deg": -4, "pitch_deg": -2 },
+    { "name": "down the wedge side", "position_m": [17, 1.2, 21], "yaw_deg": 4, "pitch_deg": -2 },
+    { "name": "across the halfway line", "position_m": [19.4, 2.4, 0], "yaw_deg": 90, "pitch_deg": -8 }
+  ],
+  "field": {
+    "size_m": [36, 45],
+    "startBox_m": [6, 3],
+    "buzzer_m": [0, 25.5],
+    // The nets on the level's bounds, 5.5 m tall on posts 4 m apart with a skirt along their foot, the buzzer stations'
+    // box and button, and the banners on the nets (yaw 0 faces +z): the club's at each end, the four brands' at the sides.
+    "dressing": {
+      "netHeight_m": 5.5, "postSpacing_m": 4, "net": "net_black", "posts": "steel_galvanised", "skirt": "strap_black", "skirtHeight_m": 0.35,
+      "buzzerBox": "steel_yellow", "buzzerButton": "container_red",
+      "banners": [
+        { "text": "OXBARROW PAINTBALL CLUB", "at_m": [0, 1.4, 27.46], "size_m": [12, 1.0], "yaw_deg": 180, "material": "nylon_navy", "textColor": "#e2b41d" },
+        { "text": "OXBARROW PAINTBALL CLUB", "at_m": [0, 1.4, -27.46], "size_m": [12, 1.0], "yaw_deg": 0, "material": "nylon_navy", "textColor": "#e2b41d" },
+        { "text": "KILNMARK", "at_m": [19.96, 1.1, -11], "size_m": [5, 0.8], "yaw_deg": -90, "material": "nylon_white", "textColor": "#1f2e66" },
+        { "text": "VELLIS", "at_m": [19.96, 1.1, 11], "size_m": [4, 0.8], "yaw_deg": -90, "material": "nylon_yellow", "textColor": "#1f2e66" },
+        { "text": "QUARROW", "at_m": [-19.96, 1.1, -11], "size_m": [5, 0.8], "yaw_deg": 90, "material": "nylon_yellow", "textColor": "#1f2e66" },
+        { "text": "NORREL", "at_m": [-19.96, 1.1, 11], "size_m": [4, 0.8], "yaw_deg": 90, "material": "nylon_white", "textColor": "#1f2e66" }
+      ]
+    },
+    "layouts": [
+      {
+        // The classic: the snake down the west side, a line of wedges down the east, the cake on the fifty and cans and
+        // temples in the middle, mirrored across the halfway line.
+        "id": "classic",
+        "symmetry": "mirror",
+        "bunkers": [
+          { "prop": "bunker_cake", "at_m": [0, 0], "tags": ["centre", "front"] },
+          { "prop": "bunker_snake", "at_m": [-12.5, 8.5], "tags": ["snake", "front"] },
+          { "prop": "bunker_wedge", "at_m": [-15.5, 18], "tags": ["snake", "back"] },
+          { "prop": "bunker_brick", "at_m": [-7, 18.5], "yaw_deg": 10, "tags": ["snake", "back"] },
+          { "prop": "bunker_temple", "at_m": [-6.5, 11], "tags": ["snake", "mid"] },
+          { "prop": "bunker_can", "at_m": [-3.5, 5], "tags": ["centre", "front"] },
+          { "prop": "bunker_temple", "at_m": [0, 16], "tags": ["centre", "back"] },
+          { "prop": "bunker_can", "at_m": [4, 9.5], "tags": ["centre", "mid"] },
+          { "prop": "bunker_brick", "at_m": [7.5, 18.5], "yaw_deg": -10, "tags": ["wedge", "back"] },
+          { "prop": "bunker_wedge", "at_m": [9.5, 13.5], "yaw_deg": 20, "tags": ["wedge", "mid"] },
+          { "prop": "bunker_wedge", "at_m": [14.5, 7], "tags": ["wedge", "front"] },
+          { "prop": "bunker_brick", "at_m": [12, 2.5], "yaw_deg": 90, "tags": ["wedge", "front"] }
+        ],
+        "lanes": [
+          { "name": "the snake run", "from_m": [-3, 22.5], "to_m": [-12.5, 13.5] },
+          { "name": "up the middle", "from_m": [0, 22.5], "to_m": [-2.5, 6.5] },
+          { "name": "the wedge run", "from_m": [3, 22.5], "to_m": [14, 9] }
+        ]
+      },
+      {
+        // Crossfire: each side's snake on its left and its wedges on its right, so the lanes cross the middle; turned
+        // half round the middle.
+        "id": "crossfire",
+        "symmetry": "rotate",
+        "bunkers": [
+          { "prop": "bunker_brick", "at_m": [0, 0], "yaw_deg": 90, "tags": ["centre", "front"] },
+          { "prop": "bunker_snake", "at_m": [-12, 11], "tags": ["snake", "front"] },
+          { "prop": "bunker_temple", "at_m": [-14.5, 19.5], "tags": ["snake", "back"] },
+          { "prop": "bunker_cake", "at_m": [-6, 15], "tags": ["snake", "mid"] },
+          { "prop": "bunker_can", "at_m": [-5, 4.5], "tags": ["centre", "front"] },
+          { "prop": "bunker_brick", "at_m": [1, 18], "tags": ["centre", "back"] },
+          { "prop": "bunker_temple", "at_m": [3, 10.5], "tags": ["centre", "mid"] },
+          { "prop": "bunker_wedge", "at_m": [8.5, 16.5], "yaw_deg": -15, "tags": ["wedge", "back"] },
+          { "prop": "bunker_can", "at_m": [11, 7], "tags": ["wedge", "mid"] },
+          { "prop": "bunker_wedge", "at_m": [15, 12.5], "tags": ["wedge", "front"] },
+          { "prop": "bunker_wedge", "at_m": [8, 2], "yaw_deg": 30, "tags": ["wedge", "front"] }
+        ],
+        "lanes": [
+          { "name": "the snake run", "from_m": [-3, 22.5], "to_m": [-12, 16] },
+          { "name": "the crossing", "from_m": [0, 22.5], "to_m": [6, 4] },
+          { "name": "the wedge run", "from_m": [3, 22.5], "to_m": [15, 14.5] }
+        ]
+      }
+    ]
+  },
+  // The places are the field's layouts, each played on the whole field.
+  "places": [
+    {
+      "id": "whole", "displayName": "Classic", "layout": "classic", "still": "over the field",
+      "description": "The snake down the west side and a line of wedges down the east, the cake on the fifty, cans and temples in the middle; each side's field the mirror of the other's."
+    },
+    {
+      "id": "crossfire", "displayName": "Crossfire", "layout": "crossfire", "still": "from the south start box",
+      "description": "Each side has its snake on its left and its wedges on its right, so the runs cross in the middle; the field turned half round for the other side."
+    }
+  ]
+}

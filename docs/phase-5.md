@@ -226,16 +226,22 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
 
 ### M5.5 The Sports Ground
 
-- [ ] The field: 45 × 36 m of turf with the lines marked, nets all round (balls leaving them despawn), start boxes with
-  a buzzer station on each back line, the pits and banners behind, and Oxbarrow Works over the fence.
-- [ ] The inflatable bunkers as kit pieces: wedge (the spec's "Dorito", renamed as it echoes a snack's trademark),
+- [x] The field: 45 × 36 m of turf with the lines marked, nets all round (balls leaving them despawn), start boxes with
+  a buzzer station on each back line, the pits and banners behind, and Oxbarrow Works over the fence. (The nets are
+  5.5 m of black netting on posts, a skirt along their foot; the club's banner hangs at each end and a brand's at each
+  side. Over the fence: the works' wall, the warehouse with its loading bays and a boiler chimney.)
+- [x] The inflatable bunkers as kit pieces: wedge (the spec's "Dorito", renamed as it echoes a snack's trademark),
   snake, can, temple, cake and brick. Their shapes go to the paint collision, the walking and the bots' cover points.
   The sim's level pieces gain the wedge and the lying tube they need.
-- [ ] Their look: coated nylon, seams, panels in the club's colours, and a wobble where a ball hits them.
-- [ ] Two layouts in data, each one half mirrored (or turned half round) into the whole. A layout tags its bunkers
-  (front, middle, back; the snake side and the wedge side) and its lanes, for the bots.
-- [ ] The Sports Ground in the menu as a fifth area. It offers speedball, capture the flag and arcade; solo, free-for-all
-  and teams stay with the compound areas.
+- [x] Their look: coated nylon, seams, panels in the club's colours, and a wobble where a ball hits them.
+  (`--wobble-demo` shoots one close up.)
+- [x] Two layouts in data, each one half mirrored (or turned half round) into the whole. A layout tags its bunkers
+  (front, middle, back; the snake side and the wedge side) and its lanes, for the bots. (**Classic**, mirrored: the snake
+  down one side, wedges down the other, the cake on the fifty. **Crossfire**, turned half round: each side's snake on
+  its left, so the runs cross. Each is one of the area's places, chosen in the menu.)
+- [x] The Sports Ground in the menu as a fifth area, with a still of each layout. It offers speedball, capture the flag
+  and arcade as they come (M5.6–M5.8); until then it plays the compound areas' modes (solo, free-for-all and teams, to
+  eliminate: it has no objectives), and from M5.6 those stay with the compound areas.
 
 ### M5.6 Speedball
 
@@ -251,6 +257,8 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
   - they hang the buzzer when nobody covers it.
   - All three difficulty tiers.
 - [ ] The HUD: the point's clock, the match score, the buzzer's hang bar. Records keep matches played and won.
+- [ ] The modes go by area: the Sports Ground offers speedball (and capture the flag and arcade as they come), and the
+  compound areas keep solo, free-for-all and teams.
 
 ### M5.7 Capture the flag
 

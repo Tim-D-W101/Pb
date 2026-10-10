@@ -90,21 +90,23 @@ public sealed class CoverSet
     {
         var set = new CoverSet { _standHead = standEyeHeight + HeadMargin, _crouchHead = crouchEyeHeight + HeadMargin };
         float radius = grid.Params.AgentRadius + Standoff;
+        (Dictionary<LevelPrimitive, float> stackTops, HashSet<LevelPrimitive> resting) = Stacks(level);
         foreach (LevelPrimitive prim in level.Primitives)
         {
-            if (!prim.Has(PrimitiveFlags.Cover))
+            if (!prim.Has(PrimitiveFlags.Cover) || resting.Contains(prim))
             {
                 continue;
             }
 
             Aabb bounds = prim.Bounds;
+            float top = stackTops.TryGetValue(prim, out float stacked) ? stacked : bounds.Max.Y;
             if (prim.Kind == PrimitiveKind.Cylinder)
             {
-                set.AddCylinder(grid, prim, bounds, radius);
+                set.AddCylinder(grid, prim, bounds, radius, top);
             }
             else
             {
-                set.AddBox(grid, prim, bounds, radius);
+                set.AddBox(grid, prim, bounds, radius, top);
             }
         }
 
@@ -179,7 +181,75 @@ public sealed class CoverSet
 
     public void ReleaseAll() => _claims.Clear();
 
-    private void AddBox(NavGrid grid, LevelPrimitive prim, Aabb bounds, float radius)
+    /// <summary>
+    /// Pieces of one prop resting squarely on another of its pieces (a temple's roof on its walls): each lower piece's top
+    /// as the stack's, and the pieces resting on it (their own points would stand in the air).
+    /// </summary>
+    private static (Dictionary<LevelPrimitive, float> Tops, HashSet<LevelPrimitive> Resting) Stacks(LevelLayout level)
+    {
+        var tops = new Dictionary<LevelPrimitive, float>();
+        var resting = new HashSet<LevelPrimitive>();
+        var byOwner = new Dictionary<int, List<LevelPrimitive>>();
+        foreach (LevelPrimitive p in level.Primitives)
+        {
+            if (p.Has(PrimitiveFlags.Cover) && p.Role == PrimitiveRole.Prop)
+            {
+                if (!byOwner.TryGetValue(p.Owner, out List<LevelPrimitive>? pieces))
+                {
+                    pieces = new List<LevelPrimitive>();
+                    byOwner[p.Owner] = pieces;
+                }
+
+                pieces.Add(p);
+            }
+        }
+
+        foreach (List<LevelPrimitive> pieces in byOwner.Values)
+        {
+            if (pieces.Count < 2)
+            {
+                continue;
+            }
+
+            // Lowest first, so a stack of three adds up.
+            pieces.Sort((a, b) => a.Bounds.Min.Y.CompareTo(b.Bounds.Min.Y));
+            foreach (LevelPrimitive upper in pieces)
+            {
+                Aabb u = upper.Bounds;
+                foreach (LevelPrimitive lower in pieces)
+                {
+                    Aabb l = lower.Bounds;
+                    if (lower == upper || resting.Contains(lower) || MathF.Abs(l.Max.Y - u.Min.Y) > 0.05f ||
+                        u.Min.X < l.Min.X - 0.05f || u.Max.X > l.Max.X + 0.05f || u.Min.Z < l.Min.Z - 0.05f || u.Max.Z > l.Max.Z + 0.05f)
+                    {
+                        continue;
+                    }
+
+                    float top = tops.TryGetValue(upper, out float above) ? above : u.Max.Y;
+                    tops[lower] = MathF.Max(tops.TryGetValue(lower, out float t) ? t : l.Max.Y, top);
+                    resting.Add(upper);
+                    break;
+                }
+            }
+
+            // A stack of three: the bottom piece takes the top of what rests on what rests on it.
+            foreach (LevelPrimitive lower in pieces)
+            {
+                foreach (LevelPrimitive upper in pieces)
+                {
+                    if (resting.Contains(upper) && tops.TryGetValue(upper, out float t) && tops.TryGetValue(lower, out float l) &&
+                        MathF.Abs(lower.Bounds.Max.Y - upper.Bounds.Min.Y) < 0.05f)
+                    {
+                        tops[lower] = MathF.Max(l, t);
+                    }
+                }
+            }
+        }
+
+        return (tops, resting);
+    }
+
+    private void AddBox(NavGrid grid, LevelPrimitive prim, Aabb bounds, float radius, float top)
     {
         Vector3 axisX = Vector3.Transform(Vector3.UnitX, prim.Rotation);
         Vector3 axisY = Vector3.Transform(Vector3.UnitY, prim.Rotation);
@@ -194,7 +264,6 @@ public sealed class CoverSet
         var centre = new Vector3(prim.Center.X, bounds.Min.Y, prim.Center.Z);
         Vector3 half = prim.HalfExtents;
         // Faces ±Z run along X, faces ±X run along Z.
-        float top = bounds.Max.Y;
         AddFace(grid, centre + flatZ * half.Z, flatZ, flatX, half.X, top, radius);
         AddFace(grid, centre - flatZ * half.Z, -flatZ, flatX, half.X, top, radius);
         AddFace(grid, centre + flatX * half.X, flatX, flatZ, half.Z, top, radius);
@@ -232,7 +301,7 @@ public sealed class CoverSet
         }
     }
 
-    private void AddCylinder(NavGrid grid, LevelPrimitive prim, Aabb bounds, float radius)
+    private void AddCylinder(NavGrid grid, LevelPrimitive prim, Aabb bounds, float radius, float top)
     {
         Vector3 axis = Vector3.Transform(Vector3.UnitY, prim.Rotation);
         float r = prim.HalfExtents.X;
@@ -247,7 +316,7 @@ public sealed class CoverSet
             float angle = k * MathF.PI * 0.5f;
             var normal = new Vector3(MathF.Sin(angle), 0f, MathF.Cos(angle));
             var tangent = new Vector3(normal.Z, 0f, -normal.X);
-            AddPoint(grid, centre + normal * (r + radius), normal, tangent, bounds.Max.Y, true);
+            AddPoint(grid, centre + normal * (r + radius), normal, tangent, top, true);
         }
     }
 

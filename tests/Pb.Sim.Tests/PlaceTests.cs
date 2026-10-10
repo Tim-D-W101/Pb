@@ -34,7 +34,9 @@ public class PlaceTests
             LevelLayout level = Data.Levels[area.Id];
             Assert.True(level.Places[0].Whole, $"{area.Id} doesn't start with the whole of it");
             Assert.Equal(RecordBook.WholeArea, level.Places[0].Id);
-            Assert.True(level.Places.Count >= 4, $"{area.Id} offers only {level.Places.Count} places");
+            // A compound offers its whole and at least three parts; a field offers each of its layouts, played on all of it.
+            Assert.True(level.Field is null ? level.Places.Count >= 4 : level.Places.Count == level.Field.Layouts.Count,
+                $"{area.Id} offers only {level.Places.Count} places");
             Assert.Equal(level.Places.Count, level.Places.Select(p => p.Id).Distinct().Count());
         }
 

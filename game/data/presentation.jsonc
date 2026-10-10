@@ -48,6 +48,10 @@
     "decalBudget_ms": 2.5, "measureFrames": 60
   },
 
+  // Where a ball strikes an inflatable bunker its nylon dents in by wobbleDepth_m and shivers out to wobbleReach_m round
+  // the hit, wobbleHz times a second, settling over wobbleFade_s (presentation only: paint still breaks where it struck).
+  "inflatables": { "wobbleDepth_m": 0.04, "wobbleReach_m": 0.7, "wobbleFade_s": 0.6, "wobbleHz": 9 },
+
   // Impact bursts. Bursts nearer the camera than minCameraDistance_m are skipped: point-blank spray
   // would fill the screen with flecks (paint on your mask is a separate effect).
   // Bursts where balls break and bounce; splashParticles drops of water (splashColor) where a ball or a

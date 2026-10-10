@@ -53,6 +53,9 @@ public enum MaterialPattern
     Rubber,
     Glass,
     Grass,
+
+    /// <summary>Knotted netting (see-through, so with an <c>alpha</c>): a square of cord every <c>tile_m</c>, <c>cord_m</c> thick.</summary>
+    Net,
 }
 
 public sealed class MaterialsDef : IValidatable
@@ -89,6 +92,10 @@ public sealed class MaterialDef : IValidatable
     [Optional]
     public float Alpha { get; set; } = 1f;
 
+    /// <summary>The <see cref="MaterialPattern.Net"/> pattern's cord thickness (its squares are <c>tile_m</c> across).</summary>
+    [Optional]
+    public float Cord_m { get; set; }
+
     [Optional]
     public string? Albedo { get; set; }
 
@@ -121,11 +128,20 @@ public sealed class MaterialDef : IValidatable
         {
             LevelDefChecks.HexColor(v, nameof(Tint), Tint);
         }
-        v.InRange(nameof(Tile_m), Tile_m, 0.05, 100);
+        // A net's squares are a few centimetres; anything else repeats over more than that.
+        v.InRange(nameof(Tile_m), Tile_m, Pattern == MaterialPattern.Net ? 0.005 : 0.05, 100);
         v.InRange(nameof(Roughness), Roughness, 0, 1);
         v.InRange(nameof(Weathering), Weathering, 0, 1);
         v.InRange(nameof(Metallic), Metallic, 0, 1);
         v.InRange(nameof(Alpha), Alpha, 0.05, 1);
+        if (Pattern == MaterialPattern.Net)
+        {
+            v.InRange(nameof(Cord_m), Cord_m, 0.0005, Tile_m * 0.5);
+            if (Alpha >= 1f)
+            {
+                v.Error(nameof(Alpha), "netting is see-through: give it an alpha below 1");
+            }
+        }
     }
 }
 
@@ -250,6 +266,10 @@ public enum ColliderShape
 {
     Box,
     Cylinder,
+    /// <summary>An A-frame prism in a box of size_m (base width, height, length): its ridge runs along the length.</summary>
+    Wedge,
+    /// <summary>A lying tube, radius_m round and length_m from tip to tip, along the collider's Z.</summary>
+    Capsule,
 }
 
 /// <summary>A prop collider in the prop's frame (origin on the ground, facing −Z).</summary>
@@ -267,6 +287,10 @@ public sealed class ColliderDef : IValidatable
 
     [Optional]
     public float Height_m { get; set; }
+
+    /// <summary>A capsule's length, tip to tip (m).</summary>
+    [Optional]
+    public float Length_m { get; set; }
 
     /// <summary>[about X, about Y, about Z] in degrees, applied Z, then X, then Y (Godot's default order).</summary>
     [Optional]
@@ -299,11 +323,16 @@ public sealed class ColliderDef : IValidatable
         switch (Shape)
         {
             case ColliderShape.Box:
+            case ColliderShape.Wedge:
                 LevelDefChecks.PositiveVector(v, nameof(Size_m), Size_m, 3);
                 break;
             case ColliderShape.Cylinder:
                 v.InRange(nameof(Radius_m), Radius_m, 0.005, 50);
                 v.InRange(nameof(Height_m), Height_m, 0.005, 100);
+                break;
+            case ColliderShape.Capsule:
+                v.InRange(nameof(Radius_m), Radius_m, 0.005, 50);
+                v.InRange(nameof(Length_m), Length_m, Radius_m * 2.0, 100);
                 break;
         }
     }
@@ -1189,6 +1218,10 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public MarkingsDef? Markings { get; set; }
 
+    /// <summary>A speedball field (the Sports Ground): its size, the sides' start boxes and buzzers, and its layouts of bunkers.</summary>
+    [Optional]
+    public FieldDef? Field { get; set; }
+
     /// <summary>Where the objectives are played: the case's starting spots, the ways out and the rooms to hold.</summary>
     [Optional]
     public LevelObjectivesDef? Objectives { get; set; }
@@ -1215,9 +1248,23 @@ public sealed class LevelDef : IValidatable
             v.Error(nameof(Places), "must start with the whole level: a place called \"whole\" without a rect (your records keep it by that name)");
         }
 
-        if (Places.Skip(1).Any(p => p.Rect_m is null))
+        if (Places.Skip(1).Any(p => p.Rect_m is null && p.Layout is null))
         {
-            v.Error(nameof(Places), "only the first place, the whole level, goes without a rect");
+            v.Error(nameof(Places), "only the first place, the whole level, goes without a rect (or, on a field, a place for each layout)");
+        }
+
+        Field?.Validate(v.Scope(nameof(Field)));
+        for (int i = 0; i < Places.Length; i++)
+        {
+            if (Places[i].Layout is { } layout && Field?.Layouts.Any(l => l.Id == layout) != true)
+            {
+                v.Item(nameof(Places), i).Error(nameof(PlaceDef.Layout), $"names no layout of the level's field ('{layout}')");
+            }
+
+            if (Places[i].Layout is not null && Places[i].Rect_m is not null)
+            {
+                v.Item(nameof(Places), i).Error(nameof(PlaceDef.Rect_m), "a layout of the field is played on the whole field");
+            }
         }
 
         LevelDefChecks.UniqueIds(v, nameof(Places), Places, p => p.Id);
@@ -1320,6 +1367,221 @@ public sealed class BuildingPlacementDef : IValidatable
 /// One place to play in a level: the whole of it, or the part inside <see cref="Rect_m"/> (x0, z0, x1, z1),
 /// with invisible walls round it and the round's starts, patrols, pickups and walking off kept inside.
 /// </summary>
+/// <summary>How a field's layout is made whole from the half its file gives: mirrored across the halfway line, or turned half round its middle.</summary>
+public enum FieldSymmetry
+{
+    Mirror,
+    Rotate,
+}
+
+/// <summary>
+/// A speedball field: a rectangle of turf centred on the origin, its length along z between the two back lines. The side
+/// starting at the +z end (the south) is side 0, the other side 1. Its layouts give the bunkers on side 0's half (z ≥ 0)
+/// and say how the other half is made from it, so both sides play the same field.
+/// </summary>
+public sealed class FieldDef : IValidatable
+{
+    /// <summary>The field's width (x) and length (z, back line to back line), m.</summary>
+    public float[] Size_m { get; set; } = Array.Empty<float>();
+
+    /// <summary>Each side's start box behind its back line: [width, depth], m.</summary>
+    public float[] StartBox_m { get; set; } = Array.Empty<float>();
+
+    /// <summary>Side 0's buzzer station, [x, z] (on or behind its back line); side 1's is its twin.</summary>
+    public float[] Buzzer_m { get; set; } = Array.Empty<float>();
+
+    public FieldLayoutDef[] Layouts { get; set; } = Array.Empty<FieldLayoutDef>();
+
+    /// <summary>How the game dresses the field: the nets on the level's bounds, the banners on them, the buzzers' look (looks only).</summary>
+    [Optional]
+    public FieldDressingDef? Dressing { get; set; }
+
+    public void Validate(Validator v)
+    {
+        Dressing?.Validate(v.Scope(nameof(Dressing)));
+        LevelDefChecks.PositiveVector(v, nameof(Size_m), Size_m, 2);
+        LevelDefChecks.PositiveVector(v, nameof(StartBox_m), StartBox_m, 2);
+        v.Vector(nameof(Buzzer_m), Buzzer_m, 2);
+        if (Layouts.Length == 0)
+        {
+            v.Error(nameof(Layouts), "needs at least one layout");
+        }
+
+        LevelDefChecks.UniqueIds(v, nameof(Layouts), Layouts, l => l.Id);
+        for (int i = 0; i < Layouts.Length; i++)
+        {
+            Layouts[i].Validate(v.Item(nameof(Layouts), i));
+            Layouts[i].CheckOnField(v.Item(nameof(Layouts), i), Size_m);
+        }
+    }
+}
+
+/// <summary>
+/// The field's looks (presentation only): nets all round on the level's bounds, posts so far apart, a skirt along their
+/// foot; banners hung on them; and the buzzer stations' materials.
+/// </summary>
+public sealed class FieldDressingDef : IValidatable
+{
+    public float NetHeight_m { get; set; }
+
+    public float PostSpacing_m { get; set; }
+
+    /// <summary>Kit materials: the netting (see-through), the posts and top wire, the skirt along the foot.</summary>
+    public string Net { get; set; } = "";
+
+    public string Posts { get; set; } = "";
+
+    public string Skirt { get; set; } = "";
+
+    public float SkirtHeight_m { get; set; }
+
+    /// <summary>Kit materials of the buzzer stations: the post, the box, the button and the horn.</summary>
+    public string BuzzerBox { get; set; } = "";
+
+    public string BuzzerButton { get; set; } = "";
+
+    public FieldBannerDef[] Banners { get; set; } = Array.Empty<FieldBannerDef>();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(NetHeight_m), NetHeight_m, 1, 20);
+        v.InRange(nameof(PostSpacing_m), PostSpacing_m, 1, 20);
+        v.InRange(nameof(SkirtHeight_m), SkirtHeight_m, 0, 2);
+        v.NotEmpty(nameof(Net), Net);
+        v.NotEmpty(nameof(Posts), Posts);
+        v.NotEmpty(nameof(Skirt), Skirt);
+        v.NotEmpty(nameof(BuzzerBox), BuzzerBox);
+        v.NotEmpty(nameof(BuzzerButton), BuzzerButton);
+        LevelDefChecks.Items(v, nameof(Banners), Banners);
+    }
+}
+
+/// <summary>A banner on the nets: its middle and size, the way it faces (yaw 0: towards +z), its backing's kit material and its words.</summary>
+public sealed class FieldBannerDef : IValidatable
+{
+    public string Text { get; set; } = "";
+
+    public float[] At_m { get; set; } = Array.Empty<float>();
+
+    public float[] Size_m { get; set; } = Array.Empty<float>();
+
+    [Optional]
+    public float Yaw_deg { get; set; }
+
+    public string Material { get; set; } = "";
+
+    /// <summary>The words' colour, #rrggbb.</summary>
+    public string TextColor { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Text), Text);
+        v.Vector(nameof(At_m), At_m);
+        LevelDefChecks.PositiveVector(v, nameof(Size_m), Size_m, 2);
+        v.NotEmpty(nameof(Material), Material);
+        LevelDefChecks.HexColor(v, nameof(TextColor), TextColor);
+    }
+}
+
+/// <summary>One layout of a field's bunkers: side 0's half of them, and how the other half is made.</summary>
+public sealed class FieldLayoutDef : IValidatable
+{
+    /// <summary>The tags a bunker may carry, for the bots: how far up the field it is, and which side of it.</summary>
+    public static readonly string[] Tags = { "back", "mid", "front", "snake", "wedge", "centre" };
+
+    public string Id { get; set; } = "";
+
+    public FieldSymmetry Symmetry { get; set; }
+
+    /// <summary>The bunkers on side 0's half (z ≥ 0; one on the halfway line is its own twin when it's on the twin's spot).</summary>
+    public FieldBunkerDef[] Bunkers { get; set; } = Array.Empty<FieldBunkerDef>();
+
+    /// <summary>The lines runners cross that shooters watch (side 0's; each has its twin).</summary>
+    public FieldLaneDef[] Lanes { get; set; } = Array.Empty<FieldLaneDef>();
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Id), Id);
+        if (Bunkers.Length == 0)
+        {
+            v.Error(nameof(Bunkers), "needs bunkers");
+        }
+
+        LevelDefChecks.Items(v, nameof(Bunkers), Bunkers);
+        LevelDefChecks.Items(v, nameof(Lanes), Lanes);
+    }
+
+    /// <summary>Every bunker and lane on side 0's half of a field <paramref name="size"/> big.</summary>
+    public void CheckOnField(Validator v, float[] size)
+    {
+        if (size is not { Length: 2 })
+        {
+            return;
+        }
+
+        float hx = size[0] * 0.5f, hz = size[1] * 0.5f;
+        bool Inside(float[] p, float slack) => p is { Length: 2 } && MathF.Abs(p[0]) <= hx && p[1] >= -slack && p[1] <= hz;
+        for (int i = 0; i < Bunkers.Length; i++)
+        {
+            if (!Inside(Bunkers[i].At_m, 0.01f))
+            {
+                v.Item(nameof(Bunkers), i).Error(nameof(FieldBunkerDef.At_m), "must be on side 0's half of the field (|x| ≤ width / 2, 0 ≤ z ≤ length / 2)");
+            }
+        }
+
+        for (int i = 0; i < Lanes.Length; i++)
+        {
+            if (!Inside(Lanes[i].From_m, hz) || !Inside(Lanes[i].To_m, hz))
+            {
+                v.Item(nameof(Lanes), i).Error(nameof(FieldLaneDef.From_m), "must be on the field");
+            }
+        }
+    }
+}
+
+/// <summary>A bunker of a layout: which kit prop, where on the plan, turned how, and its tags.</summary>
+public sealed class FieldBunkerDef : IValidatable
+{
+    public string Prop { get; set; } = "";
+
+    public float[] At_m { get; set; } = Array.Empty<float>();
+
+    [Optional]
+    public float Yaw_deg { get; set; }
+
+    public string[] Tags { get; set; } = Array.Empty<string>();
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Prop), Prop);
+        v.Vector(nameof(At_m), At_m, 2);
+        foreach (string tag in Tags)
+        {
+            if (Array.IndexOf(FieldLayoutDef.Tags, tag) < 0)
+            {
+                v.Error(nameof(Tags), $"'{tag}' is not one of {string.Join(", ", FieldLayoutDef.Tags)}");
+            }
+        }
+    }
+}
+
+/// <summary>A lane: a line across the field that players run along, and shooters watch.</summary>
+public sealed class FieldLaneDef : IValidatable
+{
+    public string Name { get; set; } = "";
+
+    public float[] From_m { get; set; } = Array.Empty<float>();
+
+    public float[] To_m { get; set; } = Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Name), Name);
+        v.Vector(nameof(From_m), From_m, 2);
+        v.Vector(nameof(To_m), To_m, 2);
+    }
+}
+
 public sealed class PlaceDef : IValidatable
 {
     public string Id { get; set; } = "";
@@ -1347,6 +1609,10 @@ public sealed class PlaceDef : IValidatable
     /// <summary>The viewpoint (by name) its picture in the menu is taken from; the first inside it if left out.</summary>
     [Optional]
     public string? Still { get; set; }
+
+    /// <summary>On a field: which of its layouts of bunkers this place plays (the whole field; the first layout if left out).</summary>
+    [Optional]
+    public string? Layout { get; set; }
 
     public void Validate(Validator v)
     {

@@ -32,6 +32,9 @@ public partial class LevelBuilder : Node3D
     /// <summary>The level's materials, as built (for dressing added after the level).</summary>
     public MaterialLibrary Materials => _materials;
 
+    /// <summary>Bays of net, buzzer stations and banners a field's dressing built.</summary>
+    public int FieldPieces { get; private set; }
+
     public int MeshCount { get; private set; }
 
     public int ColliderCount { get; private set; }
@@ -131,6 +134,9 @@ public partial class LevelBuilder : Node3D
         DressedWalls = WallDressing.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z), Drips, Piers, Strands);
         SkirtedFaces = Skirting.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
         SceneryCount = Scenery.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
+        var sheets = new Dictionary<(int Cx, int Cz), ShapeMesh>();
+        FieldPieces = FieldDressing.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z),
+            at => ChunkMesh(sheets, at.X, at.Z));
 
         foreach (((int cx, int cz), ShapeMesh shape) in shapes)
         {
@@ -138,6 +144,16 @@ public partial class LevelBuilder : Node3D
             shape.Commit(mesh, m => _materials[m]);
             AddChild(new MeshInstance3D { Name = $"Props_{cx}_{cz}", Mesh = ShapeMesh.WithLods(mesh) });
             ShapeTriangles += shape.TriangleCount;
+            MeshCount++;
+        }
+
+        // See-through sheets (a field's netting) as they are, casting no shadow: a net's would be a faint dapple, not a wall's.
+        foreach (((int cx, int cz), ShapeMesh sheet) in sheets)
+        {
+            var mesh = new ArrayMesh();
+            sheet.Commit(mesh, m => _materials[m]);
+            AddChild(new MeshInstance3D { Name = $"Sheets_{cx}_{cz}", Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+            ShapeTriangles += sheet.TriangleCount;
             MeshCount++;
         }
 
@@ -246,13 +262,20 @@ public partial class LevelBuilder : Node3D
                 groups[key] = tool;
             }
 
-            if (p.Kind == PrimitiveKind.Cylinder)
+            switch (p.Kind)
             {
-                AddCylinder(tool, p);
-            }
-            else
-            {
-                AddBox(tool, p);
+                case PrimitiveKind.Cylinder:
+                    AddCylinder(tool, p);
+                    break;
+                case PrimitiveKind.Wedge:
+                    AddWedge(tool, p);
+                    break;
+                case PrimitiveKind.Capsule:
+                    AddCapsule(tool, p);
+                    break;
+                default:
+                    AddBox(tool, p);
+                    break;
             }
         }
 
@@ -282,10 +305,8 @@ public partial class LevelBuilder : Node3D
                 continue;
             }
 
-            Shape3D shape = p.Kind == PrimitiveKind.Cylinder
-                ? new CylinderShape3D { Radius = p.HalfExtents.X, Height = p.HalfExtents.Y * 2f }
-                : new BoxShape3D { Size = p.HalfExtents.ToGodot() * 2f };
-            body.AddChild(new CollisionShape3D { Shape = shape, Transform = TransformOf(p) });
+            (Shape3D shape, Transform3D transform) = WalkingShape(p);
+            body.AddChild(new CollisionShape3D { Shape = shape, Transform = transform });
             ColliderCount++;
         }
 
@@ -416,6 +437,34 @@ public partial class LevelBuilder : Node3D
 
     private static Transform3D TransformOf(LevelPrimitive p) => new(new Basis(ToGodot(p.Rotation)), p.Center.ToGodot());
 
+    /// <summary>
+    /// The walking shape of a primitive and where it stands, matching its paint shape (<see cref="LevelPrimitive.CreateShape"/>):
+    /// a wedge's prism through its box's bottom corners and the ridge along its top, a capsule along its own Z (Godot's
+    /// along Y, so turned onto it).
+    /// </summary>
+    public static (Shape3D Shape, Transform3D Transform) WalkingShape(LevelPrimitive p)
+    {
+        Vector3 h = p.HalfExtents.ToGodot();
+        switch (p.Kind)
+        {
+            case PrimitiveKind.Cylinder:
+                return (new CylinderShape3D { Radius = h.X, Height = h.Y * 2f }, TransformOf(p));
+            case PrimitiveKind.Wedge:
+                return (new ConvexPolygonShape3D
+                {
+                    Points = new[]
+                    {
+                        new Vector3(-h.X, -h.Y, -h.Z), new Vector3(h.X, -h.Y, -h.Z), new Vector3(0f, h.Y, -h.Z),
+                        new Vector3(-h.X, -h.Y, h.Z), new Vector3(h.X, -h.Y, h.Z), new Vector3(0f, h.Y, h.Z),
+                    },
+                }, TransformOf(p));
+            case PrimitiveKind.Capsule:
+                return (new CapsuleShape3D { Radius = h.X, Height = h.Z * 2f }, TransformOf(p) * new Transform3D(new Basis(Vector3.Right, Mathf.Pi / 2f), Vector3.Zero));
+            default:
+                return (new BoxShape3D { Size = h * 2f }, TransformOf(p));
+        }
+    }
+
     private static Quaternion ToGodot(SQuaternion q) => new(q.X, q.Y, q.Z, q.W);
 
     internal static ArrayMesh GroundMesh(Vector2 size, Vector3 center)
@@ -527,5 +576,110 @@ public partial class LevelBuilder : Node3D
             V(tc, axis, Vector2.Zero); V(top0, axis, new Vector2(d0.Dot(u), d0.Dot(w)) * r); V(top1, axis, new Vector2(d1.Dot(u), d1.Dot(w)) * r);
             V(bc, -axis, Vector2.Zero); V(b1, -axis, new Vector2(d1.Dot(u), d1.Dot(w)) * r); V(b0, -axis, new Vector2(d0.Dot(u), d0.Dot(w)) * r);
         }
+    }
+
+    /// <summary>A wedge's prism: its base, its two slopes up to the ridge and its two triangular ends (UVs in metres along each).</summary>
+    private static void AddWedge(SurfaceTool tool, LevelPrimitive p)
+    {
+        var basis = new Basis(ToGodot(p.Rotation));
+        Vector3 c = p.Center.ToGodot(), h = p.HalfExtents.ToGodot();
+        Vector3 ax = basis.X, ay = basis.Y, az = basis.Z;
+        Vector3 L(float x, float y, float z) => c + ax * x + ay * y + az * z;
+        Pb.Sim.Collision.Aabb bounds = p.Bounds;
+        float baseY = bounds.Min.Y, height = bounds.Max.Y - bounds.Min.Y;
+        Vector3 bl0 = L(-h.X, -h.Y, -h.Z), br0 = L(h.X, -h.Y, -h.Z), r0 = L(0f, h.Y, -h.Z);
+        Vector3 bl1 = L(-h.X, -h.Y, h.Z), br1 = L(h.X, -h.Y, h.Z), r1 = L(0f, h.Y, h.Z);
+        Vector3 right = (ax * (2f * h.Y) + ay * h.X).Normalized(), left = (-ax * (2f * h.Y) + ay * h.X).Normalized();
+        Vector3 upRight = (r0 - br0).Normalized(), upLeft = (r0 - bl0).Normalized();
+        Quad(tool, bl0, br0, br1, bl1, -ay, ax, az, baseY, height);
+        Quad(tool, br0, r0, r1, br1, right, upRight, az, baseY, height);
+        Quad(tool, bl0, bl1, r1, r0, left, upLeft, az, baseY, height);
+        Tri(tool, bl0, r0, br0, -az, ax, ay, baseY, height);
+        Tri(tool, bl1, br1, r1, az, ax, ay, baseY, height);
+    }
+
+    /// <summary>A capsule lying along its own Z: rings round a tube, rounded off at each end (UVs in metres round and along it).</summary>
+    private static void AddCapsule(SurfaceTool tool, LevelPrimitive p)
+    {
+        var basis = new Basis(ToGodot(p.Rotation));
+        Vector3 c = p.Center.ToGodot();
+        Vector3 axis = basis.Z, u = basis.X, w = basis.Y;
+        float r = p.HalfExtents.X, half = p.HalfExtents.Z - r;
+        int around = Math.Clamp((int)(r * 40f), 12, 32);
+        const int cap = 6;
+        Pb.Sim.Collision.Aabb bounds = p.Bounds;
+        float baseY = bounds.Min.Y, height = bounds.Max.Y - bounds.Min.Y;
+
+        // The profile from one tip to the other: (along the axis, radius, the normal's share along the axis).
+        var profile = new List<(float Along, float Radius, float Nz, float Nr)>();
+        for (int k = 0; k <= cap; k++)
+        {
+            float a = Mathf.Pi / 2f * (1f - k / (float)cap);
+            profile.Add((-half - r * Mathf.Sin(a), r * Mathf.Cos(a), -Mathf.Sin(a), Mathf.Cos(a)));
+        }
+
+        for (int k = 0; k <= cap; k++)
+        {
+            float a = Mathf.Pi / 2f * (k / (float)cap);
+            profile.Add((half + r * Mathf.Sin(a), r * Mathf.Cos(a), Mathf.Sin(a), Mathf.Cos(a)));
+        }
+
+        Vector3 At(int ring, int i, out Vector3 normal)
+        {
+            float phi = Mathf.Tau * i / around;
+            Vector3 radial = u * Mathf.Cos(phi) + w * Mathf.Sin(phi);
+            (float along, float radius, float nz, float nr) = profile[ring];
+            normal = (axis * nz + radial * nr).Normalized();
+            return c + axis * along + radial * radius;
+        }
+
+        void V(Vector3 pos, Vector3 n, int ring, int i)
+        {
+            tool.SetNormal(n);
+            tool.SetUV(new Vector2(Mathf.Tau * i / around * r, profile[ring].Along));
+            tool.SetUV2(new Vector2(pos.Y - baseY, height));
+            tool.AddVertex(pos);
+        }
+
+        for (int ring = 0; ring + 1 < profile.Count; ring++)
+        {
+            for (int i = 0; i < around; i++)
+            {
+                Vector3 a = At(ring, i, out Vector3 na), b = At(ring, i + 1, out Vector3 nb);
+                Vector3 d = At(ring + 1, i, out Vector3 nd), e = At(ring + 1, i + 1, out Vector3 ne);
+                // Clockwise seen from outside (Godot's front faces): the outward normal against the triangle's own.
+                Vector3 outward = (na + nb + nd + ne).Normalized();
+                bool flip = (b - a).Cross(d - a).Dot(outward) > 0f;
+                if (flip)
+                {
+                    V(a, na, ring, i); V(d, nd, ring + 1, i); V(b, nb, ring, i + 1);
+                    V(b, nb, ring, i + 1); V(d, nd, ring + 1, i); V(e, ne, ring + 1, i + 1);
+                }
+                else
+                {
+                    V(a, na, ring, i); V(b, nb, ring, i + 1); V(d, nd, ring + 1, i);
+                    V(b, nb, ring, i + 1); V(e, ne, ring + 1, i + 1); V(d, nd, ring + 1, i);
+                }
+            }
+        }
+    }
+
+    /// <summary>A flat triangle facing <paramref name="normal"/> (wound clockwise from outside), UVs along <paramref name="a"/> and <paramref name="b"/>.</summary>
+    private static void Tri(SurfaceTool tool, Vector3 p0, Vector3 p1, Vector3 p2, Vector3 normal, Vector3 a, Vector3 b, float baseY, float height)
+    {
+        if ((p1 - p0).Cross(p2 - p0).Dot(normal) > 0f)
+        {
+            (p1, p2) = (p2, p1);
+        }
+
+        Vertex(tool, p0, normal, a, b, baseY, height);
+        Vertex(tool, p1, normal, a, b, baseY, height);
+        Vertex(tool, p2, normal, a, b, baseY, height);
+    }
+
+    private static void Quad(SurfaceTool tool, Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, Vector3 normal, Vector3 a, Vector3 b, float baseY, float height)
+    {
+        Tri(tool, p0, p1, p2, normal, a, b, baseY, height);
+        Tri(tool, p0, p2, p3, normal, a, b, baseY, height);
     }
 }
