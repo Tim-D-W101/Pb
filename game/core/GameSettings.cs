@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Pb.Game.Core;
 
@@ -132,8 +133,61 @@ public sealed partial class GameSettings
     /// <summary>The HUD's size, as a share of the usual.</summary>
     public float HudScale { get; set; } = 1f;
 
+    // ---- Playing with others
+
+    /// <summary>The longest name you can play under, and how many addresses you joined are remembered.</summary>
+    public const int NameLength = 24;
+
+    public const int Recent = 5;
+
+    /// <summary>The name you play under with others (empty until you type one).</summary>
+    public string PlayerName { get; set; } = "";
+
+    /// <summary>Which of the characters you play.</summary>
+    public int PlayerLook { get; set; }
+
+    /// <summary>The addresses you joined last, the latest first.</summary>
+    public List<string> RecentAddresses { get; set; } = new();
+
+    /// <summary>A pretend round trip added to your connection when you host or join (ms), to feel what lag does.</summary>
+    public float PretendLag_ms { get; set; }
+
+    /// <summary>
+    /// Who you are when you play with others, offline: made once and kept, so a host knows you again when you rejoin
+    /// (32 hexadecimal digits; anything else is replaced).
+    /// </summary>
+    public string ProfileId { get; set; } = "";
+
+    /// <summary>The id was made as these settings were read (the file had none), so they want saving to keep it.</summary>
+    [JsonIgnore]
+    public bool ProfileIdMade { get; private set; }
+
     /// <summary>Which defaults these settings have caught up with (<see cref="CurrentVersion"/>).</summary>
     public int Version { get; set; }
+
+    /// <summary>An address you joined, remembered first (once).</summary>
+    public void RememberAddress(string address)
+    {
+        string a = address.Trim();
+        if (a.Length == 0)
+        {
+            return;
+        }
+
+        RecentAddresses.RemoveAll(r => string.Equals(r, a, StringComparison.OrdinalIgnoreCase));
+        RecentAddresses.Insert(0, a);
+        if (RecentAddresses.Count > Recent)
+        {
+            RecentAddresses.RemoveRange(Recent, RecentAddresses.Count - Recent);
+        }
+    }
+
+    /// <summary>A name as typed, made fit to play under: no control characters, trimmed, at most <see cref="NameLength"/> long.</summary>
+    public static string CleanName(string? name)
+    {
+        string clean = new string((name ?? "").Where(c => !char.IsControl(c)).ToArray()).Trim();
+        return clean.Length > NameLength ? clean[..NameLength].Trim() : clean;
+    }
 
     /// <summary>A new player's settings.</summary>
     public static GameSettings Defaults(SettingsDefaults d) => new()
@@ -154,6 +208,8 @@ public sealed partial class GameSettings
         Crosshair = d.Crosshair,
         HeadBob = d.HeadBob,
         Version = CurrentVersion,
+        ProfileId = Guid.NewGuid().ToString("N"),
+        ProfileIdMade = true,
     };
 
     /// <summary>
@@ -219,7 +275,20 @@ public sealed partial class GameSettings
 
         TeamColors = OneOf(TeamColors, d.TeamColorSets, "standard");
         HudScale = Range(HudScale, 0.75f, 1.5f, 1f);
+
+        PlayerName = CleanName(PlayerName);
+        PlayerLook = Math.Clamp(PlayerLook, 0, 15);
+        RecentAddresses = (RecentAddresses ?? new List<string>()).Where(a => !string.IsNullOrWhiteSpace(a) && a.Length <= 80).Select(a => a.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase).Take(Recent).ToList();
+        PretendLag_ms = float.IsFinite(PretendLag_ms) ? Math.Clamp(PretendLag_ms, 0f, 500f) : 0f;
+        if (!IsProfileId(ProfileId))
+        {
+            ProfileId = Guid.NewGuid().ToString("N");
+            ProfileIdMade = true;
+        }
     }
+
+    private static bool IsProfileId(string? id) => id is { Length: 32 } && id.All(Uri.IsHexDigit);
 
     /// <summary>Settings saved before a default changed take the new default.</summary>
     private void CatchUp(SettingsDefaults d)

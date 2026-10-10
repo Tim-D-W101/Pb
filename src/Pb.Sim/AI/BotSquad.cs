@@ -101,6 +101,10 @@ public sealed class BotSquad
             case SimEventType.PlayerEliminated:
                 _incoming.Add(e);
                 break;
+            case SimEventType.CalledOut when e.TargetId >= 0 && Sim.FindPlayer(e.PlayerId) is { } caller:
+                // A person's callout key: their side's bots take it as one of their own callouts.
+                Share(caller, e.TargetId, e.Position);
+                break;
         }
     }
 

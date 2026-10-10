@@ -32,6 +32,16 @@ public sealed record RoundShape(MatchModeKind Kind, int Teammates, int Opponents
 
     public static RoundShape Of(GameMode mode, int size, ObjectiveFocus? objective = null) =>
         new(mode.Kind, mode.TeammatesFor(size), mode.OpponentsFor(size), mode.Roles, mode.Kind == MatchModeKind.FreeForAll ? null : objective);
+
+    /// <summary>
+    /// A round with <paramref name="people"/> people on the side that comes in at the entries. In co-op (a solo round
+    /// played together) the others start near the first as their teammates; teams and free-for-all count people among
+    /// their places already.
+    /// </summary>
+    public static RoundShape Of(GameMode mode, int size, int people, ObjectiveFocus? objective = null) =>
+        mode.Kind == MatchModeKind.Solo && people > 1
+            ? new(mode.Kind, people - 1, size, mode.Roles, objective)
+            : Of(mode, size, objective);
 }
 
 /// <summary>

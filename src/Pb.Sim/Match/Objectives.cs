@@ -126,7 +126,7 @@ public sealed class ObjectiveState
 
     public ObjectiveKind Kind { get; }
 
-    /// <summary>The side playing for the objective: yours.</summary>
+    /// <summary>The side playing for the objective (offline, yours).</summary>
     public byte Attackers { get; }
 
     public LevelObjectives Level { get; }
@@ -164,6 +164,18 @@ public sealed class ObjectiveState
     public float Held { get; private set; }
 
     public HoldStatus Status { get; private set; }
+
+    /// <summary>A joining copy: the objective as the server says it stands.</summary>
+    internal void ApplyServer(bool done, Vector3 casePosition, int carrier, bool caseMoved, int exitUsed, float held, HoldStatus status)
+    {
+        Done = done;
+        CasePosition = casePosition;
+        Carrier = carrier;
+        CaseMoved = caseMoved;
+        ExitUsed = exitUsed;
+        Held = held;
+        Status = status;
+    }
 
     internal void Update(SimWorld sim, float dt)
     {
@@ -317,20 +329,20 @@ public sealed record ObjectiveFocus(ObjectiveKind Kind, Vector3 At, HoldRoom? Ro
     }
 }
 
-/// <summary>Retrieve: the case carried out wins for your side; otherwise the last team standing.</summary>
+/// <summary>Retrieve: the case carried out wins for the attackers; otherwise the last team standing.</summary>
 public sealed class RetrieveMode : IMatchMode
 {
     public static readonly RetrieveMode Instance = new();
 
-    public RoundOutcome Evaluate(SimWorld sim, MatchState match) =>
-        match.Objective is { Done: true } ? RoundOutcome.Extracted : LastTeamStandingMode.Instance.Evaluate(sim, match);
+    public MatchResult Evaluate(SimWorld sim, MatchState match) =>
+        match.Objective is { Done: true } ? new MatchResult(RoundEnd.Extracted, match.Attackers) : LastTeamStandingMode.Instance.Evaluate(sim, match);
 }
 
-/// <summary>Hold: the room held for the hold time wins for your side; otherwise the last team standing.</summary>
+/// <summary>Hold: the room held for the hold time wins for the attackers; otherwise the last team standing.</summary>
 public sealed class HoldMode : IMatchMode
 {
     public static readonly HoldMode Instance = new();
 
-    public RoundOutcome Evaluate(SimWorld sim, MatchState match) =>
-        match.Objective is { Done: true } ? RoundOutcome.Held : LastTeamStandingMode.Instance.Evaluate(sim, match);
+    public MatchResult Evaluate(SimWorld sim, MatchState match) =>
+        match.Objective is { Done: true } ? new MatchResult(RoundEnd.Held, match.Attackers) : LastTeamStandingMode.Instance.Evaluate(sim, match);
 }

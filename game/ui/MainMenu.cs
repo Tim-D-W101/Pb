@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Pb.Game.Core;
+using Pb.Game.Platform;
+using Pb.Net.Platform;
 using Pb.Sim.Data;
 using Pb.Sim.Level;
 using Pb.Sim.Match;
@@ -28,6 +30,7 @@ public partial class MainMenu : Control
     private Control _title = null!;
     private Control _levels = null!;
     private Control _settingsScreen = null!;
+    private Control _others = null!;
     private int _tourFrame = -1;
     private TextureRect _backdrop = null!;
     private static bool _skippedToLevel;
@@ -41,6 +44,14 @@ public partial class MainMenu : Control
             _runtimeLogged = true;
             GD.Print($".NET {System.Environment.Version}: TieredPGO={AppContext.GetData("System.Runtime.TieredPGO") ?? "default"}, "
                 + $"QuickJitForLoops={AppContext.GetData("System.Runtime.TieredCompilation.QuickJitForLoops") ?? "default"}");
+        }
+
+        if (Args.Has("--server") && !_skippedToLevel)
+        {
+            // The dedicated server: no menu at all.
+            _skippedToLevel = true;
+            Callable.From(() => GetTree().ChangeSceneToFile(GameSession.ServerScene)).CallDeferred();
+            return;
         }
 
         SetAnchorsPreset(LayoutPreset.FullRect);
@@ -69,6 +80,7 @@ public partial class MainMenu : Control
 
         _settings = GameSettings.Load(_view);
         InputSetup.Apply(_settings.Bindings);
+        Platforms.Attach(GetTree());
         _settings.ApplyWindow();
         Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
         Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
@@ -111,7 +123,8 @@ public partial class MainMenu : Control
         _title = TitleScreen();
         _levels = LevelSelect();
         _settingsScreen = SettingsScreen();
-        foreach (Control screen in new[] { _title, _levels, _settingsScreen })
+        _others = OthersScreen();
+        foreach (Control screen in new[] { _title, _levels, _settingsScreen, _others })
         {
             AddChild(screen);
         }
@@ -134,6 +147,12 @@ public partial class MainMenu : Control
         else if (Args.Has("--menu-tour"))
         {
             _tourFrame = 0;
+        }
+        else if ((Args.Has("--host") || Args.Has("--join")) && !_skippedToLevel)
+        {
+            // Playing with others from the command line (once): hosting, or joining the address given, then the lobby.
+            _skippedToLevel = true;
+            Callable.From(StartWithOthers).CallDeferred();
         }
         else if (Args.Has("--level") && !_skippedToLevel)
         {
@@ -169,6 +188,9 @@ public partial class MainMenu : Control
                 // Each of the other areas in turn, every one open.
                 Press($"Area_{(_tourFrame - 66) / 10}");
                 break;
+            case 100:
+                Open(_others);
+                break;
             case 105:
                 Open(_settingsScreen);
                 break;
@@ -189,6 +211,44 @@ public partial class MainMenu : Control
         }
     }
 
+    /// <summary>
+    /// <c>--host</c> (on <c>--port=N</c>) or <c>--join=ADDRESS</c>, as <c>--name=NAME</c> playing character <c>--look=N</c>,
+    /// with <c>--password=WORD</c> if the game has one: starts the game with others and goes to its lobby. Hosting, the round
+    /// is the one the menus last chose, or <c>--level</c>, <c>--mode</c> and the rest.
+    /// </summary>
+    private void StartWithOthers()
+    {
+        IIdentity you = Platforms.Current.Identity;
+        string name = Args.Value("--name") is { Length: > 0 } given ? given : you.Name;
+        byte look = byte.TryParse(Args.Value("--look"), out byte l) ? l : (byte)_settings.PlayerLook;
+        string password = Args.Value("--password") ?? "";
+        try
+        {
+            if (Args.Value("--join") is { Length: > 0 } address)
+            {
+                Pb.Game.Net.NetStart.Join(GetTree(), address, name, look, password, key: you.Id);
+            }
+            else
+            {
+                Pb.Game.Net.NetStart.Host(GetTree(), _data, name, look, int.TryParse(Args.Value("--port"), out int port) ? port : null, password);
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            GD.PushError(ex.Message);
+            if (DisplayServer.GetName() == "headless")
+            {
+                GetTree().Quit(1);
+                return;
+            }
+
+            AddChild(UiKit.Overlay(UiKit.Panel(UiKit.Body(ex.Message, 20, UiKit.Bad, wrap: true), 700f)));
+            return;
+        }
+
+        GetTree().ChangeSceneToFile(GameSession.LobbyScene);
+    }
+
     /// <summary>Presses the first button on the place picker named like <paramref name="pattern"/> (the tour).</summary>
     private void Press(string pattern)
     {
@@ -200,7 +260,7 @@ public partial class MainMenu : Control
 
     private void Open(Control screen, Button? focus = null)
     {
-        foreach (Control s in new[] { _title, _levels, _settingsScreen })
+        foreach (Control s in new[] { _title, _levels, _settingsScreen, _others })
         {
             s.Visible = s == screen;
         }
@@ -239,12 +299,24 @@ public partial class MainMenu : Control
         buttons.CustomMinimumSize = new Vector2(380, 0);
         buttons.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
         buttons.AddChild(UiKit.Button("Play", ShowLevels));
+        Button others = UiKit.Button("Play with others", () => Open(_others));
+        others.Name = "PlayWithOthers";
+        buttons.AddChild(others);
         buttons.AddChild(UiKit.Button("Training ground", () => Load(GameSession.RangeScene, "Training ground", "Setting out the targets…")));
         buttons.AddChild(UiKit.Button("Settings", () => Open(_settingsScreen)));
         buttons.AddChild(UiKit.Button("Quit", () => GetTree().Quit()));
         column.AddChild(buttons);
+        if (GameSession.Notice is { } notice)
+        {
+            // Why the last game with others ended.
+            Label said = UiKit.Body(notice, 18, UiKit.Bad, wrap: true);
+            said.CustomMinimumSize = new Vector2(380, 0);
+            column.AddChild(said);
+            GameSession.Notice = null;
+        }
+
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 20) });
-        column.AddChild(UiKit.Body("Working title · Phase 3 build", 16, UiKit.Dim));
+        column.AddChild(UiKit.Body("Working title · Phase 4 build", 16, UiKit.Dim));
         return Screen(column, left: true);
     }
 
@@ -473,6 +545,15 @@ public partial class MainMenu : Control
         $"{tier.DisplayName}: {RoundScreens.Clock(tier.TimeLimit_s)} on the clock · you start with {tier.StartPods} spare " +
         $"pod{(tier.StartPods == 1 ? "" : "s")}, every bot carries {tier.BotPods} · {(tier.Pickups ? "pickups out" : "no pickups")}.";
 
+    /// <summary>Play with others: your name and character, hosting, and joining (games on your network, an address, the last few).</summary>
+    private Control OthersScreen()
+    {
+        var screen = new PlayWithOthers { Name = "Others" };
+        screen.Build(_data, _view, _settings);
+        screen.Back = () => Open(_title);
+        return Screen(UiKit.Panel(screen, 1260f), left: true);
+    }
+
     private Control SettingsScreen()
     {
         VBoxContainer column = UiKit.Column(16);
@@ -685,6 +766,23 @@ public partial class MainMenu : Control
             problems.Add(settingsNote);
         }
 
+        // Play with others: your name, Host and Join, and it fits on the screen.
+        foreach (string part in new[] { "Name", "Host", "Join", "Address" })
+        {
+            if (_others.FindChild(part, recursive: true, owned: false) is null)
+            {
+                problems.Add($"Play with others has no {part}");
+            }
+        }
+
+        Open(_others);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        if (Overflow(_others) is > 0.5f and var tall)
+        {
+            problems.Add($"Play with others is {tall:0} px too tall for the screen");
+        }
+
         // Each area's card fits on a 1600 × 900 screen, Start and all, whichever place is picked: measured once laid out.
         ShowLevels();
         for (int a = 0; a < areas.Length; a++)
@@ -713,7 +811,7 @@ public partial class MainMenu : Control
 
         bool ok = areas.Length >= 1 && problems.Count == 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {areas.Length} area{(areas.Length == 1 ? "" : "s")} with {places} places to play, all open, each card on one screen, " +
-                 $"{modes.Count} modes with their sizes, objectives and the difficulty tiers, {settingsNote}" +
+                 $"{modes.Count} modes with their sizes, objectives and the difficulty tiers, {settingsNote}, and Play with others" +
                  $"{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
         GetTree().Quit(ok ? 0 : 1);
     }

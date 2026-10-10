@@ -103,6 +103,7 @@ public sealed class GameData
                     RestlessAfter = m.RestlessAfter_s,
                 }).ToArray(),
                 MaxPlayers = rules.MaxPlayers,
+                Callout = new CalloutRules(MathF.Cos(rules.Callout.Cone_deg * Units.DegreesToRadians), rules.Callout.Range_m, rules.Callout.Cooldown_s),
                 SettleTime = rules.SettleTime_s,
                 TradeCountsAsClear = rules.TradeCountsAsClear,
                 PickupRadius = rules.PickupRadius_m,

@@ -36,6 +36,10 @@ dotnet test                                           # Pb.Sim tests (fast, no e
 dotnet run -c Release --project tools/Pb.Bench        # ballistics report + tick cost
 tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end check
 tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in art/*.pck
+tools/package/server-build.sh godot                   # then the dedicated servers: Pb-server-linux.tar.gz, Pb-server-windows.zip
+godot --headless --path game -- --server              # a dedicated server from the source (game/data/server.jsonc; docs/hosting.md)
+tools/ci/net-round.sh godot                           # CI's networked rounds: a dedicated server and five players over UDP, two of them cheating
+tools/ci/wine-join.sh builds/server/linux/Pb-server builds/windows/Pb   # the Windows build plays a round on the Linux server under Wine
 tools/package/godot-project.sh                        # self-contained project zip for Godot's Import
 python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate the hospital wings (edit the script, not the files)
 ```
@@ -54,6 +58,19 @@ mounts in exported builds, and the release lists every game file's SHA-256 so `P
 The Windows build runs headless under Wine (`apt-get install wine`), the way to catch faults only the Windows .NET
 runtime has: `WINEDLLOVERRIDES=dinput8=d wine Pb.exe --headless -- --level=ID --bot-match --no-art` (Wine's DirectInput
 crashes Godot; exported builds take no scene path, and the menu's `--smoke-test` comes first).
+
+Playing with others from the command line (Phase 4; the menu's Play with others does the same):
+- **Hosting and joining:** `-- --host` (on `--port=N`, with `--password=WORD`) or `-- --join=ADDRESS`, as `--name=NAME`
+  playing character `--look=N`.
+- **In the lobby:** `--host-wait=N` starts the first countdown once N people are in (the next ones with whoever's in), `--ready` readies you up, `--say=TEXT`
+  says something in the chat, and `--rounds=N` has a `--bot-match` copy play N rounds before it quits.
+- **A worse connection on purpose:** `--net-lag=MS` (round trip), `--net-jitter=MS`, `--net-loss=PCT`; and
+  `--no-lag-compensation` on the host.
+- **CI's cheats:** `--net-cheat=fire` flips the trigger every tick; `--net-cheat=fast` runs a joining copy's ticks twice
+  as fast.
+- **The dedicated server:** `-- --server` (with `--server-config=PATH`).
+- **Every networked copy** prints a `NET RESULT` line per round, so CI can compare them. `--snap-every=S` (with
+  `--snap-dir`) saves the screen every S seconds of a networked round, and `--show-scoreboard` holds the scoreboard up.
 
 Godot 4.7.2 .NET is expected on PATH as `godot` (CI installs it with `tools/ci/install-godot.sh`).
 Build `game/Pb.csproj` before running Godot headless.

@@ -251,4 +251,45 @@ public class SettingsTests
         Assert.Equal(3, dropped);
         Assert.Equal(new[] { "key:Space", "pad:A" }, set.Effective("jump"));
     }
+
+    [Fact]
+    public void Playing_with_others_keeps_a_fit_name_your_character_the_last_few_addresses_and_the_pretend_lag()
+    {
+        GameSettings s = GameSettings.FromJson(
+            "{ \"playerName\": \"  Ada\\u0007 the very long-named paintball player  \", \"playerLook\": 40, \"pretendLag_ms\": 9000, " +
+            "\"recentAddresses\": [\"a\", \"A\", \" \", \"b\", \"c\", \"d\", \"e\", \"f\"] }", Defaults, out string? problem);
+        Assert.Null(problem);
+        Assert.Equal("Ada the very long-named", s.PlayerName);
+        Assert.Equal(15, s.PlayerLook);
+        Assert.Equal(500f, s.PretendLag_ms);
+        Assert.Equal(new[] { "a", "b", "c", "d", "e" }, s.RecentAddresses);
+        s.RememberAddress(" c ");
+        s.RememberAddress("g:47820");
+        Assert.Equal(new[] { "g:47820", "c", "a", "b", "d" }, s.RecentAddresses);
+        GameSettings back = GameSettings.FromJson(s.ToJson(), Defaults, out _);
+        Assert.Equal(s.RecentAddresses, back.RecentAddresses);
+        Assert.Equal(s.PlayerName, back.PlayerName);
+        Assert.Equal(new GameSettings().PlayerName, GameSettings.Defaults(Defaults).PlayerName);
+    }
+
+    [Fact]
+    public void Your_profile_id_is_made_once_and_kept()
+    {
+        GameSettings first = GameSettings.FromJson(null, Defaults, out _);
+        Assert.True(first.ProfileIdMade);
+        Assert.Matches("^[0-9a-f]{32}$", first.ProfileId);
+        Assert.DoesNotContain("profileIdMade", first.ToJson(), StringComparison.OrdinalIgnoreCase);
+        GameSettings again = GameSettings.FromJson(first.ToJson(), Defaults, out _);
+        Assert.False(again.ProfileIdMade);
+        Assert.Equal(first.ProfileId, again.ProfileId);
+        Assert.NotEqual(GameSettings.FromJson(null, Defaults, out _).ProfileId, first.ProfileId);
+
+        // A file from before there were ids, or with a broken one, gets a new id.
+        GameSettings old = GameSettings.FromJson("{ \"playerName\": \"Ada\" }", Defaults, out _);
+        Assert.True(old.ProfileIdMade);
+        Assert.Matches("^[0-9a-f]{32}$", old.ProfileId);
+        GameSettings broken = GameSettings.FromJson("{ \"profileId\": \"../../not an id\" }", Defaults, out _);
+        Assert.True(broken.ProfileIdMade);
+        Assert.Matches("^[0-9a-f]{32}$", broken.ProfileId);
+    }
 }

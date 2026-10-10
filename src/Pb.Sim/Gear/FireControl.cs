@@ -53,6 +53,28 @@ public sealed class FireControl
 
     public bool IsRamping { get; private set; }
 
+    internal void CaptureInto(ref MarkerState state, double now)
+    {
+        state.Mode = Mode;
+        state.Ramping = IsRamping;
+        state.FireTrigger = _previousTrigger;
+        state.NextShotIn = (float)(_nextShotTime - now);
+        state.SinceLastPull = (float)(now - _lastPullTime);
+        state.FastPulls = (byte)Math.Min(_fastPulls, byte.MaxValue);
+        state.Buffered = (byte)Math.Min(_buffered, byte.MaxValue);
+    }
+
+    internal void Restore(in MarkerState state, double now)
+    {
+        Mode = state.Mode;
+        IsRamping = state.Ramping;
+        _previousTrigger = state.FireTrigger;
+        _nextShotTime = now + state.NextShotIn;
+        _lastPullTime = now - state.SinceLastPull;
+        _fastPulls = state.FastPulls;
+        _buffered = state.Buffered;
+    }
+
     public void Reset()
     {
         _previousTrigger = false;

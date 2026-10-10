@@ -26,9 +26,18 @@ public static class GameSession
     /// <summary>The menu to open on returning to the main scene ("levels" after a round).</summary>
     public static string? ReturnTo { get; set; }
 
+    /// <summary>Something to tell you back at the menu (why a game with others ended).</summary>
+    public static string? Notice { get; set; }
+
     public const string MainScene = "res://scenes/Main.tscn";
 
     public const string LevelScene = "res://scenes/Level.tscn";
 
     public const string RangeScene = "res://scenes/Range.tscn";
+
+    /// <summary>Playing with others: who's in, between rounds.</summary>
+    public const string LobbyScene = "res://scenes/Lobby.tscn";
+
+    /// <summary>The dedicated server (-- --server).</summary>
+    public const string ServerScene = "res://scenes/Server.tscn";
 }

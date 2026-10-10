@@ -148,6 +148,36 @@ public class SpawnPlannerTests
         Assert.True(spread <= Rules.TeamSpread * 1.5f, $"the other team is spread {spread:0.0} m round its centre");
     }
 
+    [Theory]
+    [InlineData(2, 6)]
+    [InlineData(4, 6)]
+    [InlineData(5, 4)]
+    public void Co_op_starts_everyone_who_joined_together_at_the_entries(int people, int opponents)
+    {
+        (LevelLayout level, CoverSet cover, CollisionWorld world) = Built.Value;
+        for (ulong seed = 400; seed < 406; seed++)
+        {
+            SpawnPlan plan = SpawnPlanner.Plan(level, cover, world, Rules, TestData.Data.Bots, RoundShape.Of(Mode("solo"), opponents, people),
+                TestData.Config.Movement.StandEyeHeight, seed);
+            Assert.Equal(people - 1, plan.Teammates.Count);
+            Assert.Equal(opponents, plan.Opponents.Count);
+            var ours = plan.Teammates.Select(m => m.Position).Append(plan.You.Position).ToList();
+            foreach (OpponentSpawn mate in plan.Teammates)
+            {
+                float d = Vector3.Distance(mate.Position, plan.You.Position);
+                Assert.True(d >= Rules.TeammateSpacing && d <= Rules.TeammatesWithin * 1.5f * 1.5f, $"seed {seed}: {mate.Id} starts {d:0.0} m from the first");
+            }
+
+            foreach (OpponentSpawn o in plan.Opponents)
+            {
+                Assert.DoesNotContain(ours, p => Sees(p, o.Position));
+            }
+        }
+
+        // One person is the solo round as before.
+        Assert.Equal(RoundShape.Of(Mode("solo"), opponents), RoundShape.Of(Mode("solo"), opponents, 1));
+    }
+
     [Fact]
     public void The_same_seed_deals_the_same_starts()
     {

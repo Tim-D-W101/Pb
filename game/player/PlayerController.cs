@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using Pb.Game.Core;
+using Pb.Net.Client;
 using Pb.Sim;
 using Pb.Sim.Core;
 using Pb.Sim.Players;
@@ -13,7 +14,7 @@ namespace Pb.Game.Player;
 /// responsiveness, and its position and lean roll are interpolated between ticks, so 120 Hz physics
 /// looks smooth at 144 Hz.
 /// </summary>
-public partial class PlayerController : PawnBody, IPlayerDriver
+public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
 {
     private PresentationDef _view = null!;
     private GameSettings _settings = null!;
@@ -44,6 +45,17 @@ public partial class PlayerController : PawnBody, IPlayerDriver
 
     /// <summary>When set, drives the player instead of devices.</summary>
     public ICommandSource? AutoPilot { get; set; }
+
+    /// <summary>
+    /// On a joining copy: turns the command sampled into the one the server will read (quantised and numbered), which
+    /// the body then moves by, so the prediction and the server's moves agree.
+    /// </summary>
+    public Func<InputCommand, InputCommand>? Predict { get; set; }
+
+    /// <summary>
+    /// On a joining copy: how far the camera is drawn off the body while a small correction eases out (world space).
+    /// </summary>
+    public Func<System.Numerics.Vector3>? CorrectionOffset { get; set; }
 
     public float Yaw => _yaw;
 
@@ -98,13 +110,23 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         Body?.Capture();
     }
 
+    /// <summary>Typing in the chat: your keys don't move you (the mouse still looks round).</summary>
+    public bool Muted { get; set; }
+
     public InputCommand Step(int tick, float dt)
     {
-        InputCommand cmd = AutoPilot is not null ? AutoPilot.Next(tick, State) : SampleDevices(tick);
+        InputCommand cmd = AutoPilot is not null ? AutoPilot.Next(tick, State)
+            : Muted ? new InputCommand { Tick = tick, Yaw = _yaw, Pitch = _pitch }
+            : SampleDevices(tick);
         if (AutoPilot is not null)
         {
             _yaw = cmd.Yaw;
             _pitch = cmd.Pitch;
+        }
+
+        if (Predict is not null)
+        {
+            cmd = Predict(cmd);
         }
 
         ApplyCommand(cmd, dt);
@@ -116,6 +138,12 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         _currentRoll = State.LeanRoll;
         return cmd;
     }
+
+    /// <summary>A correction: the body back where the server had it (the replay that follows moves it on).</summary>
+    void IPredictedBody.Reset(in PredictedState state) => FollowState(state.Grounded);
+
+    /// <summary>A correction's replay: one of your earlier commands again, by the movement rules.</summary>
+    void IPredictedBody.Move(in InputCommand command, float dt) => ApplyCommand(command, dt);
 
     public override void _UnhandledInput(InputEvent e)
     {
@@ -193,7 +221,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver
     private void ApplyCamera(float alpha, float bobWeight)
     {
         _joltAge += (float)GetProcessDeltaTime();
-        Vector3 eye = _previousEye.Lerp(_currentEye, alpha);
+        Vector3 eye = _previousEye.Lerp(_currentEye, alpha) + (CorrectionOffset?.Invoke().ToGodot() ?? Vector3.Zero);
         float bob = _settings.HeadBob ? Mathf.Sin(_bobPhase) * _view.Camera.HeadBobAmplitude_m * bobWeight : 0f;
         _head.GlobalPosition = eye + new Vector3(0f, bob, 0f);
         // Leaning right rolls the view clockwise (negative about the view axis), by part of the body's roll.
@@ -297,5 +325,6 @@ public partial class PlayerController : PawnBody, IPlayerDriver
         ("swap_shoulder", InputButtons.SwapShoulder),
         ("slide", InputButtons.Slide),
         ("jump", InputButtons.Jump),
+        ("callout", InputButtons.Callout),
     };
 }

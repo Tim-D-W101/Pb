@@ -24,6 +24,19 @@ public struct ShotSolution
     public SweepHit Block;
 }
 
+/// <summary>Who decides what happens in a <see cref="SimWorld"/>.</summary>
+public enum SimRole : byte
+{
+    /// <summary>Everything: offline, a host or a dedicated server.</summary>
+    Authority,
+
+    /// <summary>
+    /// A copy joined to a server: it predicts its own player (<see cref="SimWorld.LocalPlayerId"/>) and flies the balls for
+    /// show, while everyone else, the doors, pickups and the round come from the server.
+    /// </summary>
+    Client,
+}
+
 /// <summary>
 /// The engine-free simulation for one match: the training range or a compound level. Hosts call <see cref="Step"/> once
 /// per fixed tick with one <see cref="InputCommand"/> per player, then read and clear <see cref="Events"/>.
@@ -33,6 +46,8 @@ public sealed class SimWorld
 {
     private readonly List<PlayerState> _players = new();
     private readonly ShotRequest[] _shots = new ShotRequest[8];
+    private readonly SimEventQueue _replayEvents = new(64);
+    private SimRole _role;
 
     /// <param name="matchSeed">Seeds the round's randomness (shots, bots); the data's seed when null. A host deals
     /// a new one each round so rounds differ; tests and scripted runs keep the data's for repeatable results.</param>
@@ -84,6 +99,24 @@ public sealed class SimWorld
 
     /// <summary>Players may move and fire: always without a match, and only while it's live with one.</summary>
     public bool IsLive => Match is null || Match.Phase == MatchPhase.Live;
+
+    /// <summary>
+    /// <see cref="SimRole.Authority"/> (the default) decides everything. On a <see cref="SimRole.Client"/> a step runs
+    /// only <see cref="LocalPlayerId"/>'s marker and look, everyone's footsteps and the balls, which break on players
+    /// without putting anyone out; the host poses everyone else, the doors and the round from the server.
+    /// </summary>
+    public SimRole Role
+    {
+        get => _role;
+        set
+        {
+            _role = value;
+            PlayerHits.Decides = value == SimRole.Authority;
+        }
+    }
+
+    /// <summary>On a client, the player this copy predicts: its own (−1 for none).</summary>
+    public int LocalPlayerId { get; set; } = -1;
 
     public BallisticsWorld Ballistics { get; }
 
@@ -172,15 +205,17 @@ public sealed class SimWorld
 
     /// <summary>
     /// Starts a round with everyone already added, each on their team (in free-for-all, a team each):
-    /// gear by the tier (full loaders and tanks, the tier's pods), pickups out or not, stats from zero.
-    /// Every mode is won by the last team standing; an objective (the hero's side attacking it) is another way to win.
-    /// The round waits in the briefing until <see cref="GoLive"/>.
+    /// gear by the tier (full loaders and tanks, the tier's pods for people and for bots), pickups out or not, stats
+    /// from zero. Every mode is won by the last team standing; an objective (its attackers the first person's side,
+    /// unless the setup names them) is another way to win. The round waits in the briefing until <see cref="GoLive"/>.
     /// </summary>
     public MatchState StartMatch(MatchSetup setup)
     {
         ObjectiveKind kind = setup.Mode == MatchModeKind.FreeForAll ? ObjectiveKind.Eliminate : setup.Objective;
         ObjectiveState? objective = null;
         IMatchMode mode = LastTeamStandingMode.Instance;
+        int heroTeam = FindPlayer(setup.HeroId)?.Team ?? -1;
+        byte attackers = setup.Attackers ?? (byte)Math.Max(0, heroTeam);
         if (kind != ObjectiveKind.Eliminate)
         {
             LevelObjectives places = Level?.Objectives ?? LevelObjectives.None;
@@ -189,17 +224,16 @@ public sealed class SimWorld
                 throw new InvalidOperationException($"{Level?.Id ?? "the range"} has no places for {kind.ToString().ToLowerInvariant()}");
             }
 
-            byte attackers = FindPlayer(setup.HeroId)?.Team ?? 0;
             objective = new ObjectiveState(kind, attackers, places, Config.Rules.Objectives, MatchSeed);
             mode = kind == ObjectiveKind.Retrieve ? RetrieveMode.Instance : HoldMode.Instance;
         }
 
-        Match = new MatchState(setup, Config.Rules, mode, objective);
+        Match = new MatchState(setup, Config.Rules, mode, attackers, heroTeam, objective);
         foreach (PlayerState p in _players)
         {
             p.SprintBlocked = false;
             p.Marker.ResetGear();
-            p.Marker.Paint.FillWith(p.Id == setup.HeroId ? setup.StartPods : setup.BotPods);
+            p.Marker.Paint.FillWith(setup.IsPerson(p.Id) ? setup.StartPods : setup.BotPods);
             Match.AddPlayer(p.Id);
         }
 
@@ -215,57 +249,224 @@ public sealed class SimWorld
     /// <summary>Ends the briefing: the clock starts and everyone may move and fire.</summary>
     public void GoLive() => Match?.GoLive(this);
 
+    /// <summary>
+    /// Someone playing with others has left mid-round: at the next step they're off the field and count as out, put out by
+    /// nobody (a <see cref="SimEventType.PlayerEliminated"/> with no shooter and <see cref="SimEvent.Extra"/> −1). Only the
+    /// authority decides it; a joining copy hears it in the server's events.
+    /// </summary>
+    public void Withdraw(int playerId)
+    {
+        if (_role == SimRole.Authority && FindPlayer(playerId) is { } player)
+        {
+            player.Left = true;
+        }
+    }
+
     public void Step(ReadOnlySpan<InputCommand> commands)
     {
         double t0 = Time;
         float dt = Dt;
         int firstEvent = Events.Count;
+        bool client = _role == SimRole.Client;
         Targets.Update(t0);
         PlayerHits.Record(Tick);
+        for (int i = 0; i < _players.Count; i++)
+        {
+            if (_players[i].Left && _players[i].Present)
+            {
+                TakeOff(_players[i]);
+            }
+        }
 
         for (int i = 0; i < _players.Count; i++)
         {
             PlayerState player = _players[i];
+            if (client && player.Id != LocalPlayerId)
+            {
+                // Someone else on a joining copy, posed from the server's snapshots: only the footsteps their movement
+                // makes are worked out here (their shots come from the server).
+                UpdateFootsteps(player);
+                continue;
+            }
+
             if (i < commands.Length)
             {
                 InputCommand cmd = commands[i];
-                // On a ladder the body faces it and the head turns to look round (as far as a head turns); hands on
-                // the rungs, the marker can neither fire nor refill.
-                bool climbing = player.Ladder >= 0 && player.Ladder < Ladders.Count;
-                float body = climbing ? Ladders[player.Ladder].Facing : cmd.Yaw;
-                float head = climbing ? BotAim.Wrap(cmd.Yaw + cmd.HeadYaw - body) : cmd.HeadYaw;
-                player.Yaw = body;
-                player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
-                player.HeadYaw = player.Alive ? Math.Clamp(head, -Config.Movement.MaxHeadTurn, Config.Movement.MaxHeadTurn) : 0f;
-                UpdateTuck(player, dt);
+                bool climbing = Look(player, cmd, dt);
                 UpdateFootsteps(player);
-                bool live = IsLive;
-                var input = new MarkerInput(
-                    live && !climbing && cmd.Has(InputButtons.Fire), live && !climbing && cmd.Has(InputButtons.Refill),
-                    cmd.Has(InputButtons.ToggleFireMode), player.Sprinting, player.Alive, player.MarkerReady);
-                int count = player.Marker.Update(t0, dt, input, _shots, Events, player.Id, player.Team, Tick);
+                int count = MarkerStep(player, cmd, t0, dt, climbing, Events);
+                byte rewind = Math.Min(cmd.Rewind, (byte)(PlayerHitboxes.HistoryTicks - 1));
                 for (int k = 0; k < count; k++)
                 {
-                    FireShot(player, _shots[k]);
+                    FireShot(player, _shots[k], rewind);
                 }
 
-                Doors.Interact(this, player, live && player.Alive && !climbing && cmd.Has(InputButtons.Interact), dt);
+                if (!client)
+                {
+                    Doors.Interact(this, player, IsLive && player.Alive && !climbing && cmd.Has(InputButtons.Interact), dt);
+                    CallOut(player, cmd.Has(InputButtons.Callout), t0);
+                }
             }
         }
 
-        Doors.Step(this, dt);
-        if (IsLive)
+        // A joining copy takes the doors, the pickups and the round from the server.
+        if (!client)
         {
-            Pickups.Update(this, Config.Rules);
+            Doors.Step(this, dt);
+            if (IsLive)
+            {
+                Pickups.Update(this, Config.Rules);
+            }
         }
 
         Stress?.Update(Ballistics, MatchSeed, Config.Shot.MuzzleVelocity, Config.Shot.VelocityVariance, Tick, dt, Events);
         Ballistics.Tick(Tick, dt, Events);
         SprayMasks(firstEvent);
-        Match?.Update(this, firstEvent);
+        if (!client)
+        {
+            Match?.Update(this, firstEvent);
+        }
 
         Tick++;
         Time += dt;
+    }
+
+    /// <summary>
+    /// The callout key, on its press: "Contact!" about the opponent nearest the aim (within the rules' cone and range, in
+    /// sight), or where the caller is looking when there's none, for the caller's side to take as a contact.
+    /// </summary>
+    private void CallOut(PlayerState player, bool held, double now)
+    {
+        bool pressed = held && !player.CalloutHeld;
+        player.CalloutHeld = held;
+        CalloutRules rules = Config.Rules.Callout;
+        if (!pressed || !player.Alive || !IsLive || now - player.CalledOutAt < rules.Cooldown)
+        {
+            return;
+        }
+
+        player.CalledOutAt = now;
+        Vector3 eye = player.EyePosition;
+        Vector3 aim = ViewAngles.Forward(player.Yaw, player.Pitch);
+        int best = -1;
+        float bestCos = rules.ConeCos;
+        Vector3 at = default;
+        for (int i = 0; i < _players.Count; i++)
+        {
+            PlayerState other = _players[i];
+            if (other == player || !other.Alive || !other.Present || other.Team == player.Team)
+            {
+                continue;
+            }
+
+            Vector3 to = other.EyePosition - eye;
+            float distance = to.Length();
+            if (distance < 0.5f || distance > rules.Range)
+            {
+                continue;
+            }
+
+            float cos = Vector3.Dot(to / distance, aim);
+            if (cos < bestCos || Collision.SweepSphere(eye, other.EyePosition, 0.01f, out _))
+            {
+                continue;
+            }
+
+            best = other.Id;
+            bestCos = cos;
+            at = other.Position;
+        }
+
+        if (best < 0)
+        {
+            Vector3 end = eye + aim * rules.Range;
+            at = Collision.SweepSphere(eye, end, 0.01f, out SweepHit hit) ? hit.Point : end;
+        }
+
+        Events.Add(new SimEvent
+        {
+            Type = SimEventType.CalledOut, Tick = Tick, PlayerId = player.Id, TargetId = best, Team = player.Team, Position = at, ColliderId = -1,
+        });
+    }
+
+    /// <summary>Someone who left: out (if they were still in) and off the field at once.</summary>
+    private void TakeOff(PlayerState player)
+    {
+        player.Present = false;
+        player.Sprinting = false;
+        if (!player.Alive)
+        {
+            return;
+        }
+
+        player.Alive = false;
+        player.EliminatedBy = -1;
+        player.EliminatedTick = Tick;
+        Events.Add(new SimEvent
+        {
+            Type = SimEventType.PlayerEliminated, Tick = Tick, PlayerId = -1, TargetId = player.Id, Team = player.Team,
+            Position = player.Position, Normal = Vector3.UnitY, Extra = -1, ColliderId = -1,
+        });
+    }
+
+    /// <summary>
+    /// A joining copy correcting its own player after the server's state was put back: runs <paramref name="cmd"/>'s look,
+    /// tuck and marker for <paramref name="player"/> again as of <paramref name="t0"/>, the sim time it first ran at, firing
+    /// nothing and telling nobody (that all happened the first time). The host replays the movement first, as before a step.
+    /// </summary>
+    public void ReplayLocal(PlayerState player, in InputCommand cmd, double t0)
+    {
+        bool climbing = Look(player, cmd, Dt);
+        MarkerStep(player, cmd, t0, Dt, climbing, _replayEvents);
+        _replayEvents.Clear();
+    }
+
+    /// <summary>The look a command gives (on a ladder the body faces it and the head looks round) and the marker's tuck.</summary>
+    private bool Look(PlayerState player, in InputCommand cmd, float dt)
+    {
+        // On a ladder the body faces it and the head turns to look round (as far as a head turns); hands on the rungs,
+        // the marker can neither fire nor refill.
+        bool climbing = player.Ladder >= 0 && player.Ladder < Ladders.Count;
+        float body = climbing ? Ladders[player.Ladder].Facing : cmd.Yaw;
+        float head = climbing ? BotAim.Wrap(cmd.Yaw + cmd.HeadYaw - body) : cmd.HeadYaw;
+        player.Yaw = body;
+        player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
+        player.HeadYaw = player.Alive ? Math.Clamp(head, -Config.Movement.MaxHeadTurn, Config.Movement.MaxHeadTurn) : 0f;
+        UpdateTuck(player, dt);
+        return climbing;
+    }
+
+    /// <summary>The marker's tick: the shots it fires go in the step's buffer, its events in <paramref name="events"/>.</summary>
+    private int MarkerStep(PlayerState player, in InputCommand cmd, double t0, float dt, bool climbing, SimEventQueue events)
+    {
+        bool live = IsLive;
+        var input = new MarkerInput(
+            live && !climbing && cmd.Has(InputButtons.Fire), live && !climbing && cmd.Has(InputButtons.Refill),
+            cmd.Has(InputButtons.ToggleFireMode), player.Sprinting, player.Alive, player.MarkerReady);
+        return player.Marker.Update(t0, dt, input, _shots, events, player.Id, player.Team, Tick);
+    }
+
+    /// <summary>
+    /// A joining copy: flies, for show, a ball the server says someone else fired, as it is at the end of the shot's tick
+    /// (its first step already flown: a copy applies the server's events after its own step). It hits nothing here: the
+    /// server's events say where it bounced and ended. <paramref name="firstStep"/> and <paramref name="streamDraws"/> come
+    /// with the shot's <see cref="SimEventType.ShotFired"/>, so it flies as the server's does and picks up its random stream.
+    /// </summary>
+    public bool SpawnRemoteShot(int owner, uint sequence, byte team, Vector3 origin, Vector3 velocity, float firstStep, int streamDraws)
+    {
+        var rng = new Pcg32(SeedHash.Shot(MatchSeed, owner, sequence));
+        for (int k = 0; k < streamDraws; k++)
+        {
+            rng.NextUInt();
+        }
+
+        if (!Ballistics.Spawn(origin, velocity, owner, sequence, team, rng, firstStep, Tick, Events, remote: true, streamDraws: streamDraws))
+        {
+            return false;
+        }
+
+        Ballistics.Advance(Ballistics.Pool.Count - 1, firstStep);
+        return true;
     }
 
     public void ResetGear(PlayerState player, bool resetTargets)
@@ -282,9 +483,10 @@ public sealed class SimWorld
     /// <summary>
     /// Muzzle position and launch direction for <paramref name="player"/>'s current view. The ball
     /// flies from the marker's muzzle toward whatever is under the crosshair, so shoulder position
-    /// matters while shots still converge on the aim point.
+    /// matters while shots still converge on the aim point. Players under the crosshair are found as the
+    /// shooter saw them, <paramref name="rewind"/> ticks back (lag compensation).
     /// </summary>
-    public ShotSolution SolveShot(PlayerState player)
+    public ShotSolution SolveShot(PlayerState player, int rewind = 0)
     {
         ShotParams p = Config.Shot;
         Vector3 eye = player.EyePosition;
@@ -299,7 +501,7 @@ public sealed class SimWorld
             nearest = wh.T;
         }
 
-        if (Receivers.SweepSphere(eye, far, 0f, Tick, player.Id, out HitboxHit th) && th.T < nearest)
+        if (Receivers.SweepSphere(eye, far, 0f, Tick - rewind, player.Id, out HitboxHit th) && th.T < nearest)
         {
             nearest = th.T;
         }
@@ -332,13 +534,16 @@ public sealed class SimWorld
         return MathF.Min(p.MaxDispersion, p.DispersionHalfAngle + p.MovingDispersionPerSpeed * speed);
     }
 
-    private void FireShot(PlayerState player, in ShotRequest shot)
+    private void FireShot(PlayerState player, in ShotRequest shot, byte rewind)
     {
         ShotParams p = Config.Shot;
-        ShotSolution solution = SolveShot(player);
+        ShotSolution solution = SolveShot(player, rewind);
         var rng = new Pcg32(SeedHash.Shot(MatchSeed, player.Id, shot.Sequence));
-        Vector3 direction = Dispersion.SampleCone(solution.Direction, DispersionFor(player.HorizontalSpeed), ref rng);
+        float cone = DispersionFor(player.HorizontalSpeed);
+        Vector3 direction = Dispersion.SampleCone(solution.Direction, cone, ref rng);
         float speed = MathF.Max(0.5f, shot.MuzzleSpeed + rng.Symmetric(p.VelocityVariance));
+        // The cone draws two numbers from the shot's stream and the speed one; the ball's break rolls take it on from there.
+        int draws = cone > 0f ? 3 : 1;
         Vector3 velocity = direction * speed + player.Velocity * p.InheritShooterVelocity;
         if (solution.MuzzleBlocked && p.MuzzleBlockedBreaks)
         {
@@ -347,7 +552,8 @@ public sealed class SimWorld
         }
 
         float firstStep = MathF.Max(1e-5f, Dt - shot.TimeOffset);
-        Ballistics.Spawn(solution.Origin, velocity, player.Id, shot.Sequence, player.Team, rng, firstStep, Tick, Events);
+        Ballistics.Spawn(solution.Origin, velocity, player.Id, shot.Sequence, player.Team, rng, firstStep, Tick, Events, rewind,
+            streamDraws: draws);
     }
 
     /// <summary>

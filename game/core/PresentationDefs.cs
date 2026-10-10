@@ -1887,9 +1887,9 @@ public sealed class InputActionDef : IValidatable
     {
         v.NotEmpty(nameof(Name), Name);
         v.InRange(nameof(Deadzone), Deadzone, 0, 0.95);
-        if (Group is not ("movement" or "combat" or "shortcuts"))
+        if (Group is not ("movement" or "combat" or "others" or "shortcuts"))
         {
-            v.Error(nameof(Group), $"'{Group}' is not movement, combat or shortcuts");
+            v.Error(nameof(Group), $"'{Group}' is not movement, combat, others or shortcuts");
         }
 
         // The settings show two keyboard-and-mouse bindings and one pad binding for each action.
@@ -2153,6 +2153,19 @@ public sealed class HudDef : IValidatable
     /// <summary>Below this share of the loader (0-1), the gear panel's paint count turns amber and says LOW.</summary>
     public float LowPaint { get; set; }
 
+    /// <summary>Playing with others: teammates' names this far over their heads (m), out to this distance (m).</summary>
+    public float NameAbove_m { get; set; }
+
+    public float NameRange_m { get; set; }
+
+    /// <summary>A teammate's callout marks the spot this long (s).</summary>
+    public float CalloutMark_s { get; set; }
+
+    /// <summary>The chat in a round: its last lines, shown this long after they come (s).</summary>
+    public int ChatLines { get; set; }
+
+    public float ChatShow_s { get; set; }
+
     public string[] Callsigns { get; set; } = System.Array.Empty<string>();
 
     public CalloutsDef Callouts { get; set; } = new();
@@ -2169,6 +2182,11 @@ public sealed class HudDef : IValidatable
         v.InRange(nameof(PickupPromptRange_m), PickupPromptRange_m, 0, 50);
         v.InRange(nameof(HitMarkerTime_s), HitMarkerTime_s, 0.05, 5);
         v.InRange(nameof(LowPaint), LowPaint, 0, 1);
+        v.InRange(nameof(NameAbove_m), NameAbove_m, 0, 3);
+        v.InRange(nameof(NameRange_m), NameRange_m, 5, 500);
+        v.InRange(nameof(CalloutMark_s), CalloutMark_s, 0.5, 30);
+        v.InRange(nameof(ChatLines), ChatLines, 1, 20);
+        v.InRange(nameof(ChatShow_s), ChatShow_s, 1, 120);
         if (!Godot.Color.HtmlIsValid(HitMarkerColor))
         {
             v.Error(nameof(HitMarkerColor), $"'{HitMarkerColor}' is not a valid colour");

@@ -1,0 +1,84 @@
+// Playing with others (Phase 4): how copies of the game talk to each other. The sim runs at 120 ticks a second;
+// network times are in milliseconds.
+{
+  // The UDP port a host listens on (forward this one on the host's router to play over the internet), and the one a
+  // host answers "who's there?" on, for the list of games on your own network.
+  "port": 47820,
+  "discoveryPort": 47821,
+
+  // Snapshots go out, and players' commands come in, every this many sim ticks (2: 60 a second).
+  "sendEveryTicks": 2,
+
+  // Each command packet repeats this many of the player's latest commands (6: three packets' worth), so a lost packet
+  // costs nothing.
+  "commandsPerPacket": 6,
+
+  // The server keeps each player's commands about this many ticks deep, to even out how unevenly they arrive. If a
+  // queue stays longer than the most for longer than the patience, the server runs two in a tick (one tick's moves)
+  // to catch up; if it keeps running dry, it waits a tick for them.
+  "commandQueueTicks": 3,
+  "commandQueueMostTicks": 8,
+  "commandQueuePatience_ms": 1000,
+
+  // How far ahead of the server's next one a command may arrive and still wait its turn. One further ahead means the
+  // copy's clock has run on (the host stalled, or the copy runs fast): the queue skips on to it, and the commands in
+  // between are never run.
+  "commandAheadTicks": 240,
+
+  // A command that hasn't come in time is replaced by the player's last one, for at most this long; after that the
+  // player stands still, looking where they were, until their commands come again.
+  "repeatMissing_ms": 70,
+
+  // Others are drawn this many snapshot intervals behind the newest snapshot, plus the jitter measured, but no more
+  // than the most. Across a gap with no snapshots they carry on as they were for at most the extrapolation time.
+  "interpolationSnapshots": 2,
+  "interpolationMostSnapshots": 4,
+  "extrapolation_ms": 100,
+
+  // A prediction this close to the server's state is left alone; beyond it, the copy puts the server's state back and
+  // replays its later presses. A correction smaller than the snap is eased out over the ease time, a bigger one snaps.
+  "correctionTolerance_m": 0.001,
+  "correctionSnap_m": 0.5,
+  "correctionEase_ms": 100,
+
+  // Joining gives up after this long, and a player not heard from for this long while playing a round is dropped.
+  "connectTimeout_ms": 10000,
+  "dropAfter_ms": 5000,
+
+  // The connection itself gives up on a copy that hasn't confirmed anything for this long at the least (and at the most,
+  // however the round trip goes). Generous: a copy hears nothing while it builds a level, which can take half a minute on
+  // a slow or busy computer (CI's, running six copies at once, took 21 s). In a round the drop time above is what counts.
+  "linkTimeoutMin_ms": 60000,
+  "linkTimeoutMax_ms": 120000,
+
+  // A snapshot's events stop at this many bytes (the rest go in the next); a UDP packet holds about 1,400.
+  "packetBudget_bytes": 1100,
+
+  // The most people in one game, the host included (the rules' maxPlayers caps people and bots together).
+  "maxPeople": 10,
+
+  // The lobby counts down this long once everyone's ready (or the host starts). The round then waits this long at most
+  // for everyone to have it built, and shows the briefing this long before it goes live.
+  "countdown_s": 5,
+  "loadTimeout_s": 30,
+  "briefing_s": 5,
+
+  // Between rounds: the summary stays up this long before the host goes back to the lobby by itself (0: until the
+  // host does), and a vote on where to play next (when the host turns it on) offers this many places for this long.
+  "summary_s": 20,
+  "voteOptions": 3,
+  "voteTime_s": 15,
+
+  // Text chat: a line is cut to this length, and someone may say at most this many lines in this long.
+  "chatMost_chars": 200,
+  "chatLines": 4,
+  "chatPer_s": 5,
+
+  // During a round the lobby (everyone's ping, for the scoreboard) goes out again this often.
+  "lobbyRefresh_s": 2,
+
+  // A joining copy warns you the connection's poor past this round trip, and that it's interrupted when nothing has
+  // come from the host for this long.
+  "poorRoundTrip_ms": 250,
+  "poorSilence_ms": 400
+}

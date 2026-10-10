@@ -33,6 +33,9 @@ public sealed class PickupSet
 
     public void Reset() => Array.Clear(_taken);
 
+    /// <summary>A joining copy: whether the server says a pickup has gone.</summary>
+    internal void SetTakenFromServer(int index, bool taken) => _taken[index] = taken;
+
     internal void Update(SimWorld sim, MatchRules rules)
     {
         if (!Active)

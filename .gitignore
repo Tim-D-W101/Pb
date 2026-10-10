@@ -22,3 +22,6 @@ Thumbs.db
 # Godot Movie Maker output / local captures
 /captures/
 *.avi
+
+# The build stamp packaging writes for the export (copies only play together with the same one)
+/game/build.txt

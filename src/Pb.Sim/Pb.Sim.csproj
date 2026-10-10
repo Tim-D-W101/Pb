@@ -8,5 +8,8 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Pb.Sim.Tests" />
+    <!-- The network layer writes what a joining copy is told: other players' poses, doors, the round's progress. -->
+    <InternalsVisibleTo Include="Pb.Net" />
+    <InternalsVisibleTo Include="Pb.Net.Tests" />
   </ItemGroup>
 </Project>

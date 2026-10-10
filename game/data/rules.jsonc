@@ -69,6 +69,11 @@
   // An air pickup refills a tank that's below this share of full; fuller tanks leave it.
   "airPickupBelow": 0.9,
 
+  // The callout key: your character shouts "Contact!" about the opponent nearest where you're aiming, within this
+  // cone and range and in sight, and your side (bots and people alike) takes it as a contact, as the bots' own callouts
+  // are. At most one every cooldown.
+  "callout": { "cone_deg": 10, "range_m": 90, "cooldown_s": 3 },
+
   // Where everyone starts. Each round deals a new random seed, so starts change every time: you come
   // in at one of the level's player spawns, and opponents start at a random mix of the level's
   // opponent spawns and cover points (anywhere the level offers cover) inside its spawn area, spread

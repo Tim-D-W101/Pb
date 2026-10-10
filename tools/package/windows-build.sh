@@ -22,6 +22,11 @@ version="${3:-$(git -C "$root" rev-parse --short HEAD)}"
 rm -rf "$out/Pb" "$out/release"
 mkdir -p "$out/Pb" "$out/release"
 
+# The build's stamp goes in its pack (res://build.txt): only copies with the same stamp and data play together.
+# Run from the source, the game has none and calls itself "dev".
+printf '%s\n' "$version" > "$root/game/build.txt"
+trap 'rm -f "$root/game/build.txt"' EXIT
+
 log="$(mktemp)"
 "$godot" --headless --path "$root/game" --export-release "Windows Desktop" "$out/Pb/Pb.exe" 2>&1 | tee "$log"
 if [ ! -f "$out/Pb/Pb.exe" ] || [ ! -f "$out/Pb/Pb.pck" ] || grep -qE "^(SCRIPT )?ERROR" "$log"; then
@@ -73,7 +78,7 @@ F3 there fires 1,000 balls at once.
 EOF
 # The game's own files make the update pack; everything else (Pb.exe, the .NET runtime, Godot's
 # assemblies) is the engine, stamped so the launcher knows when it must fetch the whole game.
-game_files=(Pb.pck data_Pb_windows_x86_64/Pb.dll data_Pb_windows_x86_64/Pb.Sim.dll data_Pb_windows_x86_64/Pb.deps.json
+game_files=(Pb.pck data_Pb_windows_x86_64/Pb.dll data_Pb_windows_x86_64/Pb.Sim.dll data_Pb_windows_x86_64/Pb.Net.dll data_Pb_windows_x86_64/Pb.deps.json
   data_Pb_windows_x86_64/Pb.runtimeconfig.json Play.bat update.ps1 HOW-TO-PLAY.txt)
 mapfile -t art_packs < <(cd "$out/Pb" && find art -name 'Pb-art-*.pck' | LC_ALL=C sort)
 game_files+=("${art_packs[@]}")
@@ -96,6 +101,7 @@ for f in "${game_files[@]}"; do
 done
 (cd "$out" && zip -qr -9 -X release/Pb-windows.zip Pb)
 (cd "$out/Pb" && zip -q -9 -X ../release/Pb-update.zip "${game_files[@]}" manifest.txt)
-code_kb=$(( ($(stat -c %s "$out/Pb/Pb.pck") + $(stat -c %s "$out/Pb/data_Pb_windows_x86_64/Pb.dll") + $(stat -c %s "$out/Pb/data_Pb_windows_x86_64/Pb.Sim.dll")) / 1024 ))
+code_kb=$(( ($(stat -c %s "$out/Pb/Pb.pck") + $(stat -c %s "$out/Pb/data_Pb_windows_x86_64/Pb.dll") + $(stat -c %s "$out/Pb/data_Pb_windows_x86_64/Pb.Sim.dll") \
+  + $(stat -c %s "$out/Pb/data_Pb_windows_x86_64/Pb.Net.dll")) / 1024 ))
 echo "Windows build $version: $out/Pb ($(du -sh "$out/Pb" | cut -f1)); whole game $(du -h "$out/release/Pb-windows.zip" | cut -f1)," \
   "${#art_packs[@]} art packs $(du -sh "$out/Pb/art" | cut -f1), a code and data update about ${code_kb} KB"

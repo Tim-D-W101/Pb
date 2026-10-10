@@ -92,6 +92,25 @@ public sealed class PaintSupply
         }
     }
 
+    internal void CaptureInto(ref MarkerState state)
+    {
+        state.Loader = Loader;
+        state.PodCount = (byte)Math.Min(_pods.Length, PodCounts.MaxPods);
+        for (int i = 0; i < state.PodCount; i++)
+        {
+            state.Pods[i] = _pods[i];
+        }
+    }
+
+    internal void Restore(in MarkerState state)
+    {
+        Loader = state.Loader;
+        for (int i = 0; i < _pods.Length && i < state.PodCount; i++)
+        {
+            _pods[i] = state.Pods[i];
+        }
+    }
+
     /// <summary>Puts a picked-up pod into an empty pod slot. False if every slot still has paint in it.</summary>
     public bool TryAddPod()
     {
@@ -191,5 +210,26 @@ public sealed class Refill
         Active = false;
         Elapsed = 0f;
         _pod = -1;
+    }
+
+    /// <summary>A joining copy: someone else's refill as the server says it stands (for drawing them pouring).</summary>
+    internal void ShowFromServer(bool active, float elapsed)
+    {
+        Active = active;
+        Elapsed = elapsed;
+    }
+
+    internal void CaptureInto(ref MarkerState state)
+    {
+        state.RefillActive = Active;
+        state.RefillElapsed = Elapsed;
+        state.RefillPod = (sbyte)_pod;
+    }
+
+    internal void Restore(in MarkerState state)
+    {
+        Active = state.RefillActive;
+        Elapsed = state.RefillElapsed;
+        _pod = state.RefillPod;
     }
 }

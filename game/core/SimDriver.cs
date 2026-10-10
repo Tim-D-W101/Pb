@@ -32,6 +32,12 @@ public partial class SimDriver : Node
 
     public event Action<int>? Ticked;
 
+    /// <summary>Before the drivers move anyone (playing with others: the network is taken in).</summary>
+    public Action? BeforeTick { get; set; }
+
+    /// <summary>After the step, before its events go to the listeners (playing with others: the network's turn).</summary>
+    public Action? AfterStep { get; set; }
+
     public void Initialize(SimWorld sim)
     {
         Sim = sim;
@@ -56,12 +62,14 @@ public partial class SimDriver : Node
         long start = Stopwatch.GetTimestamp();
         try
         {
+            BeforeTick?.Invoke();
             for (int i = 0; i < _drivers.Count; i++)
             {
                 _commands[i] = _drivers[i].Step(Sim.Tick, Sim.Dt);
             }
 
             Sim.Step(_commands);
+            AfterStep?.Invoke();
 
             ReadOnlySpan<SimEvent> events = Sim.Events.Items;
             for (int i = 0; i < events.Length; i++)

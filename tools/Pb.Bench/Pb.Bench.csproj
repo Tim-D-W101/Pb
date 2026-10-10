@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Pb.Sim\Pb.Sim.csproj" />
+    <ProjectReference Include="..\..\src\Pb.Net\Pb.Net.csproj" />
   </ItemGroup>
 </Project>

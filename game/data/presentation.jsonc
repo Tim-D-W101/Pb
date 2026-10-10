@@ -1076,6 +1076,13 @@
     // Below this share of the loader the gear panel's paint count turns amber and says LOW (red and
     // EMPTY at none), while there's paint in the pods to refill from.
     "lowPaint": 0.2,
+    // Playing with others: teammates' names float this far over their heads, readable out to this distance; a
+    // teammate's "Contact!" marks the spot this long; the chat shows its last lines this long after they come.
+    "nameAbove_m": 0.45,
+    "nameRange_m": 60,
+    "calloutMark_s": 4,
+    "chatLines": 6,
+    "chatShow_s": 10,
     // Opponents' callsigns, dealt in a shuffled order each round (invented names only).
     "callsigns": ["Rook", "Magpie", "Tinker", "Moth", "Ferret", "Badger", "Sparrow", "Flint", "Gannet", "Wren", "Otter", "Lark"],
     // What bots shout; one line is picked per call. Each line is also a voice file per voice in the cast ("audio" →

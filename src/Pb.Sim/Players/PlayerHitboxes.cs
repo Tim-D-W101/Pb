@@ -6,10 +6,11 @@ namespace Pb.Sim.Players;
 
 /// <summary>
 /// Players as hit receivers. Each player's pose is recorded every tick, keeping the last 200 ms for
-/// lag compensation once there's a network, and a ball is swept against the boxes posed for the tick
-/// it asks about. A break that counts eliminates the player on the spot (spec §1.2): any lethal part,
-/// never after a bounce, and balls already in the air still count after their shooter is out unless
-/// the rules say otherwise.
+/// lag compensation, and a ball is swept against the boxes posed for the tick it asks about (its shooter's
+/// view of the others: <see cref="BallPool.Rewind"/>). A break that counts eliminates the player on the spot
+/// (spec §1.2): any lethal part, never after a bounce, and balls already in the air still count after their
+/// shooter is out unless the rules say otherwise. On a joining copy nothing it sees puts anyone out
+/// (<see cref="Decides"/>): the server decides.
 /// </summary>
 public sealed class PlayerHitboxes : IHitboxWorld
 {
@@ -24,11 +25,6 @@ public sealed class PlayerHitboxes : IHitboxWorld
 
     private readonly SimWorld _sim;
     private readonly List<History> _history = new();
-    private Vector3[] _centres = Array.Empty<Vector3>();
-    private bool[] _present = Array.Empty<bool>();
-    private int _cachedTick = -1;
-    private int _records;
-    private int _cachedRecords = -1;
 
     internal PlayerHitboxes(SimWorld sim)
     {
@@ -37,6 +33,12 @@ public sealed class PlayerHitboxes : IHitboxWorld
 
     /// <summary>Off on the training range: balls pass through players there, as in Phase 1.</summary>
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Whether a break that counts puts its player out here. False on a joining copy (<see cref="SimRole.Client"/>):
+    /// its balls still break on players and say so, but only the server's word puts anyone out.
+    /// </summary>
+    public bool Decides { get; set; } = true;
 
     public static bool IsPlayer(int receiverId) => receiverId >= ReceiverIdBase;
 
@@ -59,51 +61,28 @@ public sealed class PlayerHitboxes : IHitboxWorld
             _history[i].Poses[slot] = HitboxPose.Of(players[i]);
             _history[i].Ticks[slot] = tick;
         }
-
-        _records++;
     }
 
-    /// <summary>
-    /// Every player's centre and presence for <paramref name="tick"/>, worked out once per tick (each ball
-    /// is tested against every player, so this saves fetching full poses for players nowhere near).
-    /// </summary>
-    private void CacheCentres(int tick, int count)
-    {
-        if (tick == _cachedTick && _centres.Length == count && _cachedRecords == _records)
-        {
-            return;
-        }
-
-        if (_centres.Length != count)
-        {
-            _centres = new Vector3[count];
-            _present = new bool[count];
-        }
-
-        for (int i = 0; i < count; i++)
-        {
-            HitboxPose pose = PoseAt(i, tick);
-            _centres[i] = pose.Position + new Vector3(0f, 1f, 0f);
-            _present[i] = pose.Present;
-        }
-
-        _cachedTick = tick;
-        _cachedRecords = _records;
-    }
-
-    /// <summary>The pose recorded for <paramref name="tick"/>, or the player's current pose if that's not in the history.</summary>
-    public HitboxPose PoseAt(int index, int tick)
+    /// <summary>The history slot holding player <paramref name="index"/>'s pose for <paramref name="tick"/>, or −1.</summary>
+    private int SlotOf(int index, int tick)
     {
         if (index < _history.Count && tick >= 0)
         {
             int slot = tick % HistoryTicks;
             if (_history[index].Ticks[slot] == tick)
             {
-                return _history[index].Poses[slot];
+                return slot;
             }
         }
 
-        return HitboxPose.Of(_sim.Players[index]);
+        return -1;
+    }
+
+    /// <summary>The pose recorded for <paramref name="tick"/>, or the player's current pose if that's not in the history.</summary>
+    public HitboxPose PoseAt(int index, int tick)
+    {
+        int slot = SlotOf(index, tick);
+        return slot >= 0 ? _history[index].Poses[slot] : HitboxPose.Of(_sim.Players[index]);
     }
 
     /// <summary>Poses <paramref name="player"/>'s hitboxes as they are now (for drawing characters).</summary>
@@ -119,7 +98,6 @@ public sealed class PlayerHitboxes : IHitboxWorld
         }
 
         IReadOnlyList<PlayerState> players = _sim.Players;
-        CacheCentres(tick, players.Count);
         HitboxParams rig = _sim.Config.Hitboxes;
         float pivot = _sim.Config.Movement.LeanPivotBelowEye;
         Span<PosedBox> parts = stackalloc PosedBox[HitboxRig.PartCount];
@@ -134,14 +112,30 @@ public sealed class PlayerHitboxes : IHitboxWorld
                 continue;
             }
 
-            // Cheap rejection first, from each player's centre for this tick; the full pose only when close.
+            // Cheap rejection first, from where the player was at that tick (read in place, so balls asking about
+            // different ticks cost no more than balls asking about one); the full pose only when close.
+            int slot = SlotOf(i, tick);
+            bool present;
+            Vector3 feet;
+            if (slot >= 0)
+            {
+                ref readonly HitboxPose recorded = ref _history[i].Poses[slot];
+                present = recorded.Present;
+                feet = recorded.Position;
+            }
+            else
+            {
+                present = player.Present;
+                feet = player.Position;
+            }
+
             float reach = Reach + radius;
-            if (!_present[i] || DistanceSquaredToSegment(_centres[i], from, to) > reach * reach)
+            if (!present || DistanceSquaredToSegment(feet + new Vector3(0f, 1f, 0f), from, to) > reach * reach)
             {
                 continue;
             }
 
-            HitboxPose pose = PoseAt(i, tick);
+            HitboxPose pose = slot >= 0 ? _history[i].Poses[slot] : HitboxPose.Of(player);
 
             HitboxRig.Pose(pose, rig, pivot, parts);
             for (int k = 0; k < parts.Length; k++)
@@ -185,7 +179,7 @@ public sealed class PlayerHitboxes : IHitboxWorld
     public void OnLethalHit(in HitboxHit hit, int shooterId, uint shotSequence, int tick)
     {
         PlayerState? victim = _sim.FindPlayer(PlayerIdOf(hit.ReceiverId));
-        if (victim is null || !victim.Alive)
+        if (victim is null || !victim.Alive || !Decides)
         {
             return;
         }

@@ -203,6 +203,15 @@ public sealed class DoorSet
         }
     }
 
+    /// <summary>A joining copy: one leaf where the server has it, at rest (the copy never moves doors itself).</summary>
+    internal void SetOpenFromServer(int leaf, float open)
+    {
+        _open[leaf] = _target[leaf] = Math.Clamp(open, 0f, 1f);
+        _rate[leaf] = 0f;
+        _moving[leaf] = false;
+        Pose(leaf);
+    }
+
     /// <summary>Hangs the doors (none for an empty list), each in the match seed's start state, and files them as colliders.</summary>
     public void Load(IReadOnlyList<DoorSpec> doors, CollisionWorld world, ulong seed, DoorRules rules)
     {

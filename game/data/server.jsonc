@@ -1,0 +1,38 @@
+// The dedicated server's settings (docs/hosting.md). The server reads the file --server-config=PATH names, else the
+// server.jsonc beside its program (Pb.exe or Pb.x86_64; the server downloads come with one), else the game's own copy of
+// this file. Edit it, then start the server again.
+{
+  // What the game is called in everyone's list of games on their network, and the UDP port it's joined on (the
+  // network search answers on net.jsonc's discoveryPort beside it).
+  "name": "Pb dedicated server",
+  "port": 47820,
+
+  // A password everyone joining must give ("" for none), and the most people in the game at once (at most 10).
+  "password": "",
+  "maxPeople": 10,
+
+  // The rounds it plays in turn, starting again from the first after the last. level and place are ids from
+  // levels/areas.jsonc and each level's "places" (place null: the whole area); mode solo (co-op against the squad),
+  // teams or ffa; size as the menus have it (opponents, players a side, or players); objective eliminate, retrieve
+  // or hold (free-for-all is always eliminate); tier the difficulty.
+  "rotation": [
+    { "level": "oxbarrow_works", "place": null, "mode": "teams", "size": 4, "objective": "eliminate", "tier": "normal" },
+    { "level": "rail_yard", "place": null, "mode": "teams", "size": 4, "objective": "retrieve", "tier": "normal" },
+    { "level": "cold_store", "place": null, "mode": "solo", "size": 6, "objective": "eliminate", "tier": "normal" },
+    { "level": "hospital_wing", "place": "wings", "mode": "ffa", "size": 8, "objective": "eliminate", "tier": "normal" }
+  ],
+
+  // Bots fill the places nobody takes. Off, a round has only people in it: teams and free-for-all then need at
+  // least two (co-op always has the squad's bots).
+  "bots": true,
+
+  // Between rounds, a vote on where to play next instead of the rotation's next place.
+  "vote": false,
+
+  // In the lobby, a round starts once everyone in is ready, or this long after the first person readied up
+  // (0: only once everyone is).
+  "lobbyWait_s": 30,
+
+  // After a round, the summary stays up this long before everyone goes back to the lobby.
+  "summary_s": 20
+}

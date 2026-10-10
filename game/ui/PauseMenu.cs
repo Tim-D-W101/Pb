@@ -20,7 +20,9 @@ public partial class PauseMenu : CanvasLayer
 
     /// <param name="graphicsChanged">Applies a change to the graphics (preset, its parts, render scale).</param>
     /// <param name="hudChanged">Applies a change to the HUD (crosshair, its size).</param>
-    public void Build(GameSettings settings, PresentationDef view, Action<GameSettings> graphicsChanged, Action? restart, Action<GameSettings>? hudChanged = null)
+    /// <param name="quit">Playing with others: leaves the game (instead of only going back to the menu).</param>
+    public void Build(GameSettings settings, PresentationDef view, Action<GameSettings> graphicsChanged, Action? restart, Action<GameSettings>? hudChanged = null,
+        Action? quit = null)
     {
         Layer = 10;
         ProcessMode = ProcessModeEnum.Always;
@@ -39,9 +41,15 @@ public partial class PauseMenu : CanvasLayer
             }));
         }
 
-        main.AddChild(UiKit.Button("Quit to menu", () =>
+        main.AddChild(UiKit.Button(quit is null ? "Quit to menu" : "Leave the game", () =>
         {
             GetTree().Paused = false;
+            if (quit is not null)
+            {
+                quit();
+                return;
+            }
+
             GetTree().ChangeSceneToFile(GameSession.MainScene);
         }));
         _main = main;
@@ -62,6 +70,9 @@ public partial class PauseMenu : CanvasLayer
         ShowSettings(false);
     }
 
+    /// <summary>Whether opening the menu stops the game (not when playing with others: their round goes on).</summary>
+    public bool PausesGame { get; set; } = true;
+
     public void Toggle()
     {
         if (Open)
@@ -72,7 +83,7 @@ public partial class PauseMenu : CanvasLayer
         {
             _root.Visible = true;
             ShowSettings(false);
-            GetTree().Paused = true;
+            GetTree().Paused = PausesGame;
             Input.MouseMode = Input.MouseModeEnum.Visible;
             _main.GetChild<Button>(1).GrabFocus();
         }
