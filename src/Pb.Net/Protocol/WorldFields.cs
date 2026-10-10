@@ -108,7 +108,8 @@ public sealed class WorldFields
     {
         for (int i = 0; i < Players; i++)
         {
-            PuppetFields.Capture(sim.Players[i], Grid, Puppet(into, i));
+            // As of the tick just stepped, the one the snapshot is labelled with.
+            PuppetFields.Capture(sim.Players[i], sim.Tick - 1, Grid, Puppet(into, i));
         }
 
         for (int d = 0; d < Doors; d++)

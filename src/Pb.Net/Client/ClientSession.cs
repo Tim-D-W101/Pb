@@ -168,6 +168,18 @@ public sealed class ClientSession
             return;
         }
 
+        if (Following)
+        {
+            // Arcade: back in, where the server put this copy's player. Predicted again from there: nothing from before is
+            // replayed on it.
+            Following = false;
+            CorrectionOffset = Vector3.Zero;
+            Array.Fill(_seqs, -1);
+            server.Restore(Local, Sim.Time);
+            _body?.Reset(server);
+            return;
+        }
+
         int slot = lastRun & (History - 1);
         if (lastRun < 0 || _seqs[slot] != lastRun)
         {
@@ -217,21 +229,29 @@ public sealed class ClientSession
 
         IReadOnlyList<PlayerState> players = Sim.Players;
         MovementParams move = Sim.Config.Movement;
+        ReceivedSnapshot? newest = Client.Newest;
+        bool arcade = Sim.Match?.Setup.Format == Pb.Sim.Data.MatchFormat.Arcade;
         for (int i = 0; i < players.Count && i < Fields.Players; i++)
         {
             if (players[i].Id != Sim.LocalPlayerId)
             {
                 PuppetFields.Pose(players[i], Fields.Puppet(a.World, i), Fields.Puppet(b.World, i), t, Fields.Grid, move);
             }
-            else if (Client.Newest is { } latest)
+            else if (newest is not null)
             {
                 // This copy's own numbers come from the server too (it never decides a hit itself).
-                PuppetFields.Scores(players[i], Fields.Puppet(latest.World, i));
+                PuppetFields.Scores(players[i], Fields.Puppet(newest.World, i));
+            }
+
+            if (arcade && newest is not null)
+            {
+                // Arcade: everyone's time out, shield and time to come back in, as the server has them now.
+                PuppetFields.Arcade(players[i], Fields.Puppet(newest.World, i), newest.Tick);
             }
         }
 
         Fields.ApplyDoors(Sim, (t < 0.5f ? a : b).World);
-        if (Client.Newest is { } newest)
+        if (newest is not null)
         {
             Fields.ApplyRound(Sim, newest.World);
         }
@@ -261,6 +281,7 @@ public sealed class ClientSession
 
     private bool AboutMe(in SimEvent e) =>
         Local is not null && (e.Type == SimEventType.PlayerEliminated && e.TargetId == Local.Id || e.Type == SimEventType.MaskSprayed ||
+                              e.Type == SimEventType.PlayerRespawned && e.PlayerId == Local.Id ||
                               e.PlayerId == Local.Id && e.Type is SimEventType.BallBroke or SimEventType.BallBounced or SimEventType.BallDespawned
                                   or SimEventType.ShotFired);
 

@@ -268,6 +268,17 @@ public partial class CharacterVisual : Node3D, Pb.Game.Ballistics.IPaintTarget
         _model?.Withdraw(handle);
     }
 
+    /// <summary>Takes all the paint off them and their gear (arcade: back in clean; decals on their parts come off with <see cref="Pb.Game.Ballistics.SplatSystem.WipeOff"/>).</summary>
+    public void ClearPaint()
+    {
+        foreach (Pb.Game.Ballistics.PaintSlots? slots in _gearPaint)
+        {
+            slots?.Clear();
+        }
+
+        _model?.ClearPaint();
+    }
+
     /// <summary>What a splat at <paramref name="point"/> on <paramref name="part"/> should stick to.</summary>
     public SplatAnchor PartNode(HitboxPart part, Vector3 point) =>
         _model?.PartNode(part, point) ?? new SplatAnchor(_parts[_indexOfPart[(int)part]]);
@@ -292,11 +303,18 @@ public partial class CharacterVisual : Node3D, Pb.Game.Ballistics.IPaintTarget
         }
     }
 
+    /// <summary>Arcade: how someone shielded just after coming back in blinks (null: they don't).</summary>
+    public ArcadeViewDef? Shield { get; set; }
+
+    /// <summary>Shielded, they're out of sight for part of each blink (on the sim's clock: it stops when the game does).</summary>
+    private bool Blinked() => Shield is { } blink && _state.ShieldedAt(_sim.Tick) &&
+                              _sim.Tick * _sim.Dt % blink.ShieldBlink_s < blink.ShieldBlink_s * blink.ShieldOff;
+
     public override void _Process(double delta)
     {
         if (_state is not null)
         {
-            Visible = _state.Present;
+            Visible = _state.Present && !Blinked();
             if (_outAge >= 0f)
             {
                 _outAge += (float)delta;

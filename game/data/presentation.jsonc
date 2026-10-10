@@ -1242,6 +1242,10 @@
     "markerSize_px": 16
   },
 
+  // Arcade (rules.jsonc "arcade"), looks only. Someone just back in, shielded (nobody's paint counts on them until it
+  // runs out or they fire), blinks: out of sight for shieldOff of every shieldBlink_s. Your own shield shows on the HUD.
+  "arcade": { "shieldBlink_s": 0.24, "shieldOff": 0.35 },
+
   // Sound (game/audio). Every effect is synthesised when the game starts (game/audio/SoundBank.cs), `variations` of
   // each one-shot; world sounds play where they happen through a pool of `voices` 3D players, at most
   // `maxSoundsPerFrame` new ones a frame, each at full volume within unitSize_m and falling off with distance out to

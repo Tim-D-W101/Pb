@@ -25,6 +25,9 @@ public sealed record RoundInfo(LevelLayout Level, TierDef Tier, GameMode Mode, i
 
     /// <summary>The clock it's played on (s), once the round is set up: a point of a match has its mode's, not the tier's.</summary>
     public float? TimeLimit { get; init; }
+
+    /// <summary>Arcade's rules (how long you're out, the shield), for the briefing to say, once the round is set up.</summary>
+    public ArcadeRules? Arcade { get; init; }
 }
 
 /// <summary>How the round stands for the summary, worked out by the level from the sim.</summary>
@@ -61,6 +64,16 @@ public sealed record SummaryFacts
 
     /// <summary>The objective's row in the numbers: "Case" or "Held", and how it ended.</summary>
     public (string Name, string Value)? ObjectiveRow { get; init; }
+
+    /// <summary>
+    /// Arcade: the eliminations that decide it. With sides, your side's and theirs; in free-for-all, yours and the most
+    /// anyone else put out (<see cref="TopName"/>: who, or null when several did).
+    /// </summary>
+    public int OurTally { get; init; }
+
+    public int TheirTally { get; init; }
+
+    public string? TopName { get; init; }
 }
 
 /// <summary>Builds the round's overlays: the briefing card before it starts and the summary after it ends.</summary>
@@ -98,7 +111,9 @@ public static class RoundScreens
         column.AddChild(new HSeparator());
         var lines = new List<string>(objective is null ? Goal(round, race) : Goal(round.Mode, objective))
         {
-            "One hit and you're out, them too. A bounce doesn't count.",
+            round.Mode.Format == MatchFormat.Arcade
+                ? "One hit and you're out, them too (a bounce doesn't count), but not for long: you're back at a new start a moment later."
+                : "One hit and you're out, them too. A bounce doesn't count.",
             $"You start with a full loader and {tier.StartPods} pod{(tier.StartPods == 1 ? "" : "s")}. " + Pickups(round),
             round.Mode.Format.IsMatch() && round.Level.Field is not null
                 ? "Sprint for a bunker at the horn, crouch in behind it, lean (Q/E) out round its edges, and swap shoulders (X) for left-hand ones."
@@ -168,7 +183,8 @@ public static class RoundScreens
         };
     }
 
-    private static string[] Goal(RoundInfo round, int? race) => round.Mode.Format == MatchFormat.Flag ? FlagGoal(round, race)
+    private static string[] Goal(RoundInfo round, int? race) => round.Mode.Format == MatchFormat.Arcade ? ArcadeGoal(round)
+        : round.Mode.Format == MatchFormat.Flag ? FlagGoal(round, race)
         : round.Mode.Format == MatchFormat.Speedball ? new[]
         {
             (race is { } to ? $"Your side against theirs, point after point: the first side to {to} point{(to == 1 ? "" : "s")} wins the match. "
@@ -196,6 +212,27 @@ public static class RoundScreens
             "eliminate every opponent before the time runs out.",
         },
     };
+
+    /// <summary>Arcade: everyone's back in after a hit; the most eliminations when the clock runs out wins.</summary>
+    private static string[] ArcadeGoal(RoundInfo round)
+    {
+        string clock = Clock(round.TimeLimit ?? round.Tier.TimeLimit_s);
+        string back = round.Arcade is { } rules
+            ? $"Out, you're back in {rules.Respawn:0.#} s at a start out of their sight, with a full loader and your pods. " +
+              $"For {rules.Shield:0.#} s after, paint doesn't count on you (you blink), unless you fire."
+            : "Out, you're back in a moment at a start out of their sight, with a full loader and your pods.";
+        return round.Mode.Kind == MatchModeKind.FreeForAll
+            ? new[]
+            {
+                $"Everyone against everyone for {clock}, each in their own paint colour: whoever puts the most out wins.",
+                back,
+            }
+            : new[]
+            {
+                $"Your side against theirs for {clock}: the side that puts the most out wins. Your teammates start beside you and wear your colour.",
+                back + " A teammate's paint puts you out too, but doesn't count for anyone.",
+            };
+    }
 
     /// <summary>Capture the flag: one flag in the middle of a field, or one each elsewhere.</summary>
     private static string[] FlagGoal(RoundInfo round, int? race)
@@ -302,7 +339,21 @@ public static class RoundScreens
                 rows.Add(objectiveRow);
             }
 
-            rows.Add(("Eliminations", $"{you.Eliminations} of {facts.Opponents}"));
+            if (round.Mode.Format == MatchFormat.Arcade)
+            {
+                if (round.Mode.Kind != MatchModeKind.FreeForAll)
+                {
+                    rows.Add(("Score", $"{facts.OurTally}–{facts.TheirTally}"));
+                }
+
+                rows.Add(("Eliminations", you.Eliminations.ToString()));
+                rows.Add(("Times out", you.TimesOut.ToString()));
+            }
+            else
+            {
+                rows.Add(("Eliminations", $"{you.Eliminations} of {facts.Opponents}"));
+            }
+
             rows.Add(("Shots", you.Shots.ToString()));
             rows.Add(("Hits", you.Hits.ToString()));
             rows.Add(("Accuracy", you.Shots > 0 ? $"{you.Accuracy * 100:0}%" : "–"));
@@ -416,6 +467,11 @@ public static class RoundScreens
             return ("TIME UP", UiKit.Bad, how);
         }
 
+        if (mode.Format == MatchFormat.Arcade)
+        {
+            return ArcadeVerdict(mode, outcome, f);
+        }
+
         // Defending an objective against people (online), and the ways to win a point of a match.
         switch (outcome)
         {
@@ -459,6 +515,24 @@ public static class RoundScreens
             (_, RoundOutcome.Traded) => ("TRADED", UiKit.Accent, "You and the last opponent went out together."),
             (_, RoundOutcome.TimeUp) => ("TIME UP", UiKit.Bad, "The clock ran out."),
             _ => ("ROUND OVER", UiKit.Text, ""),
+        };
+    }
+
+    /// <summary>Arcade's headline: the clock ran out, and whoever put the most out wins (or nobody, level).</summary>
+    private static (string Title, Color Colour, string Line) ArcadeVerdict(GameMode mode, RoundOutcome outcome, SummaryFacts f)
+    {
+        bool sides = mode.Kind != MatchModeKind.FreeForAll;
+        string top = f.TopName ?? "several of them";
+        return (sides, outcome) switch
+        {
+            (true, RoundOutcome.MostEliminations) => ("YOUR SIDE WINS", UiKit.Good, $"Time up: your side put out {f.OurTally} to their {f.TheirTally}."),
+            (true, RoundOutcome.FewerEliminations) => ("THEIR SIDE WINS", UiKit.Bad, $"Time up: they put out {f.TheirTally} to your side's {f.OurTally}."),
+            (true, _) => ("LEVEL AT TIME", UiKit.Accent, $"Time up with both sides on {f.OurTally}: nobody wins."),
+            (false, RoundOutcome.MostEliminations) => ("YOU WIN", UiKit.Good,
+                f.TheirTally > 0 ? $"Time up: you put out the most, {f.OurTally} (next {top} with {f.TheirTally})." : $"Time up: you put out {f.OurTally}, nobody else any."),
+            (false, RoundOutcome.FewerEliminations) => ($"{(f.Winner ?? top).ToUpperInvariant()} WINS", UiKit.Bad,
+                $"Time up: {f.Winner ?? top} put out the most, {f.TheirTally}. You put out {f.OurTally}: {ModeText.Ordinal(f.Placing)} of {f.Players}."),
+            _ => ("LEVEL AT TIME", UiKit.Accent, $"Time up with the most put out level on {Math.Max(f.OurTally, f.TheirTally)}: nobody wins."),
         };
     }
 

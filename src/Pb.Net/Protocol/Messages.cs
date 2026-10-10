@@ -55,9 +55,10 @@ public static class NetProtocol
     /// Bumped whenever a message changes: copies on different versions refuse each other (2: the callout key; 3: who you
     /// are, in the hello; 4: everyone's kit, in the hello, the lobby and the round's roster; 5: speedball's countdown,
     /// buzzers and match score, in the snapshot, the round's setup and the lobby; 6: capture the flag's flags and their
-    /// events, in the snapshot).
+    /// events, in the snapshot; 7: arcade's respawns, shields and times out, in the snapshot, the events and the round's
+    /// numbers).
     /// </summary>
-    public const int Version = 6;
+    public const int Version = 7;
 
     public static MessageType TypeOf(ReadOnlySpan<byte> packet) => packet.Length > 0 ? (MessageType)packet[0] : MessageType.None;
 }
@@ -366,7 +367,7 @@ public sealed class RoundSetupMessage
 }
 
 /// <summary>One player's numbers for the round, as the server kept them.</summary>
-public readonly record struct StatsEntry(int PlayerId, int Shots, int Hits, int Eliminations, int Pickups, float TimeIn, int OutTick);
+public readonly record struct StatsEntry(int PlayerId, int Shots, int Hits, int Eliminations, int Pickups, float TimeIn, int OutTick, int TimesOut = 0);
 
 /// <summary>A round over: why, who won, how long it took and everyone's numbers.</summary>
 public sealed class RoundOverMessage
@@ -399,6 +400,7 @@ public sealed class RoundOverMessage
             w.WriteVarUInt((uint)s.Pickups);
             w.WriteFloat(s.TimeIn);
             w.WriteVarInt(s.OutTick);
+            w.WriteVarUInt((uint)s.TimesOut);
         }
     }
 
@@ -407,7 +409,7 @@ public sealed class RoundOverMessage
     {
         foreach (StatsEntry s in Stats)
         {
-            match.StatsFor(s.PlayerId)?.ApplyServer(s.Shots, s.Hits, s.Eliminations, s.Pickups, s.TimeIn, s.OutTick);
+            match.StatsFor(s.PlayerId)?.ApplyServer(s.Shots, s.Hits, s.Eliminations, s.Pickups, s.TimeIn, s.OutTick, s.TimesOut);
         }
     }
 
@@ -428,7 +430,7 @@ public sealed class RoundOverMessage
         for (uint i = 0; i < count && i < 64 && !r.Overflowed; i++)
         {
             m.Stats.Add(new StatsEntry((int)r.ReadVarUInt(), (int)r.ReadVarUInt(), (int)r.ReadVarUInt(), (int)r.ReadVarUInt(),
-                (int)r.ReadVarUInt(), r.ReadFloat(), r.ReadVarInt()));
+                (int)r.ReadVarUInt(), r.ReadFloat(), r.ReadVarInt(), (int)r.ReadVarUInt()));
         }
 
         return r.Overflowed || count > 64 ? null : m;

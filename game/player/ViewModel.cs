@@ -302,6 +302,9 @@ public partial class ViewModel : Node3D
 
     private static float Smooth(float from, float to, float x) => Mathf.SmoothStep(from, to, x);
 
+    /// <summary>Takes the spatter off your marker and gloves (arcade: back in clean).</summary>
+    public void ClearPaint() => _spatter?.Clear();
+
     /// <summary>Where your eye is: the camera the rig hangs from.</summary>
     public Vector3 Eye => GetParent() is Node3D camera ? camera.GlobalPosition : GlobalPosition;
 

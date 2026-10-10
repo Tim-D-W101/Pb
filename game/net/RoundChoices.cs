@@ -72,7 +72,7 @@ public static class RoundChoices
         int size = sameMode && c.Size >= smallest && mode.PlayersFor(c.Size) <= rules.MaxPlayers ? c.Size : mode.DefaultSize;
         ObjectiveChoice eliminate = rules.Objectives.Find(ObjectiveKind.Eliminate)!;
         ObjectiveChoice objective = rules.Objectives.Kinds.FirstOrDefault(k => RecordBook.IdOf(k.Kind) == c.ObjectiveId) ?? eliminate;
-        if (mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch() ||
+        if (mode.Kind == MatchModeKind.FreeForAll || !mode.Format.TakesObjective() ||
             (objective.Kind != ObjectiveKind.Eliminate && !area.ForPlace(place).Objectives.Offers(objective.Kind)))
         {
             objective = eliminate;

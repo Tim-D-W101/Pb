@@ -357,6 +357,17 @@ public partial class ServerMain : Node3D, ISimEventListener
             var spot = new OpponentSpawn { Id = $"out_{victim.Id}", Position = victim.Position, Yaw = victim.Yaw, Roles = new[] { "sentry" } };
             person.WalkOff = new BotPilot(_squad!.Add(victim, _data.Bots.ArchetypeFor(spot.Roles)!, _data.Bots.Difficulty[_botTier], spot));
         }
+        else if (e.Type == SimEventType.PlayerRespawned && _sim?.FindPlayer(e.PlayerId) is { } back &&
+                 _pawns.FirstOrDefault(p => p.State == back) is { } pawn)
+        {
+            // Arcade: back in at a new start. The body jumps there; someone walked off by a bot has their own commands back.
+            pawn.Respawned();
+            if (pawn.Pilot is NetCommandSource { WalkOff: BotPilot walk } walked)
+            {
+                _squad?.Remove(walk.Brain);
+                walked.WalkOff = null;
+            }
+        }
         else if (e.Type == SimEventType.MatchPhaseChanged && e.Extra == (int)MatchPhase.Live)
         {
             ServerLog.Line($"round {_session.Round?.Round} live");

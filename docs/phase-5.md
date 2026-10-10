@@ -293,12 +293,19 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
 
 ### M5.8 Arcade
 
-- [ ] Respawns in the sim: 3 s after going out you're back at a start out of your opponents' sight, with full paint and
-  air. For 2 s after, you can't be put out; firing ends that early.
-- [ ] Timed matches (5 minutes) scored by eliminations: the side's total in teams, each player's in free-for-all. The
-  scoreboard and kill feed run all match.
-- [ ] Bots come back the same way, on every area and the field.
-- [ ] Online: a joining copy puts you at your new start at once, and the summary and records keep the eliminations.
+- [x] Respawns in the sim: 3 s after going out you're back at a start out of your opponents' sight, with full paint and
+  air. For 2 s after, you can't be put out; firing ends that early. (The starts are the level's own, and on the field
+  the start boxes' places. The one picked is clear of everyone, out of the other side's sight, and as far from them as
+  it goes. You come back standing, still and clean. While shielded, a ball still paints you, and you blink.)
+- [x] Timed matches (5 minutes) scored by eliminations: the side's total in teams, each player's in free-for-all. The
+  scoreboard and kill feed run all match. (Putting out a teammate counts for nobody. Level at time up, nobody wins. The
+  HUD keeps the score under the clock; when you're out, you see who got you and a countdown to coming back in. An arcade
+  win goes in the records, and its best is the most eliminations.)
+- [x] Bots come back the same way, on every area and the field. (Each starts afresh where it comes back, as at the
+  round's start.)
+- [x] Online: a joining copy puts you at your new start at once, and the summary and records keep the eliminations.
+  (Protocol 7. Your copy is predicted again from where the server put you, and the others jump there. The dedicated
+  server's rotation plays an arcade free-for-all, and CI's networked rounds an arcade round in the Hospital Wing.)
 
 ### M5.9 Verify and report
 

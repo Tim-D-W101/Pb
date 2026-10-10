@@ -45,6 +45,11 @@ public enum SimRole : byte
 public sealed class SimWorld
 {
     private readonly List<PlayerState> _players = new();
+
+    // Arcade: where players come back (the level's player and opponent spawns, and on a field the start boxes' places),
+    // and the random stream that picks among starts that are far enough from the other side.
+    private readonly List<(Vector3 At, float Yaw)> _arcadeStarts = new();
+    private Pcg32 _arcadeRng;
     private readonly ShotRequest[] _shots = new ShotRequest[8];
     private readonly SimEventQueue _replayEvents = new(64);
     private SimRole _role;
@@ -241,6 +246,12 @@ public sealed class SimWorld
             mode = SpeedballMode.Instance;
         }
 
+        if (setup.Format == MatchFormat.Arcade)
+        {
+            mode = ArcadeMode.Instance;
+            ArcadeStartsFor(Level);
+        }
+
         FlagSet? flags = null;
         if (setup.Format == MatchFormat.Flag)
         {
@@ -272,6 +283,133 @@ public sealed class SimWorld
 
     /// <summary>Ends the briefing: the clock starts and everyone may move and fire.</summary>
     public void GoLive() => Match?.GoLive(this);
+
+    /// <summary>
+    /// Arcade: <paramref name="player"/>, out, comes back at <paramref name="at"/> facing <paramref name="yaw"/>. In and
+    /// standing, with full gear (the round's pods for a person or a bot), their recorded poses forgotten, shielded until
+    /// <paramref name="shieldUntil"/> (a tick). Raises <see cref="SimEventType.PlayerRespawned"/>. The authority decides it;
+    /// a joining copy is told, and does the same with what it's told (<see cref="ApplyRespawn"/>).
+    /// </summary>
+    public void Respawn(PlayerState player, Vector3 at, float yaw, int shieldUntil)
+    {
+        ApplyRespawn(player, at, yaw, shieldUntil);
+        Events.Add(new SimEvent
+        {
+            Type = SimEventType.PlayerRespawned, Tick = Tick, PlayerId = player.Id, TargetId = -1, ColliderId = -1, Team = player.Team,
+            Position = at, Value = yaw, Extra = shieldUntil,
+        });
+    }
+
+    /// <summary>A respawn without its event: the authority's own, or a joining copy's from the server's event.</summary>
+    public void ApplyRespawn(PlayerState player, Vector3 at, float yaw, int shieldUntil)
+    {
+        player.StandAt(at, yaw, Config.Movement.StandEyeHeight);
+        player.RespawnTick = -1;
+        player.ShieldUntilTick = shieldUntil;
+        player.Marker.ResetGear();
+        if (Match is { } match)
+        {
+            player.Marker.Paint.FillWith(match.Setup.IsPerson(player.Id) ? match.Setup.StartPods : match.Setup.BotPods);
+        }
+
+        int index = _players.IndexOf(player);
+        if (index >= 0)
+        {
+            PlayerHits.Forget(index);
+        }
+    }
+
+    /// <summary>
+    /// Arcade: where <paramref name="who"/> comes back. Of the starts not within <see cref="ArcadeRules.StartClearance"/>
+    /// of anyone standing there, one none of the other side can see, as far from the nearest of them as can be (out to
+    /// <see cref="ArcadeRules.FarEnough"/>, beyond which any will do, picked at random); if every one's seen, the farthest.
+    /// </summary>
+    public (Vector3 At, float Yaw) ArcadeStart(PlayerState who)
+    {
+        ArcadeRules rules = Config.Rules.Arcade;
+        Vector3 eye = new(0f, Config.Movement.StandEyeHeight, 0f);
+        int best = -1;
+        float bestScore = float.MinValue;
+        for (int c = 0; c < _arcadeStarts.Count; c++)
+        {
+            Vector3 at = _arcadeStarts[c].At;
+            float nearest = rules.FarEnough;
+            bool seen = false, crowded = false;
+            for (int i = 0; i < _players.Count && !crowded; i++)
+            {
+                PlayerState p = _players[i];
+                if (p == who || !p.Alive || !p.Present)
+                {
+                    continue;
+                }
+
+                float d = Vector3.Distance(p.Position, at);
+                crowded = d < rules.StartClearance;
+                if (p.Team == who.Team)
+                {
+                    continue;
+                }
+
+                nearest = MathF.Min(nearest, d);
+                seen = seen || !Collision.SweepSphere(p.EyePosition, at + eye, 0.02f, out _);
+            }
+
+            if (crowded)
+            {
+                continue;
+            }
+
+            float score = nearest + _arcadeRng.NextFloat() - (seen ? 10f * rules.FarEnough : 0f);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = c;
+            }
+        }
+
+        return best >= 0 ? _arcadeStarts[best] : (who.Position, who.Yaw);
+    }
+
+    /// <summary>
+    /// Arcade's starts on <paramref name="level"/>: its player spawns and opponent spawns, and on a field each start box's
+    /// places. Without a level (the range, tests), where everyone started.
+    /// </summary>
+    private void ArcadeStartsFor(LevelLayout? level)
+    {
+        _arcadeStarts.Clear();
+        _arcadeRng = new Pcg32(SeedHash.Combine(MatchSeed, 0xA4CADE));
+        if (level is null)
+        {
+            foreach (PlayerState p in _players)
+            {
+                _arcadeStarts.Add((p.Position, p.Yaw));
+            }
+
+            return;
+        }
+
+        foreach (SpawnPoint s in level.PlayerSpawns)
+        {
+            _arcadeStarts.Add((s.Position, s.Yaw));
+        }
+
+        foreach (OpponentSpawn s in level.OpponentSpawns)
+        {
+            _arcadeStarts.Add((s.Position, s.Yaw));
+        }
+
+        if (level.Field is { } field)
+        {
+            const int Places = 5;
+            for (int side = 0; side < 2; side++)
+            {
+                for (int i = 0; i < Places; i++)
+                {
+                    _arcadeStarts.Add((field.StartOf(side, i, Places), FieldSpec.StartYaw(side)));
+                }
+            }
+        }
+    }
 
     /// <summary>Side <paramref name="side"/>'s base in capture the flag: where its first player starts (the middle if it has none).</summary>
     private Vector3 BaseOf(int side)
@@ -333,6 +471,11 @@ public sealed class SimWorld
                 bool climbing = Look(player, cmd, dt);
                 UpdateFootsteps(player);
                 int count = MarkerStep(player, cmd, t0, dt, climbing, Events);
+                if (count > 0)
+                {
+                    player.ShieldUntilTick = -1; // arcade: firing ends the shield of being just back
+                }
+
                 byte rewind = Math.Min(cmd.Rewind, (byte)(PlayerHitboxes.HistoryTicks - 1));
                 for (int k = 0; k < count; k++)
                 {

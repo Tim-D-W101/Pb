@@ -12,7 +12,6 @@ namespace Pb.Game.Player;
 public partial class ServerPawn : PawnBody, IPlayerDriver
 {
     private ICommandSource _pilot = null!;
-    private bool _removed;
 
     public ICommandSource Pilot => _pilot;
 
@@ -35,12 +34,7 @@ public partial class ServerPawn : PawnBody, IPlayerDriver
             return cmd;
         }
 
-        if (!_removed)
-        {
-            _removed = true;
-            CollisionLayer = 0;
-            CollisionMask = 0;
-        }
+        TakeOff();
 
         if (_pilot.EveryTick)
         {

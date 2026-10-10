@@ -620,6 +620,13 @@ public partial class CharacterModel : Node3D
     /// <summary>Takes splat <paramref name="handle"/> off the body or the mask, if it's on either.</summary>
     public bool Withdraw(int handle) => (_bodyPaint?.Withdraw(handle) ?? false) || (_maskPaint?.Withdraw(handle) ?? false);
 
+    /// <summary>Takes all the paint off the body and the mask (arcade: back in clean).</summary>
+    public void ClearPaint()
+    {
+        _bodyPaint?.Clear();
+        _maskPaint?.Clear();
+    }
+
     /// <summary>The skin's bind that stands for <paramref name="bone"/> (by name, or by index when the binds aren't named), or −1.</summary>
     private int BindOf(Skin skin, int bone)
     {

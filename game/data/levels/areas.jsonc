@@ -67,9 +67,10 @@
     },
     {
       // The club's speedball field (Phase 5): its own modes, and no pickups on the field (you carry what you bring). A
-      // point of speedball or capture the flag has its mode's clock (rules.jsonc "speedball", "flag"), not the tier's.
+      // point of speedball or capture the flag, and an arcade round, has its mode's clock (rules.jsonc "speedball",
+      // "flag", "arcade"), not the tier's.
       "id": "sports_ground", "displayName": "The Sports Ground", "file": "levels/sports_ground.jsonc",
-      "modes": ["speedball", "flag"],
+      "modes": ["speedball", "flag", "arcade", "arcade_ffa"],
       "tiers": [
         { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 600, "startPods": 3, "botPods": 2, "pickups": false },
         { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 540, "startPods": 2, "botPods": 2, "pickups": false },

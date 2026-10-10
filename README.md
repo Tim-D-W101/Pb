@@ -25,6 +25,8 @@ bots on either side, each point from the start boxes after a countdown to the ho
 or holding Interact at their buzzer for 2 s, first to 4 points, offline and online; and M5.7: **capture the flag**, on
 every area: on the field one flag on the centre bunker for either side to carry to the other's buzzer, and in the
 compounds a flag at each side's base to take home from the other's, one life each, first to 3 points, offline and
+online; and M5.8: **arcade**, on every area, in teams or free-for-all: out, you're back in three seconds at a start out
+of their sight, shielded for two (until you fire), and the most eliminations in five minutes wins, offline and
 online.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode

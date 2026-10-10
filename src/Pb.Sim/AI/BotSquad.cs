@@ -105,6 +105,18 @@ public sealed class BotSquad
         return brain;
     }
 
+    /// <summary>
+    /// Takes <paramref name="brain"/> out of the squad (arcade: the brain that walked a person off, once they're back in);
+    /// any cover it held is free again.
+    /// </summary>
+    public void Remove(BotBrain brain)
+    {
+        if (_bots.Remove(brain))
+        {
+            Cover.Release(brain.Self.Id);
+        }
+    }
+
     /// <summary>Called by the host for each event of a step, after the step and before the events are cleared.</summary>
     public void Hear(in SimEvent e)
     {

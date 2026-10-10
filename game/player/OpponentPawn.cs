@@ -15,7 +15,6 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
     private ICommandSource _pilot = null!;
     private Label3D _callout = null!;
     private float _calloutLeft;
-    private bool _removed;
     private Label3D? _name;
     private float _nameAbove;
     private float _nameRange;
@@ -94,6 +93,17 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
     /// <summary>Hands the opponent to another pilot (a scripted scene's).</summary>
     public void Steer(ICommandSource pilot) => _pilot = pilot;
 
+    /// <summary>Arcade: back in at a new start, clean: no paint on them, nothing called over their head.</summary>
+    public override void Respawned()
+    {
+        base.Respawned();
+        Visual.ClearPaint();
+        Visual.Capture();
+        Visual.Capture();
+        _calloutLeft = 0f;
+        _callout.Visible = false;
+    }
+
     /// <summary>Shows the "Hit!" call above the head for a couple of seconds.</summary>
     public void CallHit()
     {
@@ -110,11 +120,9 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
             {
                 FollowState();
             }
-            else if (!_removed)
+            else
             {
-                _removed = true;
-                CollisionLayer = 0;
-                CollisionMask = 0;
+                TakeOff();
             }
 
             Visual.Capture();
@@ -128,13 +136,8 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
         }
         else
         {
-            if (!_removed)
-            {
-                // Walked off: out of everyone's way.
-                _removed = true;
-                CollisionLayer = 0;
-                CollisionMask = 0;
-            }
+            // Walked off: out of everyone's way.
+            TakeOff();
 
             if (_pilot.EveryTick)
             {

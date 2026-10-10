@@ -154,11 +154,12 @@ Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, 
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
 the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame); on the
 Sports Ground it plays a speedball match point after point, the level built again for each (`--race-to=N` points to
-win, here and when hosting; `--mode=flag` plays capture the flag's on any area). `--mode=solo|ffa|teams|speedball|flag`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
+win, here and when hosting; `--mode=flag` plays capture the flag's on any area; in `--mode=arcade` or `arcade_ffa` it
+walks off and comes back in by itself). `--mode=solo|ffa|teams|speedball|flag|arcade|arcade_ffa`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
 objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`; the menu
 offers an area only its `modes` from `areas.jsonc`, but `--mode` plays any), e.g.
 `-- --round-tour --mode=ffa --size=6 --place=warehouse` (the Sports Ground's places are its layouts: `--level=sports_ground
---place=crossfire`); `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
+--place=crossfire`; in arcade nobody stays out, so give the tour `--time-limit=30` to reach its summary); `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
 runs quicker; and
 `-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
 the room, the ways out. `-- --menu-tour` on the

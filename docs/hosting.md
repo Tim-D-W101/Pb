@@ -196,9 +196,9 @@ A round in `rotation` takes these values:
 |---|---|
 | `level` | `oxbarrow_works`, `rail_yard`, `cold_store`, `hospital_wing`, `sports_ground` |
 | `place` | `null` for the whole area, or one of its places: `warehouse`, `offices`, `yard`, `east_field` (Oxbarrow Works); `engine_shed`, `wagons`, `signal_box`, `goods_shed` (Rail Yard); `store`, `docks`, `plant_room` (Cold Store); `wings`, `courtyard`, `boiler_house`, `car_park` (Hospital Wing); the field's layouts `whole` (Classic) and `crossfire` (Sports Ground) |
-| `mode` | `solo` (co-op against the squad), `teams`, `ffa` (free-for-all) and `flag` (capture the flag) on the compound areas; `speedball` and `flag` on the Sports Ground |
-| `size` | as the menus offer it: solo 3, 4, 6 or 9 opponents; teams 2–5 a side; ffa 4, 6, 8 or 10 players; speedball and flag 3–5 a side |
-| `objective` | `eliminate`, `retrieve` or `hold` (free-for-all, speedball and capture the flag are always eliminate) |
+| `mode` | `solo` (co-op against the squad), `teams`, `ffa` (free-for-all), `flag` (capture the flag), `arcade` and `arcade_ffa` (everyone back in a few seconds after a hit; the most eliminations when the clock runs out wins) on the compound areas; `speedball`, `flag`, `arcade` and `arcade_ffa` on the Sports Ground |
+| `size` | as the menus offer it: solo 3, 4, 6 or 9 opponents; teams 2–5 a side; ffa 4, 6, 8 or 10 players; speedball and flag 3–5 a side; arcade 2–5 a side; arcade_ffa 4, 6, 8 or 10 players |
+| `objective` | `eliminate`, `retrieve` or `hold` (free-for-all, speedball, capture the flag and arcade are always eliminate) |
 | `tier` | the difficulty: `easy`, `normal`, `hard` |
 | `raceTo` | (may be left out) the points that win a speedball or capture the flag match: its points are played one after another, everyone staying in, and the match counts as one round of the rotation. Left out, `rules.jsonc`'s (4 and 3) |
 

@@ -35,6 +35,10 @@ public partial class SpectatorView : Node3D
     private ICollisionWorld? _world;
     private bool _snap;
 
+    // Arcade: how long until you're back in, under who got you.
+    private Label? _backIn;
+    private Func<string?>? _backInText;
+
     /// <summary>True while trailing a player who's still in.</summary>
     public bool Following => _watchable is not null;
 
@@ -80,6 +84,24 @@ public partial class SpectatorView : Node3D
         _layer = new CanvasLayer { Layer = 6 };
         _layer.AddChild(banner);
         AddChild(_layer);
+    }
+
+    /// <summary>Arcade: under who got you, how long until you're back in (<paramref name="text"/>, each frame; null shows nothing).</summary>
+    public void CountDown(Func<string?> text)
+    {
+        _backInText = text;
+        _backIn = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AnchorLeft = 0f,
+            AnchorRight = 1f,
+            OffsetTop = 170f,
+        };
+        _backIn.AddThemeFontSizeOverride("font_size", 30);
+        _backIn.AddThemeColorOverride("font_color", UiKit.Accent);
+        _backIn.AddThemeColorOverride("font_outline_color", Colors.Black);
+        _backIn.AddThemeConstantOverride("outline_size", 9);
+        _layer.AddChild(_backIn);
     }
 
     /// <summary>
@@ -161,6 +183,11 @@ public partial class SpectatorView : Node3D
 
     public override void _Process(double delta)
     {
+        if (_backIn is not null && _backInText is not null)
+        {
+            _backIn.Text = _backInText() ?? "";
+        }
+
         if (_camera is null || _holding)
         {
             return;
@@ -207,7 +234,8 @@ public partial class SpectatorView : Node3D
         _left -= dt;
         if (_left <= 0f)
         {
-            _layer.Visible = false;
+            // Counting down to coming back in, who got you stays up until you are.
+            _layer.Visible = _backIn is not null;
             _finished();
         }
     }

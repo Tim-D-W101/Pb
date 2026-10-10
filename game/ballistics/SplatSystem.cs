@@ -379,6 +379,19 @@ public partial class SplatSystem : Node3D, ISimEventListener
         }
     }
 
+    /// <summary>Takes off every decal stuck to <paramref name="under"/> or anything on it (arcade: someone back in clean).</summary>
+    public void WipeOff(Node under)
+    {
+        for (int i = 0; i < _decals.Count; i++)
+        {
+            if (_decals[i].Visible && under.IsAncestorOf(_decals[i]))
+            {
+                _decals[i].Visible = false;
+                _placedAs[i] = -1;
+            }
+        }
+    }
+
     private void Remember(in SimEvent e, int decal, long placing, IPaintTarget? target, int handle)
     {
         _recent[_recentNext] = new Record { Owner = e.PlayerId, Sequence = e.ShotSequence, Decal = decal, Card = -1, Placing = placing, Target = target, Handle = handle };

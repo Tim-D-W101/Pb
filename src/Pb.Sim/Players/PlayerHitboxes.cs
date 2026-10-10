@@ -63,6 +63,18 @@ public sealed class PlayerHitboxes : IHitboxWorld
         }
     }
 
+    /// <summary>
+    /// Forgets player <paramref name="index"/>'s recorded poses (arcade's respawn): a ball rewound to before it meets them as
+    /// they are now, at their new start, not where they walked off.
+    /// </summary>
+    public void Forget(int index)
+    {
+        if (index < _history.Count)
+        {
+            Array.Fill(_history[index].Ticks, -1);
+        }
+    }
+
     /// <summary>The history slot holding player <paramref name="index"/>'s pose for <paramref name="tick"/>, or −1.</summary>
     private int SlotOf(int index, int tick)
     {
@@ -167,9 +179,9 @@ public sealed class PlayerHitboxes : IHitboxWorld
     {
         HitboxParams rules = _sim.Config.Hitboxes;
         PlayerState? victim = _sim.FindPlayer(PlayerIdOf(hit.ReceiverId));
-        if (victim is not { Alive: true } || !rules.IsLethal(hit.Part))
+        if (victim is not { Alive: true } || !rules.IsLethal(hit.Part) || victim.ShieldedAt(tick))
         {
-            return false;
+            return false; // arcade's shield, just back: the ball paints them, but doesn't put them out
         }
 
         // Balls from a shooter who has since been eliminated count only if the rules say so.

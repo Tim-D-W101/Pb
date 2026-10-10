@@ -18,7 +18,8 @@
   //                 doesn't stall with everyone holding a corner (0 = never)
   //   format        how it's won (optional): "round" (the default) is one round, won by the last side standing or
   //                 the objective; "speedball" (teams only, on a field) and "flag" (teams only, capture the flag) are
-  //                 matches of points (see "speedball" and "flag" below). Which modes each area offers is
+  //                 matches of points (see "speedball" and "flag" below); "arcade" (teams or free-for-all) is one
+  //                 timed round where everyone comes back, won on eliminations (see "arcade" below). Which modes each area offers is
   //                 levels/areas.jsonc "modes" (by default, every mode but speedball, which needs a field).
   "modes": [
     {
@@ -74,6 +75,29 @@
         { "role": "sentry", "weight": 1 }
       ],
       "restlessAfter_s": 40
+    },
+    {
+      "id": "arcade", "displayName": "Arcade", "kind": "teams", "format": "arcade",
+      "description": "Your team against theirs for five minutes, and nobody's out for long: three seconds after a hit you're back, somewhere they can't see you. The team with the most eliminations wins.",
+      "sizes": [2, 3, 4, 5], "defaultSize": 4,
+      // Nobody holds a post for long when everyone comes back: they hunt, rush and go round.
+      "roles": [
+        { "role": "hunter", "weight": 6 },
+        { "role": "rusher", "weight": 3 },
+        { "role": "flanker", "weight": 2 }
+      ],
+      "restlessAfter_s": 15
+    },
+    {
+      "id": "arcade_ffa", "displayName": "Arcade free-for-all", "kind": "freeForAll", "format": "arcade",
+      "description": "Everyone against everyone for five minutes, back three seconds after every hit. The most eliminations wins.",
+      "sizes": [4, 6, 8, 10], "defaultSize": 6,
+      "roles": [
+        { "role": "hunter", "weight": 6 },
+        { "role": "rusher", "weight": 3 },
+        { "role": "flanker", "weight": 1 }
+      ],
+      "restlessAfter_s": 15
     }
   ],
 
@@ -114,6 +138,14 @@
     "raceTo": 3, "pointTime_s": 300, "fieldPointTime_s": 180, "countdown_s": 3, "betweenPoints_s": 6,
     "pickupReach_m": 1.6, "scoreReach_m": 2.5, "carrierCanSprint": false, "fieldRole": "speedball"
   },
+
+  // Arcade (the modes with "format": "arcade"): one round of matchTime_s, and nobody is out for good. respawn_s after going
+  // out a player is back, with full gear, at one of the area's starts (its player and opponent spawns, and on a field
+  // the start boxes' places): one at least startClearance_m from anyone standing there that nobody of the other side can
+  // see, as far from them as can be, out to farEnough_m (beyond that any will do, picked at random). For shield_s after,
+  // a ball paints them but doesn't put them out, until they fire. At time up the side (in free-for-all, the player) with
+  // the most eliminations wins; level, nobody does.
+  "arcade": { "matchTime_s": 300, "respawn_s": 3, "shield_s": 2, "startClearance_m": 1.5, "farEnough_m": 30 },
 
   // The callout key: your character shouts "Contact!" about the opponent nearest where you're aiming, within this
   // cone and range and in sight, and your side (bots and people alike) takes it as a contact, as the bots' own callouts

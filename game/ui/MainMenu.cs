@@ -541,7 +541,7 @@ public partial class MainMenu : Control
         string[] won = entry.Tiers.Where(t => _records.WonOn(entry.Id, place.Id, t.Id)).Select(t => t.DisplayName).ToArray();
         string wins = won.Length > 0 ? $" Won here on {string.Join(", ", won)}." : "";
         bool matches = mode.Format.IsMatch();
-        ObjectiveKind kind = mode.Kind == MatchModeKind.FreeForAll || matches ? ObjectiveKind.Eliminate : objective.Kind;
+        ObjectiveKind kind = mode.Kind == MatchModeKind.FreeForAll || !mode.Format.TakesObjective() ? ObjectiveKind.Eliminate : objective.Kind;
         LevelRecord? r = _records.Record(entry.Id, place.Id, mode.Id, tier.Id, RecordBook.IdOf(kind));
         string what = kind == ObjectiveKind.Eliminate ? $"{mode.DisplayName}, {tier.DisplayName}" : $"{mode.DisplayName}, {objective.DisplayName}, {tier.DisplayName}";
         if (r is null)
@@ -551,8 +551,9 @@ public partial class MainMenu : Control
 
         // A match of points goes in the records as one round.
         var parts = new List<string> { matches ? $"won {r.Wins} of {r.Rounds} matches" : $"won {r.Wins} of {r.Rounds}" };
-        if (r.BestClear_s > 0f)
+        if (r.BestClear_s > 0f && mode.Format != MatchFormat.Arcade)
         {
+            // (An arcade round always runs to the clock: its best is the most eliminations.)
             parts.Add($"fastest win {RoundScreens.Clock(r.BestClear_s)}");
         }
 
@@ -635,7 +636,7 @@ public partial class MainMenu : Control
 
             objectives = Offered(place);
             objective = objectives.FirstOrDefault(o => o.Kind == objective.Kind) ?? objectives[0];
-            if (mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch() || objectives.Length < 2)
+            if (mode.Kind == MatchModeKind.FreeForAll || !mode.Format.TakesObjective() || objectives.Length < 2)
             {
                 return;
             }
@@ -717,6 +718,7 @@ public partial class MainMenu : Control
     /// <summary>The round's clock: the tier's, or a match's points and each point's clock (on a <paramref name="field"/> or not).</summary>
     private string Clock(GameMode mode, TierDef tier, bool field) => _data.Config.Rules.PointsFor(mode.Format) is { } points
         ? $"first to {points.RaceTo} points, {RoundScreens.Clock(points.ClockFor(field))} a point"
+        : mode.Format == MatchFormat.Arcade ? $"{RoundScreens.Clock(_data.Config.Rules.Arcade.MatchTime)} on the clock, back in after each hit"
         : $"{RoundScreens.Clock(tier.TimeLimit_s)} on the clock";
 
     /// <summary>Play with others: your name and character, hosting, and joining (games on your network, an address, the last few).</summary>
@@ -742,7 +744,7 @@ public partial class MainMenu : Control
 
     private void Play(AreaEntryDef entry, PlaceSpec place, GameMode mode, int size, ObjectiveChoice objective, TierDef tier)
     {
-        string objectiveId = RecordBook.IdOf(mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch() ? ObjectiveKind.Eliminate : objective.Kind);
+        string objectiveId = RecordBook.IdOf(mode.Kind == MatchModeKind.FreeForAll || !mode.Format.TakesObjective() ? ObjectiveKind.Eliminate : objective.Kind);
         GameSession.LevelId = entry.Id;
         GameSession.PlaceId = place.Id;
         GameSession.ModeId = mode.Id;
@@ -752,7 +754,7 @@ public partial class MainMenu : Control
         GameSession.Points = null; // a new match, whatever was left of the last one
         _records.Remember(entry.Id, place.Id, mode.Id, size, tier.Id, objectiveId);
         Profile.Save(_records);
-        string what = objective.Kind == ObjectiveKind.Eliminate || mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch()
+        string what = objective.Kind == ObjectiveKind.Eliminate || mode.Kind == MatchModeKind.FreeForAll || !mode.Format.TakesObjective()
             ? ""
             : $" · {objective.DisplayName}";
         string part = Pb.Game.Net.RoundChoices.PlaceIdOf(_data.Levels[entry.Id], place) is null ? "" : $"{place.DisplayName} · ";
@@ -976,7 +978,7 @@ public partial class MainMenu : Control
                     }
 
                     int shown = _levels.FindChildren($"Objective_{entry.Id}_*", nameof(Button), owned: false).Count(b => !b.IsQueuedForDeletion());
-                    int wanted = modes[m].Kind != MatchModeKind.FreeForAll && !modes[m].Format.IsMatch() && objectives > 1 ? objectives : 0;
+                    int wanted = modes[m].Kind != MatchModeKind.FreeForAll && modes[m].Format.TakesObjective() && objectives > 1 ? objectives : 0;
                     if (shown != wanted)
                     {
                         problems.Add($"{entry.Id}, {level.Places[p].Id}: {modes[m].Id} offers {shown} objectives, not {wanted}");

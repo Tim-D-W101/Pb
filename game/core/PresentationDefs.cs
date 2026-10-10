@@ -145,10 +145,14 @@ public sealed class PresentationDef : IValidatable
     /// <summary>Capture the flag (Phase 5): the flags, their stands, the rings where each side scores, the HUD's markers.</summary>
     public FlagsViewDef Flags { get; set; } = new();
 
+    /// <summary>Arcade (Phase 5): how someone shielded just after coming back in looks, and your shield on the HUD.</summary>
+    public ArcadeViewDef Arcade { get; set; } = new();
+
     public void Validate(Validator v)
     {
         Objectives.Validate(v.Scope(nameof(Objectives)));
         Flags.Validate(v.Scope(nameof(Flags)));
+        Arcade.Validate(v.Scope(nameof(Arcade)));
         if (TeamColors.Length < 2)
         {
             v.Error(nameof(TeamColors), "needs at least two colours");
@@ -2422,6 +2426,24 @@ public sealed class ObjectivesViewDef : IValidatable
         v.InRange(nameof(RoomOutlineWidth_m), RoomOutlineWidth_m, 0.01, 1);
         v.InRange(nameof(SeenWithin_m), SeenWithin_m, 1, 200);
         v.InRange(nameof(MarkerSize_px), MarkerSize_px, 4, 64);
+    }
+}
+
+/// <summary>
+/// Arcade (rules.jsonc "arcade"), looks only: someone shielded just after coming back in blinks, out of sight for
+/// <see cref="ShieldOff"/> of every <see cref="ShieldBlink_s"/>; your own shield shows on the HUD as a line under the
+/// crosshair, from amber to nothing as it runs out.
+/// </summary>
+public sealed class ArcadeViewDef : IValidatable
+{
+    public float ShieldBlink_s { get; set; }
+
+    public float ShieldOff { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(ShieldBlink_s), ShieldBlink_s, 0.05, 2);
+        v.InRange(nameof(ShieldOff), ShieldOff, 0, 0.9);
     }
 }
 

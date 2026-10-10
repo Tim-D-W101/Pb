@@ -1606,6 +1606,62 @@ As built (M5.7):
 - **Presentation:** the spectator view until the respawn; your splats cleared when you come back; the kill feed and
   scoreboard run all match.
 
+As built (M5.8):
+
+- **Modes and data.** `MatchFormat.Arcade`, and two modes in `rules.jsonc`: `arcade` (teams, 2 to 5 a side, 4 by default;
+  hunters, rushers and flankers, `restlessAfter_s` 15) and `arcade_ffa` (free-for-all, 4 to 10 players). Every compound
+  area offers both, as every mode that doesn't need a field, and the Sports Ground lists them. The `arcade` block:
+  `matchTime_s` 300, `respawn_s` 3, `shield_s` 2, `startClearance_m` 1.5, `farEnough_m` 30. `MatchSetup.As` gives an
+  arcade round its own clock, the tier's pods and pickups, no objective and no countdown. `MatchFormats.TakesObjective`
+  (one round only) keeps the objective choices out of arcade, as out of a match of points.
+- **`ArcadeMode`** never ends a round early, only when everyone playing has left (online, `EndWhenPeopleOut`). At time
+  up, `MostEliminations` wins: each side's total, or in free-for-all each player's own. Putting out a teammate counts for
+  nobody. A level score is `TimeUp`, with no winner. The outcomes are `MostEliminations` and `FewerEliminations`, the
+  first a win in the records. `Placing` goes by eliminations.
+- **Coming back** (authority only). The match counts each elimination: `TimesOut` on the player and in their stats, and
+  `RespawnTick` `respawn_s` on (not for someone who left). `MatchState.RespawnDue` brings back everyone whose time is up:
+  `SimWorld.ArcadeStart` picks the start, and `SimWorld.Respawn` (`ApplyRespawn`) puts them on it standing and still,
+  with a full loader and the round's pods, and forgets their hitbox history. It raises `PlayerRespawned` (the start in
+  `Position`, the way they face in `Value`, the shield's last tick in `Extra`).
+- **The starts** are the level's player and opponent spawns, and on a field each start box's five places (with no
+  level, where everyone started). The one picked is clear of everyone in by `startClearance_m` and seen by nobody of the
+  other side, eye to eye. It's the farthest from them, counted out to `farEnough_m`, with up to a metre of chance from
+  the match's seed, so it's the same on every copy.
+- **The shield.** `PlayerState.ShieldUntilTick`: while it lasts, `PlayerHitboxes.CountsAsHit` is false, so a ball breaks
+  and paints but puts nobody out. A shot of their own ends it.
+- **Bots.** A bot back in after being out (`Mode` was `Out`) starts afresh where it stands: nothing known of the others,
+  no path, cover, fight or post, and its home there (`BotBrain.Respawned`). `BackIn()` does the same for a joining
+  copy's bot, which stood idle while the server walked it off. In the headless arena, Oxbarrow Works 3 v 3 had 11 out
+  and 11 back in over 90 s, the Rail Yard's six-player free-for-all 12 and 12, and the field 4 v 4 53 and 52.
+- **Back in, in the game.** Every body jumps to the new start, solid again after walking off (`PawnBody.Respawned`), and
+  comes back clean: the paint in their shaders and any decal on them comes off (`CharacterVisual.ClearPaint`,
+  `SplatSystem.WipeOff`), and so does your marker's and gloves' spatter. Hosting, someone walked off by a bot has their
+  own commands back, and that bot leaves the squad (`BotSquad.Remove`).
+- **You.** When you're out, the spectator view shows who got you, with "Back in 3…" under it (`SpectatorView.CountDown`).
+  Back in, the camera, the controls and the HUD are yours again, facing the start's way. A bot playing you (a bot
+  match) walks itself off and comes back by itself.
+- **The look** (`presentation.jsonc` → `arcade`). Someone shielded blinks, out of sight for `shieldOff` (0.35) of every
+  `shieldBlink_s` (0.24). Your own shield is a line under the crosshair ("SHIELDED 1.4 s · FIRING ENDS IT") over a bar
+  that empties.
+- **The HUD** (`ArcadeHud`): the score under the top bar: "YOUR SIDE 7 – 5 THEIRS" in the leader's colour, or in
+  free-for-all "YOU 5 · KESTREL LEADS WITH 7". Putting someone out toasts how many you've put out so far.
+- **The briefing, the summary and the referee.** The briefing says how coming back and the shield work. The summary's
+  headline is YOUR SIDE WINS, THEIR SIDE WINS or LEVEL AT TIME (in free-for-all YOU WIN or NAME WINS), and its numbers
+  have the score, your eliminations and the times you were out. The referee calls the result.
+- **The menus.** The clock line reads "5:00 on the clock, back in after each hit", and the record line leaves out the
+  fastest win (an arcade round always runs to the clock).
+- **Tests:**
+  - `ArcadeTests`: back after the respawn time with full gear and the shield; the shield taking paint but not you; firing
+    ending it; the round going to the clock; a level score, and free-for-all by each player's own; someone who left not
+    coming back; a start in a compound that none of the other side can see, clear of everyone; no allocation.
+  - `ArcadeBotTests`: a bot back in starting afresh; whole rounds to the clock in Oxbarrow Works, the Rail Yard
+    (free-for-all) and on the field.
+  - `ArcadeNetTests`: the round as cast, in teams and free-for-all; the lobby playing it as one round; a player's arcade
+    fields through the snapshot; a joining copy counting down, then back in where the server puts it and predicted
+    again.
+  - The smoke tests play three arcade bot matches (Oxbarrow Works 3 v 3, the Rail Yard's free-for-all, the field 4 v 4),
+    each of which fails if someone out didn't come back.
+
 ### 17.11 Network
 
 - **Protocol 4.** Loadouts (about 40 bytes each) travel in:
@@ -1674,6 +1730,19 @@ As built (M5.7):
   - Fixed: a place goes by its id in the lobby's choices, the vote, the rotation and a round's setup, unless it's the
     area's first (`RoundChoices.PlaceIdOf`). Before, any place covering the whole area went as no place at all (the
     first), so online the field's Crossfire was played as Classic, and the server logged that it had no such place.
+- **As built (M5.8): protocol 7.**
+  - `EventCodec` carries `PlayerRespawned`.
+  - Each player's snapshot fields (`PuppetFields`) gain their times out (7 bits), the shield's ticks left (11) and the
+    ticks until they're back in (12), as of the snapshot's tick. A joining copy turns them into ticks of the round for
+    everyone (`PuppetFields.Arcade`): the blink, your shield's line and your countdown.
+  - A joining copy's own player is followed while out, as before. Once the server has them in again, it's predicted
+    again from where the server put it (`ClientSession`; nothing from before is replayed on it). Everyone else jumps
+    there: the puppets' poses already take a jump of more than 3 m as one.
+  - The round's numbers (`StatsEntry`) carry the times out, for the summary.
+  - `RoundCasting` casts arcade on its own clock, not the tier's, and without an objective.
+  - The dedicated server moves a respawned body and gives a person walked off by a bot their own commands back.
+    `server.jsonc` plays an arcade free-for-all on the Rail Yard as its seventh round, and CI's networked rounds an
+    arcade round in the Hospital Wing.
 
 ### 17.12 Testing
 

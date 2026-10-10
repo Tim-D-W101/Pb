@@ -972,6 +972,13 @@ public enum MatchFormat
     /// scores at the other side's buzzer station; elsewhere each side has its own at its starts, and brings theirs home.
     /// </summary>
     Flag,
+
+    /// <summary>
+    /// Arcade (teams or free-for-all): one timed round with no last one standing. Out, you're back a few seconds later at a
+    /// start out of your opponents' sight, shielded for a moment; at time up the most eliminations wins (rules.jsonc
+    /// "arcade").
+    /// </summary>
+    Arcade,
 }
 
 /// <summary>How a round is won besides being the last team standing (solo and teams; free-for-all is always eliminate).</summary>
@@ -1018,12 +1025,16 @@ public sealed class RulesDef : IValidatable
     /// <summary>How capture the flag is played (the modes with <see cref="MatchFormat.Flag"/>).</summary>
     public FlagDef Flag { get; set; } = new();
 
+    /// <summary>How arcade is played (the modes with <see cref="MatchFormat.Arcade"/>).</summary>
+    public ArcadeDef Arcade { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MaxPlayers), MaxPlayers, 2, 32);
         Callout.Validate(v.Scope(nameof(Callout)));
         Speedball.Validate(v.Scope(nameof(Speedball)));
         Flag.Validate(v.Scope(nameof(Flag)));
+        Arcade.Validate(v.Scope(nameof(Arcade)));
         Objectives.Validate(v.Scope(nameof(Objectives)));
         v.InRange(nameof(SettleTime_s), SettleTime_s, 0, 10);
         v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.1, 5);
@@ -1048,6 +1059,39 @@ public sealed class RulesDef : IValidatable
         {
             v.Error(nameof(Modes), "two modes share an id");
         }
+    }
+}
+
+/// <summary>
+/// Arcade (rules.jsonc "arcade"): a timed round where everyone who's put out comes back, won on eliminations.
+/// </summary>
+public sealed class ArcadeDef : IValidatable
+{
+    /// <summary>The round's clock (s): at time up the most eliminations wins.</summary>
+    public float MatchTime_s { get; set; }
+
+    /// <summary>How long after going out a player comes back (s).</summary>
+    public float Respawn_s { get; set; }
+
+    /// <summary>For this long after coming back (s) balls paint a player but don't put them out; firing ends it at once.</summary>
+    public float Shield_s { get; set; }
+
+    /// <summary>Nobody comes back at a start within this far of someone already standing there.</summary>
+    public float StartClearance_m { get; set; }
+
+    /// <summary>
+    /// Of the starts nobody of the other side can see, the one picked is the farthest from them, counted out to this far
+    /// (beyond it every start's as good, and the pick among them is random).
+    /// </summary>
+    public float FarEnough_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(MatchTime_s), MatchTime_s, 20, 3600);
+        v.InRange(nameof(Respawn_s), Respawn_s, 0, 30);
+        v.InRange(nameof(Shield_s), Shield_s, 0, 10);
+        v.InRange(nameof(StartClearance_m), StartClearance_m, 0, 10);
+        v.InRange(nameof(FarEnough_m), FarEnough_m, 1, 200);
     }
 }
 
@@ -1393,6 +1437,11 @@ public sealed class ModeDef : IValidatable
         if (Format is MatchFormat.Speedball or MatchFormat.Flag && Kind != MatchModeKind.Teams)
         {
             v.Error(nameof(Format), $"{Format} is played by two sides: its kind must be teams");
+        }
+
+        if (Format == MatchFormat.Arcade && Kind == MatchModeKind.Solo)
+        {
+            v.Error(nameof(Format), "arcade is played in teams or free-for-all, not solo");
         }
 
         for (int i = 0; i < Roles.Length; i++)

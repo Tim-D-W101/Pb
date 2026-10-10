@@ -80,7 +80,10 @@ public partial class Scoreboard : PanelContainer
             if (_mode != MatchModeKind.FreeForAll)
             {
                 string name = me is not null && side.Key == me.Team ? "Your side" : "Their side";
-                _rows.AddChild(UiKit.Body($"{name}  ·  {side.Count(p => p.Alive)} of {side.Count()} still in", 20, _teamColor(side.Key)));
+                // In arcade everyone's back in a moment: what counts is how many the side has put out.
+                string how = _sim.Match?.Setup.Format == MatchFormat.Arcade ? $"{side.Sum(p => p.Eliminations)} put out"
+                    : $"{side.Count(p => p.Alive)} of {side.Count()} still in";
+                _rows.AddChild(UiKit.Body($"{name}  ·  {how}", 20, _teamColor(side.Key)));
             }
 
             foreach (PlayerState p in side.OrderByDescending(p => p.Eliminations).ThenByDescending(p => p.Hits).ThenBy(p => p.Id))

@@ -443,7 +443,7 @@ public partial class LobbyMain : Control
         int[] sizes = round.Mode.Sizes.ToArray();
         _choices.AddChild(UiKit.OptionRow(round.Mode.Kind == MatchModeKind.Solo ? "Opponents" : "Players",
             sizes.Select(n => ModeText.Size(round.Mode, n)).ToArray(), Math.Max(0, Array.IndexOf(sizes, round.Size)), k => Set(c with { Size = sizes[k] })));
-        if (round.Mode.Kind != MatchModeKind.FreeForAll && !round.Mode.Format.IsMatch())
+        if (round.Mode.Kind != MatchModeKind.FreeForAll && round.Mode.Format.TakesObjective())
         {
             ObjectiveChoice[] offered = RoundChoices.Offered(_data, round.Area, round.Place);
             if (offered.Length > 1)

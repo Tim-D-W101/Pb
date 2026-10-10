@@ -204,6 +204,18 @@ public partial class LevelMain : Node3D, ISimEventListener
     private bool _reported;
     private int[] _calloutsSent = Array.Empty<int>();
 
+    /// <summary>Arcade: what played you before you went out (a bot in a bot match; nothing, your own hands), back once you're in again.</summary>
+    private ICommandSource? _pilotIn;
+
+    /// <summary>Arcade, hosting: the brain walking you off while you're out (it leaves the squad once you're back in).</summary>
+    private BotBrain? _walkingOff;
+
+    /// <summary>Arcade: how many times anyone has come back in (the bot match's report).</summary>
+    private int _respawns;
+
+    /// <summary>Arcade: out, everyone's back in after a moment; the most eliminations when the clock runs out wins.</summary>
+    private bool Arcade => _mode.Format == MatchFormat.Arcade;
+
     /// <summary>True once you've been eliminated and the spectator view is showing.</summary>
     public bool Spectating => _spectator is not null;
 
@@ -528,11 +540,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             _points = PointsMatch.Joined(point.Round, point.RaceTo, point.Points0, point.Points1, point.PointsPlayed);
         }
 
-        _round = _round with { TimeLimit = setup.TimeLimit };
+        _round = _round with { TimeLimit = setup.TimeLimit, Arcade = _data.Config.Rules.Arcade };
         _match = _sim.StartMatch(setup);
         _hud.InitializeObjective(_view.Objectives);
         _hud.InitializePoints(PointsScore);
         _hud.InitializeFlags(_view.Flags);
+        _hud.InitializeArcade(_data.Config.Rules.Arcade.Shield);
         BuildOthersHud(state);
         var objectiveViews = new ObjectiveViews { Name = "Objective" };
         AddChild(objectiveViews);
@@ -762,6 +775,20 @@ public partial class LevelMain : Node3D, ISimEventListener
                  $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, {_doors.Count} door leaves, " +
                  $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");
+        if (Arcade)
+        {
+            // Someone shielded just after coming back in blinks (your own shadow too).
+            foreach (OpponentPawn pawn in _pawns)
+            {
+                pawn.Visual.Shield = _view.Arcade;
+            }
+
+            if (_player.Body is { } body)
+            {
+                body.Shield = _view.Arcade;
+            }
+        }
+
         _ready = true;
         if (_net is { } session)
         {
@@ -801,6 +828,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         else if (e.Type == SimEventType.PlayerEliminated)
         {
             OnEliminated(e);
+        }
+        else if (e.Type == SimEventType.PlayerRespawned)
+        {
+            OnRespawned(e);
         }
         else if (e.Type == SimEventType.RoundEnded)
         {
@@ -1725,9 +1756,91 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             float distance = System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition);
             int left = _sim.Players.Count(p => p.Alive && p.Team != _player.State.Team);
-            _hud.Toast($"You eliminated {victim.Name} · {part} · {distance:0} m   ({left} left)", 3.0);
+            // In arcade nobody stays out: how many you've put out so far, not how many are left.
+            string tally = Arcade ? $"your {ModeText.Ordinal(_match.StatsFor(shooter.Id)?.Eliminations ?? 0)}" : $"{left} left";
+            _hud.Toast($"You eliminated {victim.Name} · {part} · {distance:0} m   ({tally})", 3.0);
         }
     }
+
+    /// <summary>Arcade: someone's back in at a new start. Their body jumps there, with no paint on it; if it's you, the game's yours again.</summary>
+    private void OnRespawned(in SimEvent e)
+    {
+        _respawns++;
+        PlayerState? who = _sim.FindPlayer(e.PlayerId);
+        if (who is null)
+        {
+            return;
+        }
+
+        if (who == _player.State)
+        {
+            BackIn();
+            return;
+        }
+
+        if (_pawns.FirstOrDefault(o => o.State == who) is not { } pawn)
+        {
+            return;
+        }
+
+        pawn.Respawned();
+        _splats.WipeOff(pawn);
+        if (pawn.Pilot is NetCommandSource { WalkOff: BotPilot walk } person)
+        {
+            // Hosting: someone playing with you, walked off by a bot while out, has their own hands back.
+            _squad.Remove(walk.Brain);
+            person.WalkOff = null;
+        }
+    }
+
+    /// <summary>Arcade: you're back in. The spectator view goes; the camera, the controls and the HUD are yours again.</summary>
+    private void BackIn()
+    {
+        _player.Respawned();
+        _splats.WipeOff(_player);
+        if (_walkingOff is { } brain)
+        {
+            _squad.Remove(brain);
+            _walkingOff = null;
+        }
+
+        if (_player.AutoPilot != _pilotIn && _pilotIn is BotPilot bot)
+        {
+            // A bot playing you that stood idle while you were out: a fresh start where you're back in.
+            bot.Brain.BackIn();
+        }
+
+        _player.AutoPilot = _pilotIn;
+        _pilotIn = null;
+        if (_spectator is not null)
+        {
+            _spectator.QueueFree();
+            _spectator = null;
+        }
+
+        _player.Camera.MakeCurrent();
+        _player.ViewModel.Visible = true;
+        if (_player.Body is { } body)
+        {
+            body.ShadowOnly = true;
+        }
+
+        if (_summaryShown || _overlay is not null)
+        {
+            return;
+        }
+
+        _hud.Visible = true;
+        if (_player.AutoPilot is null && !_pause.Open && _chat is not { Typing: true })
+        {
+            Input.MouseMode = Input.MouseModeEnum.Captured;
+        }
+    }
+
+    /// <summary>Arcade, while you're out: how long until you're back in.</summary>
+    private string? BackInText() => _match.Phase == MatchPhase.Live && _player.State.RespawnTick >= 0
+        ? $"Back in {Math.Max(1, (int)MathF.Ceiling((_player.State.RespawnTick - _sim.Tick) * _sim.Dt))}…"
+        : null;
 
     private void StartSpectating(PlayerState victim, PlayerState? shooter)
     {
@@ -1742,8 +1855,15 @@ public partial class LevelMain : Node3D, ISimEventListener
             _hitBy = $"{shooter.Name} got you: {SpectatorView.PartName(victim.EliminatedPart)}, {distance:0} m.";
         }
 
-        // Hosting, you walk off the field like everyone else who's out (joined, the host walks you off).
-        _player.AutoPilot = _net is { Hosting: true } ? WalkOffPilot(victim) : new IdlePilot();
+        // Hosting, you walk off the field like everyone else who's out (joined, the host walks you off). In arcade a bot
+        // playing you (a bot match) walks itself off and comes back in by itself, unless the host walks you off.
+        _pilotIn = _player.AutoPilot;
+        if (!(Arcade && _player.AutoPilot is BotPilot && _net?.Client is null))
+        {
+            _player.AutoPilot = _net is { Hosting: true } ? WalkOffPilot(victim) : new IdlePilot();
+            _walkingOff = (_player.AutoPilot as BotPilot)?.Brain;
+        }
+
         _player.ViewModel.Visible = false;
         // The spectator camera starts behind and above where you stood: you're there, hit, marker up.
         if (_player.Body is { } body)
@@ -1763,6 +1883,14 @@ public partial class LevelMain : Node3D, ISimEventListener
                 if (_smoke is null && !_botMatch)
                 {
                     GetTree().Quit();
+                }
+            }
+            else if (Arcade)
+            {
+                // Back in a moment: who got you stays up until then (the summary, if the clock ran out meanwhile).
+                if (_match.Phase == MatchPhase.Ended)
+                {
+                    ShowSummary();
                 }
             }
             else if (_match.Phase != MatchPhase.Ended && Watchable().Count > 0)
@@ -1788,6 +1916,10 @@ public partial class LevelMain : Node3D, ISimEventListener
                 ShowSummary();
             }
         });
+        if (Arcade)
+        {
+            _spectator.CountDown(BackInText);
+        }
     }
 
     /// <summary>Who you may watch once you're out: your teammates still in, or in free-for-all anyone still in.</summary>
@@ -1842,8 +1974,9 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
-        // Out: the spectator view shows who got you first. Otherwise (or watching the others) a moment to take it in.
-        if (_spectator is null || _spectator.Following)
+        // Out: the spectator view shows who got you first. Otherwise (or watching the others, or out in arcade, about to
+        // be back in) a moment to take it in.
+        if (_spectator is null || _spectator.Following || Arcade)
         {
             GetTree().CreateTimer(1.5).Timeout += ShowSummary;
         }
@@ -2011,7 +2144,19 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool ok = errors == 0 && _match.Outcome != RoundOutcome.None && (_net?.Client is null || _netOver);
         int botOnBot = _sim.Players.Count(p => !p.Alive && p != _player.State && p.EliminatedBy > 0);
         string objective = ObjectiveLine() is { } line ? $" ({line})" : "";
-        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +
+        string arcade = "";
+        if (Arcade)
+        {
+            // Everyone out comes back in (but those still out as the clock ran out): CI fails a round where they don't.
+            int outs = _match.Stats.Sum(s => s.TimesOut);
+            int stillOut = _sim.Players.Count(p => !p.Alive);
+            ok &= _respawns >= outs - stillOut && _respawns <= outs;
+            (int ours, int theirs, _) = ArcadeTally(_player.State);
+            arcade = $" {ours}–{theirs}; {outs} out, {_respawns} back in (you out {you.TimesOut}×);";
+        }
+
+        // How it went for your side (the match's own Outcome is its first person's: with others, maybe not yours).
+        GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.OutcomeFor(_player.State.Team)}{objective} after {_match.Elapsed:0} s:{arcade} you put out " +
                  $"{you.Eliminations} of {_sim.Players.Count(p => p.Team != _player.State.Team)}, {you.Shots} shots, {you.Hits} hits, " +
                  $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; callouts heard {_callouts}; simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
         if (_net is { } session)
@@ -2129,9 +2274,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         Input.MouseMode = Input.MouseModeEnum.Visible;
         IReadOnlyList<PlayerState> players = _sim.Players;
         RoundOutcome outcome = _match.OutcomeFor(you.Team);
-        PlayerState? winner = _mode.Kind == MatchModeKind.FreeForAll && over && outcome == RoundOutcome.Eliminated
-            ? players.FirstOrDefault(p => p.Alive)
+        PlayerState? winner = _mode.Kind != MatchModeKind.FreeForAll || !over ? null
+            : outcome == RoundOutcome.Eliminated ? players.FirstOrDefault(p => p.Alive)
+            : outcome == RoundOutcome.FewerEliminations ? players.FirstOrDefault(p => p.Team == _match.Result.Winner)
             : null;
+        (int ourTally, int theirTally, string? topName) = Arcade ? ArcadeTally(you) : (0, 0, null);
         var facts = new SummaryFacts
         {
             Over = over,
@@ -2146,6 +2293,9 @@ public partial class LevelMain : Node3D, ISimEventListener
             Winner = winner?.Name,
             ObjectiveLine = ObjectiveLine(),
             ObjectiveRow = ObjectiveRow(),
+            OurTally = ourTally,
+            TheirTally = theirTally,
+            TopName = topName,
         };
         // Playing with others: the host starts the next round once this one is over; everyone may leave.
         (string, Action)[]? actions = null;
@@ -2172,6 +2322,25 @@ public partial class LevelMain : Node3D, ISimEventListener
                 GetTree().ChangeSceneToFile(GameSession.MainScene);
             },
             actions, note, _points, you.Team));
+    }
+
+    /// <summary>
+    /// Arcade: the eliminations that decide it. With sides, your side's and theirs; in free-for-all, yours and the most anyone
+    /// else put out, with who did (null when several did).
+    /// </summary>
+    private (int Ours, int Theirs, string? Top) ArcadeTally(PlayerState you)
+    {
+        // Everyone's own count (a joining copy has it from every snapshot; the match's numbers only once the round's over).
+        if (_mode.Kind != MatchModeKind.FreeForAll)
+        {
+            return (_sim.Players.Where(p => p.Team == you.Team).Sum(p => p.Eliminations),
+                _sim.Players.Where(p => p.Team != you.Team).Sum(p => p.Eliminations), null);
+        }
+
+        List<PlayerState> others = _sim.Players.Where(p => p != you).ToList();
+        int best = others.Count > 0 ? others.Max(p => p.Eliminations) : 0;
+        List<PlayerState> top = others.Where(p => p.Eliminations == best).ToList();
+        return (you.Eliminations, best, top.Count == 1 ? top[0].Name : null);
     }
 
     /// <summary>How the objective went, in a sentence, for the summary's headline.</summary>

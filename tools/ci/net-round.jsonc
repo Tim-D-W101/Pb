@@ -1,6 +1,7 @@
 // The dedicated server's settings for CI's networked rounds (tools/ci/net-round.sh): a round on every area, in every mode
-// (the Sports Ground's a speedball match to two points, its points one after another, and the Cold Store's second a
-// capture the flag match to one), with bots filling to ten.
+// (the Sports Ground's a speedball match to two points, its points one after another, the Cold Store's second a
+// capture the flag match to one, and the Hospital Wing's second arcade, everyone back in after a hit), with bots filling
+// to ten.
 // The rounds start as soon as everyone is in (the script's --host-wait), and each round's summary is short.
 {
   "name": "CI networked rounds",
@@ -13,7 +14,8 @@
     { "level": "cold_store", "place": null, "mode": "solo", "size": 5, "objective": "eliminate", "tier": "normal" },
     { "level": "hospital_wing", "place": null, "mode": "teams", "size": 5, "objective": "retrieve", "tier": "normal" },
     { "level": "sports_ground", "place": "crossfire", "mode": "speedball", "size": 5, "objective": "eliminate", "tier": "normal", "raceTo": 2 },
-    { "level": "cold_store", "place": null, "mode": "flag", "size": 5, "objective": "eliminate", "tier": "normal", "raceTo": 1 }
+    { "level": "cold_store", "place": null, "mode": "flag", "size": 5, "objective": "eliminate", "tier": "normal", "raceTo": 1 },
+    { "level": "hospital_wing", "place": null, "mode": "arcade", "size": 5, "objective": "eliminate", "tier": "normal" }
   ],
   "bots": true,
   "vote": false,

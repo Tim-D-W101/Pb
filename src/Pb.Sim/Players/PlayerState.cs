@@ -72,6 +72,18 @@ public sealed class PlayerState
     /// <summary>Opponents this player has eliminated.</summary>
     public int Eliminations { get; set; }
 
+    /// <summary>Arcade: the tick they come back on after going out (−1: not waiting to).</summary>
+    public int RespawnTick { get; set; } = -1;
+
+    /// <summary>Arcade: until this tick, after coming back, balls paint them but don't put them out (−1: no shield).</summary>
+    public int ShieldUntilTick { get; set; } = -1;
+
+    /// <summary>Arcade: times they've been put out this round.</summary>
+    public int TimesOut { get; set; }
+
+    /// <summary>Shielded on <paramref name="tick"/>: back from being out a moment ago, and not fired since.</summary>
+    public bool ShieldedAt(int tick) => tick < ShieldUntilTick;
+
     /// <summary>Balls of theirs that broke on an opponent this round (the scoreboard; the round's stats keep the same).</summary>
     public int Hits { get; set; }
 
@@ -178,6 +190,48 @@ public sealed class PlayerState
     public bool MarkerReady => SprintRecovery <= 0f && MathF.Abs(Shoulder) >= 1f;
 
     public Vector3 EyePosition => Position + new Vector3(0f, EyeHeight, 0f) + LeanOffset;
+
+    /// <summary>
+    /// Back on their feet at <paramref name="at"/>, facing <paramref name="yaw"/>, as at a round's start: in, standing at
+    /// <paramref name="standEyeHeight"/>, still, off any ladder or door, no slide, sprint or lean under way (arcade's
+    /// respawn; their gear is the sim's to refill).
+    /// </summary>
+    internal void StandAt(Vector3 at, float yaw, float standEyeHeight)
+    {
+        Alive = true;
+        Present = true;
+        EliminatedBy = -1;
+        EliminatedTick = -1;
+        Position = at;
+        LastPosition = at;
+        Velocity = Vector3.Zero;
+        LastVelocity = Vector3.Zero;
+        Yaw = yaw;
+        Pitch = 0f;
+        HeadYaw = 0f;
+        Stance = Stance.Standing;
+        LastStance = Stance.Standing;
+        EyeHeight = standEyeHeight;
+        Sprinting = false;
+        SprintBlocked = false;
+        Grounded = true;
+        LastGrounded = true;
+        Lean = 0f;
+        LeanOffset = Vector3.Zero;
+        LeanRoll = 0f;
+        Tuck = 0f;
+        SlideTime = 0f;
+        SlideCooldown = 0f;
+        JumpCooldown = 0f;
+        SprintRecovery = 0f;
+        StrideDistance = 0f;
+        Ladder = -1;
+        LadderTime = 0f;
+        ClimbDistance = 0f;
+        InteractDoor = -1;
+        InteractHeld = 0f;
+        InteractDown = false;
+    }
 
     public float HorizontalSpeed => new Vector2(Velocity.X, Velocity.Z).Length();
 }

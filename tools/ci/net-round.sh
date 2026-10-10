@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # CI's networked rounds (architecture §16.14): a headless dedicated server and five headless players on this machine, over
 # real UDP, playing a round on every area in every mode (tools/ci/net-round.jsonc; on the Sports Ground a speedball
-# match, point after point, which counts once, and in the Cold Store a capture the flag match), with bots filling to ten. Each player has a bot at its controls, sending
+# match, point after point, which counts once, in the Cold Store a capture the flag match and in the Hospital Wing an
+# arcade round, everyone back in after a hit), with bots filling to ten. Each player has a bot at its controls, sending
 # its commands through the network as a person's would:
 #   Ada, Bo and Cy  play fairly at 100 ms round trip, with jitter and 1% loss, each in a brand's kit (--kit=BRAND);
 #   Trigger         flips its trigger on every tick (--net-cheat=fire): the server must hold it to the fire rate;

@@ -245,13 +245,17 @@ public class SpeedballTests
     [Fact]
     public void Speedball_is_the_fields_mode_and_only_the_fields()
     {
-        // Phase 5 (M5.7): the field plays speedball and capture the flag; the compound areas every other mode, the flag too.
+        // Phase 5 (M5.7, M5.8): the field plays speedball, capture the flag and arcade; the compound areas every other mode,
+        // the flag and arcade too.
         MatchRules rules = TestData.Config.Rules;
         GameMode speedball = rules.FindMode("speedball")!;
         GameMode flag = rules.FindMode("flag")!;
+        GameMode[] arcade = { rules.FindMode("arcade")!, rules.FindMode("arcade_ffa")! };
         Assert.Equal(MatchFormat.Speedball, speedball.Format);
         Assert.Equal(MatchModeKind.Teams, speedball.Kind);
         Assert.Equal((MatchFormat.Flag, MatchModeKind.Teams), (flag.Format, flag.Kind));
+        Assert.Equal(new[] { (MatchFormat.Arcade, MatchModeKind.Teams), (MatchFormat.Arcade, MatchModeKind.FreeForAll) },
+            arcade.Select(m => (m.Format, m.Kind)));
         foreach (AreaEntryDef area in TestData.Data.Areas.Areas)
         {
             IReadOnlyList<GameMode> modes = rules.ModesFor(area);
@@ -259,9 +263,10 @@ public class SpeedballTests
             bool field = TestData.Data.Levels[area.Id].Field is not null;
             Assert.Equal(field, modes.Contains(speedball));
             Assert.Contains(flag, modes);
+            Assert.All(arcade, m => Assert.Contains(m, modes));
             if (field)
             {
-                Assert.All(modes, m => Assert.True(m.Format.IsMatch(), $"{m.Id} on the field"));
+                Assert.All(modes, m => Assert.True(m.Format != MatchFormat.Round, $"{m.Id}, one round of the compounds' modes, on the field"));
             }
             else
             {

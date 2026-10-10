@@ -57,7 +57,7 @@ public static class RoundCasting
         // A point of a match (speedball, capture the flag): its own clock, no objective or pickups; on a field, the start boxes.
         IPointRules? points = config.Rules.PointsFor(mode.Format);
         bool boxes = points is not null && level.Field is not null;
-        ObjectiveKind kind = mode.Kind == MatchModeKind.FreeForAll || points is not null ? ObjectiveKind.Eliminate : objective.Kind;
+        ObjectiveKind kind = mode.Kind == MatchModeKind.FreeForAll || !mode.Format.TakesObjective() ? ObjectiveKind.Eliminate : objective.Kind;
         int[] sides = Sides(mode.Kind, people);
         if (mode.Kind == MatchModeKind.Teams && (sides.Count(s => s == 0) > size || sides.Count(s => s == 1) > size))
         {
@@ -114,7 +114,8 @@ public static class RoundCasting
         var setup = new RoundSetupMessage
         {
             Round = round, LevelId = levelId, PlaceId = placeId, ModeId = mode.Id, Size = size, Objective = kind, TierId = tier.Id, Seed = seed,
-            TimeLimit = timeLimit ?? points?.ClockFor(level.Field is not null) ?? tier.TimeLimit_s, StartPods = tier.StartPods, BotPods = tier.BotPods,
+            TimeLimit = timeLimit ?? points?.ClockFor(level.Field is not null) ??
+                (mode.Format == MatchFormat.Arcade ? config.Rules.Arcade.MatchTime : tier.TimeLimit_s), StartPods = tier.StartPods, BotPods = tier.BotPods,
             Pickups = tier.Pickups && points is null, Attackers = entering, EndWhenPeopleOut = true,
         };
         if (points is not null)

@@ -151,9 +151,8 @@ public partial class RefereeCalls : Node, ISimEventListener
         RoundOutcome.Extracted => _lines.CaseOut,
         RoundOutcome.Held => _lines.RoomHeld,
         RoundOutcome.Cleared => _sim.Match?.Setup.Mode == MatchModeKind.FreeForAll ? _lines.LastStanding : _lines.Won,
-        RoundOutcome.Traded => _lines.Won,
-        RoundOutcome.HeldOff => _lines.Won,
-        RoundOutcome.Eliminated or RoundOutcome.CaseLost or RoundOutcome.RoomLost => _lines.Lost,
+        RoundOutcome.Traded or RoundOutcome.HeldOff or RoundOutcome.MostEliminations => _lines.Won,
+        RoundOutcome.Eliminated or RoundOutcome.CaseLost or RoundOutcome.RoomLost or RoundOutcome.FewerEliminations => _lines.Lost,
         RoundOutcome.TimeUp => _lines.TimeUp,
         _ => null,
     };

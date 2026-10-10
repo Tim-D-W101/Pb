@@ -185,6 +185,19 @@ public partial class Hud : CanvasLayer, ISimEventListener
         hud.Initialize(_sim, _player, _teams[_player.Team % _teams.Length], _hudDef.HornShow_s, score);
     }
 
+    /// <summary>Arcade: the score under the top bar, and your shield just after you're back in (it lasts <paramref name="shieldFor"/> s).</summary>
+    public void InitializeArcade(float shieldFor)
+    {
+        if (_sim.Match is not { Setup.Format: Pb.Sim.Data.MatchFormat.Arcade } match || _hudDef is null)
+        {
+            return;
+        }
+
+        var hud = new ArcadeHud { Name = "Arcade" };
+        GetNode<Control>("Root").AddChild(hud);
+        hud.Initialize(_sim, _player, side => _teams[side % _teams.Length], match.Setup.Mode == Pb.Sim.Data.MatchModeKind.FreeForAll, shieldFor);
+    }
+
     /// <summary>Playing with others: a warning that the connection's poor (null takes it away).</summary>
     public void Connection(string? warning)
     {

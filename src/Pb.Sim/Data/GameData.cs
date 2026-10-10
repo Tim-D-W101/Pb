@@ -117,6 +117,8 @@ public sealed class GameData
                     rules.Speedball.HangReach_m, rules.Speedball.BetweenPoints_s),
                 Flag = new FlagRules(rules.Flag.RaceTo, rules.Flag.PointTime_s, rules.Flag.FieldPointTime_s, rules.Flag.Countdown_s, rules.Flag.BetweenPoints_s,
                     rules.Flag.PickupReach_m, rules.Flag.ScoreReach_m, rules.Flag.CarrierCanSprint, rules.Flag.FieldRole),
+                Arcade = new ArcadeRules(rules.Arcade.MatchTime_s, rules.Arcade.Respawn_s, rules.Arcade.Shield_s, rules.Arcade.StartClearance_m,
+                    rules.Arcade.FarEnough_m),
                 SettleTime = rules.SettleTime_s,
                 TradeCountsAsClear = rules.TradeCountsAsClear,
                 PickupRadius = rules.PickupRadius_m,

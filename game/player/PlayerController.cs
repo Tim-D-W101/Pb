@@ -131,6 +131,15 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         Body?.Capture();
     }
 
+    /// <summary>Arcade: back in at a new start, facing its way, clean: your marker, gloves and body have no paint on them.</summary>
+    public override void Respawned()
+    {
+        base.Respawned();
+        _currentRoll = _previousRoll = State.LeanRoll;
+        ViewModel.ClearPaint();
+        Body?.ClearPaint();
+    }
+
     /// <summary>Typing in the chat: your keys don't move you (the mouse still looks round).</summary>
     public bool Muted { get; set; }
 

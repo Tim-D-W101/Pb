@@ -91,6 +91,13 @@ public enum SimEventType : byte
 
     /// <summary>Capture the flag: a carrier brought a flag to where their side scores, which wins the point. As <see cref="FlagTaken"/>.</summary>
     FlagCaptured,
+
+    /// <summary>
+    /// Arcade: someone who was out is back. <see cref="SimEvent.PlayerId"/> who, <see cref="SimEvent.Team"/> their side,
+    /// <see cref="SimEvent.Position"/> where they start, <see cref="SimEvent.Value"/> the way they face (yaw, radians),
+    /// <see cref="SimEvent.Extra"/> the tick their shield ends on.
+    /// </summary>
+    PlayerRespawned,
 }
 
 public enum FootstepKind : byte

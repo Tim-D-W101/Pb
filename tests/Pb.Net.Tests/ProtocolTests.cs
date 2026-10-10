@@ -195,7 +195,7 @@ public class ProtocolTests
         p.HeadYaw = 0.5f;
         p.Pitch = -0.3f;
         var fields = new uint[PuppetFields.Count];
-        PuppetFields.Capture(p, Yard, fields);
+        PuppetFields.Capture(p, 0, Yard, fields);
         var copy = new SimWorld(TestData.Config);
         PlayerState q = copy.AddPlayer(3, 1, Vector3.Zero, 0f);
         PuppetFields.Pose(q, fields, fields, 0f, Yard, TestData.Config.Movement);
@@ -211,7 +211,7 @@ public class ProtocolTests
         // Half-way between two snapshots is half-way between where they were.
         var later = new uint[PuppetFields.Count];
         p.Position += new Vector3(0.1f, 0f, 0f);
-        PuppetFields.Capture(p, Yard, later);
+        PuppetFields.Capture(p, 0, Yard, later);
         PuppetFields.Pose(q, fields, later, 0.5f, Yard, TestData.Config.Movement);
         Assert.InRange(q.Position.X, 1.55f - 0.003f, 1.55f + 0.003f);
     }
@@ -280,6 +280,9 @@ public class ProtocolTests
             TargetId = -1, ColliderId = -1 }],
         [new SimEvent { Type = SimEventType.FlagCaptured, Tick = 100, PlayerId = 2, Team = 0, Position = new Vector3(40f, 0f, -44f), Value = 1f, Extra = 1,
             TargetId = -1, ColliderId = -1 }],
+        // Arcade: back in, facing Value, shielded to tick Extra.
+        [new SimEvent { Type = SimEventType.PlayerRespawned, Tick = 96, PlayerId = 3, Team = 1, Position = new Vector3(-12f, 0f, 6f), Value = 2.5f,
+            Extra = 341, TargetId = -1, ColliderId = -1 }],
     ];
 
     [Theory]
@@ -360,7 +363,7 @@ public class ProtocolTests
 
         w.Reset();
         var over = new RoundOverMessage { Round = 3, Result = new MatchResult(RoundEnd.MoreIn, 1), Elapsed = 123.5f, EndTick = 9000 };
-        over.Stats.Add(new StatsEntry(0, 40, 3, 2, 1, 100.5f, -1));
+        over.Stats.Add(new StatsEntry(0, 40, 3, 2, 1, 100.5f, -1, TimesOut: 5));
         over.Stats.Add(new StatsEntry(4, 10, 0, 0, 0, 30f, 4000));
         over.Write(w);
         RoundOverMessage o = RoundOverMessage.Read(w.Finish())!;

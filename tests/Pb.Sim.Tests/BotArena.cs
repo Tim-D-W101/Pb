@@ -227,6 +227,54 @@ internal sealed class BotArena
         return arena;
     }
 
+    /// <summary>
+    /// An arcade round (<paramref name="modeId"/>: <c>arcade</c>, teams, or <c>arcade_ffa</c>) with the game's own starts
+    /// for <paramref name="size"/>, you (a bot unless <paramref name="heroBot"/> is false) and every other player a bot
+    /// playing the role it's dealt. <see cref="StartArcade"/> starts it.
+    /// </summary>
+    public static BotArena Arcade(string level = "oxbarrow_works", string modeId = "arcade", int size = 3, string tier = "normal", ulong seed = 0,
+        string? place = null, bool heroBot = true)
+    {
+        var arena = new BotArena(tier, seed, level, place);
+        GameMode mode = TestData.Config.Rules.FindMode(modeId)!;
+        SpawnPlan plan = SpawnPlanner.Plan(arena.Level, SharedFor(level, place).Cover, arena.Sim.Collision, TestData.Config.Rules.Spawning,
+            TestData.Data.Bots, RoundShape.Of(mode, size), TestData.Config.Movement.StandEyeHeight, seed);
+        arena.Hero.Position = plan.You.Position;
+        arena.Hero.Yaw = plan.You.Yaw;
+        if (heroBot)
+        {
+            arena.HeroBot("hunter");
+        }
+
+        foreach (OpponentSpawn spawn in plan.Teammates)
+        {
+            arena.AddBotAt(spawn, 0);
+        }
+
+        for (int i = 0; i < plan.Opponents.Count; i++)
+        {
+            arena.AddBotAt(plan.Opponents[i], mode.Kind == MatchModeKind.FreeForAll ? (byte)(i + 1) : (byte)1);
+        }
+
+        foreach (BotBrain bot in arena.Bots)
+        {
+            bot.RestlessAfter = mode.RestlessAfter;
+        }
+
+        return arena;
+    }
+
+    /// <summary>Starts an arcade round (<paramref name="kind"/>), live at once, on arcade's clock or <paramref name="timeLimit"/>.</summary>
+    public BotArena StartArcade(MatchModeKind kind = MatchModeKind.Teams, float? timeLimit = null, int pods = 2)
+    {
+        MatchSetup setup = new MatchSetup { HeroId = 0, Mode = kind, TimeLimit = 900f, StartPods = pods, BotPods = pods, Pickups = false }
+            .As(MatchFormat.Arcade, Sim.Config.Rules, onField: Level.Field is not null);
+        Sim.StartMatch(timeLimit is { } t ? setup.WithTimeLimit(t) : setup);
+        Sim.GoLive();
+        _commands = new InputCommand[Sim.Players.Count];
+        return this;
+    }
+
     /// <summary>Starts a capture the flag point: the briefing over, the countdown running (the horn comes by itself).</summary>
     public BotArena StartFlag(int pods = 2)
     {
@@ -292,7 +340,7 @@ internal sealed class BotArena
         foreach (SimEvent e in events)
         {
             if (e.Type is SimEventType.ShotFired or SimEventType.PlayerEliminated or SimEventType.RefillStarted or SimEventType.RoundEnded
-                or SimEventType.FlagTaken or SimEventType.FlagDropped or SimEventType.FlagCaptured)
+                or SimEventType.FlagTaken or SimEventType.FlagDropped or SimEventType.FlagCaptured or SimEventType.PlayerRespawned)
             {
                 Log.Add(e);
             }

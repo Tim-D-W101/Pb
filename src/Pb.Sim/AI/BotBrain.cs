@@ -295,10 +295,10 @@ public sealed class BotBrain
 
     public BotSenses Senses { get; }
 
-    /// <summary>The spawn: where a post-holder stands, and where everyone returns to.</summary>
-    public Vector3 Home { get; }
+    /// <summary>The spawn: where a post-holder stands, and where everyone returns to (in arcade, where it last came back).</summary>
+    public Vector3 Home { get; private set; }
 
-    public float HomeYaw { get; }
+    public float HomeYaw { get; private set; }
 
     public PatrolRoute? Route { get; }
 
@@ -389,6 +389,11 @@ public sealed class BotBrain
         if (!Self.Alive)
         {
             return WalkOff(dt);
+        }
+
+        if (Mode == BotMode.Out)
+        {
+            Respawned();
         }
 
         bool live = _sim.IsLive && !Passive;
@@ -2291,6 +2296,51 @@ public sealed class BotBrain
         _cmd.Yaw = _yaw;
         _cmd.Pitch = 0f;
         return _cmd;
+    }
+
+    /// <summary>
+    /// Arcade: back in where it stands, after being out without thinking (on a joining copy, the server walks it off): a
+    /// fresh start there, as when it comes back by itself.
+    /// </summary>
+    public void BackIn() => Respawned();
+
+    /// <summary>
+    /// Arcade: back from being out, at a new start: a fresh start there, as at the round's (nothing known of the others, no
+    /// path, cover, fight or post), its home where it came back.
+    /// </summary>
+    private void Respawned()
+    {
+        Senses.Reset();
+        Home = Self.Position;
+        HomeYaw = Self.Yaw;
+        _outFor = 0f;
+        _hasGoal = false;
+        _needPath = false;
+        _arrived = false;
+        _path.Clear();
+        _waypoint = 0;
+        _repaths = 0;
+        _stuckFor = 0f;
+        _cover = -1;
+        _onAlarm = false;
+        _hunting = false;
+        _dutyPost = null;
+        _pressLeft = 0f;
+        _vantage = -1;
+        _vantageTried = false;
+        _relocating = false;
+        _shotsHere = 0;
+        _triggerHeld = 0;
+        _steady = 0f;
+        _wasVisible = false;
+        _quietFor = 0f;
+        _yaw = Self.Yaw;
+        _pitch = 0f;
+        _wantYaw = Self.Yaw;
+        _wantPitch = 0f;
+        _decideIn = 0f;
+        SetMode(BotMode.Idle);
+        SetPhase(CoverPhase.None, 0f);
     }
 
     /// <summary>Done with a lead or a fight: back to the post or patrol (hunters just carry on hunting).</summary>
