@@ -92,6 +92,8 @@ public enum Sfx
     WhistleLong,
     WhistleTriple,
     WhistlePips,
+    // Speedball's countdown to the horn: a pip a second.
+    CountdownPip,
 
     // Menus.
     UiClick,
@@ -366,6 +368,7 @@ public sealed class SoundBank
         Sfx.WhistleLong => new(1.05f, 1, (s, _) => Whistle(s, [(0f, 0.95f)]), Peak: 0.6f),
         Sfx.WhistleTriple => new(1.4f, 1, (s, _) => Whistle(s, [(0f, 0.2f), (0.32f, 0.2f), (0.64f, 0.7f)]), Peak: 0.6f),
         Sfx.WhistlePips => new(0.5f, 1, (s, _) => Whistle(s, [(0f, 0.11f), (0.22f, 0.11f)]), Peak: 0.6f),
+        Sfx.CountdownPip => new(0.22f, 1, (s, _) => Pip(s), Peak: 0.45f),
 
         Sfx.UiClick => new(0.05f, 2, (s, _) => UiClick(s, 1600f)),
         Sfx.UiHover => new(0.04f, 1, (s, _) => UiHover(s)),
@@ -1001,6 +1004,22 @@ public sealed class SoundBank
         }
 
         s.Saturate(2f);
+    }
+
+    /// <summary>The countdown's pip: a short square-ish tone from the field's timer box, a touch of buzz in it.</summary>
+    private static void Pip(Synth s)
+    {
+        var lowpass = Biquad.LowPass(s.Rate, 3600f, 0.7f);
+        float phase = 0f;
+        for (int i = 0; i < s.Length; i++)
+        {
+            float t = s.T(i);
+            phase += 988f / s.Rate;
+            float tone = MathF.Sin(MathF.Tau * phase) + 0.3f * MathF.Sin(MathF.Tau * 3f * phase);
+            s.Samples[i] += lowpass.Process(tone) * Envelope.Swell(t, 0.004f, 0.03f, 0.16f) * 0.6f;
+        }
+
+        s.Saturate(1.5f);
     }
 
     /// <summary>A pea whistle: a high tone warbled by the pea rattling round, with breath through it, in blasts.</summary>

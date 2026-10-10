@@ -42,6 +42,78 @@ public sealed class NavigationDef : IValidatable
 }
 
 /// <summary>How every bot thinks and acts (bots/brain.jsonc).</summary>
+/// <summary>How bots play speedball (bots/brain.jsonc "speedball").</summary>
+public sealed class SpeedballBrainDef : IValidatable
+{
+    /// <summary>Of a side's bots, this share plays at the back and this in the middle (at least one each); the rest go front.</summary>
+    public float BackShare { get; set; }
+
+    public float MidShare { get; set; }
+
+    /// <summary>A breakout run lasts at most this long; then it fights from wherever it got to.</summary>
+    public float BreakoutFor_s { get; set; }
+
+    /// <summary>How much a bot fighting from cover prefers the spots at its own bunker (as the other cover scores).</summary>
+    public float BunkerBias { get; set; }
+
+    /// <summary>With this many more players in than the other side, a side moves someone up a bunker…</summary>
+    public int AdvanceMargin { get; set; }
+
+    /// <summary>… at most one this often.</summary>
+    public float AdvanceEvery_s { get; set; }
+
+    /// <summary>How often the squad looks for a buzzer nobody of its side covers.</summary>
+    public float HangCheck_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(BackShare), BackShare, 0, 1);
+        v.InRange(nameof(MidShare), MidShare, 0, 1);
+        if (BackShare + MidShare > 1f)
+        {
+            v.Error(nameof(MidShare), "the back and middle shares come to more than the side");
+        }
+
+        v.InRange(nameof(BreakoutFor_s), BreakoutFor_s, 0.5, 20);
+        v.InRange(nameof(BunkerBias), BunkerBias, 0, 100);
+        v.InRange(nameof(AdvanceMargin), AdvanceMargin, 1, 10);
+        v.InRange(nameof(AdvanceEvery_s), AdvanceEvery_s, 0.5, 60);
+        v.InRange(nameof(HangCheck_s), HangCheck_s, 0.1, 10);
+    }
+}
+
+/// <summary>How bots play capture the flag (bots/brain.jsonc "flag").</summary>
+public sealed class FlagBrainDef : IValidatable
+{
+    /// <summary>With a flag each, this share of a side's bots (at least one, from two up) guards its own; the rest go for theirs.</summary>
+    public float DefendShare { get; set; }
+
+    /// <summary>When the other side carries a flag, this many of a side's bots nearest the carrier go after them…</summary>
+    public int Chasers { get; set; }
+
+    /// <summary>… told where the carrier is this often.</summary>
+    public float AlarmInterval_s { get; set; }
+
+    /// <summary>Any bot within this far of a dropped flag it may take goes for it, whatever its part.</summary>
+    public float NearDropped_m { get; set; }
+
+    /// <summary>A bot going for a flag (or carrying one) that's been in a fight this long without it ending presses on…</summary>
+    public float PressOnAfter_s { get; set; }
+
+    /// <summary>… for this long: on for the flag, or home with it, whatever it sees (shooting as it goes if it can).</summary>
+    public float PressFor_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(DefendShare), DefendShare, 0, 1);
+        v.InRange(nameof(Chasers), Chasers, 0, 10);
+        v.InRange(nameof(AlarmInterval_s), AlarmInterval_s, 0.2, 30);
+        v.InRange(nameof(NearDropped_m), NearDropped_m, 0, 60);
+        v.InRange(nameof(PressOnAfter_s), PressOnAfter_s, 1, 120);
+        v.InRange(nameof(PressFor_s), PressFor_s, 0, 60);
+    }
+}
+
 public sealed class BrainDef : IValidatable
 {
     public float SuspiciousTime_s { get; set; }
@@ -150,8 +222,16 @@ public sealed class BrainDef : IValidatable
 
     public float VantageHeightBonus_perM { get; set; }
 
+    /// <summary>How bots play speedball (the field's points).</summary>
+    public SpeedballBrainDef Speedball { get; set; } = new();
+
+    /// <summary>How bots play capture the flag.</summary>
+    public FlagBrainDef Flag { get; set; } = new();
+
     public void Validate(Validator v)
     {
+        Speedball.Validate(v.Scope(nameof(Speedball)));
+        Flag.Validate(v.Scope(nameof(Flag)));
         v.InRange(nameof(CalloutRange_m), CalloutRange_m, 0, 200);
         v.InRange(nameof(ContactError_m), ContactError_m, 0, 20);
         v.InRange(nameof(ShareInterval_s), ShareInterval_s, 0.2, 60);
@@ -274,12 +354,21 @@ public enum BotIdle
 
     /// <summary>Take the best vantage (a high, open view) within reach of the start and watch from it (marksmen).</summary>
     Overwatch,
+
+    /// <summary>
+    /// Speedball: at the horn, to the bunker the squad deals it on its side of the field, and play the point from
+    /// there (watch the lanes, move up when its side is ahead, hang the buzzer when nobody covers it).
+    /// </summary>
+    Speedball,
 }
 
 public enum BotGait
 {
     Walk,
     Run,
+
+    /// <summary>Flat out (speedball's breakout): it can't fire while sprinting.</summary>
+    Sprint,
 
     /// <summary>A calm walk, slower than <see cref="Walk"/>: patrols, going back to a post, walking off.</summary>
     Stroll,

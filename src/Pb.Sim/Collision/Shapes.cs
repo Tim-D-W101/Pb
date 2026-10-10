@@ -504,11 +504,14 @@ public sealed class ConvexShape : Shape
     /// <paramref name="height"/>) extruded along local Z for <paramref name="length"/>, rotated by
     /// <paramref name="yaw"/> about +Y, with the centre of its footprint at <paramref name="baseCenter"/>.
     /// </summary>
-    public static ConvexShape Wedge(Vector3 baseCenter, float yaw, float width, float height, float length)
+    public static ConvexShape Wedge(Vector3 baseCenter, float yaw, float width, float height, float length) =>
+        Wedge(baseCenter, Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw), width, height, length);
+
+    /// <summary>The same prism turned by <paramref name="q"/> about its footprint's centre (a level's wedge piece).</summary>
+    public static ConvexShape Wedge(Vector3 baseCenter, Quaternion q, float width, float height, float length)
     {
         float hw = width * 0.5f;
         float hl = length * 0.5f;
-        Quaternion q = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw);
 
         Span<Vector3> localVertices = stackalloc Vector3[]
         {

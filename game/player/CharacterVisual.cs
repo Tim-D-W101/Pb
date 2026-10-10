@@ -3,6 +3,7 @@ using Pb.Game.Ballistics;
 using Pb.Game.Core;
 using Pb.Sim;
 using Pb.Sim.Collision;
+using Pb.Sim.Gear;
 using Pb.Sim.Level;
 using Pb.Sim.Players;
 
@@ -11,13 +12,13 @@ namespace Pb.Game.Player;
 /// <summary>
 /// Draws a character from the sim's hitbox rig, interpolated between ticks. With a rigged model
 /// (<see cref="CharacterModel"/>) the body is the model, posed to match the hitboxes, and the gear
-/// (marker, loader, tank) is the generated marker model (<see cref="MarkerModel"/>) held along the
-/// marker's box, or without it shapes fitted inside the gear's boxes (<see cref="GearShapes"/>), with
-/// the hands on the marker; without a model, every hitbox is drawn as a box, so what you see is
+/// (marker, loader, tank) is the player's kit: the generated marker model (<see cref="MarkerModel"/>) held
+/// along the marker's box for the field's marker, or each item built in code fitted inside its own box
+/// (<see cref="GearModels"/>), with the hands on the marker's grips; without a model, every hitbox is drawn as a box, so what you see is
 /// exactly what you can hit. Each part is an unscaled node with the box or shapes under it, so splats
 /// parented to a part keep their shape and move with it.
 /// </summary>
-public partial class CharacterVisual : Node3D
+public partial class CharacterVisual : Node3D, Pb.Game.Ballistics.IPaintTarget
 {
     private readonly Node3D[] _parts = new Node3D[HitboxRig.PartCount];
     private readonly MeshInstance3D?[] _meshes = new MeshInstance3D?[HitboxRig.PartCount];
@@ -52,6 +53,9 @@ public partial class CharacterVisual : Node3D
     private bool _shadowOnly;
     private Node3D? _marker;
     private MarkerModelDef? _markerDef;
+    private GearModels.Worn? _markerWorn;
+    private readonly GeometryInstance3D?[] _gear = new GeometryInstance3D?[3];
+    private readonly Pb.Game.Ballistics.PaintSlots?[] _gearPaint = new Pb.Game.Ballistics.PaintSlots?[3];
     private readonly System.Collections.Generic.Dictionary<GeometryInstance3D, (GeometryInstance3D.ShadowCastingSetting Cast, bool Visible)> _drawn = new();
     private StepGait.GroundQuery _ground = null!;
 
@@ -59,6 +63,9 @@ public partial class CharacterVisual : Node3D
 
     /// <summary>The drawn model, if the character has one (null: hitbox boxes).</summary>
     public CharacterModel? Model => _model;
+
+    /// <summary>Whether the generated marker is drawn: one piece in its own finish, its loader and tank with it.</summary>
+    public bool WearsMarkerModel => _marker is not null;
 
     /// <summary>
     /// Only the character's shadow shows (your own body in first person): the model casts its shadow but
@@ -93,9 +100,11 @@ public partial class CharacterVisual : Node3D
         }
     }
 
-    /// <param name="index">Which model and tint: models are dealt in turn, and each further copy of a model gets the next tint.</param>
-    /// <param name="marker">The marker model for the gear; null (or its art missing) draws the coded marker's shapes.</param>
-    public void Build(SimWorld sim, PlayerState state, Color jersey, CharactersDef? characters = null, int index = 0, MarkerModelDef? marker = null)
+    /// <param name="jersey">The player's paint colour: the armbands, the paint in a see-through loader, the boxes without a model.</param>
+    /// <param name="kit">What they wear: their character (which model) and their gear, in its colours.</param>
+    /// <param name="index">Which tint: each further copy of a model gets the next.</param>
+    /// <param name="marker">The generated marker model, for the field's marker; null (or its art missing) draws the marker built in code.</param>
+    public void Build(SimWorld sim, PlayerState state, Color jersey, Kit kit, CharactersDef? characters = null, int index = 0, MarkerModelDef? marker = null)
     {
         _sim = sim;
         _state = state;
@@ -113,19 +122,24 @@ public partial class CharacterVisual : Node3D
         {
             int copy = index / characters.Models.Length;
             Color tint = characters.Tints.Length > 0 ? Color.FromHtml(characters.Tints[copy % characters.Tints.Length]) : Colors.White;
-            _model = CharacterModel.TryCreate(characters.Models[index % characters.Models.Length], tint, jersey, characters);
+            int look = ((kit.Loadout.Character % characters.Models.Length) + characters.Models.Length) % characters.Models.Length;
+            _model = CharacterModel.TryCreate(characters.Models[look], tint, jersey, characters);
             if (_model is not null)
             {
                 AddChild(_model);
+                _model.Dress(kit);
                 // Their own timing for breathing and shifting weight.
                 _model.Steps?.Vary(state.Id * 7919 + index);
                 _breathPhase = (state.Id * 0.618034f) % 1f;
             }
         }
 
-        // Gear keeps its size, so its model or shapes are built once: the marker model (loader and bottle
-        // included) along the marker's box with its muzzle at the box's front, or a shape in each box.
-        if (_model is not null && marker is not null)
+        // Gear keeps its size, so its model or meshes are built once: the generated marker (loader and bottle
+        // included) along the marker's box with its muzzle at the box's front, or each item built in code fitted
+        // into its own box (shared by everyone wearing it, in this player's colours).
+        GearModels.Prepare(kit.Gear);
+        GearItem markerItem = kit.Item(GearSlot.Marker);
+        if (_model is not null && marker is not null && markerItem.Model == marker.Model)
         {
             foreach (PosedBox gear in _current)
             {
@@ -145,13 +159,25 @@ public partial class CharacterVisual : Node3D
             AddChild(_parts[i]);
             if (_model is not null && IsGear(part))
             {
-                if (_marker is null)
+                GearSlot slot = part switch
                 {
-                    GearShapes.Build(_parts[i], part, _current[i].HalfExtents.ToGodot() * 2f, jersey, index + 1);
-                }
-                else if (part == HitboxPart.Marker)
+                    HitboxPart.Loader => GearSlot.Loader,
+                    HitboxPart.Tank => GearSlot.Tank,
+                    _ => GearSlot.Marker,
+                };
+                if (_marker is not null && part == HitboxPart.Marker)
                 {
                     _parts[i].AddChild(_marker);
+                }
+                else if (_marker is null || !kit.Gear.Included(kit.Loadout, slot))
+                {
+                    GearModels.Worn worn = GearModels.Fit(kit.Item(slot), _current[i].HalfExtents.ToGodot() * 2f);
+                    _gear[(int)slot] = GearModels.Instance(slot.ToString(), worn.Mesh, kit.Colours(slot), jersey);
+                    _parts[i].AddChild(_gear[(int)slot]);
+                    if (slot == GearSlot.Marker)
+                    {
+                        _markerWorn = worn;
+                    }
                 }
 
                 continue;
@@ -163,6 +189,83 @@ public partial class CharacterVisual : Node3D
 
         Capture();
         ApplyPose(1f);
+    }
+
+    /// <summary>
+    /// Repaints what they wear in <paramref name="kit"/>'s colours: the same items as built, so only the colours may
+    /// differ (the locker, as you pick them; a new item or character is built again).
+    /// </summary>
+    public void Recolour(Kit kit)
+    {
+        foreach (GearSlot slot in new[] { GearSlot.Marker, GearSlot.Loader, GearSlot.Tank })
+        {
+            if (_gear[(int)slot] is { } instance)
+            {
+                GearModels.Colour(instance, kit.Colours(slot), _paint);
+            }
+        }
+
+        _model?.Recolour(kit);
+    }
+
+    /// <summary>Whether they hold their marker up (true) or have it out of the way with their hands free (the gear demo's head close-ups).</summary>
+    public bool HoldsMarker
+    {
+        set
+        {
+            foreach (HitboxPart gear in new[] { HitboxPart.Marker, HitboxPart.Loader, HitboxPart.Tank })
+            {
+                _parts[_indexOfPart[(int)gear]].Visible = value;
+            }
+
+            if (_model is not null)
+            {
+                _model.Poser.HandsOnMarker = value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Paint on them, as their shaders draw it: on their marker, loader or tank in the item's own frame, on the rest of
+    /// them through the model (<see cref="CharacterModel.Paint"/>). Its handle, or 0 where it can't (the generated
+    /// marker, or a model that isn't the generator's rig, or none): a decal, then.
+    /// </summary>
+    public int Paint(int part, in Pb.Game.Ballistics.Splat splat, Pb.Game.Ballistics.WetSplats splats, SplatDef def)
+    {
+        var hit = (HitboxPart)part;
+        GearSlot? slot = hit switch
+        {
+            HitboxPart.Marker => GearSlot.Marker,
+            HitboxPart.Loader => GearSlot.Loader,
+            HitboxPart.Tank => GearSlot.Tank,
+            _ => null,
+        };
+        if (slot is not { } s)
+        {
+            return _model?.Paint(hit, splat, splats, def) ?? 0;
+        }
+
+        if (_gear[(int)s] is not MeshInstance3D piece)
+        {
+            return 0;
+        }
+
+        _gearPaint[(int)s] ??= GearModels.Paintable(piece, splats, def);
+        return _gearPaint[(int)s] is { } slots ? GearModels.Paint(slots, piece, splat, 0.05f) : 0;
+    }
+
+    /// <summary>Takes splat <paramref name="handle"/> off them, wherever it is on them.</summary>
+    public void Withdraw(int handle)
+    {
+        foreach (Pb.Game.Ballistics.PaintSlots? slots in _gearPaint)
+        {
+            if (slots?.Withdraw(handle) == true)
+            {
+                return;
+            }
+        }
+
+        _model?.Withdraw(handle);
     }
 
     /// <summary>What a splat at <paramref name="point"/> on <paramref name="part"/> should stick to.</summary>
@@ -265,6 +368,11 @@ public partial class CharacterVisual : Node3D
         {
             poser.TriggerHand = frame * MarkerModel.Point(_marker, _markerDef.TriggerWrist_m);
             poser.SupportHand = Refill(frame * MarkerModel.Point(_marker, _markerDef.SupportWrist_m), feet, eye, poser);
+        }
+        else if (_markerWorn is not null)
+        {
+            poser.TriggerHand = frame * (_markerWorn.Fit * _markerWorn.Build.TriggerWrist);
+            poser.SupportHand = Refill(frame * (_markerWorn.Fit * _markerWorn.Build.SupportWrist), feet, eye, poser);
         }
         else
         {

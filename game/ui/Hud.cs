@@ -62,6 +62,9 @@ public partial class Hud : CanvasLayer, ISimEventListener
 
     public bool ShowPerf { get; set; } = true;
 
+    /// <summary>A line more for the perf overlay (the training ground's: what the paint costs), or null.</summary>
+    public Func<string>? PerfExtra { get; set; }
+
     public bool ShowHelp
     {
         get => _help.Visible;
@@ -154,6 +157,32 @@ public partial class Hud : CanvasLayer, ISimEventListener
         var hud = new ObjectiveHud { Name = "Objective" };
         GetNode<Control>("Root").AddChild(hud);
         hud.Initialize(_sim, _player, objective, view);
+    }
+
+    /// <summary>Capture the flag: the flags' markers and how they stand, once the point has started.</summary>
+    public void InitializeFlags(FlagsViewDef view)
+    {
+        if (_sim.Match?.Flags is not { } flags)
+        {
+            return;
+        }
+
+        var hud = new FlagHud { Name = "Flags" };
+        GetNode<Control>("Root").AddChild(hud);
+        hud.Initialize(_sim, _player, flags, view, side => _teams[side % _teams.Length]);
+    }
+
+    /// <summary>A match of points: the countdown, the match's score (<paramref name="score"/>) and in speedball the hang under way.</summary>
+    public void InitializePoints(Func<(int Ours, int Theirs, int RaceTo, int Point)?> score)
+    {
+        if (_sim.Match is not { } match || !Pb.Sim.Match.MatchFormats.IsMatch(match.Setup.Format) || _hudDef is null)
+        {
+            return;
+        }
+
+        var hud = new PointsHud { Name = "Points" };
+        GetNode<Control>("Root").AddChild(hud);
+        hud.Initialize(_sim, _player, _teams[_player.Team % _teams.Length], _hudDef.HornShow_s, score);
     }
 
     /// <summary>Playing with others: a warning that the connection's poor (null takes it away).</summary>
@@ -267,6 +296,12 @@ public partial class Hud : CanvasLayer, ISimEventListener
             return;
         }
 
+        if (e.Type is SimEventType.FlagTaken or SimEventType.FlagDropped or SimEventType.FlagCaptured)
+        {
+            FlagToast(e);
+            return;
+        }
+
         if (e.PlayerId != _player?.Id)
         {
             return;
@@ -310,6 +345,28 @@ public partial class Hud : CanvasLayer, ISimEventListener
                 Pb.Sim.Match.HoldStatus.Theirs => $"They're in {room}",
                 _ => null,
             },
+            _ => null,
+        };
+        if (line is not null)
+        {
+            Toast(line, 3.0);
+        }
+    }
+
+    /// <summary>What just happened to a flag (its index in Extra, its side in Value: −1 for the one in the middle).</summary>
+    private void FlagToast(in SimEvent e)
+    {
+        bool you = e.PlayerId == _player.Id;
+        string who = you ? "You" : _sim.FindPlayer(e.PlayerId)?.Name ?? "Someone";
+        bool centre = e.Value < 0;
+        string flag = centre ? "the flag" : e.Value == _player.Team ? "your flag" : "their flag";
+        bool field = _sim.Match?.Flags?.IsCentre == true;
+        string? line = e.Type switch
+        {
+            SimEventType.FlagTaken when you => $"You have {flag}: get it to {(field ? "their buzzer" : "your base")} (you can't sprint with it)",
+            SimEventType.FlagTaken => $"{who} has {flag}",
+            SimEventType.FlagDropped => you ? $"You're out: {flag} is down" : $"{who} is out: {flag} is down",
+            SimEventType.FlagCaptured => $"{who} captured {flag}!",
             _ => null,
         };
         if (line is not null)
@@ -417,6 +474,11 @@ public partial class Hud : CanvasLayer, ISimEventListener
             _text.Append("\nSTRESS MODE: ").Append(_sim.Stress.TargetLiveBalls).Append(" balls");
         }
 
+        if (PerfExtra?.Invoke() is { Length: > 0 } extra)
+        {
+            _text.Append('\n').Append(extra);
+        }
+
         _perf.Text = _text.ToString();
     }
 
@@ -460,6 +522,24 @@ public partial class Hud : CanvasLayer, ISimEventListener
             _prompt.Text = $"{InputSetup.KeyName("interact")} · {(shut ? "open the door (hold to ease it open)" : "shut the door")}";
             _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
             return;
+        }
+
+        // At the other side's buzzer: how to hang it.
+        if (_sim.Match?.Buzzers is { HungSide: < 0 } buzzers)
+        {
+            for (int side = 0; side < buzzers.Count; side++)
+            {
+                if (buzzers.InReach(_player, side))
+                {
+                    int hanger = buzzers.Hanger(side);
+                    _prompt.Visible = true;
+                    _prompt.Text = hanger == _player.Id ? $"Keep holding {InputSetup.KeyName("interact")} · hanging the buzzer"
+                        : hanger >= 0 ? "Someone's already hanging the buzzer"
+                        : $"Hold {InputSetup.KeyName("interact")} · hang their buzzer";
+                    _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
+                    return;
+                }
+            }
         }
 
         if (!pickups.Active)

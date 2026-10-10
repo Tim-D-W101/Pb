@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **Status: approved (defaults accepted 2026-09-30); Phases 1–3 built (Phase 3 but for the owner's play-test).** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-open-areas) with [phase-3.md](phase-3.md) on 2026-10-05 (revised 2026-10-06: open areas, each with places). [§16](#16-phase-4-multiplayer) with [phase-4.md](phase-4.md) (multiplayer) on 2026-10-09 (defaults taken). Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
+> **Status: approved (defaults accepted 2026-09-30); Phases 1–4 built (Phases 3 and 4 but for the owner's checks).** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-open-areas) with [phase-3.md](phase-3.md) on 2026-10-05 (revised 2026-10-06: open areas, each with places). [§16](#16-phase-4-multiplayer) with [phase-4.md](phase-4.md) (multiplayer) on 2026-10-09 (defaults taken). [§17](#17-phase-5-locker-and-extras) with [phase-5.md](phase-5.md) (the locker, brands, paint, the speedball field, capture the flag and arcade) on 2026-10-10 (defaults taken). Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
@@ -1143,3 +1143,547 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 | A cheat predicting the spread | Accepted (§6); server-only seeds can come later. |
 | Faults only Windows shows | The Windows build joins the Linux server under Wine in CI. |
 | Routers in the way | Port forwarding (in the hosting guide), a rented server, or later a platform relay. |
+
+## 17. Phase 5: locker and extras
+
+> **Status: approved 2026-10-10 with the [Phase 5 plan](phase-5.md) (defaults taken).** This is the
+> technical design; each part gains "as built" notes as its milestone lands. Nothing here changes how a compound round
+> plays: gear is looks only, and the field and the new modes are extra choices.
+
+### 17.1 Gear catalogue and loadouts
+
+- **Data** (`game/data/gear/`):
+  - `brands.jsonc`: each brand's id, display name, a line about it, its mark (a wordmark in the stencil hand of
+    `MarkingPainter` and an emblem from a few shapes) and the palette its items default to;
+  - one file per slot: `markers`, `loaders`, `tanks`, `masks`, `jerseys`, `pants`.
+- **An item** has an id, a brand and a display name, and its build: a `shape` recipe with parameters, plus an optional
+  generated `model`, as props have. It also has its colour zones (what the primary, secondary and accent colours paint)
+  and its default colours. A marker also gives its grip points (pistol grip, foregrip, trigger and support wrists), as
+  `markerModel` does now. A jersey or pants item is a pattern; a mask is a shell recipe.
+- **No item has a gameplay key**, and the validator refuses one (looks only, the plan's question 1).
+- **`Pb.Sim/Gear/GearCatalog`** (engine-free) loads and checks them: every item's brand exists, and every slot has an
+  item of every brand.
+- **`Loadout`:** the character (the look, 0–2), then for each slot an item id and three colours (sRGB bytes).
+- **`LoadoutDealer`** deals a bot's loadout from the match seed and the bot's id, with a `Pcg32` of its own, so every
+  copy deals the same and no other random stream moves.
+- **The profile.**
+  - `ProfileData` version 3 gains `loadout`, and the look (`GameSettings.PlayerLook`) moves into it.
+  - A version 2 profile loads with the default kit on the saved look.
+  - An item id the catalogue no longer has reads as its slot's default.
+- **The sim never reads a loadout.** Every player keeps `SimConfig`'s one marker, loader and air, and `HitboxRig`'s
+  boxes.
+- **As built (M5.1):**
+  - The catalogue is one file, `gear/catalog.jsonc` (brands, items, defaults), loaded with the sim's data (`sim.jsonc`
+    → `files.gear`, `GameData.Gear`) so the game, the locker and the network share one list. An item's three colours
+    are its defaults; what each paints, and a marker's grip points, are its recipe's (in code). Checked at load: unique
+    ids, every brand makes every slot, defaults of the right slot, `#rrggbb` colours, marks in the stencil's letters,
+    `includes` only on a generated model.
+  - `GearCatalog.Deal` is the dealer (its own `Pcg32` from the match seed and the player's id); `Normalised` puts a
+    slot's default in for a pick the catalogue no longer has.
+  - People wore the field's own kit on their character until the locker (M5.2); now you wear what you saved there
+    (`--kit=BRAND` still wears one brand's whole range). Bots wear their dealt kit in their side's colour, on every
+    copy.
+
+### 17.2 Drawing gear and clothes
+
+- **Gear models** (`game/player/GearModels`).
+  - Each item's mesh is built once from its recipe with `ShapeMesh` (as `PropShapes` and `MarkerShape` are) and shared
+    by every wearer.
+  - A vertex channel carries each vertex's zone: primary, secondary, accent, or bare (metal, rubber).
+  - `gear.gdshader` colours the zones from instance uniforms, sets roughness by zone, and adds the brand's marks from an
+    atlas painted at load.
+  - Each item is fitted into its hitbox's box, as `GearShapes` fits the coded marker now, so the boxes stay the gameplay
+    shape.
+- **Where gear is drawn:**
+  - **First person** (`ViewModel`): your marker, loader and tank at `viewScale`, through `viewmodel.gdshader` (which
+    gains the zones), with the hands at the marker's grip points.
+  - **Third person** (`CharacterVisual`): each piece hung in its hitbox's frame, as the generated marker is now.
+- **Clothes** (`CharacterModel`).
+  - Once per model at load, each vertex gets a zone by its strongest bone: hips and legs are pants, spine and arms the
+    jersey, neck and head the head, hands the gloves, feet the boots.
+  - `character.gdshader` takes over the model's materials. It keeps the picture's albedo, recolours the jersey and pants
+    zones by luminance (so the folds and seams stay), and draws the item's pattern (bands, panels, camouflage)
+    procedurally in the bind pose's frame, so it doesn't swim as the body moves.
+- **Masks** (`MaskShapes`).
+  - A shell is fitted to each model's head as the armbands are to the arms (`CharacterModel.Sleeve`): the head zone's
+    vertices, in the head bone's frame, give its reach in each direction, and the recipe is scaled to it plus a gap.
+  - Under a brand's mask the head zone is discarded in the shader, so the generated mask never shows through.
+- **The generated marker** is split at load by its mesh's connected pieces into receiver, loader and tank if they're
+  separate. If not, it's one item that fills all three slots.
+- **Sides.** In a round with sides, the side's colour is the jersey's and pants' primary (the plan's question 3); the
+  armbands stay.
+- **Cost.** Meshes are per item and colours are instance uniforms, so ten loadouts are ten material instances, not ten
+  sets of meshes.
+- **As built (M5.1):**
+  - **Recipes** (`MarkerRecipes`, `LoaderRecipes`, `TankRecipes`) build into `ShapeMesh`es whose material ids are zones:
+    a finish (anodised, matt, polished, plastic, gloss, fabric, rubber, knurl, metal, steel, carbon, lens, shell, mark)
+    times what paints it (main, second, accent, its own colour, the paint). Every marker keeps the field marker's
+    ergonomics (the pistol grip, trigger and guard about the grip's top, the feed neck's top, the tank's mount), so the
+    hands, a loader and a bottle fit every one; the field's own is `MarkerShape` absorbed with its parts mapped to
+    zones. `GearModels` fits each item into its hitbox once, with levels of detail, and shares it; `gear.gdshader` and
+    `gear_clear.gdshader` are the zones' shared materials, the wearer's colours instance uniforms. The knurl, weave and
+    twill are pressed in by `gear_patterns.gdshaderinc` (bump from the height's screen-space slope, faded where too
+    fine), which the view model's shader includes too. The marks are an atlas painted at start (`BrandMarks`), each
+    printed as a cut-out quad.
+  - **First person:** each slot is its own mesh in its own colours (the loader on the marker's feed, the bottle at its
+    back), the trigger hand moved onto the recipe's grip and the support hand turning about its foregrip; a see-through
+    loader shows the paint as full as it is. The field's marker is the generated model when its art loads (its loader
+    and bottle are part of it, so the slots it `includes` aren't drawn). Your sleeves take your jersey's colour.
+  - **Clothes:** `ClothesZones` builds each model's mesh again once (about 50 ms), its zones as vertex colours and its
+    rest positions in `CUSTOM0`, keeping the levels of detail the import made. `character.gdshader` draws the model's
+    own maps and repaints the jersey and pants by their brightness over the zone's mean to the power `shading` (0.5).
+    The patterns (`ClothesPatterns`: own, yoke, panels, camo, patches, stripe) are laid out from the rest pose and the
+    joints (the arm's line, the leg's middle by height), mirrored across. A model whose exporter left glTF's default
+    full metalness without a map is drawn matt (cloth isn't metal).
+  - **Masks** (`MaskShapes`): the face is the head's front `faceDepth_m` back from its headfront joint, below
+    `faceBelow_m`, moved by the Head bone rather than the neck. The shell's surface is a grid of radii (12 heights by 40
+    angles about an upright axis 4 cm behind the cut) from the face's vertices, hair strands well out from the rest
+    left out, then swollen a cell and smoothed; each brand's parts are slabs laid on it (goggles standing upright over
+    their height), and the strap runs from the shell's sides round the back with the mark wrapped on it.
+    `--gear-demo=masks` shows every mask on every character from eight directions.
+  - **Sides:** in a Teams round people's jerseys and pants take the side's colour as their main; bots' always do (in
+    free-for-all, each its own paint colour).
+  - **The generated marker** is one connected piece, so it's Norrel's marker with its loader and bottle `includes`d.
+
+### 17.3 The locker
+
+- **Scene** `scenes/Locker.tscn` (`LockerMain`):
+  - a room from a small level file (`levels/locker_room.jsonc`), built by `LevelBuilder` with the kit's materials and the
+    dressing that suits a room (damp, cobwebs, floor debris, skirting);
+  - a turntable under a lamp;
+  - one `CharacterVisual`, standing, in the loadout.
+- **`LockerCamera`** orbits as you drag and closes in as you scroll. Each slot has a framing (the marker in the hands,
+  the mask at the head, the pants at the legs), and the camera eases between them.
+- **`LockerUi`** (from `UiKit`):
+  - the character, the six slots, and the chosen slot's items by brand;
+  - three swatches and a colour picker;
+  - Done saves through `Profile`, and Back leaves the loadout as it was.
+- **Opened** from:
+  - the main menu, as a new screen in `MainMenu`'s screen lists, the menu tour and the smoke test;
+  - Play with others and the lobby, in place of their character pickers. The lobby's `CharacterPreview` shows the
+    loadout.
+
+- **As built (M5.2):**
+  - **An overlay, not a scene.** `LockerView` (game/ui) is a full-screen control the main menu or the lobby adds over
+    itself, so the lobby carries on behind it (its chat, the countdown; the countdown's line shows in the locker) and a
+    round that starts while it's open finds what you've picked saved. The room is drawn in a `SubViewport` with a
+    world of its own (`LockerStage`), at your preset's antialiasing and your render scale; the menu stops drawing its
+    level while the locker is open.
+  - **The room** is `levels/locker_room.jsonc`, the kit's `changing_room` building (8 × 6 m, lockers down both long
+    walls, benches, high windows, a door left ajar, strip lights), built by `LevelBuilder` with its doors, floor
+    debris, markings, cobwebs, damp, things on the walls, contact shadows and the window light. A `SimWorld` of its own
+    loads it (it never steps): your feet stand on the turntable's collider, and the camera keeps out of the room by
+    sweeping a sphere to where it wants to be. The turntable (a drum with a rubber top) and the lamp (an enamel shade on
+    its flex, a bulb, a spot down on you) are built with `ShapeMesh` in the kit's materials; a soft fill rides with the
+    camera. You face the spawn's way (down the room's length), 0.75 m off the middle towards the windows so the lamp
+    hangs clear of the strip lights (one hangs askew, and its shadow put the lamp out), and a sim test keeps 1.4 m
+    clear round you. You hold the marker low (`holdPitch_deg`) with your head up, the idle clip held at its start so it
+    doesn't look away, and your head turns to follow the camera (`headTurn_deg`), so a close-up of the mask shows its
+    front.
+  - **`LockerCamera`** orbits about you (yaw from your front, pitch, distance, field of view, the point looked at),
+    easing to each slot's framing over `ease_s` and drawing you in the middle of the room the panels leave (it slides
+    across rather than turning). A framing looks at a hitbox part's middle (the marker, loader, tank, torso, legs; the
+    head as drawn), so the close-ups follow the pose; the whole of you is looked at over the turntable. Drag turns it,
+    the wheel brings it closer, a pad's right stick turns it too.
+  - **Picking:** the item buttons are each slot's items by brand, with the brand's line; the colour chips, the palette,
+    a `ColorPickerButton` (its presets the palette) and the item's own colours. What can't change says why: a generated
+    marker's own finish and the loader and tank it `includes`, the character's own mask, and the second and accent of
+    the clothes the characters came with. Colours repaint what's drawn (`CharacterVisual.Recolour`); a new item or
+    character builds you again. Colours you give an item come back if you return to it. The whole kit's panel puts a
+    brand's range on you, or the field's own kit; the clothes' panels show them in a side's colour.
+  - **Saved:** Done writes the loadout into the profile (`ProfileData.Loadout`, format 3: each slot's item id and
+    `#rrggbb` colours, read back by `GearCatalog.Read`) and the character into the settings (`PlayerLook`, as the
+    lobby and the network still take it). Rounds, the training ground and the lobby's preview wear
+    `Kit.Saved(catalogue, profile's loadout, your character)`. In a game with others only your own copy shows your kit
+    until M5.3 sends it.
+  - **Checks:** the menu's smoke test opens it, finds every slot's items, picks a brand's marker in a colour of its own
+    and a brand's mask, presses Done, and reads the same back from the profile (then puts the profile back);
+    `-- --locker-tour` (with `--locker-hold=N`) shows each slot, a brand's range and the clothes in a side's colour.
+
+### 17.4 Paint
+
+- **The look.** `SplatPainter` gains a wet splat atlas: albedo, normal and ORM for each shape (a raised middle, drops,
+  shell flecks). A fresh world decal uses the glossy ORM and swaps to a satin one after `drying_s`.
+- **Paint in the surface shaders.**
+  - Characters and their gear keep their last `paintSlots` splats (16) in their own frame (a character's bind pose, an
+    item's frame) as shader parameters: centre, normal, radius, colour, shape and age. The oldest is replaced first.
+  - What stands still (walls, floors, bunkers, which take a lot of paint in a match) keeps the pooled decals.
+  - Their shaders draw each splat from the atlas, projected along its normal and faded by the surface's angle to it,
+    so paint wraps round an arm or a barrel and moves with it.
+  - This replaces the bone-parented decals on players.
+- **First person.** A break within `spatterReach_m` of your eye (the mask spray's event, widened) also adds splats to
+  your view model's marker and gloves, mapped from the marker hitbox's frame into the view model's.
+- **The provisional splat** (§16.8 promised it; it isn't built). `ClientSession` remembers its predicted breaks on
+  players. When the server's word on that shot differs, it raises `SplatWithdrawn`, and the splat systems, which gain
+  per-splat removal, take the splat off.
+- **The fallback.** If the stress mode shows decals over budget, world splats become cards in a ring-buffer MultiMesh
+  drawn like the old paint, on flat surfaces only (a splat across an edge is skipped).
+- **Data:** `presentation.jsonc` → `splats` (`drying_s`, `paintSlots`, `spatterReach_m`).
+- **As built (M5.4):**
+  - **The atlas.** `WetSplats` (a class of its own: `SplatPainter` stays the old paint's) paints eight shapes of 128 px
+    when the game starts: five round splats (a ragged thick middle, fingers thrown out, drops beyond), two glancing ones
+    sprayed one way, and a spatter of small drops, the ball's shell lying in flecks in all but the spatter. For decals
+    each has an albedo (white, tinted by the team colour), a normal map from its thickness and a wet and a dry ORM
+    (glossiest where the paint lies thickest); for the shaders one atlas holds them all, 4 × 2 cells of coverage,
+    thickness and flecks.
+  - **World decals** use the wet ORM and a colour `wetDarken` deeper, and swap to the dry ones once `drying_s` has
+    passed on the paint's own clock (`PaintSlots.Now`, moved on each frame, so it stands still while the game does),
+    oldest first. A ball whose speed along the surface is over three quarters of its speed leaves a glancing splat, a
+    third longer, sprayed the way it went.
+  - **Paint in the shaders** (`paint.gdshaderinc`, `PaintSlots`). Each painted surface keeps `paintSlots` (16) splats
+    in uniform arrays: its middle and radius, the way across and the shape, the way it faces and how wet it is, and its
+    colour and reach. The fragment projects each along the way it faces: only a surface between 0.4 of the radius in
+    front of the hit and `reach` behind it takes it (a ball breaks on the hitbox, round the body), and only where the
+    surface faces it (fading in from a cosine of 0.05 to 0.35). Each reads its cell with its own slopes (`textureGrad`,
+    as it's in a loop), deepens and glosses the colour while wet, covers the cloth's normal map and the metal, and lifts
+    the normal by its thickness's slope on the screen.
+    - **Characters:** the frame is the mesh's rest pose: the positions the clothes' zones already carried (`CUSTOM0`)
+      and the rest normals, now in `CUSTOM1`. A hit goes into it through the nearest of its hitbox part's bones, as
+      skinning would carry it: the inverse of the skeleton's transform × the bone's pose × its bind pose. Its reach is
+      the hit's distance from that bone. A hit on a brand's mask paints the shell in its own frame. On a body the splat
+      is 0.8 of a decal's size.
+    - **Gear:** each worn item's model space. The first splat on one gives it materials of its own (copies of the shared
+      ones), so the paint is on that one only.
+    - **First person:** the rig's frame (`paint_frame`: the world into the rig, handed on each frame once it has paint).
+  - **Spatter.** A break within `spatterReach_m` of your eye (wherever it broke: a wall you're hugging, your own mask)
+    lands `spatterDrops` drops on your rig: points spread over its surfaces at rest by area (sampled once, at the first
+    spatter), facing the break and seen from your eye, the nearer the likelier. Most are single drops about
+    `spatterSize_m` across; now and then a spray of small ones (the spatter shape).
+  - **The provisional splat.** `ClientSession` remembers its own predicted breaks on players. When the server's word on
+    the ball differs (it broke on someone else or on the world, bounced, or was gone), the copy raises `SplatWithdrawn`
+    (the ball, and who it was drawn on) and then draws the break where the server had it. `SplatSystem` remembers its
+    last 256 splats by ball and takes that one off: a decal or a card hidden, a slot in someone's shader emptied. A
+    test without lag compensation at 100 ms: 20 of your balls broke on a runner on your copy and one on the server; the
+    19 others came off.
+  - **Cards.** `SplatCards` (one MultiMesh, `splat_cards.gdshader`: the same atlas, drying in the shader by when each
+    landed) takes the paint on what stands still while the graphics setting **Paint as cards** is on
+    (`GraphicsParts.PaintCards`); a splat whose four corners don't all land on one plane isn't drawn. Turning it on moves
+    the decals already on what stands still to cards (where they lie flat, as wet as they were), so their cost goes at
+    once. Doors and the range's targets keep decals. The training ground's stress mode, once its pool of decals is full, times the GPU
+    (`RenderingServer.ViewportGetMeasuredRenderTimeGpu`) with and without them, `measureFrames` (60) frames each way,
+    twice (`PaintCost`); over `decalBudget_ms` (2.5) it turns cards on and saves it. The perf overlay says what it found.
+    Headless, the GPU's time can't be read, so it says that instead. The range's smoke test moves its paint to cards for
+    its last quarter.
+  - **Checks:** `-- --paint-demo` (on `Level.tscn`) breaks balls on four opponents in the brands' kits (from in front,
+    the sides and behind), on the ground (square and at a slant) and on the nearest wall, and looks at them wet, close
+    up, while they turn round, and dry; then through your eyes in front of the wall as three balls break on it.
+
+### 17.5 The field
+
+As built (M5.5):
+
+- **Data.** `levels/sports_ground.jsonc` is a level like the compound areas. Its bounds are the nets (x ±20 m,
+  z ±27.5 m): a ball leaving them is gone and nobody walks through them, as at any level's bounds. Inside are the turf
+  and the lines (its `markings`, with the halfway marks); outside, the pits as props and the works over the fence (a
+  wall run, the warehouse and a chimney, out of everyone's reach). Its `field` holds:
+  - its size, the start boxes behind each back line (`startBox_m`) and side 0's buzzer station (`buzzer_m`; side 1's is
+    its twin);
+  - `layouts`: each the bunkers on side 0's half (a kit prop, `[x, z]`, `yaw_deg`, and tags: `back`, `mid` or `front`,
+    and `snake`, `wedge` or `centre`), with a `symmetry`: `mirror` across the halfway line (a twin at (x, −z), turned to
+    −yaw) or `rotate` half round the middle ((−x, −z), turned a half turn more); and `lanes`, the runs from a start box
+    that shooters watch;
+  - `dressing`: the nets' height, post spacing and materials, the buzzer stations' look, and the banners (their words,
+    where they hang, their size and colours).
+- **Places are layouts.** Each of the level's `places` names a layout and plays the whole field (a place with a layout
+  has no rect). `LevelFactory` builds the level's own pieces first and every layout's bunkers and twins after them, and
+  `LevelLayout.ForPlace` keeps only the place's layout, so a round has its own bunkers and no others
+  (`FieldSpec.BasePrimitives` and `BaseProps` mark where they begin). `LevelLayout.FieldLayout` is the layout in play:
+  its bunkers (each with its prop's index, its side and its tags) and its lanes.
+- **Bunkers** are kit props (`kit/props.jsonc`, `bunker_*`): wedge, brick, can, cake, temple (a brick with a wedge for
+  a roof) and snake (three lying tubes). Their colliders are in the club's coated nylon (`nylon_yellow`,
+  `nylon_navy`), whose `inflatable` surface is in `break_model.jsonc`.
+  - The level's pieces gained `Wedge` (half a box, its ridge along Z on top) and `Capsule` (a tube lying along Z).
+    `LevelPrimitive.CreateShape` gives the paint collision `ConvexShape.Wedge` and `CapsuleShape`; walking gets a
+    `ConvexPolygonShape3D` and a `CapsuleShape3D`; the greybox, `KitGeometry` and `ContactShadows` know both.
+  - Snakes and cakes are 1.2 m tall (question 6), so they're half cover. `CoverSet` stacks a piece resting squarely on
+    another (the temple's roof) on the one below, so the temple is full cover.
+- **The look** (`PropShapes.Inflatables.cs`, shape `inflatable`). Each collider is drawn air-filled in its shape, in its
+  nylon, with seams and a band in the other club colour, and pegged down where it meets the ground. It keeps to its
+  collider, so paint lands on what you see. A ball striking one dents and shivers the fabric for a moment:
+  `InflatableWobble` hands the last 8 hits (where they landed, in world space, and when) to every `inflatable`
+  material, and `weathered.gdshader`'s `wobble` moves the vertices (`presentation.jsonc` → `inflatables`: the dent's
+  depth and reach, how fast it fades and shivers). The vertices dent, and each pixel's light leans with the ripple's
+  slope (worked out in the fragment shader, as the pillows' vertices are too far apart to show its rings). Presentation
+  only. `-- --wobble-demo` shoots the inflatable nearest your start and films it close up.
+- **The dressing** (`FieldDressing`, from `field.dressing`):
+  - the nets on posts round the bounds, with a skirt along their foot and a wire along their top. The netting is a
+    see-through `net` material (`kit/materials.jsonc`: a square of cord every `tile_m`, `cord_m` thick). Its texture is
+    made at load, and its mipmaps fade it into a veil with distance. It's drawn in meshes of its own: without levels of
+    detail, which would stretch the cords, and casting no shadow;
+  - each buzzer station: a post, a box, a button and a horn;
+  - the banners' backings, their words printed on by `Markings` (solid, unlike its sprayed stencils).
+- **The menu.** The fifth area, its two layouts its places, each with its still. From M5.6 it plays speedball alone
+  (§17.7).
+- **Tests** (`FieldTests`):
+  - each place plays its layout and only its bunkers, and every bunker has its twin;
+  - every bunker stops paint and feet and gives cover, and a ball leaving the nets is gone;
+  - the bots' grid reaches every bunker from both start boxes.
+  - CI plays a level smoke test, a 5 v 5 on Classic and a ten-player free-for-all on Crossfire, and a networked
+    5 v 5 on Crossfire. The level smoke test now checks only the stairs and doors inside a level's bounds.
+
+### 17.6 A match of rounds, and the breakout
+
+As built (M5.6):
+
+- **`MatchSeries`** (`Pb.Sim/Match`, engine-free) is a match raced to `RaceTo`: each side's points, the points played
+  (those nobody won included), and the winner once a side reaches the target. `Restore` puts back a match as it stood.
+- **Offline**, `SpeedballMatch` (`game/core`) keeps a series in `GameSession.Speedball` across `LevelMain`'s reloads,
+  keyed by the area, place, mode, size and difficulty (another choice starts a new match), with your numbers over all
+  its points.
+  - Each point is the level built again, its seed the round's plus the point's number, so the points of a repeatable
+    run differ too. The first point has the briefing; the later ones go straight to the countdown.
+  - Between points `RoundScreens.BetweenPoints` shows whose point it was and how, the score and the next point's
+    countdown, for `speedball.betweenPoints_s` (6 s). The summary comes once the match is won or lost: MATCH WON or
+    MATCH LOST, the score, and the match's totals. The records keep the match as one round, won or lost, with its
+    totals. Retry, the pause menu's Restart, Level select and the main menu each start a new match.
+  - Out with the point still on, there's no summary to skip to: Enter plays the rest of the point
+    `spectator.fastForward` (4) times as fast instead.
+  - `-- --race-to=N` sets the points to win (CI plays to 2).
+- **Online**, `LobbyHost` keeps the match and each point's setup carries it (§17.11); the lobby comes back once it's won.
+- **The countdown.** `MatchPhase.Countdown` comes after `Live` and `Ended` in the enum, so the wire values stay as they
+  were, and between `Briefing` and `Live` in a round. `MatchSetup.Countdown` (`speedball.countdown_s`, 3; the plan
+  called it `breakout.countdown_s`) makes `GoLive` start it, and the authority counts it down and goes live at 0.
+  `SimWorld.IsLive` is false until then, so nobody moves or fires. `RefereeCalls` pips each second
+  (`Sfx.CountdownPip`, synthesised) and sounds the horn at go. `SpeedballHud` shows 3, 2, 1 big in the middle, then GO
+  for `hud.hornShow_s`.
+
+### 17.7 Speedball rules
+
+As built (M5.6):
+
+- **Data** (`rules.jsonc`): the `speedball` mode (kind `teams`, `format: speedball`, 3 to 5 a side, 5 by default, every
+  bot the `speedball` role), and the `speedball` block: `raceTo` 4, `pointTime_s` 180, `countdown_s` 3,
+  `hangTime_s` 2, `hangReach_m` 1.2 and `betweenPoints_s` 6. `MatchSetup.As(format, rules)` makes a round a point: the
+  point's clock and countdown, no pickups, no objective.
+- **The modes go by area.** An `areas.jsonc` entry may list its `modes` (`MatchRules.ModesFor`). The Sports Ground lists
+  `speedball`, and an area without the key gets every one-round mode, so the compound areas keep solo, free-for-all and
+  teams. The menu, the lobby, the vote and the server's rotation offer only an area's own (the data checks every id,
+  and that speedball has a field to play on). Scripted runs may still name any mode (`--mode`): CI's level smoke test
+  plays solo on the field.
+- **The starts.** `FieldSpec.StartOf(side, i, n)` puts a side in a row across its start box, half a metre in from each
+  end, at the box's middle depth, everyone facing up the field (`FieldSpec.StartYaw`). `SpawnPlanner.Speedball` (since
+  M5.7 `StartBoxes`, for any match of points on a field) puts you in the middle of the south's (side 0).
+- **`BuzzerSet`** (`Pb.Sim/Match/Buzzers.cs`): a station at each side's post. `SimWorld.Step` passes each player's
+  Interact to `Hold` on the authority (live, in, not climbing). The first player of the other side within
+  `hangReach_m` hangs it, one at a time; `MatchState.Update` runs the hang on, and starts it again if they let go,
+  step off or go out. Events: `BuzzerHanging` (value 1 as a hang starts, 0 as it stops) and `BuzzerHung`.
+- **`SpeedballMode`** (`IMatchMode`): a hung buzzer wins the point for the hanger's side (`RoundEnd.Hung`); otherwise the
+  last side standing wins it. At time up the side with more players still in takes it (`RoundEnd.MoreIn`), and a tie
+  is `TimeUp`, nobody's. `RoundOutcome` gained `BuzzerHung`, `BuzzerLost`, `AheadAtTime` and `BehindAtTime`.
+- **The HUD** (`SpeedballHud`, since M5.7 `PointsHud` for any match of points): the countdown; "POINT 2 · 1–0 · FIRST TO 4" under the top bar; and while a buzzer's being
+  hung, a bar filling over the hang time and a line saying whose (in your side's colour when it's theirs, in red when
+  it's yours). In reach of their station the prompt says to hold Interact. The referee calls the buzzer and whose point
+  it is (`hud.referee`: `buzzer`, `pointWon`, `pointLost`, `noPoint`). Those lines are subtitled only until a take of
+  them is imported (`tools/art/voice-script.py referee` prints the script).
+- The movement and marker rules are the same as everywhere: sprinting blocks firing, and slides end crouched.
+
+### 17.8 Speedball bots
+
+As built (M5.6), from `bots/brain.jsonc` → `speedball`:
+
+- **The deal.** At the first live tick `BotSquad` deals each side's bots (shuffled from the match's seed) a place:
+  `backShare` (0.2) of them at the back (one at least, from three a side), `midShare` (0.4) in the middle, the rest at
+  the front (one at least). Each gets a bunker of its side by the layout's tags, spread across the field (a bunker
+  nobody else on its side has), and a spot at it facing home, claimed as cover is (`CoverSet.Claim`).
+- **Breakout.** All but the back sprint for their spots for up to `breakoutFor_s` (5 s), on the new `Sprint` gait (bots
+  never sprinted before); the back covers the lanes first. At its spot a bot crouches (not at a sprint, which would be
+  a slide) and sweeps towards the nearest of the other side's lanes between targets. `ChooseCover` favours its own
+  bunker's spots (`bunkerBias`).
+- **Moving up.** Every `advanceEvery_s` (5 s), a side ahead by `advanceMargin` (1) player moves one bot up a place: the
+  middle to the front first, then the back to the middle, then the front on into the other half (`Deep`: a bunker
+  there, on its far side).
+- **The hang.** Every `hangCheck_s` (0.5 s): if nobody of the other side who's still in and on the field can see their
+  station (1.2 m up, by the sight lines), the nearest bot goes and holds Interact at it.
+- All three tiers play it with their own aim and reactions.
+- **Tests** (`SpeedballBotTests`, headless on `NavGridMover`): the deal and the breakout on both layouts; the hang when
+  nobody watches, and none while the station's watched; moving up a place at a time; and whole points on four seeds,
+  each ending, in 9 to 28 s with five a side.
+
+### 17.9 Capture the flag
+
+- **`FlagState`** generalises `ObjectiveState`'s case to one flag (centre) or two (one per side). Each flag records where
+  it is, or who carries it.
+- **Scoring points:** on the field, the opposing buzzer station; in a compound area, the side's own starts, within
+  `objectives.flagBase_m`.
+- **Carrying** follows the case's rules: taking, carrying (`SprintBlocked`), dropping where the carrier goes out, and
+  scoring. Either side can pick up the centre flag; with two bases, nobody carries their own.
+- **`CaptureMode`:** a capture or the last side standing wins the point. At time up, the side with more players in
+  wins it.
+- **Events:** `FlagTaken`, `FlagDropped`, `FlagCaptured`.
+- **Bots:** attackers take, carry and escort; defenders guard their flag with the objectives' posts and alarms; anyone
+  near a dropped flag goes for it.
+- **Levels:** a compound area offers it in the places both sides' starts fit (`LevelObjectives.Offers`).
+
+As built (M5.7):
+
+- **A match of points for any mode.** `MatchFormat` gained `Flag`. `MatchFormats.IsMatch()` is every format but `Round`,
+  and `NeedsField()` only speedball's, so `MatchRules.ModesFor` gives an area without a `modes` list every mode that
+  doesn't need a field: capture the flag is on every compound area, and the Sports Ground lists it too. Speedball's and
+  the flag's rules share `IPointRules` (`RaceTo`, `Countdown`, `BetweenPoints`, `ClockFor(onField)`), which
+  `MatchRules.PointsFor(format)` hands to the match series, the menus, the lobby, the server and `RoundCasting`.
+  `MatchRules.FieldRoleOf(mode)` is the role every bot plays from a start box.
+- **Data** (`rules.jsonc`): the `flag` mode (kind `teams`, `format: flag`, 3 to 5 a side, 4 by default; hunters, flankers,
+  rushers and a sentry; `restlessAfter_s` 40) and the `flag` block: `raceTo` 3, `pointTime_s` 300 (a compound),
+  `fieldPointTime_s` 180, `countdown_s` 3, `betweenPoints_s` 6, `pickupReach_m` 1.6, `scoreReach_m` 2.5,
+  `carrierCanSprint` false, and `fieldRole` (`speedball`). The field's layouts name the flag's spot (`flag_m`, [0, 0]);
+  `LevelFactory.FlagHome` stands it on the top of the layout's piece there, the centre bunker.
+- **`FlagSet`** (`Pb.Sim/Match/Flags.cs`), built by `SimWorld.StartMatch`:
+  - on a field, `FlagSet.Centre`: one flag on the centre bunker, nobody's, that either side may take; side 0 scores at
+    the north's buzzer station and side 1 at the south's;
+  - elsewhere, `FlagSet.Bases`: each side's flag where its first player starts, and nobody takes their own. A carrier
+    scores by bringing the other side's to their own base.
+  - `Update` (authority only, after everyone's moved): a flag lying anywhere is taken by the first player in reach who
+    may take it (`pickupReach_m`, and no more than 1.5 m above or below). A carried flag follows its carrier
+    (`SprintBlocked` while they carry it), falls where they go out or leave and stays there, and scores within
+    `scoreReach_m` of where its carrier's side scores. Events: `FlagTaken`, `FlagDropped`, `FlagCaptured` (the flag in
+    `Extra`, its side in `Value`, −1 for the centre flag). A joining copy is told how it stands (`ApplyServer`).
+- **The bases are on the ground.** `RoundShape.Bases` (a flag round) makes `SpawnPlanner` pick the other team's spot from
+  the far fair starts within `spawning.baseHeight_m` (0.3) of your height, and start their first player on it. You come
+  in at a player spawn, on the ground. Otherwise a base could be a cover point up on a container that nobody could
+  walk to. Over eight seeds per area the bases were never closer than 42 m (the Hospital Wing) to 102 m (the Rail
+  Yard).
+- **`CaptureMode`:** a capture wins the point (`RoundEnd.Captured`; `RoundOutcome.FlagCaptured` and `FlagLost`), and
+  otherwise the last side standing does. At time up the side with more players still in takes it (`MoreIn`), as in
+  speedball.
+- **The look** (`presentation.jsonc` → `flags`, `FlagViews`): a cloth on a pole, waving in a small vertex shader. Each
+  side's is in its colour, and the centre flag is chequered black and white. It stands in a weighted stand, which stays
+  at home while the flag's away. Carried, it rides on its carrier's back, leaning back with the cloth streaming behind;
+  dropped, it lies still where it fell. A ring on the ground in each side's colour marks where that side scores. Your own
+  carried flag isn't drawn in first person.
+- **The HUD** (`FlagHud`): markers with distances for the flag you're after, whoever of yours or theirs carries it (not
+  within 8 m, where their name shows), where you score while you carry one, and your own flag while it's away. A line
+  under the match's score says how the flags stand ("THEY HAVE YOUR FLAG · STOP WREN", in red when it's bad for you).
+  Toasts say who took, dropped or captured which flag. The briefing map marks the flags.
+- **The briefing and the summary** explain the variant (the centre flag to their buzzer, or theirs home and keep yours),
+  and the summary's headline is FLAG CAPTURED or FLAG LOST, with who carried it home and when.
+- **Referee, sound and callouts:** the referee calls a flag taken, a flag down and a flag captured (`hud.referee`:
+  `flagTaken`, `flagDown`, `flagCaptured`). A take or a drop sounds like the case's where it happens, and your side hears
+  the case's cues. Bots shout when they take a flag, when their carrier goes out close by, and when they're sent after
+  the other side's carrier (`hud.callouts`: `flagTaken`, `flagDown`, `flagAlarm`). The new lines are subtitled only
+  until takes of them are imported.
+- **Bots** (`bots/brain.jsonc` → `flag`):
+  - With a flag each, at the horn the squad gives `defendShare` (0.4) of each side's bots (one at least, from two up) a
+    post round their own flag; the rest go for theirs (`BotBrain.AttackFlag`).
+  - A carrier takes it home. An attacker escorts it, leading the way home if it's nearer home than the carrier,
+    else keeping up behind. Two bodies met head-on in a doorway would otherwise hold each other up for good.
+  - Every `alarmInterval_s` (4 s), the `chasers` (2) nearest the other side's carrier are told where it is. A side's
+    dropped flag gets its defenders' posts round it. A side with nobody left going for the other flag sends the bot
+    nearest it.
+  - Any bot within `nearDropped_m` (12) of a dropped flag it may take goes for it.
+  - A bot going for a flag, or carrying one, that's been in a fight for `pressOnAfter_s` (12) presses on for `pressFor_s`
+    (6) whatever it sees. Otherwise two bots peeking at each other from cover could hold a one-life point up until time
+    ran out.
+  - On the field every bot plays speedball. Every `hangCheck_s`, the squad sends a side's bot nearest the flag to take it
+    when none of the other side can see the flag, or when its side has more players in.
+- **`--flag-demo`** (with `--mode=flag`): one of your bots takes the flag you're after with the other side off the
+  field, and you follow it home until it scores (`--flag-drop`: it goes out on the way).
+- **Tests:**
+  - `FlagTests`: the centre flag on the bunker of both layouts, scoring only at the other side's station; a dropped
+    flag staying for either side; with two bases nobody taking their own, theirs scoring at yours; time up; no
+    allocation.
+  - `FlagBotTests`: the parts at the horn; unopposed attackers bringing theirs home; on the field the nearest bot going;
+    the chasers told where the carrier is; an escort met on the way leading the carrier home; whole points ending on
+    the field and in Oxbarrow Works.
+  - `SpawnPlannerTests`: the bases on the ground in every compound.
+  - `FlagNetTests`: the starts and the clock in a compound and on the field; the flag through the snapshot, taken,
+    dropped and captured; the lobby's match.
+- **Known:** with one life each, bots in a compound mostly settle a point by putting the other side out before a flag is
+  taken. Fights start 3 to 12 s after the horn, and the bases are often 70 to 150 m apart. Over twelve 4 v 4 bot points
+  per area (the headless arena), a flag was taken in 0 to 2 of them and captured in 0 or 1, the points lasting 48 to 94 s
+  on average. On the field (5 v 5) the flag was taken in 7 or 8 of 12 and captured in 0 or 1, in points of 16 to 19 s.
+  With people playing, the flags are up to them. The plan's other option, capture the flag with arcade's respawns, is
+  cheap to add once M5.8 has them.
+
+### 17.10 Arcade
+
+- **Respawn in the sim.** `SimWorld.Respawn(id, start)` brings `Alive` and `Present` back, refills the gear
+  (`FillWith`), clears the hitbox history, resets the stance, and raises `PlayerRespawned`.
+- **`ArcadeMode`** is timed and scored by eliminations, per side or per player. `respawn_s` (3) after someone goes out,
+  it asks `SpawnPlanner` for a start out of their opponents' current sight.
+- **The shield.** `PlayerState.ShieldUntil` (`respawnShield_s`, 2): a ball breaking on a shielded player leaves paint
+  but doesn't put them out. It ends early if they fire.
+- **Bots** re-enter through `BotSquad`, with a fresh brain state at the new start.
+- **Presentation:** the spectator view until the respawn; your splats cleared when you come back; the kill feed and
+  scoreboard run all match.
+
+### 17.11 Network
+
+- **Protocol 4.** Loadouts (about 40 bytes each) travel in:
+  - the hello;
+  - the lobby's members;
+  - each `RosterEntry` for a person. Bots' loadouts are dealt on every copy from the seed, so they aren't sent.
+
+  A copy of protocol 3 is told to update.
+- **Snapshots** (`WorldFields`): the round's fields gain:
+  - two flags (state, carrier, position);
+  - each buzzer station's hang progress;
+  - the match's score and target;
+  - the arcade scores, from the per-player stats already sent.
+
+  `RoundEnd` takes 4 bits.
+- **Events:**
+  - `PlayerRespawned`: a joining copy resets its prediction and the puppet's interpolation at the new start, so it's a
+    jump, not a glide;
+  - the flag and buzzer events;
+  - `SplatWithdrawn`, raised on the joining copy itself, never sent.
+- **Dedicated server:** `server.jsonc` rotation entries may name the Sports Ground and the new modes, and `RotationDef`
+  checks them as it checks the others.
+- **As built (M5.3):**
+  - `KitCodec` packs a loadout as a flag, the character and, per slot, the item's catalogue index (a var-int) and its
+    three colours (24 bits each): about 60 bytes. It goes in the hello (`HelloMessage.Kit`, read only from protocol 4,
+    so a protocol 3 copy is still read and told to update), in each `LobbyMember` of the lobby's state, and in each
+    person's `RosterEntry`. A change in the locker is a `Kit` message to the host, at any time; it's worn from the next
+    round.
+  - The host's `LobbyHost` checks every kit against the catalogue (`GearCatalog.Normalised`: an item that isn't one of
+    its slot's is the slot's default) and makes the member's character the kit's (and choosing a character moves the
+    kit to it). The in-game host and the dedicated server both pass it the catalogue.
+  - People are cast in their kit (`Person.Kit`); every copy draws each person in the roster's kit on the roster's
+    character (yours too, so you see yourself as the others do), and the lobby's preview shows yours as the host has
+    it. Bots' kit is dealt from the seed, as before.
+  - Each item's mesh is built once (`GearModels`) and shared by everyone wearing it, colours being instance uniforms, so
+    ten players in ten loadouts cost what ten in one did.
+  - The `NET round` log line names each person's marker and mask, and CI's networked rounds put Ada, Bo and Cy in
+    Vellis's, Quarrow's and Kilnmark's ranges (`--kit=BRAND`) and check every copy's roster has them so.
+- **As built (M5.6):**
+  - **Protocol 5.** `WorldFields`' match block has 24 slots. Why the round ended takes 4 bits, and it gained the
+    countdown left, each station's hanger and hang (8 bits), and the side whose buzzer was hung and who hung it.
+    `EventCodec` carries `BuzzerHanging` and `BuzzerHung`.
+  - `RoundSetupMessage` carries the match before the point: `RaceTo` (0 when it isn't one), `Points0`, `Points1` and
+    `PointsPlayed`. The point's format and countdown come with its mode (`RoundWorld.MatchSetupOf`), as every copy has
+    the same data.
+  - `RoundCasting` casts a point into the start boxes: side 0 in the south's, whoever's on it (a bot takes the middle
+    place when no person is), on the point's clock, without pickups.
+  - **The lobby keeps the match.** `LobbyChoices.RaceTo` (0: the rules' own; the host's `--race-to`, the rotation's
+    `raceTo`), and `LobbyState.MatchPoints` and `MatchPlayed`. `LobbyHost.RoundOver` counts each point; a side reaching
+    the target wins the match, which is what `SideWins` counts in speedball. While `MatchOn`, `NextPoint` builds the
+    next point with everyone still in and ready, and `BackToLobby` ends the match.
+  - **The in-game host** shows the score between points (`RoundScreens.BetweenPoints`), then calls `NextPoint` and builds
+    the level again. Joined copies show the same screen and build the next point when its setup comes, as they always
+    have a new round. Once the match is won, everyone has the summary and the lobby comes back.
+  - **The dedicated server** goes straight on to the next point while `MatchOn`, waiting `betweenPoints_s` between
+    points and `summary_s` after the match, which counts as one round of the rotation (and of `--rounds`). It logs the
+    score after each point. The shipped `server.jsonc` plays a speedball match as its fifth round.
+  - CI's networked rounds play a speedball match to two points on Crossfire, and check every point's result on every
+    copy.
+- **As built (M5.7):** **protocol 6.** `WorldFields`' match block has 36 slots: each of the two flags' position, carrier
+  and status (home, carried, dropped, captured), the side that captured one and who carried it home. `EventCodec` carries
+  `FlagTaken`, `FlagDropped` and `FlagCaptured`. A carrier's sprint block reaches its own copy in the own-player fields,
+  as the case carrier's always has. `RoundCasting` casts a flag point on a field into the start boxes, on the field's
+  clock, and elsewhere at the bases. The lobby, the in-game host and the dedicated server play its match as they play
+  speedball's. CI's networked rounds play a flag match in the Cold Store.
+  - Fixed: a place goes by its id in the lobby's choices, the vote, the rotation and a round's setup, unless it's the
+    area's first (`RoundChoices.PlaceIdOf`). Before, any place covering the whole area went as no place at all (the
+    first), so online the field's Crossfire was played as Classic, and the server logged that it had no such place.
+
+### 17.12 Testing
+
+- **Sim tests:**
+  - the catalogue and loadouts;
+  - the field's mirroring and its bunkers' shapes;
+  - the new rules: speedball, the match series, capture the flag, arcade;
+  - bot-against-bot matches on both layouts.
+- **Net tests:** loadouts through the protocol; each new mode's rounds through the in-memory network, ending with the
+  server's result; respawns.
+- **Smoke tests:** the locker opens and saves; a bot match on the field in each new mode; `MainMenu`'s tour shows the
+  locker.
+- **CI's networked rounds** (`tools/ci/net-round.jsonc`) gain a speedball match, a flag round and an arcade match.

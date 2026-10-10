@@ -3,7 +3,8 @@
 //   color      base colour (sRGB) for the procedural look
 //   pattern    procedural pattern the shader draws until a texture is supplied:
 //              plain, concrete, block, brick, plaster, corrugated, metal, rust, asphalt, dirt,
-//              gravel, wood, tarp, rubber, glass, grass
+//              gravel, wood, tarp, rubber, glass, grass; or net (see-through netting: a square of cord every
+//              tile_m, cord_m thick, the cords alpha opaque)
 //   tile_m     how many metres one repeat of the pattern or texture covers
 //   roughness  0 = mirror, 1 = fully matte
 //   weathering 0..1: grime at the foot of walls, stains, moss
@@ -102,6 +103,16 @@
     { "id": "curtain_blue", "surface": "tarp", "color": "#7f95a6", "pattern": "tarp", "tile_m": 0.8, "roughness": 0.9, "weathering": 0.5 },
     { "id": "mattress", "surface": "tarp", "color": "#b5b8ae", "pattern": "tarp", "tile_m": 0.6, "roughness": 0.9, "weathering": 0.6 },
     { "id": "ambulance_white", "surface": "metal", "color": "#d3d5cf", "pattern": "metal", "tile_m": 1.0, "roughness": 0.45, "weathering": 0.75, "metallic": 0.3 },
-    { "id": "hedge", "surface": "turf", "color": "#3e4b2f", "pattern": "grass", "tile_m": 1.2, "roughness": 0.95, "weathering": 0.3, "albedo": "res://art/textures/hedge_albedo.jpg", "normal": "res://art/textures/hedge_normal.jpg", "roughnessMap": "res://art/textures/hedge_roughness.jpg", "breakUpRepeat": true }
+    { "id": "hedge", "surface": "turf", "color": "#3e4b2f", "pattern": "grass", "tile_m": 1.2, "roughness": 0.95, "weathering": 0.3, "albedo": "res://art/textures/hedge_albedo.jpg", "normal": "res://art/textures/hedge_normal.jpg", "roughnessMap": "res://art/textures/hedge_roughness.jpg", "breakUpRepeat": true },
+
+    // The Sports Ground (Phase 5, drawn, no photos): the club's mown pitch, its bunkers' nylon in the club's yellow and navy
+    // with white trim (an "inflatable" surface: it dents in and shivers where a ball strikes it, weathered.gdshader's
+    // wobble), the black webbing that pegs them down, and the nets round the field.
+    { "id": "turf_pitch", "surface": "turf", "color": "#4d7233", "pattern": "grass", "tile_m": 2.0, "roughness": 0.95, "weathering": 0.12 },
+    { "id": "nylon_yellow", "surface": "inflatable", "color": "#e2b41d", "pattern": "tarp", "tile_m": 0.6, "roughness": 0.4, "weathering": 0.1 },
+    { "id": "nylon_navy", "surface": "inflatable", "color": "#1f2e66", "pattern": "tarp", "tile_m": 0.6, "roughness": 0.4, "weathering": 0.1 },
+    { "id": "nylon_white", "surface": "inflatable", "color": "#e6e4dc", "pattern": "tarp", "tile_m": 0.6, "roughness": 0.45, "weathering": 0.12 },
+    { "id": "strap_black", "surface": "tarp", "color": "#1e1f22", "pattern": "plain", "tile_m": 0.3, "roughness": 0.75, "weathering": 0.2 },
+    { "id": "net_black", "surface": "tarp", "color": "#151617", "pattern": "net", "tile_m": 0.03, "cord_m": 0.003, "roughness": 1.0, "weathering": 0.0, "alpha": 0.9 }
   ]
 }

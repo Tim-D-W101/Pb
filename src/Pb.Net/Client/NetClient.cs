@@ -165,6 +165,15 @@ public sealed class NetClient : IDisposable
         _transport.Send(0, NetChannel.Reliable, _writer.Finish());
     }
 
+    /// <summary>Sends your kit, changed in the gear locker, for the host to put in the lobby (and the next round).</summary>
+    public void SendKit(Pb.Sim.Gear.Loadout kit)
+    {
+        Hello.Kit = kit;
+        _writer.Reset();
+        KitMessage.Write(_writer, kit);
+        _transport.Send(0, NetChannel.Reliable, _writer.Finish());
+    }
+
     /// <summary>Says something in the chat, to everyone or only your side.</summary>
     public void Say(string text, bool teamOnly)
     {

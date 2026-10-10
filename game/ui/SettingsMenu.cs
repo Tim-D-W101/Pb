@@ -103,6 +103,7 @@ public partial class SettingsMenu : VBoxContainer
         page.AddChild(Tristate("  Glow", parts.Glow, v => Graphics(() => parts.Glow = v)));
         page.AddChild(Tristate("  Sunbeams", parts.Sunbeams, v => Graphics(() => parts.Sunbeams = v)));
         page.AddChild(Tristate("  Ground detail", parts.GroundDetail, v => Graphics(() => parts.GroundDetail = v)));
+        page.AddChild(Tristate("  Paint as cards", parts.PaintCards, v => Graphics(() => parts.PaintCards = v)));
         page.AddChild(UiKit.OptionRow("  Weeds", WeedChoices.Select(w => w.Name).ToArray(), Math.Max(0, Array.FindIndex(WeedChoices, w => w.Value == parts.Weeds)),
             i => Graphics(() => parts.Weeds = WeedChoices[i].Value)));
 

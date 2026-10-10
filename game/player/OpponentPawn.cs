@@ -30,17 +30,19 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
     /// </summary>
     public bool Puppet { get; set; }
 
+    /// <param name="kit">What they wear: their character and gear.</param>
     /// <param name="characters">How opponents look (models and tints); null draws the hitbox boxes.</param>
-    /// <param name="look">Which model and tint this opponent gets, dealt in turn.</param>
-    /// <param name="marker">The marker model in their hands; null draws the coded marker's shapes.</param>
-    public void Initialize(SimWorld sim, PlayerState state, Color jersey, ICommandSource pilot, CharactersDef? characters = null, int look = 0,
+    /// <param name="look">Which tint this opponent gets, dealt in turn.</param>
+    /// <param name="marker">The generated marker model, for the field's marker; null draws the marker built in code.</param>
+    public void Initialize(SimWorld sim, PlayerState state, Color jersey, ICommandSource pilot, Kit kit, CharactersDef? characters = null, int look = 0,
         MarkerModelDef? marker = null)
     {
         InitializeBody(sim, state);
         _pilot = pilot;
+        _dress = (jersey, characters, look, marker);
         Visual = new CharacterVisual { Name = "Visual" };
         AddChild(Visual);
-        Visual.Build(sim, state, jersey, characters, look, marker);
+        Visual.Build(sim, state, jersey, kit, characters, look, marker);
         _callout = new Label3D
         {
             Name = "Callout",
@@ -55,6 +57,17 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
             TopLevel = true,
         };
         AddChild(_callout);
+    }
+
+    private (Color Jersey, CharactersDef? Characters, int Look, MarkerModelDef? Marker) _dress;
+
+    /// <summary>Puts them in <paramref name="kit"/> instead (the gear demo; the locker's preview): their drawing is built again.</summary>
+    public void Redress(Kit kit)
+    {
+        Visual.QueueFree();
+        Visual = new CharacterVisual { Name = "Visual" };
+        AddChild(Visual);
+        Visual.Build(Sim, State, _dress.Jersey, kit, _dress.Characters, _dress.Look, _dress.Marker);
     }
 
     /// <summary>

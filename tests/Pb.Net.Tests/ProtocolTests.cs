@@ -269,6 +269,17 @@ public class ProtocolTests
         [new SimEvent { Type = SimEventType.HoldChanged, Tick = 98, Team = 1, Position = new Vector3(0f, 4f, 2f), Value = 33.5f, Extra = 2, PlayerId = -1,
             TargetId = -1, ColliderId = -1 }],
         [new SimEvent { Type = NetEventTypes.Callout, Tick = 97, PlayerId = 6, TargetId = 2, Extra = 4, Position = new Vector3(9f, 0f, 9f), ColliderId = -1 }],
+        [new SimEvent { Type = SimEventType.BuzzerHanging, Tick = 96, PlayerId = 3, Team = 0, Position = new Vector3(0f, 0f, -26f), Value = 1f, Extra = 1,
+            TargetId = -1, ColliderId = -1 }],
+        [new SimEvent { Type = SimEventType.BuzzerHung, Tick = 99, PlayerId = 3, Team = 0, Position = new Vector3(0f, 0f, -26f), Value = 1f, Extra = 1,
+            TargetId = -1, ColliderId = -1 }],
+        // Capture the flag: the flag in Extra, its side in Value (−1, the one in the middle of a field).
+        [new SimEvent { Type = SimEventType.FlagTaken, Tick = 97, PlayerId = 4, Team = 1, Position = new Vector3(0f, 1.2f, 0f), Value = -1f, Extra = 0,
+            TargetId = -1, ColliderId = -1 }],
+        [new SimEvent { Type = SimEventType.FlagDropped, Tick = 98, PlayerId = 4, Team = 1, Position = new Vector3(-8f, 0f, 30f), Value = 0f, Extra = 0,
+            TargetId = -1, ColliderId = -1 }],
+        [new SimEvent { Type = SimEventType.FlagCaptured, Tick = 100, PlayerId = 2, Team = 0, Position = new Vector3(40f, 0f, -44f), Value = 1f, Extra = 1,
+            TargetId = -1, ColliderId = -1 }],
     ];
 
     [Theory]
@@ -305,6 +316,8 @@ public class ProtocolTests
         Assert.False(EventCodec.Carried(SimEventType.Footstep));
         Assert.False(EventCodec.Carried(SimEventType.DryFire));
         Assert.False(EventCodec.Carried(SimEventType.RefillStarted));
+        // A joining copy raises this for itself (its own splat the server says didn't happen); it's never sent.
+        Assert.False(EventCodec.Carried(SimEventType.SplatWithdrawn));
     }
 
     [Fact]
@@ -333,7 +346,7 @@ public class ProtocolTests
         {
             Round = 3, LevelId = "rail_yard", PlaceId = "tracks", ModeId = "teams", Size = 5, Objective = ObjectiveKind.Hold, TierId = "hard",
             Seed = 0xFEEDFACE12345678UL, TimeLimit = 600f, StartPods = 2, BotPods = 3, Pickups = true, Attackers = 1, EndWhenPeopleOut = true,
-            YourPlayerId = 4,
+            YourPlayerId = 4, RaceTo = 4, Points0 = 2, Points1 = 3, PointsPlayed = 6,
         };
         setup.Roster.Add(new RosterEntry { PlayerId = 0, Team = 0, Name = "Ada", Person = true, Look = 1, Position = new Vector3(1f, 2f, 3f), Yaw = 0.5f });
         setup.Roster.Add(new RosterEntry { PlayerId = 4, Team = 1, Name = "Kestrel", Person = false, Position = new Vector3(-1f, 0f, 9f), Yaw = -2f });
@@ -343,15 +356,62 @@ public class ProtocolTests
         Assert.Equal((0xFEEDFACE12345678UL, 600f, 2, 3, true, (byte)1, true, 4),
             (s.Seed, s.TimeLimit, s.StartPods, s.BotPods, s.Pickups, s.Attackers, s.EndWhenPeopleOut, s.YourPlayerId));
         Assert.Equal(setup.Roster, s.Roster);
+        Assert.Equal((4, 2, 3, 6), (s.RaceTo, s.Points0, s.Points1, s.PointsPlayed));
 
         w.Reset();
-        var over = new RoundOverMessage { Round = 3, Result = new MatchResult(RoundEnd.Held, 1), Elapsed = 123.5f, EndTick = 9000 };
+        var over = new RoundOverMessage { Round = 3, Result = new MatchResult(RoundEnd.MoreIn, 1), Elapsed = 123.5f, EndTick = 9000 };
         over.Stats.Add(new StatsEntry(0, 40, 3, 2, 1, 100.5f, -1));
         over.Stats.Add(new StatsEntry(4, 10, 0, 0, 0, 30f, 4000));
         over.Write(w);
         RoundOverMessage o = RoundOverMessage.Read(w.Finish())!;
         Assert.Equal((over.Round, over.Result, over.Elapsed, over.EndTick), (o.Round, o.Result, o.Elapsed, o.EndTick));
         Assert.Equal(over.Stats, o.Stats);
+    }
+
+    [Fact]
+    public void A_kit_goes_in_the_hello_and_the_roster_and_comes_back()
+    {
+        // Phase 5 (M5.3): what you picked in the gear locker, item by item in its three colours.
+        GearCatalog gear = TestData.Data.Gear;
+        Loadout kit = gear.Deal(42, 3, character: 2);
+        kit[GearSlot.Jersey] = kit[GearSlot.Jersey] with { Colours = new GearColours(0x123456, 0xABCDEF, 0x0F0F0F) };
+        var w = new BitWriter();
+        new HelloMessage { Build = "b", DataHash = "h", Name = "Ada", Look = 2, Kit = kit }.Write(w);
+        Assert.True(HelloMessage.Read(w.Finish())!.Kit!.SameAs(kit));
+        w.Reset();
+        new HelloMessage { Build = "b", DataHash = "h", Name = "Bo" }.Write(w);
+        Assert.Null(HelloMessage.Read(w.Finish())!.Kit);
+
+        // A hello from version 3 (no kit after the id) is still read, so its copy can be told to update.
+        w.Reset();
+        w.WriteByte((byte)MessageType.Hello);
+        w.WriteVarUInt(3);
+        w.WriteString("b", 64);
+        w.WriteString("h", 80);
+        w.WriteString("Old", 48);
+        w.WriteString("", 64);
+        w.WriteByte(1);
+        w.WriteString("offline-1", 64);
+        HelloMessage old = HelloMessage.Read(w.Finish())!;
+        Assert.Equal((3, "Old", "offline-1"), (old.Protocol, old.Name, old.Key));
+        Assert.Null(old.Kit);
+
+        // In the round's roster, a person's kit; a bot's is dealt on every copy.
+        w.Reset();
+        var setup = new RoundSetupMessage { Round = 1, LevelId = "oxbarrow_works", ModeId = "teams", Size = 2, TierId = "normal", Seed = 7 };
+        setup.Roster.Add(new RosterEntry { PlayerId = 0, Team = 0, Name = "Ada", Person = true, Look = 2, Kit = kit, Position = Vector3.One, Yaw = 1f });
+        setup.Roster.Add(new RosterEntry { PlayerId = 1, Team = 1, Name = "Kestrel", Person = false, Position = Vector3.Zero, Yaw = 0f });
+        setup.Write(w);
+        RoundSetupMessage s = RoundSetupMessage.Read(w.Finish())!;
+        Assert.True(s.Roster[0].Kit!.SameAs(kit));
+        Assert.Null(s.Roster[1].Kit);
+        Assert.Equal((Vector3.One, 1f, "Kestrel"), (s.Roster[0].Position, s.Roster[0].Yaw, s.Roster[1].Name));
+
+        // A change in the locker on its own; cut short, it isn't read.
+        w.Reset();
+        KitMessage.Write(w, kit);
+        Assert.True(KitMessage.Read(w.Finish())!.SameAs(kit));
+        Assert.Null(KitMessage.Read(w.Finish()[..^2]));
     }
 
     [Fact]

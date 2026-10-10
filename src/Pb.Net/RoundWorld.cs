@@ -36,17 +36,27 @@ public static class RoundWorld
         return sim;
     }
 
-    /// <summary>The match's setup a round's message describes.</summary>
-    public static MatchSetup MatchSetupOf(SimConfig config, RoundSetupMessage setup) => new()
+    /// <summary>
+    /// The match's setup a round's message describes. Its format (and a speedball point's countdown) comes with its mode:
+    /// every copy has the same data.
+    /// </summary>
+    public static MatchSetup MatchSetupOf(SimConfig config, RoundSetupMessage setup)
     {
-        People = setup.Roster.Where(e => e.Person).Select(e => e.PlayerId).ToArray(),
-        Mode = config.Rules.FindMode(setup.ModeId)?.Kind ?? MatchModeKind.Solo,
-        TimeLimit = setup.TimeLimit,
-        StartPods = setup.StartPods,
-        BotPods = setup.BotPods,
-        Pickups = setup.Pickups,
-        Objective = setup.Objective,
-        Attackers = setup.Attackers,
-        EndWhenPeopleOut = setup.EndWhenPeopleOut,
-    };
+        GameMode? mode = config.Rules.FindMode(setup.ModeId);
+        MatchFormat format = mode?.Format ?? MatchFormat.Round;
+        return new MatchSetup
+        {
+            People = setup.Roster.Where(e => e.Person).Select(e => e.PlayerId).ToArray(),
+            Mode = mode?.Kind ?? MatchModeKind.Solo,
+            TimeLimit = setup.TimeLimit,
+            StartPods = setup.StartPods,
+            BotPods = setup.BotPods,
+            Pickups = setup.Pickups,
+            Objective = setup.Objective,
+            Attackers = setup.Attackers,
+            EndWhenPeopleOut = setup.EndWhenPeopleOut,
+            Format = format,
+            Countdown = config.Rules.PointsFor(format)?.Countdown ?? 0f,
+        };
+    }
 }

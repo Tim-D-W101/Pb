@@ -61,6 +61,8 @@ public static class EventCodec
         SimEventType.CaseTaken or SimEventType.CaseDropped => Field.Player | Field.Team | Field.Position,
         SimEventType.CaseExtracted => Field.Player | Field.Team | Field.Position | Field.Extra,
         SimEventType.HoldChanged => Field.Team | Field.Position | Field.Value | Field.Extra,
+        SimEventType.BuzzerHanging or SimEventType.BuzzerHung => Field.Player | Field.Team | Field.Position | Field.Value | Field.Extra,
+        SimEventType.FlagTaken or SimEventType.FlagDropped or SimEventType.FlagCaptured => Field.Player | Field.Team | Field.Position | Field.Value | Field.Extra,
         NetEventTypes.Callout => Field.Player | Field.Target | Field.Position | Field.Extra,
         SimEventType.CalledOut => Field.Player | Field.Target | Field.Team | Field.Position,
         _ => Field.None,

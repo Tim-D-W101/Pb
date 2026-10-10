@@ -140,7 +140,20 @@ public sealed class BrainParams
     public required float VantageArc { get; init; }
 
     public required float VantageHeightBonus { get; init; }
+
+    /// <summary>Speedball: the back and middle shares of a side, the longest breakout run (s), the pull of a bot's own bunker
+    /// when it picks cover, the lead in players that moves someone up and how often (s), and how often the buzzers are checked (s).</summary>
+    public required SpeedballBrain Speedball { get; init; }
+
+    /// <summary>Capture the flag: the share of a side guarding its flag, the chasers sent after a carrier and how often (s),
+    /// and how near a dropped flag draws any bot (m).</summary>
+    public required FlagBrain Flag { get; init; }
 }
+
+public sealed record SpeedballBrain(float BackShare, float MidShare, float BreakoutFor, float BunkerBias, int AdvanceMargin, float AdvanceEvery,
+    float HangCheck);
+
+public sealed record FlagBrain(float DefendShare, int Chasers, float AlarmInterval, float NearDropped, float PressOnAfter, float PressFor);
 
 /// <summary>Sight, hearing and memory (SI, angles in radians), from bots/senses.jsonc.</summary>
 public sealed class SenseParams
@@ -334,6 +347,10 @@ public sealed class BotConfig
             VantageRange = brain.VantageRange_m,
             VantageArc = brain.VantageArc_deg * Units.DegreesToRadians,
             VantageHeightBonus = brain.VantageHeightBonus_perM,
+            Speedball = new SpeedballBrain(brain.Speedball.BackShare, brain.Speedball.MidShare, brain.Speedball.BreakoutFor_s, brain.Speedball.BunkerBias,
+                brain.Speedball.AdvanceMargin, brain.Speedball.AdvanceEvery_s, brain.Speedball.HangCheck_s),
+            Flag = new FlagBrain(brain.Flag.DefendShare, brain.Flag.Chasers, brain.Flag.AlarmInterval_s, brain.Flag.NearDropped_m,
+                brain.Flag.PressOnAfter_s, brain.Flag.PressFor_s),
         },
         Navigation = new NavParams
         {

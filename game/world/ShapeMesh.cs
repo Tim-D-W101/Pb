@@ -365,6 +365,43 @@ public sealed class ShapeMesh
         TriangleCount = 0;
     }
 
+    /// <summary>
+    /// Adds every triangle of <paramref name="other"/> (built unplaced), moved by <paramref name="offset"/> and then placed
+    /// as this mesh's parts are, each surface as material <paramref name="material"/>(its own): a shape built for one
+    /// purpose, reused with other materials.
+    /// </summary>
+    public void Absorb(ShapeMesh other, Transform3D offset, Func<int, int> material)
+    {
+        Basis turn = offset.Basis.Inverse().Transposed();
+        foreach ((int id, Surface s) in other._surfaces)
+        {
+            int into = material(id);
+            for (int i = 0; i < s.Positions.Count; i++)
+            {
+                AddWorld(into, offset * s.Positions[i], (turn * s.Normals[i]).Normalized(), s.Uvs[i]);
+            }
+
+            TriangleCount += s.Positions.Count / 3;
+        }
+    }
+
+    /// <summary>The box round every part added so far (placed), or an empty box at the origin.</summary>
+    public Aabb Bounds()
+    {
+        bool any = false;
+        Aabb box = default;
+        foreach (Surface s in _surfaces.Values)
+        {
+            foreach (Vector3 p in s.Positions)
+            {
+                box = any ? box.Expand(p) : new Aabb(p, Vector3.Zero);
+                any = true;
+            }
+        }
+
+        return box;
+    }
+
     private readonly record struct LatheVertex(Vector3 Direction, Vector2 Point, Vector2 Normal, Vector2 Uv);
 
     private void LatheQuad(int material, Vector3 center, Basis rotation, LatheVertex a, LatheVertex b, LatheVertex c, LatheVertex d)

@@ -68,8 +68,16 @@ public sealed class SimFilesDef : IValidatable
 
     public string Difficulty { get; set; } = "";
 
+    /// <summary>The gear locker's brands and items (Phase 5): looks only.</summary>
+    public string Gear { get; set; } = "";
+
+    /// <summary>The gear locker's room: a level of its own, built when the locker opens, never played in.</summary>
+    public string LockerRoom { get; set; } = "";
+
     public void Validate(Validator v)
     {
+        v.NotEmpty(nameof(Gear), Gear);
+        v.NotEmpty(nameof(LockerRoom), LockerRoom);
         v.NotEmpty(nameof(Kit), Kit);
         v.NotEmpty(nameof(Areas), Areas);
         v.NotEmpty(nameof(Navigation), Navigation);
@@ -946,6 +954,26 @@ public enum MatchModeKind
     Teams,
 }
 
+/// <summary>How a mode is played out: who plays whom is its <see cref="MatchModeKind"/>, this is how it's won.</summary>
+public enum MatchFormat
+{
+    /// <summary>One round, won by the last side standing (or the objective).</summary>
+    Round,
+
+    /// <summary>
+    /// Speedball (two sides on a field): a match of short points, each started by a horn countdown and won by putting the
+    /// other side out or hanging their buzzer, raced to a number of points (rules.jsonc "speedball").
+    /// </summary>
+    Speedball,
+
+    /// <summary>
+    /// Capture the flag (two sides): a match of points, each started by a horn countdown and won by carrying a flag to
+    /// where it scores, or by putting the other side out (rules.jsonc "flag"). On a field one flag stands in the middle and
+    /// scores at the other side's buzzer station; elsewhere each side has its own at its starts, and brings theirs home.
+    /// </summary>
+    Flag,
+}
+
 /// <summary>How a round is won besides being the last team standing (solo and teams; free-for-all is always eliminate).</summary>
 public enum ObjectiveKind
 {
@@ -984,10 +1012,18 @@ public sealed class RulesDef : IValidatable
 
     public CalloutDef Callout { get; set; } = new();
 
+    /// <summary>How speedball is played (the modes with <see cref="MatchFormat.Speedball"/>).</summary>
+    public SpeedballDef Speedball { get; set; } = new();
+
+    /// <summary>How capture the flag is played (the modes with <see cref="MatchFormat.Flag"/>).</summary>
+    public FlagDef Flag { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MaxPlayers), MaxPlayers, 2, 32);
         Callout.Validate(v.Scope(nameof(Callout)));
+        Speedball.Validate(v.Scope(nameof(Speedball)));
+        Flag.Validate(v.Scope(nameof(Flag)));
         Objectives.Validate(v.Scope(nameof(Objectives)));
         v.InRange(nameof(SettleTime_s), SettleTime_s, 0, 10);
         v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.1, 5);
@@ -1011,6 +1047,86 @@ public sealed class RulesDef : IValidatable
         if (Modes.Select(m => m.Id).Distinct(StringComparer.Ordinal).Count() != Modes.Length)
         {
             v.Error(nameof(Modes), "two modes share an id");
+        }
+    }
+}
+
+/// <summary>Speedball (rules.jsonc "speedball"): a match of points on a field, each started by a horn countdown.</summary>
+public sealed class SpeedballDef : IValidatable
+{
+    /// <summary>The first side to this many points wins the match.</summary>
+    public int RaceTo { get; set; }
+
+    /// <summary>Each point's clock.</summary>
+    public float PointTime_s { get; set; }
+
+    /// <summary>The countdown at each breakout (nobody moves until the horn).</summary>
+    public float Countdown_s { get; set; }
+
+    /// <summary>Interact held this long at the other side's buzzer hangs it, and wins the point.</summary>
+    public float HangTime_s { get; set; }
+
+    /// <summary>… from within this far of the station (feet to its post, along the ground).</summary>
+    public float HangReach_m { get; set; }
+
+    /// <summary>Between points, the score shows this long before the next point is set up.</summary>
+    public float BetweenPoints_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(RaceTo), RaceTo, 1, 20);
+        v.InRange(nameof(PointTime_s), PointTime_s, 20, 1800);
+        v.InRange(nameof(Countdown_s), Countdown_s, 0, 10);
+        v.InRange(nameof(HangTime_s), HangTime_s, 0.2, 10);
+        v.InRange(nameof(HangReach_m), HangReach_m, 0.3, 3);
+        v.InRange(nameof(BetweenPoints_s), BetweenPoints_s, 0, 30);
+    }
+}
+
+/// <summary>
+/// Capture the flag (rules.jsonc "flag"): a match of points, each started by a horn countdown. A flag is taken by walking
+/// up to it, carried without sprinting, dropped where its carrier goes out (and left there for anyone who may take it), and
+/// scores where its carrier's side scores: on the field the other side's buzzer station, elsewhere their own base.
+/// </summary>
+public sealed class FlagDef : IValidatable
+{
+    /// <summary>The first side to this many points wins the match.</summary>
+    public int RaceTo { get; set; }
+
+    /// <summary>Each point's clock in a compound area, and on the field.</summary>
+    public float PointTime_s { get; set; }
+
+    public float FieldPointTime_s { get; set; }
+
+    /// <summary>The countdown at each point's start (nobody moves until the horn).</summary>
+    public float Countdown_s { get; set; }
+
+    /// <summary>Between points, the score shows this long before the next point is set up.</summary>
+    public float BetweenPoints_s { get; set; }
+
+    /// <summary>A player who may take a flag does so within this far of it (along the ground).</summary>
+    public float PickupReach_m { get; set; }
+
+    /// <summary>A carrier scores within this far of where their side scores.</summary>
+    public float ScoreReach_m { get; set; }
+
+    public bool CarrierCanSprint { get; set; }
+
+    /// <summary>On a field, every bot plays this behaviour (the field's own), whatever the mode's roles.</summary>
+    public string FieldRole { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(RaceTo), RaceTo, 1, 20);
+        v.InRange(nameof(PointTime_s), PointTime_s, 20, 1800);
+        v.InRange(nameof(FieldPointTime_s), FieldPointTime_s, 20, 1800);
+        v.InRange(nameof(Countdown_s), Countdown_s, 0, 10);
+        v.InRange(nameof(BetweenPoints_s), BetweenPoints_s, 0, 30);
+        v.InRange(nameof(PickupReach_m), PickupReach_m, 0.3, 4);
+        v.InRange(nameof(ScoreReach_m), ScoreReach_m, 0.3, 6);
+        if (FieldRole.Length == 0)
+        {
+            v.Error(nameof(FieldRole), "needs a bot behaviour");
         }
     }
 }
@@ -1222,6 +1338,10 @@ public sealed class ModeDef : IValidatable
 
     public MatchModeKind Kind { get; set; }
 
+    /// <summary>How it's won: one round (the default), or a speedball match of points (two sides only).</summary>
+    [Optional]
+    public MatchFormat Format { get; set; }
+
     /// <summary>The sizes offered: opponents (solo), players including you (free-for-all) or players a side (teams).</summary>
     public int[] Sizes { get; set; } = Array.Empty<int>();
 
@@ -1270,6 +1390,11 @@ public sealed class ModeDef : IValidatable
             v.Error(nameof(Roles), "needs at least one bot behaviour (only solo uses the level's spawn roles)");
         }
 
+        if (Format is MatchFormat.Speedball or MatchFormat.Flag && Kind != MatchModeKind.Teams)
+        {
+            v.Error(nameof(Format), $"{Format} is played by two sides: its kind must be teams");
+        }
+
         for (int i = 0; i < Roles.Length; i++)
         {
             Roles[i].Validate(v.Item(nameof(Roles), i));
@@ -1301,9 +1426,13 @@ public sealed class SpawningDef : IValidatable
     /// <summary>With an objective, you come in at a player spawn at least minDistanceFromYou_m plus this from it.</summary>
     public float ObjectiveClearance_m { get; set; }
 
+    /// <summary>Capture the flag with a flag each: the other team's first start (its base) is no higher or lower than this from yours.</summary>
+    public float BaseHeight_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MinDistanceFromYou_m), MinDistanceFromYou_m, 0, 500);
+        v.InRange(nameof(BaseHeight_m), BaseHeight_m, 0.05, 5);
         v.InRange(nameof(MinSpacing_m), MinSpacing_m, 0, 100);
         v.InRange(nameof(CoverShare), CoverShare, 0, 1);
         v.InRange(nameof(PatrolReach_m), PatrolReach_m, 0, 500);

@@ -65,6 +65,8 @@ public static partial class PropShapes
         ["fountain"] = Fountain,
         ["boiler"] = Boiler,
         ["chimney"] = Chimney,
+        ["inflatable"] = Inflatable,
+        ["gazebo"] = Gazebo,
     };
 
     public static IEnumerable<string> Kinds => Recipes.Keys;

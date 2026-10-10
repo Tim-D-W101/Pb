@@ -84,7 +84,9 @@ public partial class CharacterModel : Node3D
         model.AddChild(instance);
         skeleton.AddChild(poser);
         model._animation = FindFirst<AnimationPlayer>(instance);
-        model.Tint(instance, tint);
+        model._path = path;
+        model._clothesDef = def.Clothes;
+        model.Clothe(path, instance, tint, def.Clothes);
         float unit = SkeletonScale(instance, skeleton);
         model.AddArmband(path, instance, "LeftArm", "LeftForeArm", team, def, unit);
         model.AddArmband(path, instance, "RightArm", "RightForeArm", team, def, unit);
@@ -108,6 +110,20 @@ public partial class CharacterModel : Node3D
             clip.LoopMode = Animation.LoopModeEnum.Linear;
             _animation.Play(clips[0]);
             _animation.Seek(GD.Randf() * (float)clip.Length, update: true);
+        }
+    }
+
+    /// <summary>
+    /// Stops the idle clip at its start (where it loops round), so the body only breathes and shifts its weight: the
+    /// locker, where its looking round would turn the head away from the camera.
+    /// </summary>
+    public void HoldIdle()
+    {
+        if (_animation is not null && _animation.GetAnimationList() is { Length: > 0 } clips)
+        {
+            _animation.Play(clips[0]);
+            _animation.Seek(0.0, update: true);
+            _animation.Pause();
         }
     }
 
@@ -407,6 +423,235 @@ public partial class CharacterModel : Node3D
         Array.Sort(radii);
         return (middle, radii[(int)((Sides - 1) * 0.85f)]);
     }
+
+    private ShaderMaterial? _clothes;
+    private ClothesZones? _zones;
+    private static Shader? _clothesShader;
+    private string _path = "";
+    private ClothesDef _clothesDef = new();
+    private MeshInstance3D? _mask;
+    private MeshInstance3D? _body;
+    private PaintSlots? _bodyPaint;
+    private PaintSlots? _maskPaint;
+
+    /// <summary>The model's surface sorted into its clothes, head and the rest (null when its rig isn't the generator's).</summary>
+    public ClothesZones? Zones => _zones;
+
+    /// <summary>
+    /// Draws the model through character.gdshader, so the kit can repaint its jersey and pants and a brand's mask can
+    /// hide its face: its mesh, built again once with its zones (<see cref="ClothesZones"/>), and its own picture and maps
+    /// in a material of its own, tinted. A model that isn't the generator's rig is only tinted.
+    /// </summary>
+    private void Clothe(string path, Node3D instance, Color tint, ClothesDef def)
+    {
+        foreach (Node node in instance.FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false))
+        {
+            var mesh = (MeshInstance3D)node;
+            if (_zones is not null || mesh.Skin is null || mesh.Mesh?.SurfaceGetMaterial(0) is not BaseMaterial3D source ||
+                ClothesZones.Of(path, mesh, new ClothesZones.FaceDef(def.FaceDepth_m, def.FaceBelow_m)) is not { } zones)
+            {
+                continue;
+            }
+
+            _clothesShader ??= GD.Load<Shader>("res://shaders/character.gdshader");
+            var material = new ShaderMaterial { Shader = _clothesShader };
+            void Texture(string name, Texture2D? texture)
+            {
+                if (texture is not null)
+                {
+                    material.SetShaderParameter(name, texture);
+                }
+            }
+
+            Texture("albedo_tex", source.AlbedoTexture);
+            material.SetShaderParameter("albedo", source.AlbedoColor);
+            material.SetShaderParameter("use_normal_tex", source.NormalEnabled && source.NormalTexture is not null);
+            Texture("normal_tex", source.NormalTexture);
+            material.SetShaderParameter("normal_scale", source.NormalScale);
+            Texture("roughness_tex", source.RoughnessTexture);
+            material.SetShaderParameter("roughness_channel", Channel(source.RoughnessTextureChannel));
+            material.SetShaderParameter("roughness", source.Roughness);
+            Texture("metallic_tex", source.MetallicTexture);
+            material.SetShaderParameter("metallic_channel", Channel(source.MetallicTextureChannel));
+            // Cloth isn't metal: a model whose exporter left glTF's default metalness and gave no map for it is drawn matt.
+            material.SetShaderParameter("metallic", source.MetallicTexture is null && source.Metallic >= 0.99f ? 0f : source.Metallic);
+            material.SetShaderParameter("tint", tint);
+            material.SetShaderParameter("shading", def.Shading);
+            material.SetShaderParameter("jersey_mean", zones.JerseyBrightness);
+            material.SetShaderParameter("pants_mean", zones.PantsBrightness);
+            Vector3 Joint(string name, Vector3 fallback) => zones.Joints.TryGetValue(name, out Vector3 at) ? new Vector3(Mathf.Abs(at.X), at.Y, at.Z) : fallback;
+            material.SetShaderParameter("shoulder", Joint("LeftArm", new Vector3(0.17f, 1.42f, 0f)));
+            material.SetShaderParameter("elbow", Joint("LeftForeArm", new Vector3(0.29f, 1.19f, -0.06f)));
+            material.SetShaderParameter("wrist", Joint("LeftHand", new Vector3(0.42f, 0.99f, 0f)));
+            material.SetShaderParameter("hip", Joint("LeftUpLeg", new Vector3(0.12f, 0.87f, 0f)));
+            material.SetShaderParameter("knee", Joint("LeftLeg", new Vector3(0.17f, 0.51f, 0f)));
+            material.SetShaderParameter("ankle", Joint("LeftFoot", new Vector3(0.24f, 0.12f, 0f)));
+            material.SetShaderParameter("heights", new Vector4(Joint("neck", Vector3.Up * 1.51f).Y, Joint("Spine", Vector3.Up * 1.4f).Y,
+                Joint("Spine02", Vector3.Up * 1.1f).Y, Joint("Hips", Vector3.Up * 0.96f).Y));
+            material.SetShaderParameter("show_zones", Pb.Game.Core.Args.Has("--gear-zones"));
+            mesh.Mesh = zones.Mesh;
+            mesh.SetSurfaceOverrideMaterial(0, material);
+            _clothes = material;
+            _zones = zones;
+            _body = mesh;
+        }
+
+        if (_clothes is null)
+        {
+            Tint(instance, tint);
+        }
+    }
+
+    /// <summary>
+    /// Puts the model in <paramref name="kit"/>: its jersey and pants repainted in their colours and patterns (as they
+    /// are for the field's own in white), and a brand's mask shell on its head, fitted to it, with its own face cut away
+    /// under it.
+    /// </summary>
+    public void Dress(Kit kit)
+    {
+        if (_clothes is null)
+        {
+            return;
+        }
+
+        _mask?.QueueFree();
+        _mask = null;
+        _maskPaint = null;
+        // Checking the zones (--gear-zones=bare): no shell, the face shown in white where it would be cut away.
+        if (_zones is not null && Pb.Game.Core.Args.Value("--gear-zones") != "bare" &&
+            MaskShapes.Shell(kit.Item(Pb.Sim.Gear.GearSlot.Mask), _path, _zones, _clothesDef.MaskGap_m) is { } shell)
+        {
+            _mask = GearModels.Instance("Mask", shell, kit.Colours(Pb.Sim.Gear.GearSlot.Mask), Colors.White);
+            // The shell is built in the head's frame; the bind pose takes the mesh's frame into the Head bone's.
+            _mask.Transform = _zones.HeadBind * _zones.HeadFrame;
+            Attachment("Head").AddChild(_mask);
+        }
+
+        HideFace(_mask is not null);
+        Paint(_clothes, kit);
+    }
+
+    /// <summary>Repaints the clothes and the mask shell in <paramref name="kit"/>'s colours, the items as dressed (the locker).</summary>
+    public void Recolour(Kit kit)
+    {
+        if (_clothes is null)
+        {
+            return;
+        }
+
+        if (_mask is not null)
+        {
+            GearModels.Colour(_mask, kit.Colours(Pb.Sim.Gear.GearSlot.Mask), Colors.White);
+        }
+
+        Paint(_clothes, kit);
+    }
+
+    private static void Paint(ShaderMaterial clothes, Kit kit)
+    {
+        foreach ((Pb.Sim.Gear.GearSlot slot, string name) in new[] { (Pb.Sim.Gear.GearSlot.Jersey, "jersey"), (Pb.Sim.Gear.GearSlot.Pants, "pants") })
+        {
+            Pb.Sim.Gear.GearColours colours = kit.Colours(slot);
+            int pattern = ClothesPatterns.Index(kit.Item(slot).Shape);
+            clothes.SetShaderParameter(name + "_on", pattern != 0 || colours.Main != 0xFFFFFF);
+            clothes.SetShaderParameter(name + "_pattern", pattern);
+            clothes.SetShaderParameter(name + "_main", Linear(colours.Main));
+            clothes.SetShaderParameter(name + "_second", Linear(colours.Second));
+            clothes.SetShaderParameter(name + "_accent", Linear(colours.Accent));
+        }
+    }
+
+    /// <summary>
+    /// Paints <paramref name="splat"/>, found on <paramref name="part"/>'s hitbox, on the body as its shader draws it: a
+    /// hit on the mask on a brand's mask shell (in the shell's frame), anything else on the body in its rest pose, by the
+    /// bone nearest the hit, so the paint moves with the body. The surface lies somewhere behind the hitbox, as far in as
+    /// that bone. Its handle, or 0 if the model has no paint of its own (it isn't the generator's rig): a decal, then.
+    /// </summary>
+    public int Paint(HitboxPart part, in Splat splat, WetSplats splats, SplatDef def)
+    {
+        if (part == HitboxPart.Mask && _mask is not null)
+        {
+            _maskPaint ??= GearModels.Paintable(_mask, splats, def);
+            return _maskPaint is null ? 0 : GearModels.Paint(_maskPaint, _mask, splat, 0.04f);
+        }
+
+        if (_clothes is null || _body?.Skin is not { } skin || !SplatBones.TryGetValue(part, out string[]? bones))
+        {
+            return 0;
+        }
+
+        // The nearest of the part's bones, and how far the hit is from it.
+        int bone = -1;
+        float reach = float.MaxValue;
+        foreach (string name in bones)
+        {
+            int index = _skeleton.FindBone(name);
+            int[] children = _skeleton.GetBoneChildren(index);
+            Vector3 a = _skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(index).Origin;
+            Vector3 b = children.Length > 0 ? _skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(children[0]).Origin : a;
+            float distance = splat.Point.DistanceTo(Geometry3D.GetClosestPointToSegment(splat.Point, a, b));
+            if (distance < reach)
+            {
+                reach = distance;
+                bone = index;
+            }
+        }
+
+        int bind = BindOf(skin, bone);
+        if (bind < 0)
+        {
+            return 0;
+        }
+
+        if (_bodyPaint is null)
+        {
+            _bodyPaint = new PaintSlots(def);
+            _bodyPaint.Bind(_clothes, splats);
+        }
+
+        // From the world into the mesh's rest pose, as that bone moves it now (skinning, the other way round).
+        Transform3D toRest = (_skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(bone) * skin.GetBindPose(bind)).AffineInverse();
+        float unit = toRest.Basis.X.Length();
+        Vector3 facing = (toRest.Basis * splat.Normal).Normalized();
+        return _bodyPaint.Add(toRest * splat.Point, facing, PaintSlots.Across(facing, splat.Spin), splat.Radius * unit,
+            (reach + splat.Radius * 0.5f) * unit, splat.Shape, splat.Colour, PaintSlots.Now);
+    }
+
+    /// <summary>Takes splat <paramref name="handle"/> off the body or the mask, if it's on either.</summary>
+    public bool Withdraw(int handle) => (_bodyPaint?.Withdraw(handle) ?? false) || (_maskPaint?.Withdraw(handle) ?? false);
+
+    /// <summary>The skin's bind that stands for <paramref name="bone"/> (by name, or by index when the binds aren't named), or −1.</summary>
+    private int BindOf(Skin skin, int bone)
+    {
+        for (int b = 0; b < skin.GetBindCount(); b++)
+        {
+            StringName name = skin.GetBindName(b);
+            if (name.IsEmpty ? skin.GetBindBone(b) == bone : _skeleton.FindBone(name) == bone)
+            {
+                return b;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Cuts the model's own face away (under a brand's mask), or shows it again.</summary>
+    public void HideFace(bool hide) => _clothes?.SetShaderParameter("hide_face", hide);
+
+    private static Vector3 Linear(uint colour)
+    {
+        Color c = GearModels.ToColor(colour).SrgbToLinear();
+        return new Vector3(c.R, c.G, c.B);
+    }
+
+    private static Vector4 Channel(BaseMaterial3D.TextureChannel channel) => channel switch
+    {
+        BaseMaterial3D.TextureChannel.Red => new Vector4(1f, 0f, 0f, 0f),
+        BaseMaterial3D.TextureChannel.Green => new Vector4(0f, 1f, 0f, 0f),
+        BaseMaterial3D.TextureChannel.Blue => new Vector4(0f, 0f, 1f, 0f),
+        BaseMaterial3D.TextureChannel.Alpha => new Vector4(0f, 0f, 0f, 1f),
+        _ => new Vector4(1f / 3f, 1f / 3f, 1f / 3f, 0f),
+    };
 
     /// <summary>Tints every surface's colour, so copies of one model don't look like triplets.</summary>
     private void Tint(Node root, Color tint)

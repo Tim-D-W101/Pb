@@ -32,7 +32,7 @@ public enum SimEventType : byte
     PlayerEliminated,
     /// <summary>Paint sprayed a player's mask. TargetId = player, Team = paint, Position = break point, Value = strength 0..1.</summary>
     MaskSprayed,
-    /// <summary>The round moved on (briefing → live). Extra = <see cref="Match.MatchPhase"/>.</summary>
+    /// <summary>The round moved on (briefing → countdown → live). Extra = <see cref="Match.MatchPhase"/>.</summary>
     MatchPhaseChanged,
     /// <summary>The round is decided. Extra = <see cref="Match.RoundOutcome"/>.</summary>
     RoundEnded,
@@ -61,6 +61,36 @@ public enum SimEventType : byte
     /// called out (−1: none in sight), <see cref="SimEvent.Position"/> where they are (or where the caller is looking).
     /// </summary>
     CalledOut,
+
+    /// <summary>
+    /// A joining copy's own ball broke on someone, and the server says it didn't (it missed, or broke elsewhere): the
+    /// splat this copy drew for it comes off. <see cref="SimEvent.PlayerId"/> and <see cref="SimEvent.ShotSequence"/> name
+    /// the ball, <see cref="SimEvent.TargetId"/> who it was drawn on. Raised on that copy only, never sent.
+    /// </summary>
+    SplatWithdrawn,
+
+    /// <summary>
+    /// Speedball: someone started hanging a buzzer (<see cref="SimEvent.Value"/> 1), or stopped before it was done (0).
+    /// <see cref="SimEvent.PlayerId"/> who, <see cref="SimEvent.Team"/> their side, <see cref="SimEvent.Extra"/> whose
+    /// buzzer it is, <see cref="SimEvent.Position"/> its station.
+    /// </summary>
+    BuzzerHanging,
+
+    /// <summary>Speedball: a buzzer was hung, which wins the point. As <see cref="BuzzerHanging"/>.</summary>
+    BuzzerHung,
+
+    /// <summary>
+    /// Capture the flag: someone took a flag. <see cref="SimEvent.PlayerId"/> who, <see cref="SimEvent.Team"/> their side,
+    /// <see cref="SimEvent.Extra"/> which flag, <see cref="SimEvent.Value"/> its side (−1: the centre flag),
+    /// <see cref="SimEvent.Position"/> where it was.
+    /// </summary>
+    FlagTaken,
+
+    /// <summary>Capture the flag: a carrier went out, and the flag lies where they fell. As <see cref="FlagTaken"/>.</summary>
+    FlagDropped,
+
+    /// <summary>Capture the flag: a carrier brought a flag to where their side scores, which wins the point. As <see cref="FlagTaken"/>.</summary>
+    FlagCaptured,
 }
 
 public enum FootstepKind : byte

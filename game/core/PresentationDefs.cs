@@ -36,6 +36,8 @@ public sealed class PresentationDef : IValidatable
 
     public FxDef Fx { get; set; } = new();
 
+    public InflatablesDef Inflatables { get; set; } = new();
+
     public CameraDef Camera { get; set; } = new();
 
     public ViewModelDef ViewModel { get; set; } = new();
@@ -129,6 +131,9 @@ public sealed class PresentationDef : IValidatable
 
     public CharactersDef Characters { get; set; } = new();
 
+    /// <summary>The gear locker (Phase 5): the turntable, its lamp, the camera and each slot's framing, the palette.</summary>
+    public LockerDef Locker { get; set; } = new();
+
     public MaskSprayViewDef MaskSpray { get; set; } = new();
 
     public SpectatorDef Spectator { get; set; } = new();
@@ -137,9 +142,13 @@ public sealed class PresentationDef : IValidatable
 
     public ObjectivesViewDef Objectives { get; set; } = new();
 
+    /// <summary>Capture the flag (Phase 5): the flags, their stands, the rings where each side scores, the HUD's markers.</summary>
+    public FlagsViewDef Flags { get; set; } = new();
+
     public void Validate(Validator v)
     {
         Objectives.Validate(v.Scope(nameof(Objectives)));
+        Flags.Validate(v.Scope(nameof(Flags)));
         if (TeamColors.Length < 2)
         {
             v.Error(nameof(TeamColors), "needs at least two colours");
@@ -170,6 +179,7 @@ public sealed class PresentationDef : IValidatable
         Ball.Validate(v.Scope(nameof(Ball)));
         Splat.Validate(v.Scope(nameof(Splat)));
         Fx.Validate(v.Scope(nameof(Fx)));
+        Inflatables.Validate(v.Scope(nameof(Inflatables)));
         Camera.Validate(v.Scope(nameof(Camera)));
         ViewModel.Validate(v.Scope(nameof(ViewModel)));
         MarkerModel.Validate(v.Scope(nameof(MarkerModel)));
@@ -217,6 +227,7 @@ public sealed class PresentationDef : IValidatable
         Dust.Validate(v.Scope(nameof(Dust)));
         WindowLight.Validate(v.Scope(nameof(WindowLight)));
         Characters.Validate(v.Scope(nameof(Characters)));
+        Locker.Validate(v.Scope(nameof(Locker)));
         MaskSpray.Validate(v.Scope(nameof(MaskSpray)));
         Spectator.Validate(v.Scope(nameof(Spectator)));
         Hud.Validate(v.Scope(nameof(Hud)));
@@ -287,8 +298,55 @@ public sealed class SplatDef : IValidatable
 
     public float DistanceFadeLength_m { get; set; }
 
+    /// <summary>Fresh paint is wet (glossy, its colour deeper by <see cref="WetDarken"/>) and dries over this long (s).</summary>
+    public float Drying_s { get; set; }
+
+    /// <summary>The thick paint's roughness wet and dry (the thin rim's is between them and matt).</summary>
+    public float WetRoughness { get; set; }
+
+    public float DryRoughness { get; set; }
+
+    public float WetDarken { get; set; }
+
+    /// <summary>How far the paint's thickness lifts its surface in the light (the normal map's strength).</summary>
+    public float Bump { get; set; }
+
+    /// <summary>The splats each player, item of gear and your first-person marker keeps (painted in its shader; the oldest goes first).</summary>
+    public int PaintSlots { get; set; }
+
+    /// <summary>A ball breaking this near your eye spatters your first-person marker and gloves with a few small drops this big (m).</summary>
+    public float SpatterReach_m { get; set; }
+
+    public int[] SpatterDrops { get; set; } = System.Array.Empty<int>();
+
+    public float SpatterSize_m { get; set; }
+
+    /// <summary>
+    /// The most the full pool of decals may cost the GPU a frame (ms) before the training ground's stress mode moves the
+    /// world's paint to cards; it measures with and without them for <see cref="MeasureFrames"/> frames each way, twice.
+    /// </summary>
+    public float DecalBudget_ms { get; set; }
+
+    public int MeasureFrames { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(DecalBudget_ms), DecalBudget_ms, 0.05, 50);
+        v.InRange(nameof(MeasureFrames), MeasureFrames, 5, 1000);
+        v.InRange(nameof(Drying_s), Drying_s, 0.5, 3600);
+        v.InRange(nameof(WetRoughness), WetRoughness, 0, 1);
+        v.InRange(nameof(DryRoughness), DryRoughness, WetRoughness, 1);
+        v.InRange(nameof(WetDarken), WetDarken, 0, 0.8);
+        v.InRange(nameof(Bump), Bump, 0, 4);
+        // The shaders hold 16 (paint.gdshaderinc).
+        v.InRange(nameof(PaintSlots), PaintSlots, 1, 16);
+        v.InRange(nameof(SpatterReach_m), SpatterReach_m, 0, 5);
+        if (SpatterDrops.Length != 2 || SpatterDrops[0] < 0 || SpatterDrops[1] < SpatterDrops[0] || SpatterDrops[1] > 16)
+        {
+            v.Error(nameof(SpatterDrops), "must be [fewest, most], 0 to 16");
+        }
+
+        v.InRange(nameof(SpatterSize_m), SpatterSize_m, 0.002, 0.2);
         v.InRange(nameof(Cap), Cap, 0, 20000);
         v.InRange(nameof(FadeWindow), FadeWindow, 1, 5000);
         v.InRange(nameof(SizeMin_m), SizeMin_m, 0.01, 2);
@@ -297,6 +355,29 @@ public sealed class SplatDef : IValidatable
         v.InRange(nameof(NormalFade), NormalFade, 0, 1);
         v.InRange(nameof(DistanceFadeBegin_m), DistanceFadeBegin_m, 1, 1000);
         v.InRange(nameof(DistanceFadeLength_m), DistanceFadeLength_m, 0.1, 1000);
+    }
+}
+
+/// <summary>How an inflatable's fabric dents in and shivers where a ball strikes it (game/world/InflatableWobble.cs).</summary>
+public sealed class InflatablesDef : IValidatable
+{
+    /// <summary>How far the fabric dents in at the hit (m).</summary>
+    public float WobbleDepth_m { get; set; }
+
+    /// <summary>How far round the hit the fabric moves (m).</summary>
+    public float WobbleReach_m { get; set; }
+
+    /// <summary>How long it takes to settle (s), and how fast it shivers meanwhile (Hz).</summary>
+    public float WobbleFade_s { get; set; }
+
+    public float WobbleHz { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(WobbleDepth_m), WobbleDepth_m, 0, 0.2);
+        v.InRange(nameof(WobbleReach_m), WobbleReach_m, 0.05, 3);
+        v.InRange(nameof(WobbleFade_s), WobbleFade_s, 0.05, 5);
+        v.InRange(nameof(WobbleHz), WobbleHz, 0, 60);
     }
 }
 
@@ -933,6 +1014,11 @@ public sealed class GraphicsDef : IValidatable
             p.GroundDetail = ground;
         }
 
+        if (parts.PaintCards is { } cards)
+        {
+            p.PaintCards = cards;
+        }
+
         return p;
     }
 
@@ -1032,6 +1118,10 @@ public sealed class GraphicsPresetDef : IValidatable
     /// <summary>Whether the sun casts shadows (on unless the settings turn them off).</summary>
     [Optional]
     public bool Shadows { get; set; } = true;
+
+    /// <summary>Whether the world's paint is drawn as cards rather than decals (off unless the settings turn it on).</summary>
+    [Optional]
+    public bool PaintCards { get; set; }
 
     public GraphicsPresetDef Copy() => (GraphicsPresetDef)MemberwiseClone();
 
@@ -1381,8 +1471,12 @@ public sealed class CharactersDef : IValidatable
     /// <summary>How far the legs turn from the facing towards where the body is going.</summary>
     public float MaxLegYaw_deg { get; set; }
 
+    /// <summary>The kit worn over the models (Phase 5): how the clothes are repainted, where the face is, how a mask sits.</summary>
+    public ClothesDef Clothes { get; set; } = new();
+
     public void Validate(Validator v)
     {
+        Clothes.Validate(v.Scope(nameof(Clothes)));
         foreach (string tint in Tints)
         {
             if (!Godot.Color.HtmlIsValid(tint))
@@ -1420,6 +1514,205 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(GripDrop_m), GripDrop_m, -0.3, 0.3);
         v.InRange(nameof(ClipBlend_s), ClipBlend_s, 0.02, 2);
         v.InRange(nameof(MaxLegYaw_deg), MaxLegYaw_deg, 0, 90);
+    }
+}
+
+/// <summary>The gear locker (<see cref="Pb.Game.Ui.LockerView"/>): you on a turntable under a lamp in the works' changing room.</summary>
+public sealed class LockerDef : IValidatable
+{
+    /// <summary>The turntable you stand on: its radius and height (m), and the kit materials of its drum and its top.</summary>
+    public float TurntableRadius_m { get; set; }
+
+    public float TurntableHeight_m { get; set; }
+
+    public string TurntableMaterial { get; set; } = "";
+
+    public string TurntableTopMaterial { get; set; } = "";
+
+    /// <summary>The lamp over it: how high (m), how bright, how wide its beam (degrees), its colour, its shade's kit material.</summary>
+    public float LampHeight_m { get; set; }
+
+    public float LampEnergy { get; set; }
+
+    public float LampAngle_deg { get; set; }
+
+    public string LampColor { get; set; } = "";
+
+    public string LampMaterial { get; set; } = "";
+
+    /// <summary>A soft light from beside the camera, so the side of you it looks at always reads: how bright, its colour.</summary>
+    public float FillEnergy { get; set; }
+
+    public string FillColor { get; set; } = "";
+
+    /// <summary>How much brighter the room is shown than the areas' indoors (a multiple of their exposure).</summary>
+    public float Exposure { get; set; }
+
+    /// <summary>How far down you hold your marker while you stand there (degrees), so it's off your mask.</summary>
+    public float HoldPitch_deg { get; set; }
+
+    /// <summary>How far your head turns to follow the camera round (degrees either way).</summary>
+    public float HeadTurn_deg { get; set; }
+
+    /// <summary>Dragging turns the camera round you this many degrees per pixel; scrolling moves it this much nearer or further (m).</summary>
+    public float DragDegPerPx { get; set; }
+
+    /// <summary>A pad's right stick, pushed all the way, turns the camera round you this fast (degrees a second).</summary>
+    public float PadTurn_degPerS { get; set; }
+
+    public float ScrollStep_m { get; set; }
+
+    /// <summary>How near and far the camera goes (m), and how far down and up it looks at you (degrees).</summary>
+    public float MinDistance_m { get; set; }
+
+    public float MaxDistance_m { get; set; }
+
+    public float MinPitch_deg { get; set; }
+
+    public float MaxPitch_deg { get; set; }
+
+    /// <summary>How long the camera takes to come round to a slot's framing (s).</summary>
+    public float Ease_s { get; set; }
+
+    /// <summary>The whole of you, and each slot close up.</summary>
+    public LockerFramingDef All { get; set; } = new();
+
+    public LockerFramingDef Marker { get; set; } = new();
+
+    public LockerFramingDef Loader { get; set; } = new();
+
+    public LockerFramingDef Tank { get; set; } = new();
+
+    public LockerFramingDef Mask { get; set; } = new();
+
+    public LockerFramingDef Jersey { get; set; } = new();
+
+    public LockerFramingDef Pants { get; set; } = new();
+
+    /// <summary>The colours offered for every item's three, besides any you pick yourself (#rrggbb).</summary>
+    public string[] Palette { get; set; } = System.Array.Empty<string>();
+
+    public LockerFramingDef Framing(Pb.Sim.Gear.GearSlot? slot) => slot switch
+    {
+        Pb.Sim.Gear.GearSlot.Marker => Marker,
+        Pb.Sim.Gear.GearSlot.Loader => Loader,
+        Pb.Sim.Gear.GearSlot.Tank => Tank,
+        Pb.Sim.Gear.GearSlot.Mask => Mask,
+        Pb.Sim.Gear.GearSlot.Jersey => Jersey,
+        Pb.Sim.Gear.GearSlot.Pants => Pants,
+        _ => All,
+    };
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(TurntableRadius_m), TurntableRadius_m, 0.2, 2);
+        v.InRange(nameof(TurntableHeight_m), TurntableHeight_m, 0, 0.2);
+        v.NotEmpty(nameof(TurntableMaterial), TurntableMaterial);
+        v.NotEmpty(nameof(TurntableTopMaterial), TurntableTopMaterial);
+        v.InRange(nameof(LampHeight_m), LampHeight_m, 1.8, 4);
+        v.InRange(nameof(LampEnergy), LampEnergy, 0, 20);
+        v.InRange(nameof(LampAngle_deg), LampAngle_deg, 5, 89);
+        v.NotEmpty(nameof(LampMaterial), LampMaterial);
+        v.InRange(nameof(FillEnergy), FillEnergy, 0, 5);
+        v.InRange(nameof(Exposure), Exposure, 0.25, 4);
+        v.InRange(nameof(HoldPitch_deg), HoldPitch_deg, -60, 0);
+        v.InRange(nameof(HeadTurn_deg), HeadTurn_deg, 0, 80);
+        foreach ((string name, string colour) in new[] { (nameof(LampColor), LampColor), (nameof(FillColor), FillColor) })
+        {
+            if (!Godot.Color.HtmlIsValid(colour))
+            {
+                v.Error(name, $"'{colour}' is not a valid colour");
+            }
+        }
+
+        v.InRange(nameof(DragDegPerPx), DragDegPerPx, 0.01, 2);
+        v.InRange(nameof(PadTurn_degPerS), PadTurn_degPerS, 10, 720);
+        v.InRange(nameof(ScrollStep_m), ScrollStep_m, 0.01, 1);
+        v.InRange(nameof(MinDistance_m), MinDistance_m, 0.2, 5);
+        v.InRange(nameof(MaxDistance_m), MaxDistance_m, MinDistance_m, 8);
+        v.InRange(nameof(MinPitch_deg), MinPitch_deg, -80, 0);
+        v.InRange(nameof(MaxPitch_deg), MaxPitch_deg, 0, 80);
+        v.InRange(nameof(Ease_s), Ease_s, 0.01, 3);
+        foreach ((string name, LockerFramingDef framing) in new[] { (nameof(All), All), (nameof(Marker), Marker), (nameof(Loader), Loader),
+                     (nameof(Tank), Tank), (nameof(Mask), Mask), (nameof(Jersey), Jersey), (nameof(Pants), Pants) })
+        {
+            framing.Validate(v.Scope(name), this);
+        }
+
+        if (Palette.Length == 0)
+        {
+            v.Error(nameof(Palette), "needs at least one colour");
+        }
+
+        foreach (string colour in Palette)
+        {
+            if (!Pb.Sim.Gear.GearColours.TryParse(colour, out _))
+            {
+                v.Error(nameof(Palette), $"'{colour}' isn't a colour (#rrggbb)");
+            }
+        }
+    }
+}
+
+/// <summary>How the locker's camera frames you or a slot: the point it looks at, how far off, from which way round and how high.</summary>
+public sealed class LockerFramingDef
+{
+    /// <summary>
+    /// The hitbox part looked at (mask, marker, loader, tank, head, torso, arms, legs), with <see cref="Height_m"/> above
+    /// its middle; empty looks at <see cref="Height_m"/> over the turntable.
+    /// </summary>
+    [Optional]
+    public string Part { get; set; } = "";
+
+    /// <summary>The point looked at is this high over the part's middle, or over the turntable (m).</summary>
+    public float Height_m { get; set; }
+
+    public float Distance_m { get; set; }
+
+    /// <summary>From straight in front of you (0), round to your right (positive) or left (degrees).</summary>
+    public float Yaw_deg { get; set; }
+
+    /// <summary>Looking down on you (positive) or up (degrees).</summary>
+    public float Pitch_deg { get; set; }
+
+    /// <summary>The camera's field of view, top to bottom (degrees): narrower close up, as a photographer's would be.</summary>
+    public float Fov_deg { get; set; }
+
+    public void Validate(Validator v, LockerDef locker)
+    {
+        v.InRange(nameof(Fov_deg), Fov_deg, 15, 90);
+        v.InRange(nameof(Height_m), Height_m, Part.Length > 0 ? -1 : 0, 2.2);
+        if (Part.Length > 0 && (!System.Enum.TryParse(Part, ignoreCase: true, out Pb.Sim.Collision.HitboxPart part) || part == Pb.Sim.Collision.HitboxPart.Body))
+        {
+            v.Error(nameof(Part), $"'{Part}' isn't one of a player's hitbox parts (mask, marker, loader, tank, head, torso, arms, legs)");
+        }
+        v.InRange(nameof(Distance_m), Distance_m, locker.MinDistance_m, locker.MaxDistance_m);
+        v.InRange(nameof(Yaw_deg), Yaw_deg, -180, 180);
+        v.InRange(nameof(Pitch_deg), Pitch_deg, locker.MinPitch_deg, locker.MaxPitch_deg);
+    }
+}
+
+/// <summary>The kit worn over the character models (<see cref="Pb.Game.Player.ClothesZones"/>, character.gdshader).</summary>
+public sealed class ClothesDef : IValidatable
+{
+    /// <summary>How strongly a repainted jersey or pants keeps its picture's shading: the power of its brightness over the zone's mean.</summary>
+    public float Shading { get; set; }
+
+    /// <summary>Under a brand's mask the model's own face is cut away: the head's front this deep (m, back from its headfront joint)...</summary>
+    public float FaceDepth_m { get; set; }
+
+    /// <summary>...and below this far above it (m), so the hood or hair above and behind stays.</summary>
+    public float FaceBelow_m { get; set; }
+
+    /// <summary>How far a mask's shell stands off the head (m).</summary>
+    public float MaskGap_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Shading), Shading, 0, 1.5);
+        v.InRange(nameof(FaceDepth_m), FaceDepth_m, 0.02, 0.25);
+        v.InRange(nameof(FaceBelow_m), FaceBelow_m, -0.1, 0.4);
+        v.InRange(nameof(MaskGap_m), MaskGap_m, 0, 0.05);
     }
 }
 
@@ -2132,6 +2425,76 @@ public sealed class ObjectivesViewDef : IValidatable
     }
 }
 
+public sealed class FlagsViewDef : IValidatable
+{
+    /// <summary>The cloth: its width along the pole's top, and its height down it.</summary>
+    public float[] ClothSize_m { get; set; } = System.Array.Empty<float>();
+
+    /// <summary>The colour of the one flag in the middle of a field (a side's flag is in its side's colour)…</summary>
+    public string CentreColor { get; set; } = "";
+
+    /// <summary>… chequered with black, this many squares along it.</summary>
+    public int CentreChequers { get; set; }
+
+    public float PoleHeight_m { get; set; }
+
+    public float PoleRadius_m { get; set; }
+
+    public string PoleColor { get; set; } = "";
+
+    /// <summary>How fast the cloth waves (cycles a second), and how far its free end moves.</summary>
+    public float WaveSpeed { get; set; }
+
+    public float WaveAmount_m { get; set; }
+
+    public float StandRadius_m { get; set; }
+
+    public string StandColor { get; set; } = "";
+
+    /// <summary>Carried: the pole's foot this far up the carrier's back and this far behind them, leaning back this much.</summary>
+    public float CarryFoot_m { get; set; }
+
+    public float CarryBack_m { get; set; }
+
+    public float CarryLean_deg { get; set; }
+
+    /// <summary>The rings where each side scores: their line's thickness and opacity (their radius is the rules' scoreReach_m).</summary>
+    public float RingWidth_m { get; set; }
+
+    public float RingAlpha { get; set; }
+
+    public float MarkerSize_px { get; set; }
+
+    public void Validate(Validator v)
+    {
+        foreach ((string key, string value) in new[] { (nameof(CentreColor), CentreColor), (nameof(PoleColor), PoleColor), (nameof(StandColor), StandColor) })
+        {
+            if (!Godot.Color.HtmlIsValid(value))
+            {
+                v.Error(key, $"'{value}' is not a valid colour");
+            }
+        }
+
+        if (ClothSize_m.Length != 2 || ClothSize_m.Any(s => s <= 0f || s > 3f))
+        {
+            v.Error(nameof(ClothSize_m), "needs a width and a height, each above 0 and up to 3 m");
+        }
+
+        v.InRange(nameof(CentreChequers), CentreChequers, 0, 16);
+        v.InRange(nameof(PoleHeight_m), PoleHeight_m, 0.5, 5);
+        v.InRange(nameof(PoleRadius_m), PoleRadius_m, 0.005, 0.1);
+        v.InRange(nameof(WaveSpeed), WaveSpeed, 0, 5);
+        v.InRange(nameof(WaveAmount_m), WaveAmount_m, 0, 0.5);
+        v.InRange(nameof(StandRadius_m), StandRadius_m, 0.05, 1);
+        v.InRange(nameof(CarryFoot_m), CarryFoot_m, 0, 2);
+        v.InRange(nameof(CarryBack_m), CarryBack_m, 0, 1);
+        v.InRange(nameof(CarryLean_deg), CarryLean_deg, 0, 60);
+        v.InRange(nameof(RingWidth_m), RingWidth_m, 0.01, 1);
+        v.InRange(nameof(RingAlpha), RingAlpha, 0, 1);
+        v.InRange(nameof(MarkerSize_px), MarkerSize_px, 4, 64);
+    }
+}
+
 public sealed class HudDef : IValidatable
 {
     public float IconSize_px { get; set; }
@@ -2166,6 +2529,9 @@ public sealed class HudDef : IValidatable
 
     public float ChatShow_s { get; set; }
 
+    /// <summary>Speedball: "GO" stays up this long after the horn (s).</summary>
+    public float HornShow_s { get; set; }
+
     public string[] Callsigns { get; set; } = System.Array.Empty<string>();
 
     public CalloutsDef Callouts { get; set; } = new();
@@ -2187,6 +2553,7 @@ public sealed class HudDef : IValidatable
         v.InRange(nameof(CalloutMark_s), CalloutMark_s, 0.5, 30);
         v.InRange(nameof(ChatLines), ChatLines, 1, 20);
         v.InRange(nameof(ChatShow_s), ChatShow_s, 1, 120);
+        v.InRange(nameof(HornShow_s), HornShow_s, 0, 5);
         if (!Godot.Color.HtmlIsValid(HitMarkerColor))
         {
             v.Error(nameof(HitMarkerColor), $"'{HitMarkerColor}' is not a valid colour");
@@ -2239,9 +2606,26 @@ public sealed class RefereeDef : IValidatable
 
     public string[] RoomContested { get; set; } = System.Array.Empty<string>();
 
+    /// <summary>Speedball: a buzzer's been hung; then whose point it is, or nobody's.</summary>
+    public string[] Buzzer { get; set; } = System.Array.Empty<string>();
+
+    public string[] PointWon { get; set; } = System.Array.Empty<string>();
+
+    public string[] PointLost { get; set; } = System.Array.Empty<string>();
+
+    public string[] NoPoint { get; set; } = System.Array.Empty<string>();
+
+    /// <summary>Capture the flag: a flag's been taken, one's down where its carrier went out, and (ending the point) one's captured.</summary>
+    public string[] FlagTaken { get; set; } = System.Array.Empty<string>();
+
+    public string[] FlagDown { get; set; } = System.Array.Empty<string>();
+
+    public string[] FlagCaptured { get; set; } = System.Array.Empty<string>();
+
     /// <summary>Every line, in order (the referee's script).</summary>
     public IEnumerable<string> All => Start.Concat(OneMinute).Concat(ThirtySeconds).Concat(TimeUp).Concat(YoureOut).Concat(Won).Concat(Lost)
-        .Concat(LastStanding).Concat(CaseOut).Concat(RoomHeld).Concat(RoomTaken).Concat(RoomContested);
+        .Concat(LastStanding).Concat(CaseOut).Concat(RoomHeld).Concat(RoomTaken).Concat(RoomContested).Concat(Buzzer).Concat(PointWon)
+        .Concat(PointLost).Concat(NoPoint).Concat(FlagTaken).Concat(FlagDown).Concat(FlagCaptured);
 
     public void Validate(Validator v)
     {
@@ -2284,9 +2668,17 @@ public sealed class CalloutsDef : IValidatable
 
     public string[] RoomAlarm { get; set; } = System.Array.Empty<string>();
 
+    /// <summary>Capture the flag: took a flag; its side's carrier went out close by; told the other side has one.</summary>
+    public string[] FlagTaken { get; set; } = System.Array.Empty<string>();
+
+    public string[] FlagDown { get; set; } = System.Array.Empty<string>();
+
+    public string[] FlagAlarm { get; set; } = System.Array.Empty<string>();
+
     /// <summary>Every line, in order (the bots' script).</summary>
     public IEnumerable<string> All => Spotted.Concat(Lost).Concat(UnderFire).Concat(Refill).Concat(Hit).Concat(Flanking).Concat(Pushing)
-        .Concat(Moving).Concat(ManDown).Concat(CaseTaken).Concat(CaseDown).Concat(CaseAlarm).Concat(RoomAlarm);
+        .Concat(Moving).Concat(ManDown).Concat(CaseTaken).Concat(CaseDown).Concat(CaseAlarm).Concat(RoomAlarm).Concat(FlagTaken).Concat(FlagDown)
+        .Concat(FlagAlarm);
 
     public string[] For(Pb.Sim.AI.CalloutKind kind) => kind switch
     {
@@ -2303,6 +2695,9 @@ public sealed class CalloutsDef : IValidatable
         Pb.Sim.AI.CalloutKind.CaseDown => CaseDown,
         Pb.Sim.AI.CalloutKind.CaseAlarm => CaseAlarm,
         Pb.Sim.AI.CalloutKind.RoomAlarm => RoomAlarm,
+        Pb.Sim.AI.CalloutKind.FlagTaken => FlagTaken,
+        Pb.Sim.AI.CalloutKind.FlagDown => FlagDown,
+        Pb.Sim.AI.CalloutKind.FlagAlarm => FlagAlarm,
         _ => System.Array.Empty<string>(),
     };
 
@@ -2310,7 +2705,8 @@ public sealed class CalloutsDef : IValidatable
     {
         foreach ((string name, string[] lines) in new[] { (nameof(Spotted), Spotted), (nameof(Lost), Lost), (nameof(UnderFire), UnderFire), (nameof(Refill), Refill), (nameof(Hit), Hit),
                      (nameof(Flanking), Flanking), (nameof(Pushing), Pushing), (nameof(Moving), Moving), (nameof(ManDown), ManDown),
-                     (nameof(CaseTaken), CaseTaken), (nameof(CaseDown), CaseDown), (nameof(CaseAlarm), CaseAlarm), (nameof(RoomAlarm), RoomAlarm) })
+                     (nameof(CaseTaken), CaseTaken), (nameof(CaseDown), CaseDown), (nameof(CaseAlarm), CaseAlarm), (nameof(RoomAlarm), RoomAlarm),
+                     (nameof(FlagTaken), FlagTaken), (nameof(FlagDown), FlagDown), (nameof(FlagAlarm), FlagAlarm) })
         {
             if (lines.Length == 0)
             {
@@ -2335,8 +2731,12 @@ public sealed class SpectatorDef : IValidatable
 
     public float FollowHeight_m { get; set; }
 
+    /// <summary>Speedball, out with the point still on: Enter plays the rest of it this many times as fast.</summary>
+    public float FastForward { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(FastForward), FastForward, 1, 8);
         v.InRange(nameof(Duration_s), Duration_s, 0.5, 30);
         v.InRange(nameof(Height_m), Height_m, 0, 10);
         v.InRange(nameof(Back_m), Back_m, 0, 20);

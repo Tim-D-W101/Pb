@@ -34,8 +34,23 @@
     "depth_m": 0.14,
     "normalFade": 0.35,
     "distanceFadeBegin_m": 70,
-    "distanceFadeLength_m": 25
+    "distanceFadeLength_m": 25,
+    // Fresh paint is wet: glossy, its colour wetDarken deeper, and dries to satin over drying_s. Its thickness stands it
+    // proud of the surface in the light by bump (the normal map's strength).
+    "drying_s": 40, "wetRoughness": 0.07, "dryRoughness": 0.55, "wetDarken": 0.12, "bump": 1.0,
+    // Players, their gear and your first-person marker keep their last paintSlots splats in their own shaders (at most
+    // 16), so the paint wraps round them and moves with them. A ball breaking within spatterReach_m of your eye spatters
+    // your marker and gloves with a few drops of spatterSize_m.
+    "paintSlots": 16, "spatterReach_m": 0.8, "spatterDrops": [3, 6], "spatterSize_m": 0.03,
+    // The training ground's stress mode (F3) times what the full pool of decals costs the GPU a frame, with and without
+    // them for measureFrames frames each way (twice). Over decalBudget_ms, the paint on walls, floors and cover is drawn
+    // as cards instead (the graphics settings' "Paint as cards"): cheaper, but only on flat surfaces.
+    "decalBudget_ms": 2.5, "measureFrames": 60
   },
+
+  // Where a ball strikes an inflatable bunker its nylon dents in by wobbleDepth_m and shivers out to wobbleReach_m round
+  // the hit, wobbleHz times a second, settling over wobbleFade_s (presentation only: paint still breaks where it struck).
+  "inflatables": { "wobbleDepth_m": 0.04, "wobbleReach_m": 0.7, "wobbleFade_s": 0.6, "wobbleHz": 9 },
 
   // Impact bursts. Bursts nearer the camera than minCameraDistance_m are skipped: point-blank spray
   // would fill the screen with flecks (paint on your mask is a separate effect).
@@ -1044,7 +1059,46 @@
     // Where the wrists sit on the marker: along it from the back (0) to the front (1), and below it.
     "triggerGrip": 0.3,
     "supportGrip": 0.85,
-    "gripDrop_m": 0.03
+    "gripDrop_m": 0.03,
+    // The kit worn over the models (Phase 5). A jersey or pants in a colour is repainted keeping its picture's shading
+    // (its brightness over the zone's mean, to the power `shading`: 1 as it is, less evens it out). Under a brand's mask
+    // the model's own face is cut away: the head's front faceDepth_m deep (back from its headfront joint), below
+    // faceBelow_m above its head's joint (the hood or hair above and behind stays); the mask's shell stands maskGap_m
+    // off the head.
+    "clothes": { "shading": 0.5, "faceDepth_m": 0.11, "faceBelow_m": 0.12, "maskGap_m": 0.008 }
+  },
+
+  // The gear locker (Phase 5): you on a turntable under a lamp in the works' changing room (levels/locker_room.jsonc).
+  "locker": {
+    // The turntable you stand on (its drum and its top, kit materials), and the lamp hanging over it (this high above the
+    // floor, this bright and this wide, under a shade of this kit material).
+    "turntableRadius_m": 0.55, "turntableHeight_m": 0.05, "turntableMaterial": "steel_painted", "turntableTopMaterial": "rubber_plain",
+    "lampHeight_m": 2.7, "lampEnergy": 3.5, "lampAngle_deg": 38, "lampColor": "#ffe7c4", "lampMaterial": "enamel_white",
+    // A soft light from beside the camera, so whichever side of you it looks at reads; the room shown this much brighter
+    // than the areas' indoors; your marker held this far down while you stand there, off your mask; and how far your
+    // head turns to follow the camera round.
+    "fillEnergy": 1.2, "fillColor": "#dde6f0", "exposure": 1.25, "holdPitch_deg": -32, "headTurn_deg": 45,
+    // The camera turns round you as you drag (degrees per pixel, or a pad's right stick at padTurn_degPerS) and comes
+    // nearer or goes further as you scroll (metres a notch), from minDistance_m to maxDistance_m away, looking down on you
+    // at most maxPitch_deg and up at most minPitch_deg; picking a slot brings it round to that slot's framing over ease_s.
+    "dragDegPerPx": 0.35, "padTurn_degPerS": 150, "scrollStep_m": 0.15, "minDistance_m": 0.55, "maxDistance_m": 3.6, "minPitch_deg": -25, "maxPitch_deg": 40,
+    "ease_s": 0.45,
+    // Each framing: the point looked at (height_m over the middle of the hitbox part it names, or over the turntable), how
+    // far off (m), from which way round (degrees from straight in front, positive to your right), how high (degrees,
+    // looking down positive) and the camera's field of view (degrees, top to bottom).
+    "all": { "height_m": 0.95, "distance_m": 3.3, "yaw_deg": 22, "pitch_deg": 6, "fov_deg": 40 },
+    "marker": { "part": "marker", "height_m": 0, "distance_m": 1.25, "yaw_deg": 35, "pitch_deg": 12, "fov_deg": 32 },
+    "loader": { "part": "loader", "height_m": 0, "distance_m": 1.0, "yaw_deg": 30, "pitch_deg": 34, "fov_deg": 32 },
+    "tank": { "part": "tank", "height_m": 0, "distance_m": 1.05, "yaw_deg": 110, "pitch_deg": 18, "fov_deg": 32 },
+    "mask": { "part": "head", "height_m": 0.08, "distance_m": 1.4, "yaw_deg": -24, "pitch_deg": 4, "fov_deg": 30 },
+    "jersey": { "part": "torso", "height_m": 0.05, "distance_m": 1.9, "yaw_deg": -20, "pitch_deg": 4, "fov_deg": 36 },
+    "pants": { "part": "legs", "height_m": 0, "distance_m": 1.9, "yaw_deg": -15, "pitch_deg": 6, "fov_deg": 36 },
+    // The colours offered for an item's three, besides any you pick yourself.
+    "palette": [
+      "#ffffff", "#e4e7ea", "#c8c2b2", "#9aa0a6", "#5b5e62", "#3a3f45", "#2c2e31", "#1f2328", "#0f1012",
+      "#b4572b", "#c0392b", "#e2622d", "#f0a830", "#f2d544", "#9f8963", "#4a4e39", "#5f7a3a", "#2e8b57",
+      "#16a7c2", "#2f6fd6", "#1d3f8f", "#6c3fb5", "#b03a7c", "#e06a9a", "#6b4a2f", "#8a2b2b", "#2b5d5d"
+    ]
   },
 
   // Paint on your mask when a ball breaks near your face (spec §1.3): drops of the ball's colour that
@@ -1053,8 +1107,10 @@
 
   // After you're eliminated, a view from above and behind where you stood, facing whoever got you,
   // for duration_s. Then, while your team (or, in free-for-all, anyone) is still in, a camera follows
-  // one of them from followBack_m behind and followHeight_m above their eyes; click for the next.
-  "spectator": { "duration_s": 4.0, "height_m": 1.4, "back_m": 2.5, "followBack_m": 3.2, "followHeight_m": 0.9 },
+  // one of them from followBack_m behind and followHeight_m above their eyes; click for the next. In a
+  // speedball match there's no summary between points: Enter plays the rest of the point fastForward times
+  // as fast instead.
+  "spectator": { "duration_s": 4.0, "height_m": 1.4, "back_m": 2.5, "followBack_m": 3.2, "followHeight_m": 0.9, "fastForward": 4 },
 
   // The match HUD (spec §6): top bar with the clock and an in/out icon per player, kill feed,
   // subtitles for what players shout, pickup prompts and a hit marker.
@@ -1083,6 +1139,9 @@
     "calloutMark_s": 4,
     "chatLines": 6,
     "chatShow_s": 10,
+    // Speedball: the countdown to the horn counts down big in the middle of the screen, and "GO" stays up this long
+    // after it.
+    "hornShow_s": 0.8,
     // Opponents' callsigns, dealt in a shuffled order each round (invented names only).
     "callsigns": ["Rook", "Magpie", "Tinker", "Moth", "Ferret", "Badger", "Sparrow", "Flint", "Gannet", "Wren", "Otter", "Lark"],
     // What bots shout; one line is picked per call. Each line is also a voice file per voice in the cast ("audio" →
@@ -1100,7 +1159,12 @@
       "caseTaken": ["Got the case!", "I've got it, cover me!", "Case is mine, heading out!"],
       "caseDown": ["Case is down!", "We lost the case, grab it!", "Someone get the case!"],
       "caseAlarm": ["They've got the case!", "The case is moving, stop them!", "Cut them off!"],
-      "roomAlarm": ["They're in the room!", "Take the room back!", "They're holding it, go!"]
+      "roomAlarm": ["They're in the room!", "Take the room back!", "They're holding it, go!"],
+      // Capture the flag (no take of these yet: subtitled only): a bot takes a flag, sees its side's carrier go out
+      // close by, or is told the other side has one.
+      "flagTaken": ["Got the flag!", "I've got the flag, cover me!", "Flag's mine, keep them off me!"],
+      "flagDown": ["The flag is down!", "Flag's down, grab it!", "Someone get that flag!"],
+      "flagAlarm": ["They've got the flag!", "The flag's moving, stop them!", "Get that flag back!"]
     },
     // What the referee calls (subtitles, and the referee's voice): at the breakout, a minute and thirty seconds from
     // time, at time, when you're out, and how the round went (won: cleared or traded; lastStanding: free-for-all
@@ -1118,7 +1182,16 @@
       "caseOut": ["The case is out! Round over."],
       "roomHeld": ["Room held! Round over."],
       "roomTaken": ["Room taken. Hold it!"],
-      "roomContested": ["The room is contested!"]
+      "roomContested": ["The room is contested!"],
+      // Speedball's points (no take of these yet: they're subtitled only until one's imported).
+      "buzzer": ["Buzzer!"],
+      "pointWon": ["Point to you!"],
+      "pointLost": ["Point to them."],
+      "noPoint": ["No point!"],
+      // Capture the flag's (subtitled only, too, until a take's imported).
+      "flagTaken": ["The flag is taken!"],
+      "flagDown": ["Flag down!"],
+      "flagCaptured": ["Flag captured!"]
     }
   },
 
@@ -1138,6 +1211,34 @@
     "beamAlpha": 0.22,
     "roomOutlineWidth_m": 0.1,
     "seenWithin_m": 30,
+    "markerSize_px": 16
+  },
+
+  // Capture the flag (rules.jsonc "flag"), looks only. Each flag is a cloth this size (width along the pole, height)
+  // in its side's colour (the one in the middle of a field, nobody's, centreColor chequered with black, centreChequers
+  // squares along it; the HUD and the map mark it in centreColor) on a pole this tall and thick, with a ball
+  // on top, waving at waveSpeed (cycles a second) by up to waveAmount_m at its free end. At home it stands in a weighted
+  // stand (standRadius_m, standColor), which stays there while the flag's away; carried, it rides on its carrier's back,
+  // the pole's foot carryFoot_m up and carryBack_m behind them, leaning back carryLean_deg; dropped, it lies where it
+  // fell, still. Where each side scores is a ring on the ground in that side's colour (as wide as the rules' scoreReach_m,
+  // ringWidth_m thick, ringAlpha opaque): round its own base, or on a field round the other side's buzzer station. The
+  // HUD marks the flags and where you score with markers this size.
+  "flags": {
+    "clothSize_m": [0.62, 0.42],
+    "centreColor": "#f4f1e8",
+    "centreChequers": 6,
+    "poleHeight_m": 1.9,
+    "poleRadius_m": 0.016,
+    "poleColor": "#cfd2d4",
+    "waveSpeed": 0.9,
+    "waveAmount_m": 0.07,
+    "standRadius_m": 0.22,
+    "standColor": "#2e312d",
+    "carryFoot_m": 0.95,
+    "carryBack_m": 0.2,
+    "carryLean_deg": 14,
+    "ringWidth_m": 0.12,
+    "ringAlpha": 0.65,
     "markerSize_px": 16
   },
 

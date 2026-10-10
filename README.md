@@ -10,7 +10,22 @@ settings; after your play-test (2026-10-06) every area is open with nothing to u
 steps; since then they look round, shift their weight, pull up from a run, keep out of their cover and put a hand up
 when hit (M3.14), and you and they can climb every ladder (M3.15).** **Phase 4 (multiplayer: co-op against the bots and player
 vs player for up to ten, hosted from the game or on a dedicated server) is finished but for your check
-([report](docs/reports/phase-4.md), [plan](docs/phase-4.md), [hosting](docs/hosting.md)).** Phase 2 is built
+([report](docs/reports/phase-4.md), [plan](docs/phase-4.md), [hosting](docs/hosting.md)), and merged.** **Phase 5 (the gear
+locker, four brands of our own, gear models, paint that looks like paint, and the speedball field with capture the flag
+and arcade) is under way: the plan is approved with its defaults ([plan](docs/phase-5.md)); M5.1 is built (the four
+brands' kit, built in code, worn in first person and by every character, bots dealt theirs), and so is M5.2: the **Gear
+locker** in the main menu and the lobby, an old changing room where you stand on a turntable under a lamp and pick your
+character, each slot's item by brand and its three colours, saved to your profile and worn in every round; M5.3:
+online, everyone sees everyone's kit; and M5.4: paint that looks like paint, wet and glossy as it lands and drying to
+satin, wrapped round players and their gear and moving with them, spattering your own marker and gloves when a ball breaks
+close to you; and M5.5: **the Sports Ground**, a fifth area, the paintball club's speedball field beside the works:
+inflatable bunkers on mown turf inside nets, in two layouts (Classic, mirrored, and Crossfire, turned half round), the
+club's pits and the brands' banners round it, and the works over the fence; and M5.6: **speedball** on it, 5 v 5 with
+bots on either side, each point from the start boxes after a countdown to the horn, won by putting the other side out
+or holding Interact at their buzzer for 2 s, first to 4 points, offline and online; and M5.7: **capture the flag**, on
+every area: on the field one flag on the centre bunker for either side to carry to the other's buzzer, and in the
+compounds a flag at each side's base to take home from the other's, one life each, first to 3 points, offline and
+online.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -209,7 +224,7 @@ reported with the file and key; the game won't silently use a wrong value.
 | `bots/navigation.jsonc` | The bots' navigation grid: cell size, clearance, headroom, step height |
 | `ranges/phase1.jsonc` | Range layout: targets, props, distance markers |
 | `kit/*.jsonc` | Level kit: surface materials, props, building templates |
-| `levels/*.jsonc` | Compound levels (layout, spawns, patrols, pickups) |
+| `levels/*.jsonc` | Compound levels (layout, spawns, patrols, pickups), and the Sports Ground's field (its layouts of bunkers, nets and banners) |
 | `levels/areas.jsonc` | The areas to play in, all open, in menu order, with their difficulty tiers (bot difficulty, time limits, starting pods, pickups), each area's roster for scripted runs, and what the records count. Where in an area to play is the level file's `places` |
 | `rules.jsonc` | Round rules: mode, settle window for balls in the air, trades, pickup radius |
 | `stress.jsonc` | Stress-mode ball count and cannons |
@@ -220,7 +235,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 355 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots…) — no Godot needed
+dotnet test                                          # 452 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots…) — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, a bot match and the art import (Linux/macOS)
 ```

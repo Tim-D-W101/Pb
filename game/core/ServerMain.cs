@@ -30,7 +30,8 @@ namespace Pb.Game.Core;
 /// <item>Each round it builds only what walking and paint need: no dressing, sound or HUD. It casts the round with
 /// everyone in and bots for the places left, sends it, waits for every copy to build it, shows the briefing, and runs
 /// it.</item>
-/// <item>After the summary it moves on to the rotation's next round, or to the vote.</item>
+/// <item>After the summary it moves on to the rotation's next round, or to the vote. A match of points (speedball,
+/// capture the flag) goes point after point instead, everyone still in, until a side has won it.</item>
 /// </list>
 /// It logs who joined and left, each round and how it went, and anything it dropped (<see cref="ServerLog"/>).
 /// <c>--host-wait=N</c> starts the first countdown once N people are in (and the next ones with whoever's in);
@@ -104,6 +105,11 @@ public partial class ServerMain : Node3D, ISimEventListener
         _session.InRound = false;
         _lobby.CountdownFinished += BuildRound;
         _server.Left += OnLeft;
+        if (_lobby.Phase == LobbyPhase.Loading && _lobby.MatchOn)
+        {
+            // A match's next point, straight after the last.
+            Callable.From(BuildRound).CallDeferred();
+        }
     }
 
     public override void _ExitTree()
@@ -126,7 +132,7 @@ public partial class ServerMain : Node3D, ISimEventListener
     {
         var identity = new ServerIdentity(_config.Name, BuildStamp.Build, BuildStamp.DataHash, _config.Password);
         LobbyChoices first = _config.Rotation[_rotation % _config.Rotation.Count];
-        NetSession session = NetSession.Serve(GetTree(), NetStart.Settings(), identity, _config.Port, _data.Config.Rules, first, _config.MaxPeople);
+        NetSession session = NetSession.Serve(GetTree(), NetStart.Settings(), identity, _config.Port, _data.Config.Rules, first, _config.MaxPeople, _data.Gear);
         session.Announce(() => NetStart.Announcement(_data, session, _config.Port));
         ServerLog.Line($"settings from {_config.Source}: {_config.Rotation.Count} round{(_config.Rotation.Count == 1 ? "" : "s")} in turn, " +
                        $"bots {(_config.Bots ? "on" : "off")}, vote {(_config.Vote ? "on" : "off")}, password {(_config.Password.Length > 0 ? "set" : "none")}");
@@ -207,7 +213,7 @@ public partial class ServerMain : Node3D, ISimEventListener
                 continue;
             }
 
-            people.Add(new Person(m.Name, m.Look, m.Side));
+            people.Add(new Person(m.Name, m.Look, m.Side, m.Kit));
             _people.Add(link);
             _members.Add(m.Id);
         }
@@ -230,8 +236,8 @@ public partial class ServerMain : Node3D, ISimEventListener
         int size = RoundCasting.FitSize(chosen.Mode, chosen.Size, people.Count, _data.Config.Rules.MaxPlayers, largest);
         float? limit = float.TryParse(Args.Value("--time-limit"), NumberStyles.Float, CultureInfo.InvariantCulture, out float seconds) ? seconds : null;
         CastRound cast = RoundCasting.Cast(level, squad.Cover, sim.Collision, _data.Config, _data.Bots, chosen.Mode, size, chosen.Objective, chosen.Tier,
-            people, seed, _session.RoundsPlayed + 1, _view.Hud.Callsigns, chosen.Entry.Id, chosen.Place.Whole ? null : chosen.Place.Id, limit,
-            fillWithBots: _config.Bots);
+            people, seed, _session.RoundsPlayed + 1, _view.Hud.Callsigns, chosen.Entry.Id, RoundChoices.PlaceIdOf(chosen.Area, chosen.Place), limit,
+            fillWithBots: _config.Bots, match: _lobby.PlaysMatch ? _lobby.Score : null);
         RoundSetupMessage setup = cast.Setup;
         foreach (RosterEntry e in setup.Roster)
         {
@@ -400,15 +406,33 @@ public partial class ServerMain : Node3D, ISimEventListener
                            $"violations {link.Violations}, {shots}");
         }
 
-        _summaryLeft = Math.Max(0.5, _config.Summary);
+        // Between a speedball match's points, the rules' wait; after a round (or the match), the summary's.
+        _summaryLeft = _lobby.MatchOn ? _data.Config.Rules.PointsFor(_match.Setup.Format)?.BetweenPoints ?? 0.5 : Math.Max(0.5, _config.Summary);
+        if (_lobby.PlaysMatch)
+        {
+            ServerLog.Line($"match: {_lobby.State.MatchPoints[0]}–{_lobby.State.MatchPoints[1]} after {_lobby.State.MatchPlayed} point" +
+                           $"{(_lobby.State.MatchPlayed == 1 ? "" : "s")}, first to {_lobby.RaceTo}{(_lobby.MatchOn ? "" : ": won")}");
+        }
     }
 
-    /// <summary>After the summary: the rotation's next round (or the vote), everyone back in the lobby, the scene built afresh.</summary>
+    /// <summary>
+    /// After the summary: the rotation's next round (or the vote), everyone back in the lobby, the scene built afresh. A
+    /// match of points still on has its next point built instead (it counts as one round served, once it's won).
+    /// </summary>
     private void NextRound()
     {
         _moving = true;
-        _served++;
         RoundSetupMessage? setup = _session.Round;
+        if (_lobby.MatchOn)
+        {
+            _session.RoundsPlayed = setup?.Round ?? _session.RoundsPlayed;
+            _lobby.NextPoint();
+            StopNetwork();
+            GetTree().ReloadCurrentScene();
+            return;
+        }
+
+        _served++;
         if (Args.Ticks("--rounds", 0) is > 0 and int most && _served >= most)
         {
             ServerLog.Line($"{_served} round{(_served == 1 ? "" : "s")} served: stopping");

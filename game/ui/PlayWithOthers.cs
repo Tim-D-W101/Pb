@@ -12,7 +12,7 @@ using Pb.Sim.Data;
 namespace Pb.Game.Ui;
 
 /// <summary>
-/// The main menu's Play with others: your name and character, then
+/// The main menu's Play with others: your name and your kit (the gear locker), then
 /// <list type="bullet">
 /// <item><b>Host a game</b>, with a password if you want one: others on your network see it in their list, and over the
 /// internet they join by address once UDP port 47820 is forwarded to you;</item>
@@ -31,12 +31,15 @@ public partial class PlayWithOthers : VBoxContainer
     private LineEdit _hostPassword = null!;
     private LineEdit _joinPassword = null!;
     private VBoxContainer _found = null!;
-    private HBoxContainer _looks = null!;
+    private Label _character = null!;
     private Label _problem = null!;
     private string _shown = "?";
 
     /// <summary>Back to the title.</summary>
     public Action? Back { get; set; }
+
+    /// <summary>Opens the gear locker, where you pick your character and kit.</summary>
+    public Action? OpenLocker { get; set; }
 
     public void Build(GameData data, PresentationDef view, GameSettings settings)
     {
@@ -57,7 +60,7 @@ public partial class PlayWithOthers : VBoxContainer
         lead.CustomMinimumSize = new Vector2(1180, 0);
         AddChild(lead);
 
-        // You: your name and character.
+        // You: your name, and your character and kit from the locker.
         HBoxContainer you = UiKit.Row(16);
         Label nameLabel = UiKit.Body("Your name");
         nameLabel.CustomMinimumSize = new Vector2(150, 0);
@@ -71,9 +74,13 @@ public partial class PlayWithOthers : VBoxContainer
         _name.TextChanged += _ => Remember();
         you.AddChild(_name);
         you.AddChild(new Control { CustomMinimumSize = new Vector2(24, 0) });
-        _looks = UiKit.Row(8);
-        you.AddChild(_looks);
-        ShowLooks();
+        Button locker = UiKit.Button("Gear locker", () => OpenLocker?.Invoke(), 240);
+        locker.Name = "Locker";
+        you.AddChild(locker);
+        _character = UiKit.Body("", 18, UiKit.Dim);
+        _character.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        you.AddChild(_character);
+        ShowCharacter();
         AddChild(you);
 
         HBoxContainer columns = UiKit.Row(20);
@@ -199,32 +206,11 @@ public partial class PlayWithOthers : VBoxContainer
         }
     }
 
-    private void ShowLooks()
+    /// <summary>Which character you'll play, as the locker last saved it.</summary>
+    public void ShowCharacter()
     {
-        foreach (Node child in _looks.GetChildren())
-        {
-            _looks.RemoveChild(child);
-            child.QueueFree();
-        }
-
-        _looks.AddChild(UiKit.Body("Character", 20));
         int count = Math.Max(1, _view.Characters.Models.Length);
-        for (int i = 0; i < count; i++)
-        {
-            int index = i;
-            var button = new Button
-            {
-                Name = $"Look_{i}", Text = $"{i + 1}", ToggleMode = true, ButtonPressed = i == _settings.PlayerLook % count,
-                CustomMinimumSize = new Vector2(64, 44), FocusMode = FocusModeEnum.All,
-            };
-            button.Pressed += () =>
-            {
-                _settings.PlayerLook = index;
-                Remember();
-                ShowLooks();
-            };
-            _looks.AddChild(button);
-        }
+        _character.Text = $"Character {_settings.PlayerLook % count + 1}, in your kit";
     }
 
     private static LineEdit Field(string name, string placeholder) =>
@@ -240,7 +226,7 @@ public partial class PlayWithOthers : VBoxContainer
         return row;
     }
 
-    /// <summary>Your name and character, saved as you change them.</summary>
+    /// <summary>Your name, saved as you change it.</summary>
     private void Remember()
     {
         if (Platforms.Current.Identity.ChoosesName)
@@ -285,7 +271,7 @@ public partial class PlayWithOthers : VBoxContainer
         _settings.Save();
         try
         {
-            NetStart.Join(GetTree(), a, PlayName(), (byte)_settings.PlayerLook, _joinPassword.Text.Trim(), _settings.PretendLag_ms,
+            NetStart.Join(GetTree(), _data, a, PlayName(), (byte)_settings.PlayerLook, _joinPassword.Text.Trim(), _settings.PretendLag_ms,
                 Platforms.Current.Identity.Id);
         }
         catch (InvalidOperationException ex)

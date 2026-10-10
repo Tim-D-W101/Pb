@@ -9,6 +9,8 @@
 //   pickups      whether the place's paint and air pickups are out
 // roster: the opponent spawns scripted solo runs over the whole area (smoke tests, demos) fill, in this
 // order, so they play out the same every time. Real rounds deal random starts (rules.jsonc "spawning").
+// modes (optional): the modes the area offers (rules.jsonc "modes" ids), in the menu's order; without it, every mode
+// but speedball (which needs a field).
 {
   // The menu keeps your best result in each area, place, mode, objective and difficulty (records only:
   // they unlock nothing). Accuracy only counts from rounds with at least this many shots.
@@ -61,6 +63,21 @@
       "roster": [
         "outpatients", "theatre", "womens_ward", "courtyard", "main_entrance", "east_stairs", "pharmacy", "sun_ward",
         "boiler_house", "fallen_end"
+      ]
+    },
+    {
+      // The club's speedball field (Phase 5): its own modes, and no pickups on the field (you carry what you bring). A
+      // point of speedball or capture the flag has its mode's clock (rules.jsonc "speedball", "flag"), not the tier's.
+      "id": "sports_ground", "displayName": "The Sports Ground", "file": "levels/sports_ground.jsonc",
+      "modes": ["speedball", "flag"],
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 600, "startPods": 3, "botPods": 2, "pickups": false },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 540, "startPods": 2, "botPods": 2, "pickups": false },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 480, "startPods": 2, "botPods": 3, "pickups": false }
+      ],
+      "roster": [
+        "north_box", "north_snake", "north_wedges", "north_centre", "north_back_left", "north_back_right", "north_mid_left",
+        "north_mid_right", "north_box_left", "north_box_right"
       ]
     }
   ]

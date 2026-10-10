@@ -23,6 +23,7 @@
     "kit/buildings/north_wing.jsonc",
     "kit/buildings/west_wing.jsonc",
     "kit/buildings/boiler_house.jsonc",
-    "kit/buildings/ambulance_canopy.jsonc"
+    "kit/buildings/ambulance_canopy.jsonc",
+    "kit/buildings/changing_room.jsonc"
   ]
 }

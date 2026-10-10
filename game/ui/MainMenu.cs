@@ -31,7 +31,12 @@ public partial class MainMenu : Control
     private Control _levels = null!;
     private Control _settingsScreen = null!;
     private Control _others = null!;
+    private LockerView? _locker;
     private int _tourFrame = -1;
+    private bool _touringLocker;
+    private int _lockerFrame;
+    private int _lockerWait;
+    private List<(string Name, Action Do)>? _lockerSteps;
     private TextureRect _backdrop = null!;
     private static bool _skippedToLevel;
     private static bool _runtimeLogged;
@@ -103,7 +108,7 @@ public partial class MainMenu : Control
 
         // The compound behind the menu, where there's a screen to show it on (not in CI's headless runs):
         // built a piece a frame behind the plain backdrop, which then fades to a shade over it.
-        if (DisplayServer.GetName() != "headless" && !Args.Has("--smoke-test") && !(Args.Has("--level") && !_skippedToLevel))
+        if (DisplayServer.GetName() != "headless" && !Args.Has("--smoke-test") && !Args.Has("--locker-tour") && !(Args.Has("--level") && !_skippedToLevel))
         {
             var shade = new TextureRect
             {
@@ -148,6 +153,10 @@ public partial class MainMenu : Control
         {
             _tourFrame = 0;
         }
+        else if (Args.Has("--locker-tour"))
+        {
+            _touringLocker = true;
+        }
         else if ((Args.Has("--host") || Args.Has("--join")) && !_skippedToLevel)
         {
             // Playing with others from the command line (once): hosting, or joining the address given, then the lobby.
@@ -164,6 +173,12 @@ public partial class MainMenu : Control
 
     public override void _Process(double delta)
     {
+        if (_touringLocker)
+        {
+            LockerTour();
+            return;
+        }
+
         if (_tourFrame < 0)
         {
             return;
@@ -205,10 +220,157 @@ public partial class MainMenu : Control
                 }
 
                 break;
-            case 210:
+            case 195:
+                // The gear locker: the whole kit, then the marker and the mask close up.
+                OpenLocker(_title);
+                break;
+            case 225:
+                _locker?.Pick(Pb.Sim.Gear.GearSlot.Marker);
+                break;
+            case 245:
+                _locker?.Pick(Pb.Sim.Gear.GearSlot.Mask);
+                break;
+            case 265:
+                _locker?.Close(false);
+                break;
+            case 275:
                 GetTree().Quit();
                 break;
         }
+    }
+
+    /// <summary>
+    /// <c>-- --locker-tour</c>: the gear locker on its own, the whole kit and then each slot close up, a brand's range,
+    /// the clothes in a side's colour, held <c>--locker-hold=N</c> frames each (24) and printed as they come, then quits
+    /// (<c>--locker-from=N</c> starts at step N).
+    /// </summary>
+    private void LockerTour()
+    {
+        if (_locker is null && _lockerWait == 0)
+        {
+            OpenLocker(_title);
+        }
+
+        // Each step once the room's built (it takes a few frames).
+        if (_locker is not { Built: true } locker)
+        {
+            if (++_lockerWait > 600)
+            {
+                GD.PushError("LOCKER TOUR: the locker never finished building");
+                GetTree().Quit(1);
+            }
+
+            return;
+        }
+
+        if (_lockerSteps is null)
+        {
+            _lockerSteps = new List<(string Name, Action Do)> { ("the whole kit", () => locker.Pick(null)) };
+            foreach (Pb.Sim.Gear.GearSlot slot in Enum.GetValues<Pb.Sim.Gear.GearSlot>())
+            {
+                _lockerSteps.Add(($"the {slot.ToString().ToLowerInvariant()}", () => locker.Pick(slot)));
+            }
+
+            _lockerSteps.Add(("Vellis's range", () =>
+            {
+                locker.Pick(null);
+                (locker.FindChild("Range_vellis", recursive: true, owned: false) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+            }));
+            _lockerSteps.Add(("its jersey in a side's colour", () =>
+            {
+                locker.Pick(Pb.Sim.Gear.GearSlot.Jersey);
+                if (locker.FindChild("SideColour", recursive: true, owned: false) is Node row &&
+                    row.FindChildren("*", nameof(Button), owned: false).FirstOrDefault() is Button toggle)
+                {
+                    toggle.ButtonPressed = true;
+                }
+            }));
+            _lockerSteps.Add(("its marker in colours of your own", () =>
+            {
+                locker.Pick(Pb.Sim.Gear.GearSlot.Marker);
+                locker.SetColour(0, Color.FromHtml("#8a2b2b"));
+                locker.SetColour(1, Color.FromHtml("#f0a830"));
+            }));
+            // The other characters, each in another brand's range, the whole of them and their mask.
+            foreach ((int character, string brand) in new[] { (1, "quarrow"), (2, "kilnmark") })
+            {
+                _lockerSteps.Add(($"character {character + 1} in {brand}'s range", () =>
+                {
+                    locker.Pick(null);
+                    if (locker.FindChild($"Look_{character}", recursive: true, owned: false) is Button look)
+                    {
+                        look.ButtonPressed = true;
+                    }
+
+                    (locker.FindChild($"Range_{brand}", recursive: true, owned: false) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+                }));
+                _lockerSteps.Add(($"character {character + 1}'s mask", () => locker.Pick(Pb.Sim.Gear.GearSlot.Mask)));
+            }
+        }
+
+        int hold = Args.Ticks("--locker-hold", 24) ?? 24;
+        if (_lockerFrame == 0)
+        {
+            // --locker-from=N starts at step N (the steps before it skipped).
+            _lockerFrame = Math.Max(0, Args.Ticks("--locker-from", 0) ?? 0) * hold;
+        }
+
+        int frame = _lockerFrame++;
+        if (frame % hold != 0)
+        {
+            return;
+        }
+
+        int index = frame / hold;
+        if (index > 0)
+        {
+            GD.Print($"LOCKER TOUR camera: {locker.CameraLine}");
+        }
+
+        if (index >= _lockerSteps.Count)
+        {
+            GD.Print("LOCKER TOUR done");
+            GetTree().Quit();
+            return;
+        }
+
+        _lockerSteps[index].Do();
+        GD.Print($"LOCKER TOUR {index}: {_lockerSteps[index].Name} (frames {frame}–{frame + hold - 1} after it was built)");
+    }
+
+    /// <summary>
+    /// The gear locker over the menu, its screens put away and the level behind them not drawn until it closes; then
+    /// back to <paramref name="returnTo"/>.
+    /// </summary>
+    private void OpenLocker(Control returnTo)
+    {
+        if (_locker is not null)
+        {
+            return;
+        }
+
+        foreach (Control s in new[] { _title, _levels, _settingsScreen, _others })
+        {
+            s.Visible = false;
+        }
+
+        GetViewport().Disable3D = true;
+        _view.UseTeamColors(_settings.TeamColors);
+        Color ours = Color.FromHtml(_view.TeamColors[0]);
+        _locker = new LockerView();
+        AddChild(_locker);
+        _locker.Open(_data, _view, _settings, _records, ours, ours);
+        _locker.Closed = saved =>
+        {
+            _locker = null;
+            GetViewport().Disable3D = false;
+            if (saved && _others.FindChild("Others", recursive: true, owned: false) is PlayWithOthers others)
+            {
+                others.ShowCharacter();
+            }
+
+            Open(returnTo, returnTo.FindChild(returnTo == _title ? "GearLocker" : "Locker", recursive: true, owned: false) as Button);
+        };
     }
 
     /// <summary>
@@ -226,7 +388,7 @@ public partial class MainMenu : Control
         {
             if (Args.Value("--join") is { Length: > 0 } address)
             {
-                Pb.Game.Net.NetStart.Join(GetTree(), address, name, look, password, key: you.Id);
+                Pb.Game.Net.NetStart.Join(GetTree(), _data, address, name, look, password, key: you.Id);
             }
             else
             {
@@ -302,6 +464,9 @@ public partial class MainMenu : Control
         Button others = UiKit.Button("Play with others", () => Open(_others));
         others.Name = "PlayWithOthers";
         buttons.AddChild(others);
+        Button locker = UiKit.Button("Gear locker", () => OpenLocker(_title));
+        locker.Name = "GearLocker";
+        buttons.AddChild(locker);
         buttons.AddChild(UiKit.Button("Training ground", () => Load(GameSession.RangeScene, "Training ground", "Setting out the targets…")));
         buttons.AddChild(UiKit.Button("Settings", () => Open(_settingsScreen)));
         buttons.AddChild(UiKit.Button("Quit", () => GetTree().Quit()));
@@ -353,7 +518,7 @@ public partial class MainMenu : Control
             }
 
             holder.AddChild(AreaCard(areas[k]));
-        }, "Area_", buttonWidth: 230, wrap: true));
+        }, "Area_", buttonWidth: 212, wrap: true));
         holder.AddChild(AreaCard(areas[shown]));
         column.AddChild(holder);
         return Screen(column, left: true);
@@ -375,15 +540,17 @@ public partial class MainMenu : Control
     {
         string[] won = entry.Tiers.Where(t => _records.WonOn(entry.Id, place.Id, t.Id)).Select(t => t.DisplayName).ToArray();
         string wins = won.Length > 0 ? $" Won here on {string.Join(", ", won)}." : "";
-        ObjectiveKind kind = mode.Kind == MatchModeKind.FreeForAll ? ObjectiveKind.Eliminate : objective.Kind;
+        bool matches = mode.Format.IsMatch();
+        ObjectiveKind kind = mode.Kind == MatchModeKind.FreeForAll || matches ? ObjectiveKind.Eliminate : objective.Kind;
         LevelRecord? r = _records.Record(entry.Id, place.Id, mode.Id, tier.Id, RecordBook.IdOf(kind));
         string what = kind == ObjectiveKind.Eliminate ? $"{mode.DisplayName}, {tier.DisplayName}" : $"{mode.DisplayName}, {objective.DisplayName}, {tier.DisplayName}";
         if (r is null)
         {
-            return $"Your record here ({what}): no rounds yet.{wins}";
+            return $"Your record here ({what}): no {(matches ? "matches" : "rounds")} yet.{wins}";
         }
 
-        var parts = new List<string> { $"won {r.Wins} of {r.Rounds}" };
+        // A match of points goes in the records as one round.
+        var parts = new List<string> { matches ? $"won {r.Wins} of {r.Rounds} matches" : $"won {r.Wins} of {r.Rounds}" };
         if (r.BestClear_s > 0f)
         {
             parts.Add($"fastest win {RoundScreens.Clock(r.BestClear_s)}");
@@ -407,7 +574,7 @@ public partial class MainMenu : Control
     private void AddRoundChoices(VBoxContainer card, AreaEntryDef entry, LevelLayout level)
     {
         TierDef[] tiers = entry.Tiers;
-        IReadOnlyList<GameMode> modes = _data.Config.Rules.Modes;
+        IReadOnlyList<GameMode> modes = _data.Config.Rules.ModesFor(entry);
         bool again = GameSession.LevelId == entry.Id;
         IReadOnlyList<PlaceSpec> places = level.Places;
         int placeIndex = Math.Max(0, again ? places.ToList().FindIndex(p => p.Id == GameSession.PlaceId) : 0);
@@ -452,7 +619,8 @@ public partial class MainMenu : Control
         var sizes = new VBoxContainer();
         var objectiveBox = new VBoxContainer();
         objectiveBox.AddThemeConstantOverride("separation", 8);
-        Label details = UiKit.Body(TierDetails(tier), 17, UiKit.Dim, wrap: true);
+        bool field = level.Field is not null;
+        Label details = UiKit.Body(TierDetails(tier, mode, field), 17, UiKit.Dim, wrap: true);
         Label record = UiKit.Body("", 17, UiKit.Text, wrap: true);
         record.Name = $"Record_{entry.Id}";
         void ShowRecord() => record.Text = RecordLine(entry, place, mode, objective, tier);
@@ -467,7 +635,7 @@ public partial class MainMenu : Control
 
             objectives = Offered(place);
             objective = objectives.FirstOrDefault(o => o.Kind == objective.Kind) ?? objectives[0];
-            if (mode.Kind == MatchModeKind.FreeForAll || objectives.Length < 2)
+            if (mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch() || objectives.Length < 2)
             {
                 return;
             }
@@ -512,6 +680,7 @@ public partial class MainMenu : Control
             mode = modes[k];
             size = mode.DefaultSize;
             modeBlurb.Text = mode.Description;
+            details.Text = TierDetails(tier, mode, field);
             ShowSizes();
             ShowObjectives();
             ShowRecord();
@@ -524,7 +693,7 @@ public partial class MainMenu : Control
         how.AddChild(UiKit.ChoiceRow("Difficulty", tiers.Select(t => t.DisplayName).ToArray(), tierIndex, k =>
         {
             tier = tiers[k];
-            details.Text = TierDetails(tier);
+            details.Text = TierDetails(tier, mode, field);
             ShowRecord();
         }, $"Tier_{entry.Id}_", buttonWidth: 140));
         how.AddChild(details);
@@ -541,9 +710,14 @@ public partial class MainMenu : Control
         how.AddChild(finish);
     }
 
-    private static string TierDetails(TierDef tier) =>
-        $"{tier.DisplayName}: {RoundScreens.Clock(tier.TimeLimit_s)} on the clock · you start with {tier.StartPods} spare " +
+    private string TierDetails(TierDef tier, GameMode mode, bool field) =>
+        $"{tier.DisplayName}: {Clock(mode, tier, field)} · you start with {tier.StartPods} spare " +
         $"pod{(tier.StartPods == 1 ? "" : "s")}, every bot carries {tier.BotPods} · {(tier.Pickups ? "pickups out" : "no pickups")}.";
+
+    /// <summary>The round's clock: the tier's, or a match's points and each point's clock (on a <paramref name="field"/> or not).</summary>
+    private string Clock(GameMode mode, TierDef tier, bool field) => _data.Config.Rules.PointsFor(mode.Format) is { } points
+        ? $"first to {points.RaceTo} points, {RoundScreens.Clock(points.ClockFor(field))} a point"
+        : $"{RoundScreens.Clock(tier.TimeLimit_s)} on the clock";
 
     /// <summary>Play with others: your name and character, hosting, and joining (games on your network, an address, the last few).</summary>
     private Control OthersScreen()
@@ -551,6 +725,7 @@ public partial class MainMenu : Control
         var screen = new PlayWithOthers { Name = "Others" };
         screen.Build(_data, _view, _settings);
         screen.Back = () => Open(_title);
+        screen.OpenLocker = () => OpenLocker(_others);
         return Screen(UiKit.Panel(screen, 1260f), left: true);
     }
 
@@ -567,17 +742,20 @@ public partial class MainMenu : Control
 
     private void Play(AreaEntryDef entry, PlaceSpec place, GameMode mode, int size, ObjectiveChoice objective, TierDef tier)
     {
-        string objectiveId = RecordBook.IdOf(mode.Kind == MatchModeKind.FreeForAll ? ObjectiveKind.Eliminate : objective.Kind);
+        string objectiveId = RecordBook.IdOf(mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch() ? ObjectiveKind.Eliminate : objective.Kind);
         GameSession.LevelId = entry.Id;
         GameSession.PlaceId = place.Id;
         GameSession.ModeId = mode.Id;
         GameSession.Size = size;
         GameSession.TierId = tier.Id;
         GameSession.ObjectiveId = objectiveId;
+        GameSession.Points = null; // a new match, whatever was left of the last one
         _records.Remember(entry.Id, place.Id, mode.Id, size, tier.Id, objectiveId);
         Profile.Save(_records);
-        string what = objective.Kind == ObjectiveKind.Eliminate || mode.Kind == MatchModeKind.FreeForAll ? "" : $" · {objective.DisplayName}";
-        string part = place.Whole ? "" : $"{place.DisplayName} · ";
+        string what = objective.Kind == ObjectiveKind.Eliminate || mode.Kind == MatchModeKind.FreeForAll || mode.Format.IsMatch()
+            ? ""
+            : $" · {objective.DisplayName}";
+        string part = Pb.Game.Net.RoundChoices.PlaceIdOf(_data.Levels[entry.Id], place) is null ? "" : $"{place.DisplayName} · ";
         Load(GameSession.LevelScene, entry.DisplayName, $"{part}{mode.DisplayName} · {ModeText.Size(mode, size)}{what} · {tier.DisplayName}");
     }
 
@@ -670,10 +848,75 @@ public partial class MainMenu : Control
         return rect;
     }
 
+    /// <summary>
+    /// The gear locker from the title: it builds, offers every slot's items, and Done saves what was picked (a brand's
+    /// marker in a colour of its own and a brand's mask) to the profile. The profile is put back as it was afterwards.
+    /// </summary>
+    private async System.Threading.Tasks.Task<string> LockerCheck(List<string> problems)
+    {
+        Pb.Sim.Gear.SavedLoadout? before = _records.Data.Loadout;
+        int look = _settings.PlayerLook;
+        if (_title.FindChild("GearLocker", recursive: true, owned: false) is not Button button)
+        {
+            problems.Add("the title has no Gear locker");
+            return "no gear locker";
+        }
+
+        button.EmitSignal(BaseButton.SignalName.Pressed);
+        LockerView? locker = _locker;
+        for (int i = 0; i < 300 && locker is { Built: false }; i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+
+        if (locker is not { Built: true })
+        {
+            problems.Add("the gear locker didn't build");
+            return "no gear locker";
+        }
+
+        Pb.Sim.Gear.GearCatalog gear = _data.Gear;
+        int slots = 0;
+        foreach (Pb.Sim.Gear.GearSlot slot in Enum.GetValues<Pb.Sim.Gear.GearSlot>())
+        {
+            locker.Pick(slot);
+            int offered = locker.FindChildren("Item_*", nameof(Button), owned: false).Count(b => !b.IsQueuedForDeletion());
+            if (offered != gear.ItemsIn(slot).Count)
+            {
+                problems.Add($"the gear locker offers {offered} {slot} items, not {gear.ItemsIn(slot).Count}");
+            }
+            else
+            {
+                slots++;
+            }
+        }
+
+        int marker = gear.ItemsIn(Pb.Sim.Gear.GearSlot.Marker).First(i => gear.Items[i].Model is null);
+        int mask = gear.ItemsIn(Pb.Sim.Gear.GearSlot.Mask).First(i => !Pb.Game.Player.MaskRecipes.IsOwn(gear.Items[i].Shape));
+        locker.Pick(Pb.Sim.Gear.GearSlot.Marker);
+        locker.Wear(marker);
+        locker.SetColour(0, new Color(0.5f, 0.1f, 0.1f));
+        locker.Pick(Pb.Sim.Gear.GearSlot.Mask);
+        locker.Wear(mask);
+        Pb.Sim.Gear.Loadout picked = locker.Picked.Copy();
+        locker.Close(true);
+        Pb.Sim.Gear.Loadout saved = gear.Read(Profile.Load(_data.Areas).Data.Loadout, look);
+        if (!saved.SameAs(picked))
+        {
+            problems.Add("the gear locker's Done didn't save what was picked");
+        }
+
+        // As it was (it may be a developer's own profile).
+        _records.Data.Loadout = before;
+        Profile.Save(_records);
+        _settings.PlayerLook = look;
+        _settings.Save();
+        return $"the gear locker's {slots} slots";
+    }
+
     private async void SmokeTest()
     {
         var problems = new List<string>();
-        IReadOnlyList<GameMode> modes = _data.Config.Rules.Modes;
         AreaEntryDef[] areas = _data.Areas.Areas.Where(a => _data.Levels.ContainsKey(a.Id)).ToArray();
         if (areas.Length != _data.Areas.Areas.Length)
         {
@@ -686,6 +929,7 @@ public partial class MainMenu : Control
             // Every area is open: picking it shows its card, with all its places and the round choices.
             AreaEntryDef entry = areas[a];
             LevelLayout level = _data.Levels[entry.Id];
+            IReadOnlyList<GameMode> modes = _data.Config.Rules.ModesFor(entry);
             if (_levels.FindChild($"Area_{a}", recursive: true, owned: false) is not Button areaButton)
             {
                 problems.Add($"{entry.Id}: no button to pick it");
@@ -732,7 +976,7 @@ public partial class MainMenu : Control
                     }
 
                     int shown = _levels.FindChildren($"Objective_{entry.Id}_*", nameof(Button), owned: false).Count(b => !b.IsQueuedForDeletion());
-                    int wanted = modes[m].Kind != MatchModeKind.FreeForAll && objectives > 1 ? objectives : 0;
+                    int wanted = modes[m].Kind != MatchModeKind.FreeForAll && !modes[m].Format.IsMatch() && objectives > 1 ? objectives : 0;
                     if (shown != wanted)
                     {
                         problems.Add($"{entry.Id}, {level.Places[p].Id}: {modes[m].Id} offers {shown} objectives, not {wanted}");
@@ -766,8 +1010,8 @@ public partial class MainMenu : Control
             problems.Add(settingsNote);
         }
 
-        // Play with others: your name, Host and Join, and it fits on the screen.
-        foreach (string part in new[] { "Name", "Host", "Join", "Address" })
+        // Play with others: your name, the locker, Host and Join, and it fits on the screen.
+        foreach (string part in new[] { "Name", "Locker", "Host", "Join", "Address" })
         {
             if (_others.FindChild(part, recursive: true, owned: false) is null)
             {
@@ -809,9 +1053,11 @@ public partial class MainMenu : Control
             }
         }
 
+        string lockerNote = await LockerCheck(problems);
         bool ok = areas.Length >= 1 && problems.Count == 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {areas.Length} area{(areas.Length == 1 ? "" : "s")} with {places} places to play, all open, each card on one screen, " +
-                 $"{modes.Count} modes with their sizes, objectives and the difficulty tiers, {settingsNote}, and Play with others" +
+                 $"{string.Join(", ", areas.Select(a => $"{_data.Config.Rules.ModesFor(a).Count} mode{(_data.Config.Rules.ModesFor(a).Count == 1 ? "" : "s")} on {a.Id}"))} with their sizes, objectives and the difficulty tiers, " +
+                 $"{settingsNote}, Play with others and {lockerNote}" +
                  $"{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
         GetTree().Quit(ok ? 0 : 1);
     }

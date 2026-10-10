@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using Pb.Game.Audio;
@@ -13,8 +14,10 @@ namespace Pb.Game.Core;
 /// <summary>
 /// The referee (presentation.jsonc hud.referee): the breakout horn and "Game on!" when the round goes live, a call a
 /// minute and thirty seconds from time (two pips of the whistle with the second), the whistle and how it went when the
-/// round ends, a call when you're out, and in a hold when your side has the room to itself or it's contested. Each line
-/// is a subtitle and, once it's been recorded, the referee's voice; lines wait for the one before to finish.
+/// round ends, a call when you're out, and in a hold when your side has the room to itself or it's contested; in
+/// speedball a pip on each second of the countdown to the horn, and at a point's end the buzzer and whose point it is; in
+/// capture the flag a call when a flag's taken or down, and at a point's end the capture and whose point it is.
+/// Each line is a subtitle and, once it's been recorded, the referee's voice; lines wait for the one before to finish.
 /// </summary>
 public partial class RefereeCalls : Node, ISimEventListener
 {
@@ -32,6 +35,7 @@ public partial class RefereeCalls : Node, ISimEventListener
     private AudioDirector? _audio;
     private bool _oneMinute;
     private bool _thirty;
+    private int _pipAt;
     private int _pick;
     private double _now;
     private double _busyUntil;
@@ -64,7 +68,21 @@ public partial class RefereeCalls : Node, ISimEventListener
                 break;
             case SimEventType.RoundEnded:
                 _audio?.Round(Sfx.WhistleTriple);
-                if (OutcomeLines(_sim.Match?.OutcomeFor(_player.Team) ?? RoundOutcome.None) is { } outcome)
+                if (_sim.Match is { } point && point.Setup.Format.IsMatch())
+                {
+                    // A point of a match: the buzzer (or the flag), then whose point it is.
+                    if (point.Result.Reason == RoundEnd.Hung)
+                    {
+                        Say(_lines.Buzzer);
+                    }
+                    else if (point.Result.Reason == RoundEnd.Captured)
+                    {
+                        Say(_lines.FlagCaptured);
+                    }
+
+                    Say(point.Result.Winner == _player.Team ? _lines.PointWon : point.Result.Winner >= 0 ? _lines.PointLost : _lines.NoPoint);
+                }
+                else if (OutcomeLines(_sim.Match?.OutcomeFor(_player.Team) ?? RoundOutcome.None) is { } outcome)
                 {
                     Say(outcome);
                 }
@@ -72,6 +90,12 @@ public partial class RefereeCalls : Node, ISimEventListener
                 break;
             case SimEventType.PlayerEliminated when e.TargetId == _player.Id:
                 Say(_lines.YoureOut);
+                break;
+            case SimEventType.FlagTaken:
+                Say(_lines.FlagTaken);
+                break;
+            case SimEventType.FlagDropped:
+                Say(_lines.FlagDown);
                 break;
             case SimEventType.HoldChanged when (HoldStatus)e.Extra == HoldStatus.Ours:
                 Say(_lines.RoomTaken);
@@ -85,6 +109,17 @@ public partial class RefereeCalls : Node, ISimEventListener
     public override void _Process(double delta)
     {
         _now += delta;
+        // Speedball's countdown: a pip on each of its last seconds, then the horn as it goes live.
+        if (_sim?.Match is { Phase: MatchPhase.Countdown } counting)
+        {
+            int second = (int)MathF.Ceiling(counting.CountdownLeft);
+            if (second != _pipAt && second > 0)
+            {
+                _pipAt = second;
+                _audio?.Round(Sfx.CountdownPip);
+            }
+        }
+
         if (_sim?.Match is { Phase: MatchPhase.Live } match)
         {
             if (!_oneMinute && match.TimeLeft <= 60f && match.Setup.TimeLimit > 90f)

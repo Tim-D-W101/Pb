@@ -235,7 +235,7 @@ public partial class OldPaint : Node3D
         ((float)random.NextDouble() + (float)random.NextDouble() + (float)random.NextDouble() - 1.5f) * 2f;
 
     /// <summary>A unit square on the origin in the XY plane, facing +Z, UV across it (v down).</summary>
-    private static ArrayMesh CardMesh()
+    public static ArrayMesh CardMesh()
     {
         var tool = new SurfaceTool();
         tool.Begin(Mesh.PrimitiveType.Triangles);

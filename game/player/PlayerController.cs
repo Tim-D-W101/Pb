@@ -61,8 +61,12 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
 
     public float Pitch => _pitch;
 
-    public void Initialize(SimWorld sim, PlayerState state, PresentationDef view, GameSettings settings, Color teamColor)
+    /// <summary>What you wear: your marker in first person, your body's kit.</summary>
+    public Kit Kit { get; private set; } = null!;
+
+    public void Initialize(SimWorld sim, PlayerState state, PresentationDef view, GameSettings settings, Color teamColor, Kit kit)
     {
+        Kit = kit;
         InitializeBody(sim, state);
         _view = view;
         _settings = settings;
@@ -76,19 +80,36 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         _head.AddChild(Camera);
         ViewModel = new ViewModel { Name = "ViewModel" };
         Camera.AddChild(ViewModel);
-        ViewModel.Build(view.ViewModel, view.MarkerModel, teamColor);
+        ViewModel.Build(view.ViewModel, view.MarkerModel, teamColor, kit, Sleeves(kit));
 
         _currentEye = _previousEye = state.EyePosition.ToGodot();
         _currentRoll = _previousRoll = state.LeanRoll;
         ApplyCamera(0f, 1f);
     }
 
-    /// <summary>Gives you a body (see <see cref="Body"/>) in <paramref name="jersey"/>, the <paramref name="look"/>th model and tint.</summary>
-    public void BuildBody(CharactersDef? characters, Color jersey, int look)
+    /// <summary>Puts you in <paramref name="kit"/> instead: the marker in your hands is built again (the gear demo).</summary>
+    public void Redress(Kit kit, Color teamColor)
+    {
+        Kit = kit;
+        ViewModel.QueueFree();
+        ViewModel = new ViewModel { Name = "ViewModel" };
+        Camera.AddChild(ViewModel);
+        ViewModel.Build(_view.ViewModel, _view.MarkerModel, teamColor, kit, Sleeves(kit));
+    }
+
+    /// <summary>Your sleeves in first person: your jersey's colour, or the data's while you wear the field's own clothes as they are.</summary>
+    private static Color? Sleeves(Kit kit)
+    {
+        Pb.Sim.Gear.GearColours jersey = kit.Colours(Pb.Sim.Gear.GearSlot.Jersey);
+        return kit.Item(Pb.Sim.Gear.GearSlot.Jersey).Shape == "own" && jersey.Main == 0xFFFFFF ? null : GearModels.ToColor(jersey.Main);
+    }
+
+    /// <summary>Gives you a body (see <see cref="Body"/>) in your kit (<see cref="Kit"/>), its armbands in <paramref name="jersey"/>.</summary>
+    public void BuildBody(CharactersDef? characters, Color jersey)
     {
         var body = new CharacterVisual { Name = "Body" };
         AddChild(body);
-        body.Build(Sim, State, jersey, characters, look, _view.MarkerModel);
+        body.Build(Sim, State, jersey, Kit, characters, Kit.Loadout.Character, _view.MarkerModel);
         if (!body.HasModel)
         {
             body.QueueFree();

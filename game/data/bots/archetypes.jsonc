@@ -2,7 +2,7 @@
 // role listed here wins.
 //   idle            what they do while nothing's happening: "post" (hold the spawn and scan),
 //                   "patrol" (walk the spawn's patrol route) or "hunt" (sweep the level's opponent
-//                   spawns one by one)
+//                   spawns one by one); "speedball" plays a point on a field from the bunker it's dealt
 //   leash_m         how far from home they'll go to fight or search before heading back
 //   useCover        fight from cover (peek, shoot, duck back); rushers just come at you
 //   peekTime_s      time exposed per peek, then hideTime_s back in cover
@@ -67,6 +67,15 @@
       "flankChance": 0.85, "pushChance": 0.1,
       "fireOnMove": false, "engageRange_m": 16, "searchTime_s": 14, "moveGait": "run",
       "flankOnContact": true, "holdFireWhileFlanking": true, "stealthWithin_m": 8, "closeRange_m": 9
+    },
+    {
+      // Speedball: dealt a place (front, middle or back) and a bunker by the squad at every breakout, and plays the
+      // point from there: quick snap shots out of it, moving up when its side is ahead.
+      "id": "speedball",
+      "idle": "speedball", "leash_m": 80, "useCover": true,
+      "peekTime_s": 0.9, "hideTime_s": 0.8,
+      "flankChance": 0.15, "pushChance": 0.1,
+      "fireOnMove": false, "engageRange_m": 25, "searchTime_s": 6, "moveGait": "run"
     },
     {
       "id": "rusher",

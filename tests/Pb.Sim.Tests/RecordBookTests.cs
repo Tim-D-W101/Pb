@@ -113,8 +113,9 @@ public class RecordBookTests
         Assert.Equal(400f, records.Record("one", RecordBook.WholeArea, "teams", "hard", "hold")!.BestClear_s);
         Assert.Equal("two", records.Data.Last!.Level);
         Assert.Equal("", records.Data.Last.Place);
-        Assert.Equal(2, records.Data.Version);
+        Assert.Equal(3, records.Data.Version);
         Assert.DoesNotContain("opened", records.Data.ToJson());
+        Assert.Null(records.Data.Loadout);
     }
 
     [Fact]

@@ -47,7 +47,8 @@ python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate th
 The menu's picture of each place (`game/ui/places/LEVEL_PLACE.jpg`) is taken in the game, from the viewpoint the level
 file's place names in `"still"`; retake a level's after changing it (under lavapipe, below), then import:
 `xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-driver vulkan res://scenes/Level.tscn -- --level=ID
---place-stills=res://ui/places` and `godot --headless --path game --import`.
+--place-stills=res://ui/places` and `godot --headless --path game --import`. A field's places are its layouts, each with
+its own bunkers: take each one's with `--place=ID` added.
 
 The Windows build needs the export templates: `tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe
 windows_release_x86_64_console.exe` pulls just those from the 1.2 GB release archive. Exported builds always
@@ -139,16 +140,30 @@ over and tucks it in again, printing how far its knees and elbows got into the c
 nearest that point); it runs headless too, for the numbers alone. `-- --ladder-demo` has an opponent climb the level's
 tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
 Oxbarrow Works and `--level=rail_yard` have ladders).
+`-- --paint-demo` breaks balls on four opponents in the brands' kits, the ground and the nearest wall, and looks at the
+paint wet, as they turn round, and dry, then at your marker spattered from close by (`--paint-hold=N` frames a view).
+`-- --wobble-demo` (on `--level=sports_ground`) shoots the inflatable nearest your start, filmed close up as its fabric
+dents in and shivers out where each ball strikes. `-- --speedball-demo` (on `--level=sports_ground`) plays a speedball
+point through your eyes: the countdown from your start box, the breakout, then you at their buzzer holding Interact until
+it's hung, and the score between points (with `--race-to=1`, the match's summary). `-- --flag-demo` (with `--mode=flag`,
+on any area) has one of your bots take the flag you're after, with the other side off the field, and you follow it home
+until it scores (with `--flag-drop`, it goes out on the way and you look at the flag where it fell); it runs on the sim's
+clock, so capture a compound's at `--fixed-fps 10`.
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
-the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
-objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`), e.g.
-`-- --round-tour --mode=ffa --size=6 --place=warehouse`; `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
+the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame); on the
+Sports Ground it plays a speedball match point after point, the level built again for each (`--race-to=N` points to
+win, here and when hosting; `--mode=flag` plays capture the flag's on any area). `--mode=solo|ffa|teams|speedball|flag`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
+objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`; the menu
+offers an area only its `modes` from `areas.jsonc`, but `--mode` plays any), e.g.
+`-- --round-tour --mode=ffa --size=6 --place=warehouse` (the Sports Ground's places are its layouts: `--level=sports_ground
+--place=crossfire`); `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
 runs quicker; and
 `-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
 the room, the ways out. `-- --menu-tour` on the
-main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's
+main scene shows each menu screen, and `-- --locker-tour` (with `--locker-hold=N` frames a step) the gear locker's
+slots, a brand's range and the clothes in a side's colour. Frame rates under lavapipe mean nothing; only the owner's
 hardware can confirm the 60 fps target.
 
 ## Conventions

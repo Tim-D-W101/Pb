@@ -21,15 +21,17 @@ public sealed class GameData
     public const string DefaultSimFile = "sim.jsonc";
 
     private GameData(SimConfig config, RangeLayout range, StressSettings stress, KitCatalog kit, AreaListDef areas,
-        IReadOnlyDictionary<string, LevelLayout> levels, BotConfig bots)
+        IReadOnlyDictionary<string, LevelLayout> levels, BotConfig bots, GearCatalog gear, LevelLayout lockerRoom)
     {
         Config = config;
+        Gear = gear;
         Bots = bots;
         Range = range;
         Stress = stress;
         Kit = kit;
         Areas = areas;
         Levels = levels;
+        LockerRoom = lockerRoom;
     }
 
     public SimConfig Config { get; }
@@ -43,8 +45,14 @@ public sealed class GameData
 
     public KitCatalog Kit { get; }
 
+    /// <summary>The gear locker's brands and items: looks only, never read by the sim.</summary>
+    public GearCatalog Gear { get; }
+
     /// <summary>The areas to play in, every one open, in menu order.</summary>
     public AreaListDef Areas { get; }
+
+    /// <summary>The gear locker's room (a level of its own, not a place to play), built and checked with the rest.</summary>
+    public LevelLayout LockerRoom { get; }
 
     /// <summary>Every area's level, built and validated at load (keyed by level id), the whole of it; <see cref="LevelLayout.ForPlace"/> gives a round in one of its places.</summary>
     public IReadOnlyDictionary<string, LevelLayout> Levels { get; }
@@ -97,6 +105,7 @@ public sealed class GameData
                     DisplayName = m.DisplayName,
                     Description = m.Description,
                     Kind = m.Kind,
+                    Format = m.Format,
                     Sizes = m.Sizes,
                     DefaultSize = m.DefaultSize,
                     Roles = m.Roles.Select(r => (r.Role, r.Weight)).ToArray(),
@@ -104,6 +113,10 @@ public sealed class GameData
                 }).ToArray(),
                 MaxPlayers = rules.MaxPlayers,
                 Callout = new CalloutRules(MathF.Cos(rules.Callout.Cone_deg * Units.DegreesToRadians), rules.Callout.Range_m, rules.Callout.Cooldown_s),
+                Speedball = new SpeedballRules(rules.Speedball.RaceTo, rules.Speedball.PointTime_s, rules.Speedball.Countdown_s, rules.Speedball.HangTime_s,
+                    rules.Speedball.HangReach_m, rules.Speedball.BetweenPoints_s),
+                Flag = new FlagRules(rules.Flag.RaceTo, rules.Flag.PointTime_s, rules.Flag.FieldPointTime_s, rules.Flag.Countdown_s, rules.Flag.BetweenPoints_s,
+                    rules.Flag.PickupReach_m, rules.Flag.ScoreReach_m, rules.Flag.CarrierCanSprint, rules.Flag.FieldRole),
                 SettleTime = rules.SettleTime_s,
                 TradeCountsAsClear = rules.TradeCountsAsClear,
                 PickupRadius = rules.PickupRadius_m,
@@ -120,6 +133,7 @@ public sealed class GameData
                     TeammateSpacing = rules.Spawning.TeammateSpacing_m,
                     TeamSpread = rules.Spawning.TeamSpread_m,
                     ObjectiveClearance = rules.Spawning.ObjectiveClearance_m,
+                    BaseHeight = rules.Spawning.BaseHeight_m,
                 },
                 Doors = new DoorRules
                 {
@@ -182,10 +196,25 @@ public sealed class GameData
 
             LevelLayout built = LevelFactory.Build(level, entry.File, kit);
             CheckTiers(entry, built, files.Areas, bots);
+            foreach (string mode in entry.Modes ?? Array.Empty<string>())
+            {
+                ModeDef? def = rules.Modes.FirstOrDefault(m => m.Id == mode);
+                if (def is null)
+                {
+                    throw new DataException(files.Areas, $"areas: '{entry.Id}' offers the mode '{mode}', which rules.jsonc doesn't have");
+                }
+
+                if (def.Format == MatchFormat.Speedball && built.Field is null)
+                {
+                    throw new DataException(files.Areas, $"areas: '{entry.Id}' offers speedball, but its level has no field");
+                }
+            }
             levels[entry.Id] = built;
         }
 
-        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, areas, levels, bots);
+        GearCatalog gear = GearCatalog.From(Jsonc.Load<GearCatalogDef>(source, files.Gear));
+        LevelLayout lockerRoom = LevelFactory.Build(Jsonc.Load<LevelDef>(source, files.LockerRoom), files.LockerRoom, kit);
+        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, areas, levels, bots, gear, lockerRoom);
     }
 
     public static ProjectileParams ToProjectile(ProjectileDef d) => new()

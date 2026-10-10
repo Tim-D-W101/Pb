@@ -20,18 +20,19 @@ public sealed class SpawnPlan
 }
 
 /// <summary>
-/// Who a round's starts are for: the mode, how many on each side, the roles bots are dealt, and the objective the
-/// opponents defend, if there is one.
+/// Who a round's starts are for: the mode, how many on each side, the roles bots are dealt, the objective the
+/// opponents defend, if there is one, and whether each side's first start is its flag's base (capture the flag).
 /// </summary>
 public sealed record RoundShape(MatchModeKind Kind, int Teammates, int Opponents, IReadOnlyList<(string Role, float Weight)> Roles,
-    ObjectiveFocus? Objective = null)
+    ObjectiveFocus? Objective = null, bool Bases = false)
 {
     /// <summary>You against <paramref name="opponents"/>, each playing a role from its spawn.</summary>
     public static RoundShape Solo(int opponents, ObjectiveFocus? objective = null) =>
         new(MatchModeKind.Solo, 0, opponents, Array.Empty<(string, float)>(), objective);
 
     public static RoundShape Of(GameMode mode, int size, ObjectiveFocus? objective = null) =>
-        new(mode.Kind, mode.TeammatesFor(size), mode.OpponentsFor(size), mode.Roles, mode.Kind == MatchModeKind.FreeForAll ? null : objective);
+        new(mode.Kind, mode.TeammatesFor(size), mode.OpponentsFor(size), mode.Roles, mode.Kind == MatchModeKind.FreeForAll ? null : objective,
+            Bases: mode.Format == MatchFormat.Flag);
 
     /// <summary>
     /// A round with <paramref name="people"/> people on the side that comes in at the entries. In co-op (a solo round
@@ -56,7 +57,8 @@ public sealed record RoundShape(MatchModeKind Kind, int Teammates, int Opponents
 /// <item>free-for-all: everyone <see cref="SpawnRules.FreeForAllSpacing"/> apart and, where the level
 /// allows, out of each other's sight;</item>
 /// <item>teams: your teammates near you, and the other team grouped round a spot on the far side, out of
-/// sight of your whole team.</item>
+/// sight of your whole team (in capture the flag, a spot on the ground, its first start: the flags stand where each
+/// side's first player starts, and you come in on the ground).</item>
 /// </list>
 /// In free-for-all and teams every bot plays a role dealt from the mode's chances. With an objective, its defenders'
 /// guards start as near it as fair starts allow (in the room, for hold) and play the guard role, a share of the rest
@@ -92,6 +94,33 @@ public static class SpawnPlanner
         SpawnPoint you = YourStart(level, scaled, shape.Objective, ref rng);
         var planner = new Planner(level, cover, world, scaled, bots, shape, eyeHeight, you, rng);
         return planner.Run();
+    }
+
+    /// <summary>
+    /// A point's starts on a field (speedball, capture the flag): both sides in a row across their start boxes facing up
+    /// the field, you in the middle of the south's (side 0) with <paramref name="size"/> − 1 teammates, <paramref name="size"/>
+    /// against you in the north's. Every bot plays <paramref name="role"/> (the field's own: the squad deals each its place
+    /// at the horn; see <see cref="MatchRules.FieldRoleOf"/>).
+    /// </summary>
+    public static SpawnPlan StartBoxes(FieldSpec field, string role, int size)
+    {
+        int you = size / 2;
+        var teammates = new List<OpponentSpawn>(size);
+        var opponents = new List<OpponentSpawn>(size);
+        for (int i = 0; i < size; i++)
+        {
+            if (i != you)
+            {
+                teammates.Add(new OpponentSpawn { Id = $"south_{i}", Position = field.StartOf(0, i, size), Yaw = FieldSpec.StartYaw(0), Roles = new[] { role } });
+            }
+
+            opponents.Add(new OpponentSpawn { Id = $"north_{i}", Position = field.StartOf(1, i, size), Yaw = FieldSpec.StartYaw(1), Roles = new[] { role } });
+        }
+
+        return new SpawnPlan
+        {
+            You = new SpawnPoint(field.StartOf(0, you, size), FieldSpec.StartYaw(0)), Teammates = teammates, Opponents = opponents,
+        };
     }
 
     /// <summary>One of the level's player spawns at random; with an objective, one well clear of it (the farthest if none is).</summary>
@@ -254,7 +283,11 @@ public static class SpawnPlanner
             Fill(_opponents, near, round, _rules.MinSpacing, apartFromSight: false, spacingFloor: _rules.TeammateSpacing);
         }
 
-        /// <summary>Teams: the other team round a spot picked from the fair starts farthest from you (or round the objective).</summary>
+        /// <summary>
+        /// Teams: the other team round a spot picked from the fair starts farthest from you (or round the objective). In
+        /// capture the flag the spot is on the ground (within <see cref="SpawnRules.BaseHeight"/> of you) where the level
+        /// has one, and the other team's first player starts on it: their flag's base.
+        /// </summary>
         private void PlaceOtherTeam(List<Candidate> fair)
         {
             if (fair.Count == 0)
@@ -262,9 +295,17 @@ public static class SpawnPlanner
                 return;
             }
 
-            List<Candidate> byDistance = fair.OrderByDescending(c => Vector3.Distance(c.Position, _you.Position)).ToList();
+            bool bases = _shape.Bases && _shape.Objective is null;
+            List<Candidate> from = bases && fair.Any(OnTheGround) ? fair.Where(OnTheGround).ToList() : fair;
+            List<Candidate> byDistance = from.OrderByDescending(c => Vector3.Distance(c.Position, _you.Position)).ToList();
             int far = Math.Max(1, (int)MathF.Ceiling(byDistance.Count * FarShare));
-            Vector3 spot = _shape.Objective?.At ?? byDistance[(int)(_rng.NextUInt() % (uint)far)].Position;
+            Candidate picked = byDistance[(int)(_rng.NextUInt() % (uint)far)];
+            Vector3 spot = _shape.Objective?.At ?? picked.Position;
+            if (bases)
+            {
+                Take(_opponents, 1, new List<Candidate> { picked }, 0f, apartFromSight: false);
+            }
+
             List<Candidate> pool = Shuffled(fair);
             for (float spread = _rules.TeamSpread; _opponents.Count < _shape.Opponents && spread < 1000f; spread *= 1.5f)
             {
@@ -273,6 +314,8 @@ public static class SpawnPlanner
                     apartFromSight: false, spacingFloor: _rules.TeammateSpacing);
             }
         }
+
+        private bool OnTheGround(Candidate c) => MathF.Abs(c.Position.Y - _you.Position.Y) <= _rules.BaseHeight;
 
         /// <summary>Teams: your teammates within reach of you (widened if the level has no room), a little apart.</summary>
         private void PlaceTeammates()

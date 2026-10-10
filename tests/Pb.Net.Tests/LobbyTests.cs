@@ -287,6 +287,43 @@ public class LobbyTests
     }
 
     [Fact]
+    public void Everyones_kit_is_in_the_lobby_as_the_catalogue_allows_it()
+    {
+        // Phase 5 (M5.3): the kit each copy says it wears, in its hello and from its locker, checked by the host.
+        Pb.Sim.Gear.GearCatalog gear = TestData.Data.Gear;
+        var rig = new NetRig();
+        Pb.Sim.Gear.Loadout mine = gear.Deal(1, 0, character: 1);
+        var lobby = new LobbyHost(rig.Server, rig.Settings, TestData.Config.Rules,
+            new LobbyChoices { LevelId = "oxbarrow_works", ModeId = "teams", Size = 3 }, () => rig.Now, new LobbyMember { Name = "Host", Kit = mine }, gear);
+        Pb.Sim.Gear.Loadout theirs = gear.Deal(2, 5, character: 2);
+        RigClient a = rig.Join("A", kit: theirs);
+        RigClient b = rig.Join("B");
+        Run(rig, lobby, 10);
+        LobbyState seen = b.Net.Lobby!;
+        Assert.True(seen.Members[0].Kit!.SameAs(mine));
+        Assert.True(seen.Members[1].Kit!.SameAs(theirs));
+        Assert.Null(seen.Members[2].Kit);
+
+        // A change in the locker: worn from the next round, the character with it. An item of another slot (a mask as a
+        // marker) is the slot's default.
+        Pb.Sim.Gear.Loadout changed = theirs.Copy();
+        changed.Character = 0;
+        int mask = gear.ItemsIn(Pb.Sim.Gear.GearSlot.Mask)[1];
+        changed[Pb.Sim.Gear.GearSlot.Marker] = new Pb.Sim.Gear.GearChoice(mask, gear.Items[mask].Colours);
+        a.Net.SendKit(changed);
+        Run(rig, lobby, 10);
+        LobbyMember member = b.Net.Lobby!.Find(IdOf(a))!;
+        Assert.Equal(0, member.Look);
+        Assert.Equal(gear.DefaultItem(Pb.Sim.Gear.GearSlot.Marker), member.Kit![Pb.Sim.Gear.GearSlot.Marker].Item);
+        Assert.Equal(changed[Pb.Sim.Gear.GearSlot.Jersey], member.Kit[Pb.Sim.Gear.GearSlot.Jersey]);
+
+        // Picking a character on its own moves the kit to it too.
+        a.Net.Ask(LobbyAsk.Look, 2);
+        Run(rig, lobby, 10);
+        Assert.Equal(2, b.Net.Lobby!.Find(IdOf(a))!.Kit!.Character);
+    }
+
+    [Fact]
     public void The_lobby_comes_out_as_it_went_in()
     {
         var state = new LobbyState
@@ -301,7 +338,7 @@ public class LobbyTests
         state.SideWins[0] = 3;
         state.SideWins[1] = 1;
         state.Members.Add(new LobbyMember { Id = 0, Name = "Ada", Look = 2, Side = 1, Ready = true, Host = true, Ping_ms = 0, Eliminations = 9, RoundsWon = 3, Vote = 1 });
-        state.Members.Add(new LobbyMember { Id = 7, Name = "Bo ☂", Look = 1, Side = 0, Ping_ms = 143, Vote = -1 });
+        state.Members.Add(new LobbyMember { Id = 7, Name = "Bo ☂", Look = 1, Side = 0, Ping_ms = 143, Vote = -1, Kit = TestData.Data.Gear.Deal(3, 7, 1) });
         state.VoteOptions.Add(new VoteOption("cold_store", null, "The Cold Store"));
         state.VoteOptions.Add(new VoteOption("hospital_wing", "wings", "The Hospital Wing: the wings"));
         var w = new BitWriter(4096);
@@ -313,7 +350,8 @@ public class LobbyTests
         Assert.Equal(state.SideWins, back.SideWins);
         Assert.Equal(state.VoteOptions, back.VoteOptions);
         Assert.Equal(state.Members.Select(Describe), back.Members.Select(Describe));
-        static string Describe(LobbyMember m) => $"{m.Id} {m.Name} {m.Look} {m.Side} {m.Ready} {m.Host} {m.Ping_ms} {m.Eliminations} {m.RoundsWon} {m.Vote}";
+        static string Describe(LobbyMember m) => $"{m.Id} {m.Name} {m.Look} {m.Side} {m.Ready} {m.Host} {m.Ping_ms} {m.Eliminations} {m.RoundsWon} {m.Vote} " +
+                                                 (m.Kit is { } k ? string.Join(",", Enum.GetValues<Pb.Sim.Gear.GearSlot>().Select(s => $"{k[s].Item}:{k[s].Colours}")) + $"@{k.Character}" : "none");
         Assert.Null(LobbyState.Read(w.Finish()[..^3]));
     }
 }

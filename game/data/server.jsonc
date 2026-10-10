@@ -13,13 +13,18 @@
 
   // The rounds it plays in turn, starting again from the first after the last. level and place are ids from
   // levels/areas.jsonc and each level's "places" (place null: the whole area); mode solo (co-op against the squad),
-  // teams or ffa; size as the menus have it (opponents, players a side, or players); objective eliminate, retrieve
-  // or hold (free-for-all is always eliminate); tier the difficulty.
+  // teams, ffa or flag (capture the flag), or on the Sports Ground speedball or flag (the modes it has); size as the
+  // menus have it (opponents, players a side, or players); objective eliminate, retrieve or hold (free-for-all,
+  // speedball and capture the flag are always eliminate); tier the difficulty. A speedball or capture the flag match is
+  // played point after point until a side has raceTo points (left out: rules.jsonc's), and counts as one round of the
+  // rotation.
   "rotation": [
     { "level": "oxbarrow_works", "place": null, "mode": "teams", "size": 4, "objective": "eliminate", "tier": "normal" },
     { "level": "rail_yard", "place": null, "mode": "teams", "size": 4, "objective": "retrieve", "tier": "normal" },
     { "level": "cold_store", "place": null, "mode": "solo", "size": 6, "objective": "eliminate", "tier": "normal" },
-    { "level": "hospital_wing", "place": "wings", "mode": "ffa", "size": 8, "objective": "eliminate", "tier": "normal" }
+    { "level": "hospital_wing", "place": "wings", "mode": "ffa", "size": 8, "objective": "eliminate", "tier": "normal" },
+    { "level": "sports_ground", "place": null, "mode": "speedball", "size": 5, "objective": "eliminate", "tier": "normal" },
+    { "level": "oxbarrow_works", "place": null, "mode": "flag", "size": 4, "objective": "eliminate", "tier": "normal" }
   ],
 
   // Bots fill the places nobody takes. Off, a round has only people in it: teams and free-for-all then need at

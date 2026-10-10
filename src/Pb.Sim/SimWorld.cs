@@ -207,7 +207,8 @@ public sealed class SimWorld
     /// Starts a round with everyone already added, each on their team (in free-for-all, a team each):
     /// gear by the tier (full loaders and tanks, the tier's pods for people and for bots), pickups out or not, stats
     /// from zero. Every mode is won by the last team standing; an objective (its attackers the first person's side,
-    /// unless the setup names them) is another way to win. The round waits in the briefing until <see cref="GoLive"/>.
+    /// unless the setup names them) is another way to win, and so is a speedball point's buzzer (on the level's field).
+    /// The round waits in the briefing until <see cref="GoLive"/>.
     /// </summary>
     public MatchState StartMatch(MatchSetup setup)
     {
@@ -228,7 +229,30 @@ public sealed class SimWorld
             mode = kind == ObjectiveKind.Retrieve ? RetrieveMode.Instance : HoldMode.Instance;
         }
 
-        Match = new MatchState(setup, Config.Rules, mode, attackers, heroTeam, objective);
+        BuzzerSet? buzzers = null;
+        if (setup.Format == MatchFormat.Speedball)
+        {
+            if (Level?.Field is not { } field)
+            {
+                throw new InvalidOperationException($"{Level?.Id ?? "the range"} has no field to play speedball on");
+            }
+
+            buzzers = new BuzzerSet(field.Buzzers, Config.Rules.Speedball);
+            mode = SpeedballMode.Instance;
+        }
+
+        FlagSet? flags = null;
+        if (setup.Format == MatchFormat.Flag)
+        {
+            // On a field the one flag stands on its centre bunker and scores at the other side's buzzer; elsewhere each
+            // side's stands at its base, where its first player starts (the same on every copy: the roster's order).
+            flags = Level?.Field is { } field && Level.FieldLayout is { } layout
+                ? FlagSet.Centre(layout.FlagHome, field.Buzzers, Config.Rules.Flag)
+                : FlagSet.Bases(BaseOf(0), BaseOf(1), Config.Rules.Flag);
+            mode = CaptureMode.Instance;
+        }
+
+        Match = new MatchState(setup, Config.Rules, mode, attackers, heroTeam, objective, buzzers, flags);
         foreach (PlayerState p in _players)
         {
             p.SprintBlocked = false;
@@ -248,6 +272,20 @@ public sealed class SimWorld
 
     /// <summary>Ends the briefing: the clock starts and everyone may move and fire.</summary>
     public void GoLive() => Match?.GoLive(this);
+
+    /// <summary>Side <paramref name="side"/>'s base in capture the flag: where its first player starts (the middle if it has none).</summary>
+    private Vector3 BaseOf(int side)
+    {
+        foreach (PlayerState p in _players)
+        {
+            if (p.Team == side)
+            {
+                return p.Position;
+            }
+        }
+
+        return Vector3.Zero;
+    }
 
     /// <summary>
     /// Someone playing with others has left mid-round: at the next step they're off the field and count as out, put out by
@@ -303,7 +341,9 @@ public sealed class SimWorld
 
                 if (!client)
                 {
-                    Doors.Interact(this, player, IsLive && player.Alive && !climbing && cmd.Has(InputButtons.Interact), dt);
+                    bool interact = IsLive && player.Alive && !climbing && cmd.Has(InputButtons.Interact);
+                    Doors.Interact(this, player, interact, dt);
+                    Match?.Buzzers?.Hold(this, player, interact);
                     CallOut(player, cmd.Has(InputButtons.Callout), t0);
                 }
             }

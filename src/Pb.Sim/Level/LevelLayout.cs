@@ -106,11 +106,93 @@ public sealed class PlaceSpec
     /// <summary>The viewpoint its picture in the menu is taken from (the level file's, or the first inside it).</summary>
     public required Viewpoint Still { get; init; }
 
+    /// <summary>On a field: the layout of bunkers this place plays (null: the field's first).</summary>
+    public string? Layout { get; init; }
+
     public bool Whole => Bounds is null;
 
     /// <summary>Whether <paramref name="point"/> is in the place (on the plan; anywhere for the whole level).</summary>
     public bool Contains(Vector3 point) =>
         Bounds is not { } b || (point.X >= b.Min.X && point.X <= b.Max.X && point.Z >= b.Min.Z && point.Z <= b.Max.Z);
+}
+
+/// <summary>A bunker of a field's layout as it stands: its prop, where, turned how, its tags, and which side's half it's on.</summary>
+public sealed record FieldBunker(PropType Prop, Vector3 Position, float Yaw, IReadOnlyList<string> Tags, int Side, int PropIndex)
+{
+    public bool Has(string tag) => Tags.Contains(tag);
+}
+
+/// <summary>A lane across a field, on one side's half.</summary>
+public sealed record FieldLane(string Name, Vector3 From, Vector3 To, int Side);
+
+/// <summary>One layout of a field: its bunkers' pieces and props (placed after the level's own), the bunkers, and the lanes.</summary>
+public sealed class FieldLayoutSpec
+{
+    public required string Id { get; init; }
+
+    public required FieldSymmetry Symmetry { get; init; }
+
+    /// <summary>Its bunkers' pieces, which follow the level's own (<see cref="FieldSpec.BasePrimitives"/>) in a level built in it.</summary>
+    public required IReadOnlyList<LevelPrimitive> Primitives { get; init; }
+
+    /// <summary>Its bunkers as props, which follow the level's own (<see cref="FieldSpec.BaseProps"/>).</summary>
+    public required IReadOnlyList<PropInstance> Props { get; init; }
+
+    public required IReadOnlyList<FieldBunker> Bunkers { get; init; }
+
+    public required IReadOnlyList<FieldLane> Lanes { get; init; }
+
+    /// <summary>Capture the flag's centre flag: the field's flag spot, on top of the bunker there (on the ground if none).</summary>
+    public required Vector3 FlagHome { get; init; }
+}
+
+/// <summary>
+/// A speedball field: its size, centred on the origin, its length along z; side 0 starts at the +z end and side 1 at the −z
+/// end, each in a start box behind its back line with its buzzer station; and its layouts of bunkers.
+/// </summary>
+public sealed class FieldSpec
+{
+    /// <summary>Width (x) and length (z), m.</summary>
+    public required Vector2 Size { get; init; }
+
+    /// <summary>Each start box's width and depth behind its back line, m.</summary>
+    public required Vector2 StartBox { get; init; }
+
+    /// <summary>Each side's buzzer station on the ground (side 0's, then side 1's).</summary>
+    public required IReadOnlyList<Vector3> Buzzers { get; init; }
+
+    public required IReadOnlyList<FieldLayoutSpec> Layouts { get; init; }
+
+    /// <summary>How many of a level's pieces and props are its own, before a layout's bunkers.</summary>
+    public required int BasePrimitives { get; init; }
+
+    public required int BaseProps { get; init; }
+
+    /// <summary>The layout called <paramref name="id"/> (null or unknown: the first).</summary>
+    public FieldLayoutSpec Layout(string? id) => Layouts.FirstOrDefault(l => l.Id == id) ?? Layouts[0];
+
+    /// <summary>
+    /// Where the <paramref name="index"/>th of <paramref name="count"/> players of side <paramref name="side"/> starts a
+    /// speedball point: in a row across its start box, half a metre in from each end, on the ground.
+    /// </summary>
+    public Vector3 StartOf(int side, int index, int count)
+    {
+        Aabb box = StartBoxOf(side, 0f, 0f);
+        float across = box.Max.X - box.Min.X - 1f;
+        float x = count <= 1 ? (box.Min.X + box.Max.X) * 0.5f : box.Min.X + 0.5f + across * index / (count - 1);
+        return new Vector3(x, 0f, (box.Min.Z + box.Max.Z) * 0.5f);
+    }
+
+    /// <summary>The way side <paramref name="side"/> faces from its start box: up the field.</summary>
+    public static float StartYaw(int side) => side == 0 ? 0f : MathF.PI;
+
+    /// <summary>Side <paramref name="side"/>'s start box on the plan (its back line's middle at its front edge).</summary>
+    public Aabb StartBoxOf(int side, float minY, float maxY)
+    {
+        float back = Size.Y * 0.5f, sign = side == 0 ? 1f : -1f;
+        float z0 = sign * back, z1 = sign * (back + StartBox.Y);
+        return new Aabb(new Vector3(-StartBox.X * 0.5f, minY, MathF.Min(z0, z1)), new Vector3(StartBox.X * 0.5f, maxY, MathF.Max(z0, z1)));
+    }
 }
 
 /// <summary>
@@ -167,6 +249,15 @@ public sealed class LevelLayout
     /// <summary>Paint on the open ground (the level's "markings"), passed through for the game to draw.</summary>
     public MarkingsDef? Markings { get; init; }
 
+    /// <summary>The speedball field (the Sports Ground), or null for a compound.</summary>
+    public FieldSpec? Field { get; init; }
+
+    /// <summary>The field's layout this level is built in (null without a field).</summary>
+    public FieldLayoutSpec? FieldLayout { get; init; }
+
+    /// <summary>The field's looks (its nets, banners and buzzers), passed through for the game to draw.</summary>
+    public FieldDressingDef? FieldDressing { get; init; }
+
     /// <summary>Debug names for primitive owners ("warehouse#0", "prop:oil_drum#3", "wall#1").</summary>
     public required IReadOnlyList<string> Owners { get; init; }
 
@@ -215,14 +306,24 @@ public sealed class LevelLayout
     /// </summary>
     public LevelLayout ForPlace(PlaceSpec place)
     {
+        // On a field, the place's layout of bunkers in place of the one this level is built in.
+        FieldLayoutSpec? layout = Field?.Layout(place.Layout);
+        IReadOnlyList<LevelPrimitive> primitives = Primitives;
+        IReadOnlyList<PropInstance> props = Props;
+        if (Field is { } field && layout != FieldLayout)
+        {
+            primitives = Primitives.Take(field.BasePrimitives).Concat(layout!.Primitives).ToArray();
+            props = Props.Take(field.BaseProps).Concat(layout.Props).ToArray();
+        }
+
         if (place.Bounds is not { } b)
         {
-            return Place == place ? this : Copy(place, Primitives, Owners, PlayerSpawns, SpawnArea, DeadZone);
+            return Place == place && layout == FieldLayout ? this : Copy(place, primitives, props, layout, Owners, PlayerSpawns, SpawnArea, DeadZone);
         }
 
         var owners = new List<string>(Owners) { $"place:{place.Id}" };
         var sink = new PrimitiveSink();
-        sink.Items.AddRange(Primitives);
+        sink.Items.AddRange(primitives);
         int owner = owners.Count - 1;
         const float thickness = 0.3f;
         float height = Bounds.Max.Y - Bounds.Min.Y;
@@ -245,7 +346,7 @@ public sealed class LevelLayout
         var area = x1 - x0 > 4f && z1 - z0 > 4f
             ? new Aabb(new Vector3(x0, SpawnArea.Min.Y, z0), new Vector3(x1, SpawnArea.Max.Y, z1))
             : new Aabb(new Vector3(b.Min.X, SpawnArea.Min.Y, b.Min.Z), new Vector3(b.Max.X, SpawnArea.Max.Y, b.Max.Z));
-        return Copy(place, sink.Items, owners, entries, area, place.DeadZone ?? DeadZone);
+        return Copy(place, sink.Items, props, layout, owners, entries, area, place.DeadZone ?? DeadZone);
     }
 
     /// <summary>
@@ -273,8 +374,8 @@ public sealed class LevelLayout
         };
     }
 
-    private LevelLayout Copy(PlaceSpec place, IReadOnlyList<LevelPrimitive> primitives, IReadOnlyList<string> owners, IReadOnlyList<SpawnPoint> entries,
-        Aabb spawnArea, Vector3 deadZone)
+    private LevelLayout Copy(PlaceSpec place, IReadOnlyList<LevelPrimitive> primitives, IReadOnlyList<PropInstance> props, FieldLayoutSpec? layout,
+        IReadOnlyList<string> owners, IReadOnlyList<SpawnPoint> entries, Aabb spawnArea, Vector3 deadZone)
     {
         IReadOnlyList<Viewpoint> views = Viewpoints.Where(v => place.Contains(v.Position)).ToArray();
         return new LevelLayout
@@ -288,12 +389,15 @@ public sealed class LevelLayout
             Primitives = primitives,
             Apertures = Apertures,
             Doors = Doors,
-            Props = Props,
+            Props = props,
             Ladders = Ladders,
             Buildings = Buildings,
             Walls = Walls,
             Scenery = Scenery,
             Markings = Markings,
+            Field = Field,
+            FieldLayout = layout,
+            FieldDressing = FieldDressing,
             Owners = owners,
             PlayerSpawns = entries,
             SpawnArea = spawnArea,

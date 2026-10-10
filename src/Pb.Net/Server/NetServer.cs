@@ -492,6 +492,7 @@ public sealed class NetServer : IDisposable
         link.Welcomed = true;
         link.Name = UniqueName(hello!.Name, link);
         link.Look = hello.Look;
+        link.Kit = hello.Kit;
         link.Key = Printable(hello.Key, 64);
         _writer.Reset();
         new WelcomeMessage { ClientId = link.Peer, ServerName = Identity.Name, Name = link.Name }.Write(_writer);
