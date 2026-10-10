@@ -1319,6 +1319,54 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 - **The fallback.** If the stress mode shows decals over budget, world splats become cards in a ring-buffer MultiMesh
   drawn like the old paint, on flat surfaces only (a splat across an edge is skipped).
 - **Data:** `presentation.jsonc` → `splats` (`drying_s`, `paintSlots`, `spatterReach_m`).
+- **As built (M5.4):**
+  - **The atlas.** `WetSplats` (a class of its own: `SplatPainter` stays the old paint's) paints eight shapes of 128 px
+    when the game starts: five round splats (a ragged thick middle, fingers thrown out, drops beyond), two glancing ones
+    sprayed one way, and a spatter of small drops, the ball's shell lying in flecks in all but the spatter. For decals
+    each has an albedo (white, tinted by the team colour), a normal map from its thickness and a wet and a dry ORM
+    (glossiest where the paint lies thickest); for the shaders one atlas holds them all, 4 × 2 cells of coverage,
+    thickness and flecks.
+  - **World decals** use the wet ORM and a colour `wetDarken` deeper, and swap to the dry ones once `drying_s` has
+    passed on the paint's own clock (`PaintSlots.Now`, moved on each frame, so it stands still while the game does),
+    oldest first. A ball whose speed along the surface is over three quarters of its speed leaves a glancing splat, a
+    third longer, sprayed the way it went.
+  - **Paint in the shaders** (`paint.gdshaderinc`, `PaintSlots`). Each painted surface keeps `paintSlots` (16) splats
+    in uniform arrays: its middle and radius, the way across and the shape, the way it faces and how wet it is, and its
+    colour and reach. The fragment projects each along the way it faces: only a surface between 0.4 of the radius in
+    front of the hit and `reach` behind it takes it (a ball breaks on the hitbox, round the body), and only where the
+    surface faces it (fading in from a cosine of 0.05 to 0.35). Each reads its cell with its own slopes (`textureGrad`,
+    as it's in a loop), deepens and glosses the colour while wet, covers the cloth's normal map and the metal, and lifts
+    the normal by its thickness's slope on the screen.
+    - **Characters:** the frame is the mesh's rest pose: the positions the clothes' zones already carried (`CUSTOM0`)
+      and the rest normals, now in `CUSTOM1`. A hit goes into it through the nearest of its hitbox part's bones, as
+      skinning would carry it: the inverse of the skeleton's transform × the bone's pose × its bind pose. Its reach is
+      the hit's distance from that bone. A hit on a brand's mask paints the shell in its own frame. On a body the splat
+      is 0.8 of a decal's size.
+    - **Gear:** each worn item's model space. The first splat on one gives it materials of its own (copies of the shared
+      ones), so the paint is on that one only.
+    - **First person:** the rig's frame (`paint_frame`: the world into the rig, handed on each frame once it has paint).
+  - **Spatter.** A break within `spatterReach_m` of your eye (wherever it broke: a wall you're hugging, your own mask)
+    lands `spatterDrops` drops on your rig: points spread over its surfaces at rest by area (sampled once, at the first
+    spatter), facing the break and seen from your eye, the nearer the likelier. Most are single drops about
+    `spatterSize_m` across; now and then a spray of small ones (the spatter shape).
+  - **The provisional splat.** `ClientSession` remembers its own predicted breaks on players. When the server's word on
+    the ball differs (it broke on someone else or on the world, bounced, or was gone), the copy raises `SplatWithdrawn`
+    (the ball, and who it was drawn on) and then draws the break where the server had it. `SplatSystem` remembers its
+    last 256 splats by ball and takes that one off: a decal or a card hidden, a slot in someone's shader emptied. A
+    test without lag compensation at 100 ms: 20 of your balls broke on a runner on your copy and one on the server; the
+    19 others came off.
+  - **Cards.** `SplatCards` (one MultiMesh, `splat_cards.gdshader`: the same atlas, drying in the shader by when each
+    landed) takes the paint on what stands still while the graphics setting **Paint as cards** is on
+    (`GraphicsParts.PaintCards`); a splat whose four corners don't all land on one plane isn't drawn. Turning it on moves
+    the decals already on what stands still to cards (where they lie flat, as wet as they were), so their cost goes at
+    once. Doors and the range's targets keep decals. The training ground's stress mode, once its pool of decals is full, times the GPU
+    (`RenderingServer.ViewportGetMeasuredRenderTimeGpu`) with and without them, `measureFrames` (60) frames each way,
+    twice (`PaintCost`); over `decalBudget_ms` (2.5) it turns cards on and saves it. The perf overlay says what it found.
+    Headless, the GPU's time can't be read, so it says that instead. The range's smoke test moves its paint to cards for
+    its last quarter.
+  - **Checks:** `-- --paint-demo` (on `Level.tscn`) breaks balls on four opponents in the brands' kits (from in front,
+    the sides and behind), on the ground (square and at a slant) and on the nearest wall, and looks at them wet, close
+    up, while they turn round, and dry; then through your eyes in front of the wall as three balls break on it.
 
 ### 17.5 The field
 

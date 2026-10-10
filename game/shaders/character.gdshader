@@ -1,7 +1,8 @@
 // A character model in a player's kit (game/player/CharacterModel.cs, ClothesZones.cs): the model's own picture, normal,
 // roughness and metal maps as its material had them, with the jersey and the pants repainted in the kit's colours. Each
-// vertex carries its zone (COLOR: pants, jersey, head, face) and its rest position (CUSTOM0, metres in the model's frame:
-// +X its left, +Y up from its feet, +Z its front). Recolouring keeps the picture's shading relative to the zone's mean
+// vertex carries its zone (COLOR: pants, jersey, head, face), its rest position (CUSTOM0, metres in the model's frame:
+// +X its left, +Y up from its feet, +Z its front) and its rest normal (CUSTOM1), and the paint that's hit the body is
+// kept in that frame (paint.gdshaderinc), so it moves with it. Recolouring keeps the picture's shading relative to the zone's mean
 // brightness, so folds, seams and pockets stay; a pattern (bands, panels, camouflage, patches, a stripe) is laid out
 // from the rest pose and the body's joints, so it moves with the body and never swims. Under a brand's mask the face is
 // cut away, so the model's own mask never shows through.
@@ -52,12 +53,16 @@ uniform bool hide_face = false;
 // Checking the zones (--gear-zones): pants red, jersey green, head blue, the face white, the rest grey.
 uniform bool show_zones = false;
 
+#include "res://shaders/paint.gdshaderinc"
+
 varying vec4 zone;
 varying vec3 rest;
+varying vec3 rest_normal;
 
 void vertex() {
 	zone = COLOR;
 	rest = CUSTOM0.xyz;
+	rest_normal = CUSTOM1.xyz;
 }
 
 float along(vec3 p, vec3 a, vec3 b) {
@@ -185,11 +190,16 @@ void fragment() {
 		colour = zone.a > 0.5 ? vec3(1.0) : vec3(zone.r, zone.g, zone.b) * 0.8 + (1.0 - zone.r - zone.g - zone.b) * vec3(0.25);
 	}
 
+	float rough = roughness * dot(texture(roughness_tex, UV), roughness_channel);
+	vec3 normal = NORMAL;
+	float painted = splat_apply(rest, rest_normal, VERTEX, colour, rough, normal);
+	NORMAL = normal;
 	ALBEDO = colour;
-	ROUGHNESS = roughness * dot(texture(roughness_tex, UV), roughness_channel);
-	METALLIC = metallic * dot(texture(metallic_tex, UV), metallic_channel);
+	ROUGHNESS = rough;
+	METALLIC = metallic * dot(texture(metallic_tex, UV), metallic_channel) * (1.0 - painted);
 	if (use_normal_tex) {
+		// Paint covers the cloth's weave.
 		NORMAL_MAP = texture(normal_tex, UV).rgb;
-		NORMAL_MAP_DEPTH = normal_scale;
+		NORMAL_MAP_DEPTH = normal_scale * (1.0 - painted);
 	}
 }

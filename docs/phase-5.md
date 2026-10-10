@@ -213,14 +213,16 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
 
 ### M5.4 Paint
 
-- [ ] A splat atlas painted when the game starts, each splat with its depth and gloss: a thick middle, drops, shell
+- [x] A splat atlas painted when the game starts, each splat with its depth and gloss: a thick middle, drops, shell
   flecks. Fresh paint is wet and glossy, and dulls as it dries.
-- [ ] Paint in the shaders of players and their gear: each keeps its last splats in its own frame and draws them, so
+- [x] Paint in the shaders of players and their gear: each keeps its last splats in its own frame and draws them, so
   they wrap round curves and move with the part. What stands still (walls, floors, bunkers) keeps the pooled decals in
   the new look.
-- [ ] A ball breaking within reach of you spatters your first-person marker and gloves, as well as your mask.
-- [ ] A splat your copy drew on someone the server says your ball missed comes off (today it stays).
-- [ ] The stress mode measures the paint's cost; if decals cost too much on your PC, the world's paint moves to cards.
+- [x] A ball breaking within reach of you spatters your first-person marker and gloves, as well as your mask.
+- [x] A splat your copy drew on someone the server says your ball missed comes off (today it stays).
+- [x] The stress mode measures the paint's cost; if decals cost too much on your PC, the world's paint moves to cards.
+  (They're a graphics setting too: Paint as cards. `--paint-demo` paints four opponents, the ground and a wall, and then
+  your own marker from close by: wet, as they turn round, and dry.)
 
 ### M5.5 The Sports Ground
 

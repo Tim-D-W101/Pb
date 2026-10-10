@@ -18,7 +18,7 @@ namespace Pb.Game.Player;
 /// exactly what you can hit. Each part is an unscaled node with the box or shapes under it, so splats
 /// parented to a part keep their shape and move with it.
 /// </summary>
-public partial class CharacterVisual : Node3D
+public partial class CharacterVisual : Node3D, Pb.Game.Ballistics.IPaintTarget
 {
     private readonly Node3D[] _parts = new Node3D[HitboxRig.PartCount];
     private readonly MeshInstance3D?[] _meshes = new MeshInstance3D?[HitboxRig.PartCount];
@@ -55,6 +55,7 @@ public partial class CharacterVisual : Node3D
     private MarkerModelDef? _markerDef;
     private GearModels.Worn? _markerWorn;
     private readonly GeometryInstance3D?[] _gear = new GeometryInstance3D?[3];
+    private readonly Pb.Game.Ballistics.PaintSlots?[] _gearPaint = new Pb.Game.Ballistics.PaintSlots?[3];
     private readonly System.Collections.Generic.Dictionary<GeometryInstance3D, (GeometryInstance3D.ShadowCastingSetting Cast, bool Visible)> _drawn = new();
     private StepGait.GroundQuery _ground = null!;
 
@@ -222,6 +223,49 @@ public partial class CharacterVisual : Node3D
                 _model.Poser.HandsOnMarker = value;
             }
         }
+    }
+
+    /// <summary>
+    /// Paint on them, as their shaders draw it: on their marker, loader or tank in the item's own frame, on the rest of
+    /// them through the model (<see cref="CharacterModel.Paint"/>). Its handle, or 0 where it can't (the generated
+    /// marker, or a model that isn't the generator's rig, or none): a decal, then.
+    /// </summary>
+    public int Paint(int part, in Pb.Game.Ballistics.Splat splat, Pb.Game.Ballistics.WetSplats splats, SplatDef def)
+    {
+        var hit = (HitboxPart)part;
+        GearSlot? slot = hit switch
+        {
+            HitboxPart.Marker => GearSlot.Marker,
+            HitboxPart.Loader => GearSlot.Loader,
+            HitboxPart.Tank => GearSlot.Tank,
+            _ => null,
+        };
+        if (slot is not { } s)
+        {
+            return _model?.Paint(hit, splat, splats, def) ?? 0;
+        }
+
+        if (_gear[(int)s] is not MeshInstance3D piece)
+        {
+            return 0;
+        }
+
+        _gearPaint[(int)s] ??= GearModels.Paintable(piece, splats, def);
+        return _gearPaint[(int)s] is { } slots ? GearModels.Paint(slots, piece, splat, 0.05f) : 0;
+    }
+
+    /// <summary>Takes splat <paramref name="handle"/> off them, wherever it is on them.</summary>
+    public void Withdraw(int handle)
+    {
+        foreach (Pb.Game.Ballistics.PaintSlots? slots in _gearPaint)
+        {
+            if (slots?.Withdraw(handle) == true)
+            {
+                return;
+            }
+        }
+
+        _model?.Withdraw(handle);
     }
 
     /// <summary>What a splat at <paramref name="point"/> on <paramref name="part"/> should stick to.</summary>

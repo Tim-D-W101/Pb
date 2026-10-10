@@ -139,6 +139,8 @@ over and tucks it in again, printing how far its knees and elbows got into the c
 nearest that point); it runs headless too, for the numbers alone. `-- --ladder-demo` has an opponent climb the level's
 tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
 Oxbarrow Works and `--level=rail_yard` have ladders).
+`-- --paint-demo` breaks balls on four opponents in the brands' kits, the ground and the nearest wall, and looks at the
+paint wet, as they turn round, and dry, then at your marker spattered from close by (`--paint-hold=N` frames a view).
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until

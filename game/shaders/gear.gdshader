@@ -25,6 +25,16 @@ uniform bool cutout = false;
 uniform sampler2D mark_tex : hint_default_white, filter_linear_mipmap_anisotropic;
 
 #include "res://shaders/gear_patterns.gdshaderinc"
+// Paint that has hit this item, in its model space (a wearer's painted item has materials of its own).
+#include "res://shaders/paint.gdshaderinc"
+
+varying vec3 model_vertex;
+varying vec3 model_normal;
+
+void vertex() {
+	model_vertex = VERTEX;
+	model_normal = NORMAL;
+}
 
 vec3 colour() {
 	if (paint_slot == 0) {
@@ -49,9 +59,10 @@ void fragment() {
 	float rough = roughness;
 	vec3 normal = NORMAL;
 	gear_apply_pattern(pattern, UV, VERTEX, albedo, rough, normal);
+	float painted = splat_apply(model_vertex, model_normal, VERTEX, albedo, rough, normal);
 	NORMAL = normal;
 	ALBEDO = albedo;
 	ROUGHNESS = rough;
-	METALLIC = metallic;
-	SPECULAR = specular_level;
+	METALLIC = metallic * (1.0 - painted);
+	SPECULAR = mix(specular_level, 0.5, painted);
 }

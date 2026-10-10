@@ -430,6 +430,9 @@ public partial class CharacterModel : Node3D
     private string _path = "";
     private ClothesDef _clothesDef = new();
     private MeshInstance3D? _mask;
+    private MeshInstance3D? _body;
+    private PaintSlots? _bodyPaint;
+    private PaintSlots? _maskPaint;
 
     /// <summary>The model's surface sorted into its clothes, head and the rest (null when its rig isn't the generator's).</summary>
     public ClothesZones? Zones => _zones;
@@ -490,6 +493,7 @@ public partial class CharacterModel : Node3D
             mesh.SetSurfaceOverrideMaterial(0, material);
             _clothes = material;
             _zones = zones;
+            _body = mesh;
         }
 
         if (_clothes is null)
@@ -512,6 +516,7 @@ public partial class CharacterModel : Node3D
 
         _mask?.QueueFree();
         _mask = null;
+        _maskPaint = null;
         // Checking the zones (--gear-zones=bare): no shell, the face shown in white where it would be cut away.
         if (_zones is not null && Pb.Game.Core.Args.Value("--gear-zones") != "bare" &&
             MaskShapes.Shell(kit.Item(Pb.Sim.Gear.GearSlot.Mask), _path, _zones, _clothesDef.MaskGap_m) is { } shell)
@@ -554,6 +559,80 @@ public partial class CharacterModel : Node3D
             clothes.SetShaderParameter(name + "_second", Linear(colours.Second));
             clothes.SetShaderParameter(name + "_accent", Linear(colours.Accent));
         }
+    }
+
+    /// <summary>
+    /// Paints <paramref name="splat"/>, found on <paramref name="part"/>'s hitbox, on the body as its shader draws it: a
+    /// hit on the mask on a brand's mask shell (in the shell's frame), anything else on the body in its rest pose, by the
+    /// bone nearest the hit, so the paint moves with the body. The surface lies somewhere behind the hitbox, as far in as
+    /// that bone. Its handle, or 0 if the model has no paint of its own (it isn't the generator's rig): a decal, then.
+    /// </summary>
+    public int Paint(HitboxPart part, in Splat splat, WetSplats splats, SplatDef def)
+    {
+        if (part == HitboxPart.Mask && _mask is not null)
+        {
+            _maskPaint ??= GearModels.Paintable(_mask, splats, def);
+            return _maskPaint is null ? 0 : GearModels.Paint(_maskPaint, _mask, splat, 0.04f);
+        }
+
+        if (_clothes is null || _body?.Skin is not { } skin || !SplatBones.TryGetValue(part, out string[]? bones))
+        {
+            return 0;
+        }
+
+        // The nearest of the part's bones, and how far the hit is from it.
+        int bone = -1;
+        float reach = float.MaxValue;
+        foreach (string name in bones)
+        {
+            int index = _skeleton.FindBone(name);
+            int[] children = _skeleton.GetBoneChildren(index);
+            Vector3 a = _skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(index).Origin;
+            Vector3 b = children.Length > 0 ? _skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(children[0]).Origin : a;
+            float distance = splat.Point.DistanceTo(Geometry3D.GetClosestPointToSegment(splat.Point, a, b));
+            if (distance < reach)
+            {
+                reach = distance;
+                bone = index;
+            }
+        }
+
+        int bind = BindOf(skin, bone);
+        if (bind < 0)
+        {
+            return 0;
+        }
+
+        if (_bodyPaint is null)
+        {
+            _bodyPaint = new PaintSlots(def);
+            _bodyPaint.Bind(_clothes, splats);
+        }
+
+        // From the world into the mesh's rest pose, as that bone moves it now (skinning, the other way round).
+        Transform3D toRest = (_skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(bone) * skin.GetBindPose(bind)).AffineInverse();
+        float unit = toRest.Basis.X.Length();
+        Vector3 facing = (toRest.Basis * splat.Normal).Normalized();
+        return _bodyPaint.Add(toRest * splat.Point, facing, PaintSlots.Across(facing, splat.Spin), splat.Radius * unit,
+            (reach + splat.Radius * 0.5f) * unit, splat.Shape, splat.Colour, PaintSlots.Now);
+    }
+
+    /// <summary>Takes splat <paramref name="handle"/> off the body or the mask, if it's on either.</summary>
+    public bool Withdraw(int handle) => (_bodyPaint?.Withdraw(handle) ?? false) || (_maskPaint?.Withdraw(handle) ?? false);
+
+    /// <summary>The skin's bind that stands for <paramref name="bone"/> (by name, or by index when the binds aren't named), or −1.</summary>
+    private int BindOf(Skin skin, int bone)
+    {
+        for (int b = 0; b < skin.GetBindCount(); b++)
+        {
+            StringName name = skin.GetBindName(b);
+            if (name.IsEmpty ? skin.GetBindBone(b) == bone : _skeleton.FindBone(name) == bone)
+            {
+                return b;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Cuts the model's own face away (under a brand's mask), or shows it again.</summary>

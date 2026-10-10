@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Pb.Game.Ballistics;
 using Pb.Game.Core;
 using Pb.Game.World;
 using Pb.Sim.Data;
@@ -16,7 +17,8 @@ namespace Pb.Game.Player;
 /// hugging. It sits on its own render layer so paint decals don't project onto it. While you refill
 /// the loader from a pod, the marker cants towards you, the support hand drops off the foregrip and
 /// comes back up with a pod, tips it into the loader (paint pouring in) and goes back to the foregrip,
-/// in step with the sim's refill (<see cref="RefillProgress"/>).
+/// in step with the sim's refill (<see cref="RefillProgress"/>). A ball breaking close to your eye spatters the marker
+/// and your gloves with a few drops of its paint (<see cref="Spatter"/>), drawn in the rig's own frame by its shaders.
 /// </summary>
 public partial class ViewModel : Node3D
 {
@@ -37,8 +39,12 @@ public partial class ViewModel : Node3D
     private Node3D _podHand = null!;
     private Vector3 _podTop;
     private readonly MeshInstance3D[] _pouring = new MeshInstance3D[5];
+    private readonly List<ShaderMaterial> _materials = new();
     private float _phase = 1f;
     private float _time;
+    private PaintSlots? _spatter;
+    private Vector3[] _surface = Array.Empty<Vector3>();
+    private Vector3[] _surfaceNormal = Array.Empty<Vector3>();
 
     /// <summary>Where the pod's mouth is as it pours, and which way it points (marker frame: right, up, back).</summary>
     private static readonly Vector3 Mouth = new(-0.03f, 0.238f, 0f), Pour = new Vector3(0.75f, -0.62f, 0.15f).Normalized();
@@ -275,6 +281,12 @@ public partial class ViewModel : Node3D
         _podHand.Position = _podTop + new Vector3(-0.12f, -0.32f, 0.12f) * (1f - hold) + new Vector3(shake, shake * 0.5f, 0f);
         _podHand.Basis = new Basis(Vector3.Back, Mathf.DegToRad(60f) * (1f - hold));
 
+        // Paint on it is drawn in its own frame, wherever the camera has taken it.
+        if (_spatter is not null)
+        {
+            PushFrame();
+        }
+
         // While it pours, balls tumble out of the mouth into the loader.
         bool pouring = hold > 0.97f;
         for (int i = 0; i < _pouring.Length; i++)
@@ -289,6 +301,140 @@ public partial class ViewModel : Node3D
     }
 
     private static float Smooth(float from, float to, float x) => Mathf.SmoothStep(from, to, x);
+
+    /// <summary>Where your eye is: the camera the rig hangs from.</summary>
+    public Vector3 Eye => GetParent() is Node3D camera ? camera.GlobalPosition : GlobalPosition;
+
+    /// <summary>
+    /// A ball broke at <paramref name="at"/> (world) close to your eye: <paramref name="drops"/> drops of its paint land on
+    /// the marker and your gloves, where they face the break and you can see them, the nearer the likelier; each about
+    /// <c>spatterSize_m</c> across.
+    /// </summary>
+    public void Spatter(Vector3 at, Color colour, int drops, WetSplats splats, SplatDef def, RandomNumberGenerator rng)
+    {
+        if (_spatter is null)
+        {
+            _spatter = new PaintSlots(def);
+            foreach (ShaderMaterial material in _materials)
+            {
+                _spatter.Bind(material, splats);
+            }
+
+            _surface = SampleSurface(240, out _surfaceNormal);
+        }
+
+        Transform3D toRig = GlobalTransform.AffineInverse();
+        float unit = toRig.Basis.X.Length();
+        Vector3 from = toRig * at;
+        Vector3 eye = toRig * Eye;
+        for (int tries = 0; tries < 120 && drops > 0 && _surface.Length > 0; tries++)
+        {
+            int k = rng.RandiRange(0, _surface.Length - 1);
+            Vector3 p = _surface[k], n = _surfaceNormal[k];
+            Vector3 toBreak = from - p;
+            float distance = Mathf.Max(toBreak.Length(), 0.01f);
+            if (n.Dot(toBreak) < 0.2f * distance || n.Dot(eye - p) <= 0f || rng.Randf() > Mathf.Clamp(0.15f / distance, 0.08f, 1f))
+            {
+                continue;
+            }
+
+            // Mostly single drops; now and then a spray of small ones.
+            bool spray = rng.Randf() < 0.3f;
+            float radius = def.SpatterSize_m * unit * rng.RandfRange(0.6f, 1.3f) * (spray ? 2.4f : 0.75f);
+            _spatter.Add(p, n, PaintSlots.Across(n, rng.RandfRange(0f, Mathf.Tau)), radius, radius * 0.4f + 0.004f * unit,
+                spray ? WetSplats.Spatter : rng.RandiRange(0, 4), colour, PaintSlots.Now);
+            drops--;
+        }
+
+        PushFrame();
+    }
+
+    /// <summary>Hands the rig's frame (the world into it) to everything that draws its paint.</summary>
+    private void PushFrame()
+    {
+        var frame = new Projection(GlobalTransform.AffineInverse());
+        foreach (ShaderMaterial material in _materials)
+        {
+            material.SetShaderParameter("paint_frame", frame);
+        }
+    }
+
+    /// <summary>
+    /// About <paramref name="count"/> points spread evenly over the rig's surfaces as they stand at rest (the marker,
+    /// loader, tank and the hands on it, not the pod or the paint), in its own frame, with the way each faces.
+    /// </summary>
+    private Vector3[] SampleSurface(int count, out Vector3[] normals)
+    {
+        var triangles = new List<(Vector3 A, Vector3 B, Vector3 C, Vector3 N, float Area)>();
+        float total = 0f;
+        foreach (Node node in FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false))
+        {
+            var mesh = (MeshInstance3D)node;
+            if (mesh.Mesh is not { } shape || !mesh.Visible || Array.IndexOf(_pouring, mesh) >= 0 || node.GetParent() == _podHand)
+            {
+                continue;
+            }
+
+            Transform3D toRig = Transform3D.Identity;
+            for (Node3D? at = mesh; at is not null && at != this; at = at.GetParent() as Node3D)
+            {
+                toRig = at.Transform * toRig;
+            }
+
+            for (int surface = 0; surface < shape.GetSurfaceCount(); surface++)
+            {
+                // Headless (the dummy renderer keeps no arrays) there's nothing to read.
+                Godot.Collections.Array arrays = shape.SurfaceGetArrays(surface);
+                if (arrays.Count <= (int)Mesh.ArrayType.Index)
+                {
+                    continue;
+                }
+
+                Vector3[] vertices = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
+                Vector3[] vertexNormals = arrays[(int)Mesh.ArrayType.Normal].AsVector3Array();
+                int[] indices = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
+                int n = indices.Length > 0 ? indices.Length : vertices.Length;
+                for (int t = 0; t + 2 < n; t += 3)
+                {
+                    int i0 = indices.Length > 0 ? indices[t] : t, i1 = indices.Length > 0 ? indices[t + 1] : t + 1, i2 = indices.Length > 0 ? indices[t + 2] : t + 2;
+                    Vector3 a = toRig * vertices[i0], b = toRig * vertices[i1], c = toRig * vertices[i2];
+                    // The way it faces: its corners' normals, or else its winding (Godot's front faces wind clockwise).
+                    Vector3 face = vertexNormals.Length == vertices.Length
+                        ? toRig.Basis.Inverse().Transposed() * (vertexNormals[i0] + vertexNormals[i1] + vertexNormals[i2])
+                        : (c - a).Cross(b - a);
+                    float area = (b - a).Cross(c - a).Length() * 0.5f;
+                    if (area > 1e-9f && face.LengthSquared() > 1e-12f)
+                    {
+                        triangles.Add((a, b, c, face.Normalized(), area));
+                        total += area;
+                    }
+                }
+            }
+        }
+
+        var points = new List<Vector3>();
+        var faces = new List<Vector3>();
+        var rng = new RandomNumberGenerator { Seed = 77 };
+        foreach ((Vector3 a, Vector3 b, Vector3 c, Vector3 n, float area) in triangles)
+        {
+            // Each triangle its share of the points, the fraction left over by chance.
+            float share = area / Mathf.Max(total, 1e-9f) * count;
+            for (int i = (int)share + (rng.Randf() < share - (int)share ? 1 : 0); i > 0; i--)
+            {
+                float u = rng.Randf(), v = rng.Randf();
+                if (u + v > 1f)
+                {
+                    (u, v) = (1f - u, 1f - v);
+                }
+
+                points.Add(a + (b - a) * u + (c - a) * v);
+                faces.Add(n);
+            }
+        }
+
+        normals = faces.ToArray();
+        return points.ToArray();
+    }
 
     /// <summary>Rest position, mirrored across the face for a left-shoulder hold (and dipped mid-swap).</summary>
     private Vector3 Rest => new(_rest.X * Side, _rest.Y - 0.06f * (1f - Mathf.Abs(Side)), _rest.Z);
@@ -369,6 +515,7 @@ public partial class ViewModel : Node3D
         material.SetShaderParameter("roughness", roughness);
         material.SetShaderParameter("metallic", metallic);
         material.SetShaderParameter("viewmodel_fov_deg", _viewFov);
+        _materials.Add(material);
         return material;
     }
 }

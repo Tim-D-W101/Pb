@@ -26,6 +26,13 @@ uniform bool cutout = false;
 
 #include "res://shaders/gear_patterns.gdshaderinc"
 
+// Paint that has spattered the marker and the gloves, in the first-person rig's frame (game/player/ViewModel.cs).
+#include "res://shaders/paint.gdshaderinc"
+
+uniform mat4 paint_frame = mat4(1.0);
+varying vec3 paint_vertex;
+varying vec3 paint_normal_rig;
+
 void vertex() {
 	mat4 projection = PROJECTION_MATRIX;
 	float focal = 1.0 / tan(radians(viewmodel_fov_deg) * 0.5);
@@ -35,6 +42,9 @@ void vertex() {
 	POSITION = projection * (MODELVIEW_MATRIX * vec4(VERTEX, 1.0));
 	// Reversed-Z: NDC depth 1 is the near plane. Remap [0, 1] → [depth_squash, 1].
 	POSITION.z = POSITION.w * depth_squash + (1.0 - depth_squash) * POSITION.z;
+	// The paint's frame: the first-person rig's (paint_frame takes the world into it).
+	paint_vertex = (paint_frame * MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	paint_normal_rig = mat3(paint_frame) * (mat3(MODEL_MATRIX) * NORMAL);
 }
 
 void fragment() {
@@ -47,11 +57,13 @@ void fragment() {
 	float rough = roughness * dot(texture(roughness_tex, UV), roughness_channel);
 	vec3 normal = NORMAL;
 	gear_apply_pattern(pattern, UV, VERTEX, colour, rough, normal);
+	float painted = splat_apply(paint_vertex, paint_normal_rig, VERTEX, colour, rough, normal);
 	NORMAL = normal;
 	ALBEDO = colour;
 	ROUGHNESS = rough;
-	METALLIC = metallic * dot(texture(metallic_tex, UV), metallic_channel);
+	METALLIC = metallic * dot(texture(metallic_tex, UV), metallic_channel) * (1.0 - painted);
 	if (use_normal_tex) {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;
+		NORMAL_MAP_DEPTH = 1.0 - painted;
 	}
 }

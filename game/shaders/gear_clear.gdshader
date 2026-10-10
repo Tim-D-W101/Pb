@@ -12,10 +12,25 @@ uniform int paint_slot = 0;
 uniform float opacity : hint_range(0.0, 1.0) = 0.62;
 uniform float roughness : hint_range(0.0, 1.0) = 0.1;
 
+// Paint that has hit the shell, in its model space; paint on it isn't see-through.
+#include "res://shaders/paint.gdshaderinc"
+
+varying vec3 model_vertex;
+varying vec3 model_normal;
+
+void vertex() {
+	model_vertex = VERTEX;
+	model_normal = NORMAL;
+}
+
 void fragment() {
 	vec3 tint = paint_slot == 0 ? main_colour : paint_slot == 1 ? second_colour : accent_colour;
+	float rough = roughness;
+	vec3 normal = NORMAL;
+	float painted = splat_apply(model_vertex, model_normal, VERTEX, tint, rough, normal);
+	NORMAL = normal;
 	ALBEDO = tint;
-	ALPHA = opacity;
-	ROUGHNESS = roughness;
+	ALPHA = max(opacity, painted);
+	ROUGHNESS = rough;
 	SPECULAR = 0.6;
 }

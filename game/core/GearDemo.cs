@@ -65,7 +65,7 @@ public partial class GearDemo : Node, ICommandSource
         }
 
         float spacing = masks ? 1.1f : 1.3f;
-        if (opponents.Count < dresses.Count || !FindRoom(opponents[0].State.Position, towardSun, dresses.Count * spacing * 0.5f + 1.5f, out SVector3 centre, out _yaw))
+        if (opponents.Count < dresses.Count || !FindRoom(sim, opponents[0].State.Position, towardSun, dresses.Count * spacing * 0.5f + 1.5f, out SVector3 centre, out _yaw))
         {
             GD.PushError($"GEAR DEMO needs {dresses.Count} opponents and a clear patch of ground; quitting");
             GetTree().Quit(1);
@@ -194,7 +194,7 @@ public partial class GearDemo : Node, ICommandSource
     /// Clear ground near <paramref name="near"/> for the row (<paramref name="half"/> either side) and the cameras round
     /// it (searched outwards on a 2 m grid), with the row facing the sun's side so it's lit.
     /// </summary>
-    private bool FindRoom(SVector3 near, SVector3 towardSun, float half, out SVector3 centre, out float yaw)
+    public static bool FindRoom(SimWorld sim, SVector3 near, SVector3 towardSun, float half, out SVector3 centre, out float yaw)
     {
         yaw = Mathf.Atan2(-towardSun.X, -towardSun.Z);
         for (int ring = 0; ring <= 40; ring++)
@@ -209,8 +209,8 @@ public partial class GearDemo : Node, ICommandSource
                     }
 
                     SVector3 probe = near + new SVector3(x * 2f, 0f, z * 2f);
-                    if (_sim.Collision.SweepSphere(probe + new SVector3(0f, 2f, 0f), probe - new SVector3(0f, 2f, 0f), 0f, out var floor) &&
-                        Clear(floor.Point, yaw, half))
+                    if (sim.Collision.SweepSphere(probe + new SVector3(0f, 2f, 0f), probe - new SVector3(0f, 2f, 0f), 0f, out var floor) &&
+                        Clear(sim, floor.Point, yaw, half))
                     {
                         centre = floor.Point;
                         return true;
@@ -224,7 +224,7 @@ public partial class GearDemo : Node, ICommandSource
     }
 
     /// <summary>Room to stand and level ground from 4 m behind the row to 5 m ahead of it, <paramref name="half"/> either side.</summary>
-    private bool Clear(SVector3 from, float yaw, float half)
+    private static bool Clear(SimWorld sim, SVector3 from, float yaw, float half)
     {
         SVector3 ahead = ViewAngles.FlatForward(yaw);
         SVector3 side = new(-ahead.Z, 0f, ahead.X);
@@ -233,10 +233,10 @@ public partial class GearDemo : Node, ICommandSource
             for (float s = -half; s <= half; s += 1f)
             {
                 SVector3 at = from + ahead * d + side * s;
-                bool room = !_sim.Collision.SweepSphere(at + new SVector3(0f, 0.45f, 0f), at + new SVector3(0f, 2.2f, 0f), 0.35f, out _);
-                bool ground = _sim.Collision.SweepSphere(at + new SVector3(0f, 0.3f, 0f), at - new SVector3(0f, 0.3f, 0f), 0f, out var floor) &&
+                bool room = !sim.Collision.SweepSphere(at + new SVector3(0f, 0.45f, 0f), at + new SVector3(0f, 2.2f, 0f), 0.35f, out _);
+                bool ground = sim.Collision.SweepSphere(at + new SVector3(0f, 0.3f, 0f), at - new SVector3(0f, 0.3f, 0f), 0f, out var floor) &&
                               System.MathF.Abs(floor.Point.Y - from.Y) < 0.1f;
-                if (!room || !ground || !(_sim.Level?.Bounds.Contains(at + new SVector3(0f, 1f, 0f)) ?? true))
+                if (!room || !ground || !(sim.Level?.Bounds.Contains(at + new SVector3(0f, 1f, 0f)) ?? true))
                 {
                     return false;
                 }

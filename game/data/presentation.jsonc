@@ -34,7 +34,18 @@
     "depth_m": 0.14,
     "normalFade": 0.35,
     "distanceFadeBegin_m": 70,
-    "distanceFadeLength_m": 25
+    "distanceFadeLength_m": 25,
+    // Fresh paint is wet: glossy, its colour wetDarken deeper, and dries to satin over drying_s. Its thickness stands it
+    // proud of the surface in the light by bump (the normal map's strength).
+    "drying_s": 40, "wetRoughness": 0.07, "dryRoughness": 0.55, "wetDarken": 0.12, "bump": 1.0,
+    // Players, their gear and your first-person marker keep their last paintSlots splats in their own shaders (at most
+    // 16), so the paint wraps round them and moves with them. A ball breaking within spatterReach_m of your eye spatters
+    // your marker and gloves with a few drops of spatterSize_m.
+    "paintSlots": 16, "spatterReach_m": 0.8, "spatterDrops": [3, 6], "spatterSize_m": 0.03,
+    // The training ground's stress mode (F3) times what the full pool of decals costs the GPU a frame, with and without
+    // them for measureFrames frames each way (twice). Over decalBudget_ms, the paint on walls, floors and cover is drawn
+    // as cards instead (the graphics settings' "Paint as cards"): cheaper, but only on flat surfaces.
+    "decalBudget_ms": 2.5, "measureFrames": 60
   },
 
   // Impact bursts. Bursts nearer the camera than minCameraDistance_m are skipped: point-blank spray

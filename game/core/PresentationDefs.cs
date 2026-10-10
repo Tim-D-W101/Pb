@@ -291,8 +291,55 @@ public sealed class SplatDef : IValidatable
 
     public float DistanceFadeLength_m { get; set; }
 
+    /// <summary>Fresh paint is wet (glossy, its colour deeper by <see cref="WetDarken"/>) and dries over this long (s).</summary>
+    public float Drying_s { get; set; }
+
+    /// <summary>The thick paint's roughness wet and dry (the thin rim's is between them and matt).</summary>
+    public float WetRoughness { get; set; }
+
+    public float DryRoughness { get; set; }
+
+    public float WetDarken { get; set; }
+
+    /// <summary>How far the paint's thickness lifts its surface in the light (the normal map's strength).</summary>
+    public float Bump { get; set; }
+
+    /// <summary>The splats each player, item of gear and your first-person marker keeps (painted in its shader; the oldest goes first).</summary>
+    public int PaintSlots { get; set; }
+
+    /// <summary>A ball breaking this near your eye spatters your first-person marker and gloves with a few small drops this big (m).</summary>
+    public float SpatterReach_m { get; set; }
+
+    public int[] SpatterDrops { get; set; } = System.Array.Empty<int>();
+
+    public float SpatterSize_m { get; set; }
+
+    /// <summary>
+    /// The most the full pool of decals may cost the GPU a frame (ms) before the training ground's stress mode moves the
+    /// world's paint to cards; it measures with and without them for <see cref="MeasureFrames"/> frames each way, twice.
+    /// </summary>
+    public float DecalBudget_ms { get; set; }
+
+    public int MeasureFrames { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(DecalBudget_ms), DecalBudget_ms, 0.05, 50);
+        v.InRange(nameof(MeasureFrames), MeasureFrames, 5, 1000);
+        v.InRange(nameof(Drying_s), Drying_s, 0.5, 3600);
+        v.InRange(nameof(WetRoughness), WetRoughness, 0, 1);
+        v.InRange(nameof(DryRoughness), DryRoughness, WetRoughness, 1);
+        v.InRange(nameof(WetDarken), WetDarken, 0, 0.8);
+        v.InRange(nameof(Bump), Bump, 0, 4);
+        // The shaders hold 16 (paint.gdshaderinc).
+        v.InRange(nameof(PaintSlots), PaintSlots, 1, 16);
+        v.InRange(nameof(SpatterReach_m), SpatterReach_m, 0, 5);
+        if (SpatterDrops.Length != 2 || SpatterDrops[0] < 0 || SpatterDrops[1] < SpatterDrops[0] || SpatterDrops[1] > 16)
+        {
+            v.Error(nameof(SpatterDrops), "must be [fewest, most], 0 to 16");
+        }
+
+        v.InRange(nameof(SpatterSize_m), SpatterSize_m, 0.002, 0.2);
         v.InRange(nameof(Cap), Cap, 0, 20000);
         v.InRange(nameof(FadeWindow), FadeWindow, 1, 5000);
         v.InRange(nameof(SizeMin_m), SizeMin_m, 0.01, 2);
@@ -937,6 +984,11 @@ public sealed class GraphicsDef : IValidatable
             p.GroundDetail = ground;
         }
 
+        if (parts.PaintCards is { } cards)
+        {
+            p.PaintCards = cards;
+        }
+
         return p;
     }
 
@@ -1036,6 +1088,10 @@ public sealed class GraphicsPresetDef : IValidatable
     /// <summary>Whether the sun casts shadows (on unless the settings turn them off).</summary>
     [Optional]
     public bool Shadows { get; set; } = true;
+
+    /// <summary>Whether the world's paint is drawn as cards rather than decals (off unless the settings turn it on).</summary>
+    [Optional]
+    public bool PaintCards { get; set; }
 
     public GraphicsPresetDef Copy() => (GraphicsPresetDef)MemberwiseClone();
 

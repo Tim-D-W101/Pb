@@ -62,6 +62,9 @@ public partial class Hud : CanvasLayer, ISimEventListener
 
     public bool ShowPerf { get; set; } = true;
 
+    /// <summary>A line more for the perf overlay (the training ground's: what the paint costs), or null.</summary>
+    public Func<string>? PerfExtra { get; set; }
+
     public bool ShowHelp
     {
         get => _help.Visible;
@@ -415,6 +418,11 @@ public partial class Hud : CanvasLayer, ISimEventListener
         if (_sim.Stress?.Enabled == true)
         {
             _text.Append("\nSTRESS MODE: ").Append(_sim.Stress.TargetLiveBalls).Append(" balls");
+        }
+
+        if (PerfExtra?.Invoke() is { Length: > 0 } extra)
+        {
+            _text.Append('\n').Append(extra);
         }
 
         _perf.Text = _text.ToString();

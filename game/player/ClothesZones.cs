@@ -9,7 +9,7 @@ namespace Pb.Game.Player;
 /// it (legs and hips are pants, spine and arms the jersey, neck and head the head, hands the gloves, feet the boots),
 /// and the head's front is marked as the face, which a brand's mask hides. The model's mesh is built again once, with
 /// the zones as vertex colours (pants, jersey, head, face) and each vertex's rest position (metres, the model's frame)
-/// in CUSTOM0, for character.gdshader to recolour the clothes and lay their patterns in a frame that moves with the
+/// in CUSTOM0 (its rest normal in CUSTOM1), for character.gdshader to recolour the clothes and lay their patterns in a frame that moves with the
 /// body; its levels of detail are kept. The body's landmarks (joints in the rest pose) and the head's reach in each
 /// direction come with it, for the patterns and for fitting masks.
 /// </summary>
@@ -218,9 +218,21 @@ public sealed class ClothesZones
                 }
             }
 
+            // The rest normals beside them, for the paint to know which way the body faces where it lands.
+            Vector3[] normals = arrays[(int)Godot.Mesh.ArrayType.Normal].AsVector3Array();
+            var restNormals = new float[vertices.Length * 3];
+            for (int v = 0; v < vertices.Length && v < normals.Length; v++)
+            {
+                restNormals[v * 3] = normals[v].X;
+                restNormals[v * 3 + 1] = normals[v].Y;
+                restNormals[v * 3 + 2] = normals[v].Z;
+            }
+
             arrays[(int)Godot.Mesh.ArrayType.Color] = colours;
             arrays[(int)Godot.Mesh.ArrayType.Custom0] = rest;
-            var format = (Godot.Mesh.ArrayFormat)((long)Godot.Mesh.ArrayCustomFormat.RgbaFloat << (int)Godot.Mesh.ArrayFormat.FormatCustom0Shift);
+            arrays[(int)Godot.Mesh.ArrayType.Custom1] = restNormals;
+            var format = (Godot.Mesh.ArrayFormat)(((long)Godot.Mesh.ArrayCustomFormat.RgbaFloat << (int)Godot.Mesh.ArrayFormat.FormatCustom0Shift) |
+                                                   ((long)Godot.Mesh.ArrayCustomFormat.RgbFloat << (int)Godot.Mesh.ArrayFormat.FormatCustom1Shift));
             if (per == 8)
             {
                 format |= Godot.Mesh.ArrayFormat.FlagUse8BoneWeights;

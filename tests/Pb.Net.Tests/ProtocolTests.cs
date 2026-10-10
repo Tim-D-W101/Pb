@@ -305,6 +305,8 @@ public class ProtocolTests
         Assert.False(EventCodec.Carried(SimEventType.Footstep));
         Assert.False(EventCodec.Carried(SimEventType.DryFire));
         Assert.False(EventCodec.Carried(SimEventType.RefillStarted));
+        // A joining copy raises this for itself (its own splat the server says didn't happen); it's never sent.
+        Assert.False(EventCodec.Carried(SimEventType.SplatWithdrawn));
     }
 
     [Fact]

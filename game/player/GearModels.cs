@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using Pb.Game.Core;
 using Pb.Game.World;
 using Pb.Sim.Gear;
 
@@ -86,6 +87,47 @@ public static class GearModels
         var instance = new MeshInstance3D { Name = name, Mesh = mesh };
         Colour(instance, colours, paint);
         return instance;
+    }
+
+    /// <summary>
+    /// <paramref name="instance"/> (a worn item) made able to take paint: its surfaces given materials of their own,
+    /// copies of the shared ones so the paint is only on this one, drawing paint in the look of <paramref name="def"/>.
+    /// Null if none of its surfaces is drawn by the gear shaders.
+    /// </summary>
+    public static Pb.Game.Ballistics.PaintSlots? Paintable(MeshInstance3D instance, Pb.Game.Ballistics.WetSplats splats, SplatDef def)
+    {
+        if (instance.Mesh is not { } mesh)
+        {
+            return null;
+        }
+
+        var slots = new Pb.Game.Ballistics.PaintSlots(def);
+        bool any = false;
+        for (int i = 0; i < mesh.GetSurfaceCount(); i++)
+        {
+            if ((instance.GetSurfaceOverrideMaterial(i) ?? mesh.SurfaceGetMaterial(i)) is ShaderMaterial shared)
+            {
+                var own = (ShaderMaterial)shared.Duplicate();
+                instance.SetSurfaceOverrideMaterial(i, own);
+                slots.Bind(own, splats);
+                any = true;
+            }
+        }
+
+        return any ? slots : null;
+    }
+
+    /// <summary>
+    /// Paints <paramref name="splat"/> on <paramref name="instance"/> in its own frame (an item's mesh is fitted inside its
+    /// hitbox, so its surface lies up to <paramref name="reach"/> behind the hit, m). Its handle.
+    /// </summary>
+    public static int Paint(Pb.Game.Ballistics.PaintSlots slots, Node3D instance, in Pb.Game.Ballistics.Splat splat, float reach)
+    {
+        Transform3D local = instance.GlobalTransform.AffineInverse();
+        float unit = local.Basis.X.Length();
+        Vector3 facing = (local.Basis * splat.Normal).Normalized();
+        return slots.Add(local * splat.Point, facing, Pb.Game.Ballistics.PaintSlots.Across(facing, splat.Spin), splat.Radius * unit,
+            (reach + splat.Radius * 0.5f) * unit, splat.Shape, splat.Colour, Pb.Game.Ballistics.PaintSlots.Now);
     }
 
     /// <summary>Sets a worn item's colours (the locker changes them as you pick).</summary>

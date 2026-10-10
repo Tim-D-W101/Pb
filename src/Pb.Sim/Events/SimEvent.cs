@@ -61,6 +61,13 @@ public enum SimEventType : byte
     /// called out (−1: none in sight), <see cref="SimEvent.Position"/> where they are (or where the caller is looking).
     /// </summary>
     CalledOut,
+
+    /// <summary>
+    /// A joining copy's own ball broke on someone, and the server says it didn't (it missed, or broke elsewhere): the
+    /// splat this copy drew for it comes off. <see cref="SimEvent.PlayerId"/> and <see cref="SimEvent.ShotSequence"/> name
+    /// the ball, <see cref="SimEvent.TargetId"/> who it was drawn on. Raised on that copy only, never sent.
+    /// </summary>
+    SplatWithdrawn,
 }
 
 public enum FootstepKind : byte

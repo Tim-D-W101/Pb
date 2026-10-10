@@ -349,6 +349,12 @@ public sealed class GraphicsParts
     /// <summary>Puddles, litter, drips and things lying on the floors.</summary>
     public bool? GroundDetail { get; set; }
 
+    /// <summary>
+    /// The paint on walls, floors and cover drawn as cards in one batch instead of decals: cheaper, but only on flat
+    /// surfaces. The training ground's stress mode turns it on when the decals cost your PC too much.
+    /// </summary>
+    public bool? PaintCards { get; set; }
+
     public void Clamp()
     {
         if (Shadows is not null && !GameSettings.ShadowQualities.Contains(Shadows))

@@ -51,6 +51,7 @@ namespace Pb.Game.Core;
 ///   --gait-only=NAME      with --gait-demo, only the moves whose names start with NAME (e.g. "look", "sprint")
 ///   --cover-demo          an opponent tucks in behind low cover, stands to shoot over it and tucks in again, from the side
 ///   --gear-demo           four opponents in a row, each in one brand's kit, close up; then each brand's marker in first person
+///   --paint-demo          four opponents in a row painted by balls from every side, the ground and a wall too: wet, turning round, dry
 ///   --kit=BRAND           you wear every slot from that brand's range (kilnmark, vellis, quarrow, norrel)
 ///   --cover-at=X,Z        with --cover-demo, the low cover nearest that point (else the nearest out in the open)
 ///   --ladder-demo         an opponent climbs a ladder, steps off at the top, turns round and climbs down, from the side
@@ -270,9 +271,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool coverDemo = Args.Has("--cover-demo");
         bool ladderDemo = Args.Has("--ladder-demo");
         bool gearDemo = Args.Has("--gear-demo");
+        bool paintDemo = Args.Has("--paint-demo");
         _botMatch = Args.Has("--bot-match");
         _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || gearDemo || _botMatch || Args.Has("--objective-demo");
+                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || gearDemo || paintDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
         // Rounds played with others don't go in your records: they stay your bests alone.
         _counts = !_scripted && !roundTour && _net is null;
@@ -439,7 +441,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         AddChild(_botDebug);
         _botDebug.Initialize(_squad);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
-        _splats.Initialize(_view, SplatParent, _doors.AnchorOf);
+        _splats.Initialize(_view, SplatParent, _doors.AnchorOf, PaintTarget);
+        _splats.FirstPerson = () => _player.ViewModel;
+        _splats.Collision = _sim.Collision;
         var fx = GetNode<ImpactFx>("ImpactFx");
         fx.Initialize(_view);
         _dust = new FootDust { Name = "FootDust" };
@@ -626,6 +630,13 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(demo);
             float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
             demo.Start(_sim, _data.Gear, _player, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)), t => TeamColor(t));
+        }
+        else if (paintDemo)
+        {
+            var demo = new PaintDemo { Name = "PaintDemo" };
+            AddChild(demo);
+            float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
+            demo.Start(_sim, _data.Gear, _splats, _view.Splat, _player, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
         }
         else if (ladderDemo)
         {
@@ -1550,6 +1561,18 @@ public partial class LevelMain : Node3D, ISimEventListener
         return dealt;
     }
 
+    /// <summary>Who draws the paint landing on receiver <paramref name="receiverId"/> in their own shaders: a player, as drawn.</summary>
+    private IPaintTarget? PaintTarget(int receiverId)
+    {
+        if (!PlayerHitboxes.IsPlayer(receiverId))
+        {
+            return null;
+        }
+
+        int id = PlayerHitboxes.PlayerIdOf(receiverId);
+        return id == _player.State.Id ? _player.Body : _pawns.FirstOrDefault(o => o.State.Id == id)?.Visual;
+    }
+
     private SplatAnchor? SplatParent(int receiverId, int part, Vector3 point)
     {
         if (!PlayerHitboxes.IsPlayer(receiverId))
@@ -2143,6 +2166,7 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _floorDebris.Visible = preset.GroundDetail;
         _oldPaint.Visible = preset.OldPaint;
+        _splats.Cards = preset.PaintCards;
         // Ambient occlusion does their job where the preset has it.
         _contact.Visible = !preset.Ssao;
         _shafts.ApplyPreset(preset);
