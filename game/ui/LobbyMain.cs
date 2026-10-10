@@ -108,7 +108,7 @@ public partial class LobbyMain : Control
         columns.AddChild(Card("THE ROUND", _choices, 520f));
         VBoxContainer you = UiKit.Column(12);
         _preview = new CharacterPreview { Name = "Character" };
-        _preview.Build(_data.Config, _view, new Vector2(220, 220));
+        _preview.Build(_data.Config, _view, _data.Gear, new Vector2(220, 220));
         you.AddChild(_preview);
         _looks = UiKit.Row(8);
         you.AddChild(_looks);

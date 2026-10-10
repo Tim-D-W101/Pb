@@ -18,6 +18,7 @@ using Pb.Net.Server;
 using Pb.Sim;
 using Pb.Sim.AI;
 using Pb.Sim.Data;
+using Pb.Sim.Gear;
 using Pb.Sim.Events;
 using Pb.Sim.Level;
 using Pb.Sim.Match;
@@ -49,6 +50,8 @@ namespace Pb.Game.Core;
 ///   --gait-demo           an opponent walks, runs, sprints, pulls up, strafes, backs off, walks crouched and looks round
 ///   --gait-only=NAME      with --gait-demo, only the moves whose names start with NAME (e.g. "look", "sprint")
 ///   --cover-demo          an opponent tucks in behind low cover, stands to shoot over it and tucks in again, from the side
+///   --gear-demo           four opponents in a row, each in one brand's kit, close up; then each brand's marker in first person
+///   --kit=BRAND           you wear every slot from that brand's range (kilnmark, vellis, quarrow, norrel)
 ///   --cover-at=X,Z        with --cover-demo, the low cover nearest that point (else the nearest out in the open)
 ///   --ladder-demo         an opponent climbs a ladder, steps off at the top, turns round and climbs down, from the side
 ///   --ladder=N            with --ladder-demo, the level's Nth ladder (else the tallest)
@@ -266,9 +269,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool gaitDemo = Args.Has("--gait-demo");
         bool coverDemo = Args.Has("--cover-demo");
         bool ladderDemo = Args.Has("--ladder-demo");
+        bool gearDemo = Args.Has("--gear-demo");
         _botMatch = Args.Has("--bot-match");
         _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || _botMatch || Args.Has("--objective-demo");
+                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || gearDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
         // Rounds played with others don't go in your records: they stay your bests alone.
         _counts = !_scripted && !roundTour && _net is null;
@@ -421,8 +425,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);
 
-        _player.Initialize(_sim, state, _view, _settings, teamColor);
-        _player.BuildBody(_view.Characters, teamColor, look: _netSetup?.Roster.FirstOrDefault(e => e.PlayerId == state.Id)?.Look ?? 0);
+        _player.Initialize(_sim, state, _view, _settings, teamColor, PlayerKit(state));
+        _player.BuildBody(_view.Characters, teamColor);
         if (_netSetup is not null)
         {
             SpawnOthers();
@@ -616,6 +620,13 @@ public partial class LevelMain : Node3D, ISimEventListener
             float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
             demo.Start(_sim, _squad, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
         }
+        else if (gearDemo)
+        {
+            var demo = new GearDemo { Name = "GearDemo" };
+            AddChild(demo);
+            float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
+            demo.Start(_sim, _data.Gear, _player, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)), t => TeamColor(t));
+        }
         else if (ladderDemo)
         {
             var demo = new LadderDemo { Name = "LadderDemo" };
@@ -735,6 +746,23 @@ public partial class LevelMain : Node3D, ISimEventListener
         _smoke?.OnSimEvent(e);
     }
 
+    /// <summary>Whether the round has sides, so people's jerseys and pants are worn in their side's colour (bots' always are).</summary>
+    private bool Sides => _mode.Kind == MatchModeKind.Teams;
+
+    /// <summary>
+    /// Your kit: the field's own on your character for now (the locker comes next), or with <c>--kit=BRAND</c> every slot
+    /// from that brand's range; in your side's colour in a round with sides.
+    /// </summary>
+    private Kit PlayerKit(PlayerState state)
+    {
+        int look = _netSetup?.Roster.FirstOrDefault(e => e.PlayerId == state.Id)?.Look ?? _settings.PlayerLook;
+        Loadout loadout = Args.Value("--kit") is { Length: > 0 } brand && Kit.Brand(_data.Gear, brand, look) is { } branded ? branded : _data.Gear.Default(look);
+        return new Kit(_data.Gear, loadout, Sides ? TeamColor(state.Team) : null);
+    }
+
+    /// <summary>A bot's kit, dealt from the round's seed and its id (the same on every copy), worn in its side's colour.</summary>
+    private Kit BotKit(PlayerState state, int look) => new(_data.Gear, _data.Gear.Deal(_sim.MatchSeed, state.Id, look), TeamColor(state.Team));
+
     /// <summary>
     /// The bots, at the round's random starts (or, in scripted solo runs, at the level's roster spawns), each
     /// on their team: your teammates on yours (0), opponents on team 1, or in free-for-all a team each. Each
@@ -772,7 +800,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             brain.RestlessAfter = _mode.RestlessAfter;
             var pawn = new OpponentPawn { Name = $"{(team == 0 ? "Teammate" : "Opponent")}_{spawn.Id}" };
             parent.AddChild(pawn);
-            pawn.Initialize(_sim, state, TeamColor(team), new BotPilot(brain), _view.Characters, i, _view.MarkerModel);
+            pawn.Initialize(_sim, state, TeamColor(team), new BotPilot(brain), BotKit(state, i), _view.Characters, i, _view.MarkerModel);
             _pawns.Add(pawn);
             _bots.Add(brain);
         }
@@ -889,7 +917,8 @@ public partial class LevelMain : Node3D, ISimEventListener
             string kind = entry.Person ? "Person" : state.Team == _player.State.Team ? "Teammate" : "Opponent";
             var pawn = new OpponentPawn { Name = $"{kind}_{entry.PlayerId}", Puppet = server is null };
             parent.AddChild(pawn);
-            pawn.Initialize(_sim, state, TeamColor(state.Team), pilot, _view.Characters, entry.Look, _view.MarkerModel);
+            Kit kit = entry.Person ? new Kit(_data.Gear, _data.Gear.Default(entry.Look), Sides ? TeamColor(state.Team) : null) : BotKit(state, entry.Look);
+            pawn.Initialize(_sim, state, TeamColor(state.Team), pilot, kit, _view.Characters, entry.Look, _view.MarkerModel);
             _pawns.Add(pawn);
         }
 

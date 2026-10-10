@@ -68,8 +68,12 @@ public sealed class SimFilesDef : IValidatable
 
     public string Difficulty { get; set; } = "";
 
+    /// <summary>The gear locker's brands and items (Phase 5): looks only.</summary>
+    public string Gear { get; set; } = "";
+
     public void Validate(Validator v)
     {
+        v.NotEmpty(nameof(Gear), Gear);
         v.NotEmpty(nameof(Kit), Kit);
         v.NotEmpty(nameof(Areas), Areas);
         v.NotEmpty(nameof(Navigation), Navigation);

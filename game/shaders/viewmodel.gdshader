@@ -19,6 +19,12 @@ uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic;
 uniform float viewmodel_fov_deg = 62.0;
 // Fraction of the depth range left to the world; the marker lives in the rest (nearest).
 uniform float depth_squash : hint_range(0.5, 0.999) = 0.9;
+// Gear built in code (game/player/GearModels.cs): a fine pattern pressed in (0 none, 1 knurl, 2 weave, 3 twill), and a
+// brand's mark cut out of the marks' atlas (given as albedo_tex).
+uniform int pattern = 0;
+uniform bool cutout = false;
+
+#include "res://shaders/gear_patterns.gdshaderinc"
 
 void vertex() {
 	mat4 projection = PROJECTION_MATRIX;
@@ -32,8 +38,18 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = albedo.rgb * texture(albedo_tex, UV).rgb;
-	ROUGHNESS = roughness * dot(texture(roughness_tex, UV), roughness_channel);
+	vec4 base = texture(albedo_tex, UV);
+	if (cutout && base.a < 0.5) {
+		discard;
+	}
+
+	vec3 colour = albedo.rgb * base.rgb;
+	float rough = roughness * dot(texture(roughness_tex, UV), roughness_channel);
+	vec3 normal = NORMAL;
+	gear_apply_pattern(pattern, UV, VERTEX, colour, rough, normal);
+	NORMAL = normal;
+	ALBEDO = colour;
+	ROUGHNESS = rough;
 	METALLIC = metallic * dot(texture(metallic_tex, UV), metallic_channel);
 	if (use_normal_tex) {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;

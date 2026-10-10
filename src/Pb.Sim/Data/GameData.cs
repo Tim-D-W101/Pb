@@ -21,9 +21,10 @@ public sealed class GameData
     public const string DefaultSimFile = "sim.jsonc";
 
     private GameData(SimConfig config, RangeLayout range, StressSettings stress, KitCatalog kit, AreaListDef areas,
-        IReadOnlyDictionary<string, LevelLayout> levels, BotConfig bots)
+        IReadOnlyDictionary<string, LevelLayout> levels, BotConfig bots, GearCatalog gear)
     {
         Config = config;
+        Gear = gear;
         Bots = bots;
         Range = range;
         Stress = stress;
@@ -42,6 +43,9 @@ public sealed class GameData
     public StressSettings Stress { get; }
 
     public KitCatalog Kit { get; }
+
+    /// <summary>The gear locker's brands and items: looks only, never read by the sim.</summary>
+    public GearCatalog Gear { get; }
 
     /// <summary>The areas to play in, every one open, in menu order.</summary>
     public AreaListDef Areas { get; }
@@ -185,7 +189,8 @@ public sealed class GameData
             levels[entry.Id] = built;
         }
 
-        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, areas, levels, bots);
+        GearCatalog gear = GearCatalog.From(Jsonc.Load<GearCatalogDef>(source, files.Gear));
+        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, areas, levels, bots, gear);
     }
 
     public static ProjectileParams ToProjectile(ProjectileDef d) => new()

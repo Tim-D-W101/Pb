@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using Pb.Game.Core;
 using Pb.Game.World;
 using Pb.Sim.Data;
+using Pb.Sim.Gear;
 
 namespace Pb.Game.Player;
 
@@ -41,7 +43,8 @@ public partial class ViewModel : Node3D
     /// <summary>Where the pod's mouth is as it pours, and which way it points (marker frame: right, up, back).</summary>
     private static readonly Vector3 Mouth = new(-0.03f, 0.238f, 0f), Pour = new Vector3(0.75f, -0.62f, 0.15f).Normalized();
 
-    public void Build(ViewModelDef def, MarkerModelDef markerModel, Color loaderColor)
+    /// <param name="sleeve">Your sleeves' colour (your jersey's), or null for the data's.</param>
+    public void Build(ViewModelDef def, MarkerModelDef markerModel, Color loaderColor, Kit kit, Color? sleeve = null)
     {
         _shader = GD.Load<Shader>("res://shaders/viewmodel.gdshader");
         _clearShader = GD.Load<Shader>("res://shaders/viewmodel_clear.gdshader");
@@ -55,79 +58,124 @@ public partial class ViewModel : Node3D
         Position = _rest;
         Basis = _tilt;
 
-        // The marker built in code (MarkerShape) in your gloved hands (HandShape): one mesh with a
-        // surface per material, the loader's shell see-through so the paint shows in it.
-        var materials = new Dictionary<int, Material>
+        // Your gloved hands (HandShape) and the pod you refill from, in their own materials.
+        var hands = new Dictionary<int, Material>
         {
-            [(int)MarkerPart.Body] = Material(new Color(0.11f, 0.115f, 0.12f), 0.42f, 0.35f),
-            [(int)MarkerPart.Barrel] = Material(new Color(0.05f, 0.05f, 0.055f), 0.3f, 0.45f),
-            [(int)MarkerPart.Rubber] = Material(new Color(0.045f, 0.045f, 0.05f), 0.85f, 0f),
-            [(int)MarkerPart.Trim] = Material(new Color(0.5f, 0.51f, 0.53f), 0.35f, 0.85f),
-            [(int)MarkerPart.Tank] = Material(new Color(0.78f, 0.79f, 0.81f), 0.22f, 0.95f),
             [(int)MarkerPart.Shell] = Material(new Color(0.16f, 0.17f, 0.19f, 0.62f), 0.12f, 0f, clear: true),
             [(int)MarkerPart.Lid] = Material(new Color(0.12f, 0.13f, 0.14f), 0.3f, 0f),
             [(int)MarkerPart.Paint] = Material(loaderColor, 0.25f, 0f),
             [HandPart.Glove] = Material(Color.FromHtml(def.GloveColor), 0.72f, 0f),
             [HandPart.Cuff] = Material(Color.FromHtml(def.GloveColor).Darkened(0.2f), 0.85f, 0f),
-            [HandPart.Sleeve] = Material(Color.FromHtml(def.SleeveColor), 0.92f, 0f),
+            [HandPart.Sleeve] = Material(sleeve ?? Color.FromHtml(def.SleeveColor), 0.92f, 0f),
         };
         _foregrip = HandShape.ForegripTop;
-        if (MarkerModel.Create(markerModel, _muzzleTip, markerModel.ViewScale) is { } model)
+        GearModels.Prepare(kit.Gear);
+        GearItem marker = kit.Item(GearSlot.Marker);
+        Node3D? model = marker.Model is { } path && path == markerModel.Model ? MarkerModel.Create(markerModel, _muzzleTip, markerModel.ViewScale) : null;
+        if (model is not null)
         {
-            // The generated model, its muzzle on the barrel tip, with its own textures; the hands are
-            // the coded ones, moved onto its grips. Its loader isn't see-through, so no paint shows.
+            // The generated model, its muzzle on the barrel tip, with its own textures (its loader and bottle are part
+            // of it); the hands are the coded ones, moved onto its grips. Its loader isn't see-through, so no paint shows.
             ToViewModel(model);
             AddChild(model);
             var trigger = new ShapeMesh();
             HandShape.BuildTrigger(trigger);
-            AddChild(Part("TriggerHand", trigger, materials, HandShape.PistolGripTop - MarkerModel.Point(model, markerModel.PistolGrip_m)));
+            AddChild(Part("TriggerHand", trigger, hands, HandShape.PistolGripTop - MarkerModel.Point(model, markerModel.PistolGrip_m)));
             _foregrip = MarkerModel.Point(model, markerModel.Foregrip_m);
         }
         else
         {
-            var shape = new ShapeMesh();
-            MarkerShape.Build(shape, closeUp: true, paint: false);
-            HandShape.BuildTrigger(shape);
-            AddChild(Part("Marker", shape, materials, Vector3.Zero));
-
-            // The paint in the loader, lowest balls first, drawn as far up as the loader is full.
-            var one = new ShapeMesh();
-            one.Pillow((int)MarkerPart.Paint, Vector3.Zero, new Vector3(MarkerShape.Ball, MarkerShape.Ball, MarkerShape.Ball) * 2f, Basis.Identity, 2f, 6, 9);
-            var ballMesh = new ArrayMesh();
-            one.Commit(ballMesh, part => materials[part]);
-            List<Vector3> balls = MarkerShape.LoaderBalls(1);
-            _paint = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = ballMesh, InstanceCount = balls.Count };
-            for (int i = 0; i < balls.Count; i++)
+            // Your marker built in code, its loader on the feed and its bottle at the back, each in its own colours;
+            // a see-through loader shows the paint in it.
+            (ShapeMesh shape, GearBuild build) = GearModels.Shape(marker, seed: 1, paint: false);
+            AddChild(Part("Marker", shape, Zones(kit.Colours(GearSlot.Marker), loaderColor, kit.Gear), Vector3.Zero));
+            (ShapeMesh loader, GearBuild loaderBuild) = GearModels.Shape(kit.Item(GearSlot.Loader), seed: 1, paint: false);
+            AddChild(Part("Loader", loader, Zones(kit.Colours(GearSlot.Loader), loaderColor, kit.Gear), -build.Feed));
+            (ShapeMesh tank, _) = GearModels.Shape(kit.Item(GearSlot.Tank), seed: 1, paint: false);
+            AddChild(Part("Tank", tank, Zones(kit.Colours(GearSlot.Tank), loaderColor, kit.Gear), -build.TankMount));
+            var trigger = new ShapeMesh();
+            HandShape.BuildTrigger(trigger);
+            AddChild(Part("TriggerHand", trigger, hands, HandShape.PistolGripTop - build.PistolGrip));
+            _foregrip = build.Foregrip;
+            if (loaderBuild.Balls is { } balls)
             {
-                _paint.SetInstanceTransform(i, new Transform3D(Basis.Identity, balls[i]));
+                // The paint in the loader, lowest balls first, drawn as far up as the loader is full.
+                var one = new ShapeMesh();
+                one.Pillow((int)MarkerPart.Paint, Vector3.Zero, new Vector3(MarkerShape.Ball, MarkerShape.Ball, MarkerShape.Ball) * 2f, Basis.Identity, 2f, 6, 9);
+                var ballMesh = new ArrayMesh();
+                one.Commit(ballMesh, part => hands[part]);
+                _paint = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = ballMesh, InstanceCount = balls.Count };
+                for (int i = 0; i < balls.Count; i++)
+                {
+                    _paint.SetInstanceTransform(i, new Transform3D(Basis.Identity, build.Feed + balls[i]));
+                }
+
+                AddChild(new MultiMeshInstance3D
+                {
+                    Name = "Paint", Multimesh = _paint, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Layers = RenderLayer,
+                });
             }
-
-            AddChild(new MultiMeshInstance3D
-            {
-                Name = "Paint", Multimesh = _paint, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Layers = RenderLayer,
-            });
         }
 
         // The support hand on its own, turning about the top of the foregrip, and the hand that brings
         // a pod up to the loader (hidden until you refill), turning about where it grips the pod.
         var support = new ShapeMesh();
         HandShape.BuildSupport(support);
-        _support = Pivot("SupportHand", support, materials, HandShape.ForegripTop);
+        _support = Pivot("SupportHand", support, hands, HandShape.ForegripTop);
         _support.Position = _foregrip;
         var pod = new ShapeMesh();
         _podTop = HandShape.BuildPodHand(pod, Mouth, Pour, 24);
-        _podHand = Pivot("PodHand", pod, materials, _podTop);
+        _podHand = Pivot("PodHand", pod, hands, _podTop);
         _podHand.Visible = false;
         var ball = new SphereMesh { Radius = 0.0087f, Height = 0.0174f, RadialSegments = 8, Rings = 4 };
         for (int i = 0; i < _pouring.Length; i++)
         {
             _pouring[i] = new MeshInstance3D
             {
-                Name = $"Pouring{i}", Mesh = ball, MaterialOverride = materials[(int)MarkerPart.Paint],
+                Name = $"Pouring{i}", Mesh = ball, MaterialOverride = hands[(int)MarkerPart.Paint],
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Layers = RenderLayer, Visible = false,
             };
             AddChild(_pouring[i]);
         }
+    }
+
+    /// <summary>The view model's materials for an item's surfaces (<see cref="GearZone"/>) in <paramref name="colours"/>.</summary>
+    private Func<int, Material> Zones(GearColours colours, Color paint, GearCatalog gear)
+    {
+        var made = new Dictionary<int, Material>();
+        return zone =>
+        {
+            if (made.TryGetValue(zone, out Material? material))
+            {
+                return material;
+            }
+
+            GearFinish finish = GearZone.FinishOf(zone);
+            (Color own, float roughness, float metallic, _, int pattern) = GearZone.Look(finish);
+            Color colour = GearZone.PaintOf(zone) switch
+            {
+                GearPaint.Main => GearModels.ToColor(colours.Main),
+                GearPaint.Second => GearModels.ToColor(colours.Second),
+                GearPaint.Accent => GearModels.ToColor(colours.Accent),
+                GearPaint.Ball => paint,
+                _ => own,
+            };
+            ShaderMaterial result = finish == GearFinish.Shell
+                ? Material(new Color(colour, 0.62f), roughness, metallic, clear: true)
+                : Material(colour, roughness, metallic);
+            if (finish != GearFinish.Shell)
+            {
+                result.SetShaderParameter("pattern", pattern);
+                if (finish == GearFinish.Mark)
+                {
+                    result.SetShaderParameter("cutout", true);
+                    result.SetShaderParameter("albedo_tex", BrandMarks.Atlas(gear.Brands));
+                }
+            }
+
+            made[zone] = result;
+            return result;
+        };
     }
 
     /// <summary>
@@ -148,10 +196,13 @@ public partial class ViewModel : Node3D
         }
     }
 
-    private MeshInstance3D Part(string name, ShapeMesh shape, Dictionary<int, Material> materials, Vector3 offset)
+    private MeshInstance3D Part(string name, ShapeMesh shape, Dictionary<int, Material> materials, Vector3 offset) =>
+        Part(name, shape, part => materials[part], offset);
+
+    private MeshInstance3D Part(string name, ShapeMesh shape, Func<int, Material> materials, Vector3 offset)
     {
         var mesh = new ArrayMesh();
-        shape.Commit(mesh, part => materials[part]);
+        shape.Commit(mesh, materials);
         return new MeshInstance3D
         {
             Name = name,
