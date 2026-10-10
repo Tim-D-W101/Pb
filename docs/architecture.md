@@ -1420,6 +1420,22 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   - `SplatWithdrawn`, raised on the joining copy itself, never sent.
 - **Dedicated server:** `server.jsonc` rotation entries may name the Sports Ground and the new modes, and `RotationDef`
   checks them as it checks the others.
+- **As built (M5.3):**
+  - `KitCodec` packs a loadout as a flag, the character and, per slot, the item's catalogue index (a var-int) and its
+    three colours (24 bits each): about 60 bytes. It goes in the hello (`HelloMessage.Kit`, read only from protocol 4,
+    so a protocol 3 copy is still read and told to update), in each `LobbyMember` of the lobby's state, and in each
+    person's `RosterEntry`. A change in the locker is a `Kit` message to the host, at any time; it's worn from the next
+    round.
+  - The host's `LobbyHost` checks every kit against the catalogue (`GearCatalog.Normalised`: an item that isn't one of
+    its slot's is the slot's default) and makes the member's character the kit's (and choosing a character moves the
+    kit to it). The in-game host and the dedicated server both pass it the catalogue.
+  - People are cast in their kit (`Person.Kit`); every copy draws each person in the roster's kit on the roster's
+    character (yours too, so you see yourself as the others do), and the lobby's preview shows yours as the host has
+    it. Bots' kit is dealt from the seed, as before.
+  - Each item's mesh is built once (`GearModels`) and shared by everyone wearing it, colours being instance uniforms, so
+    ten players in ten loadouts cost what ten in one did.
+  - The `NET round` log line names each person's marker and mask, and CI's networked rounds put Ada, Bo and Cy in
+    Vellis's, Quarrow's and Kilnmark's ranges (`--kit=BRAND`) and check every copy's roster has them so.
 
 ### 17.12 Testing
 

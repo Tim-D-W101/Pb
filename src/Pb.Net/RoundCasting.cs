@@ -9,8 +9,11 @@ using Pb.Sim.Match;
 
 namespace Pb.Net;
 
-/// <summary>Someone playing in a round: their name, which character they play, and the side they asked for (−1: either).</summary>
-public sealed record Person(string Name, byte Look = 0, int Side = -1);
+/// <summary>
+/// Someone playing in a round: their name, which character they play, the side they asked for (−1: either) and what they
+/// wear (null: the field's own kit).
+/// </summary>
+public sealed record Person(string Name, byte Look = 0, int Side = -1, Pb.Sim.Gear.Loadout? Kit = null);
 
 /// <summary>A round as cast: its setup (the roster in the order players are added) and each bot's start, behaviour and route.</summary>
 public sealed class CastRound
@@ -115,8 +118,8 @@ public static class RoundCasting
             };
             setup.Roster.Add(new RosterEntry
             {
-                PlayerId = i, Team = team, Name = people[i].Name, Person = true, Look = people[i].Look, Position = personStart[i].Position,
-                Yaw = personStart[i].Yaw,
+                PlayerId = i, Team = team, Name = people[i].Name, Person = true, Look = people[i].Look, Kit = people[i].Kit,
+                Position = personStart[i].Position, Yaw = personStart[i].Yaw,
             });
             starts.Add(null);
             ids.Add(i);

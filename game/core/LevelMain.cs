@@ -326,7 +326,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             int me = _net!.Client is not null ? round.YourPlayerId : 0;
             state = _sim.FindPlayer(me) ?? throw new InvalidOperationException("The round has no player for this copy.");
             start = new SpawnPoint(state.Position, state.Yaw);
-            GD.Print($"NET round {round.Round} ({_round.Line}, seed {seed}): {string.Join(", ", round.Roster.Select(e => $"{e.Name}{(e.Person ? "" : " (bot)")} on {e.Team}"))}");
+            GD.Print($"NET round {round.Round} ({_round.Line}, seed {seed}): {string.Join(", ", round.Roster.Select(e => $"{e.Name}{(e.Person ? "" : " (bot)")} on {e.Team}{Wearing(e)}"))}");
         }
         else
         {
@@ -751,15 +751,40 @@ public partial class LevelMain : Node3D, ISimEventListener
 
     /// <summary>
     /// Your kit: what you saved in the gear locker, on your character, or with <c>--kit=BRAND</c> every slot from that
-    /// brand's range; in your side's colour in a round with sides.
+    /// brand's range; with others, as the round's roster has it (what everyone else sees you in); in your side's colour in
+    /// a round with sides.
     /// </summary>
     private Kit PlayerKit(PlayerState state)
     {
-        int look = _netSetup?.Roster.FirstOrDefault(e => e.PlayerId == state.Id)?.Look ?? _settings.PlayerLook;
+        RosterEntry? entry = _netSetup?.Roster.FirstOrDefault(e => e.PlayerId == state.Id);
+        int look = entry?.Look ?? _settings.PlayerLook;
         Color? side = Sides ? TeamColor(state.Team) : null;
+        if (entry is { Kit: { } worn })
+        {
+            return new Kit(_data.Gear, OnCharacter(worn, look), side);
+        }
+
         return Args.Value("--kit") is { Length: > 0 } brand && Kit.Brand(_data.Gear, brand, look) is { } branded
             ? new Kit(_data.Gear, branded, side)
             : Kit.Saved(_data.Gear, Profile.Load(_data.Areas).Data.Loadout, look, side);
+    }
+
+    /// <summary>For the log: a person's marker and mask, as the roster has them (", in vellis_glide and vellis_arc").</summary>
+    private string Wearing(RosterEntry e) =>
+        e.Kit is { } kit && _data.Gear.Fits(GearSlot.Marker, kit[GearSlot.Marker].Item) && _data.Gear.Fits(GearSlot.Mask, kit[GearSlot.Mask].Item)
+            ? $" in {_data.Gear.Items[kit[GearSlot.Marker].Item].Id} and {_data.Gear.Items[kit[GearSlot.Mask].Item].Id}"
+            : "";
+
+    /// <summary>Someone else in a round with others: the kit the roster gives them (the field's own if none), on their character.</summary>
+    private Kit PersonKit(RosterEntry entry, PlayerState state) =>
+        new(_data.Gear, OnCharacter(entry.Kit ?? _data.Gear.Default(entry.Look), entry.Look), Sides ? TeamColor(state.Team) : null);
+
+    /// <summary>A copy of <paramref name="kit"/> on <paramref name="look"/>, the roster's character.</summary>
+    private static Loadout OnCharacter(Loadout kit, int look)
+    {
+        Loadout copy = kit.Copy();
+        copy.Character = look;
+        return copy;
     }
 
     /// <summary>A bot's kit, dealt from the round's seed and its id (the same on every copy), worn in its side's colour.</summary>
@@ -851,7 +876,7 @@ public partial class LevelMain : Node3D, ISimEventListener
                 continue;
             }
 
-            var person = new Person(m.Name, m.Look, m.Side);
+            var person = new Person(m.Name, m.Look, m.Side, m.Kit);
             if (m.Host)
             {
                 people.Insert(0, person);
@@ -919,7 +944,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             string kind = entry.Person ? "Person" : state.Team == _player.State.Team ? "Teammate" : "Opponent";
             var pawn = new OpponentPawn { Name = $"{kind}_{entry.PlayerId}", Puppet = server is null };
             parent.AddChild(pawn);
-            Kit kit = entry.Person ? new Kit(_data.Gear, _data.Gear.Default(entry.Look), Sides ? TeamColor(state.Team) : null) : BotKit(state, entry.Look);
+            Kit kit = entry.Person ? PersonKit(entry, state) : BotKit(state, entry.Look);
             pawn.Initialize(_sim, state, TeamColor(state.Team), pilot, kit, _view.Characters, entry.Look, _view.MarkerModel);
             _pawns.Add(pawn);
         }

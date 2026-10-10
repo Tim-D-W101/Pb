@@ -355,6 +355,52 @@ public class ProtocolTests
     }
 
     [Fact]
+    public void A_kit_goes_in_the_hello_and_the_roster_and_comes_back()
+    {
+        // Phase 5 (M5.3): what you picked in the gear locker, item by item in its three colours.
+        GearCatalog gear = TestData.Data.Gear;
+        Loadout kit = gear.Deal(42, 3, character: 2);
+        kit[GearSlot.Jersey] = kit[GearSlot.Jersey] with { Colours = new GearColours(0x123456, 0xABCDEF, 0x0F0F0F) };
+        var w = new BitWriter();
+        new HelloMessage { Build = "b", DataHash = "h", Name = "Ada", Look = 2, Kit = kit }.Write(w);
+        Assert.True(HelloMessage.Read(w.Finish())!.Kit!.SameAs(kit));
+        w.Reset();
+        new HelloMessage { Build = "b", DataHash = "h", Name = "Bo" }.Write(w);
+        Assert.Null(HelloMessage.Read(w.Finish())!.Kit);
+
+        // A hello from version 3 (no kit after the id) is still read, so its copy can be told to update.
+        w.Reset();
+        w.WriteByte((byte)MessageType.Hello);
+        w.WriteVarUInt(3);
+        w.WriteString("b", 64);
+        w.WriteString("h", 80);
+        w.WriteString("Old", 48);
+        w.WriteString("", 64);
+        w.WriteByte(1);
+        w.WriteString("offline-1", 64);
+        HelloMessage old = HelloMessage.Read(w.Finish())!;
+        Assert.Equal((3, "Old", "offline-1"), (old.Protocol, old.Name, old.Key));
+        Assert.Null(old.Kit);
+
+        // In the round's roster, a person's kit; a bot's is dealt on every copy.
+        w.Reset();
+        var setup = new RoundSetupMessage { Round = 1, LevelId = "oxbarrow_works", ModeId = "teams", Size = 2, TierId = "normal", Seed = 7 };
+        setup.Roster.Add(new RosterEntry { PlayerId = 0, Team = 0, Name = "Ada", Person = true, Look = 2, Kit = kit, Position = Vector3.One, Yaw = 1f });
+        setup.Roster.Add(new RosterEntry { PlayerId = 1, Team = 1, Name = "Kestrel", Person = false, Position = Vector3.Zero, Yaw = 0f });
+        setup.Write(w);
+        RoundSetupMessage s = RoundSetupMessage.Read(w.Finish())!;
+        Assert.True(s.Roster[0].Kit!.SameAs(kit));
+        Assert.Null(s.Roster[1].Kit);
+        Assert.Equal((Vector3.One, 1f, "Kestrel"), (s.Roster[0].Position, s.Roster[0].Yaw, s.Roster[1].Name));
+
+        // A change in the locker on its own; cut short, it isn't read.
+        w.Reset();
+        KitMessage.Write(w, kit);
+        Assert.True(KitMessage.Read(w.Finish())!.SameAs(kit));
+        Assert.Null(KitMessage.Read(w.Finish()[..^2]));
+    }
+
+    [Fact]
     public void A_search_on_the_network_is_answered_with_the_game()
     {
         var w = new BitWriter(256);

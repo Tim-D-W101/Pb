@@ -126,7 +126,7 @@ public partial class ServerMain : Node3D, ISimEventListener
     {
         var identity = new ServerIdentity(_config.Name, BuildStamp.Build, BuildStamp.DataHash, _config.Password);
         LobbyChoices first = _config.Rotation[_rotation % _config.Rotation.Count];
-        NetSession session = NetSession.Serve(GetTree(), NetStart.Settings(), identity, _config.Port, _data.Config.Rules, first, _config.MaxPeople);
+        NetSession session = NetSession.Serve(GetTree(), NetStart.Settings(), identity, _config.Port, _data.Config.Rules, first, _config.MaxPeople, _data.Gear);
         session.Announce(() => NetStart.Announcement(_data, session, _config.Port));
         ServerLog.Line($"settings from {_config.Source}: {_config.Rotation.Count} round{(_config.Rotation.Count == 1 ? "" : "s")} in turn, " +
                        $"bots {(_config.Bots ? "on" : "off")}, vote {(_config.Vote ? "on" : "off")}, password {(_config.Password.Length > 0 ? "set" : "none")}");
@@ -207,7 +207,7 @@ public partial class ServerMain : Node3D, ISimEventListener
                 continue;
             }
 
-            people.Add(new Person(m.Name, m.Look, m.Side));
+            people.Add(new Person(m.Name, m.Look, m.Side, m.Kit));
             _people.Add(link);
             _members.Add(m.Id);
         }

@@ -204,10 +204,12 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
 
 ### M5.3 Kit online
 
-- [ ] Your loadout goes to the host when you join, and with any change between rounds (protocol version 4; a copy of
+- [x] Your loadout goes to the host when you join, and with any change between rounds (protocol version 4; a copy of
   version 3 is told to update). The lobby and each round's roster carry everyone's kit, so every copy draws the same.
-- [ ] The dedicated server deals its bots' kit like any host. Each item's model is built once and shared by everyone
-  wearing it, so ten players in ten loadouts stay within the characters' drawing budget.
+  The host checks each kit against the catalogue, and the lobby's preview shows yours as the others will see it.
+- [x] The dedicated server deals its bots' kit like any host. Each item's model is built once and shared by everyone
+  wearing it, so ten players in ten loadouts stay within the characters' drawing budget. (CI's networked rounds put
+  three of the players in three brands' kit and check that every copy has them so.)
 
 ### M5.4 Paint
 

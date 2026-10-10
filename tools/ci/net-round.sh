@@ -2,11 +2,12 @@
 # CI's networked rounds (architecture §16.14): a headless dedicated server and five headless players on this machine, over
 # real UDP, playing a round on every area in all three modes (tools/ci/net-round.jsonc), with bots filling to ten. Each
 # player has a bot at its controls, sending its commands through the network as a person's would:
-#   Ada, Bo and Cy  play fairly at 100 ms round trip, with jitter and 1% loss;
+#   Ada, Bo and Cy  play fairly at 100 ms round trip, with jitter and 1% loss, each in a brand's kit (--kit=BRAND);
 #   Trigger         flips its trigger on every tick (--net-cheat=fire): the server must hold it to the fire rate;
 #   Clock           runs twice as fast (--net-cheat=fast), sending twice the commands: the server must drop them, and log it.
 # It fails on any error, on any copy whose result differs from the server's, on more than 25 KB/s sent to a player while
-# a round is live (architecture §16.5), on a shot rate over the cap, or if the extra commands aren't logged.
+# a round is live (architecture §16.5), on a shot rate over the cap, if the extra commands aren't logged, or if a copy's
+# roster doesn't have Ada, Bo and Cy in their kits.
 #   tools/ci/net-round.sh path/to/godot [time-limit-s]
 set -uo pipefail
 godot="${1:?path to the Godot .NET binary}"
@@ -36,10 +37,12 @@ for _ in $(seq 120); do
 done
 grep -q "serving" "$logs/server.log" || fail "the server didn't start"
 lag=(--net-lag=100 --net-jitter=10 --net-loss=1)
+declare -A kits=([Ada]=vellis [Bo]=quarrow [Cy]=kilnmark)
 for who in Ada Bo Cy Trigger Clock; do
   cheat=()
   [ "$who" = Trigger ] && cheat=(--net-cheat=fire)
   [ "$who" = Clock ] && cheat=(--net-cheat=fast)
+  [ -n "${kits[$who]:-}" ] && cheat+=(--kit="${kits[$who]}")
   run "$who" -- --join=127.0.0.1 --name="$who" --bot-match --rounds="$rounds" --no-art "${lag[@]}" "${cheat[@]}"
 done
 
@@ -92,6 +95,14 @@ done < <(grep -E "^.{19}   [^:]+: round trip" "$logs/server.log")
 [ "$trigger_capped" -eq 1 ] || fail "Trigger never fired at even half the cap ($trigger_shots shots in all): the cheat didn't get going"
 grep -qE "Clock sent commands (faster than the clock|too far ahead)" "$logs/server.log" || fail "the server didn't log Clock's extra commands"
 
+# Everyone's kit went to the server and on to every copy: each roster has Ada, Bo and Cy in their brand's marker.
+for name in "${names[@]:1}"; do
+  roster="$(grep -m1 "^NET round 1 " "$logs/$name.log")"
+  for who in Ada Bo Cy; do
+    grep -q "$who on [0-9]* in ${kits[$who]}_" <<<"$roster" || fail "$name's roster doesn't have $who in ${kits[$who]}'s kit: ${roster:-no roster}"
+  done
+done
+
 if [ "$failed" -ne 0 ]; then
   for name in "${names[@]:1}"; do
     echo "### The end of $name's log"
@@ -100,4 +111,4 @@ if [ "$failed" -ne 0 ]; then
   echo "Logs: $logs"
   exit 1
 fi
-echo "NET ROUNDS PASS: $rounds rounds, every copy with the server's result; traffic within $budget_kBps KB/s; Trigger held to the cap ($trigger_shots shots); Clock's extra commands dropped and logged"
+echo "NET ROUNDS PASS: $rounds rounds, every copy with the server's result; traffic within $budget_kBps KB/s; Trigger held to the cap ($trigger_shots shots); Clock's extra commands dropped and logged; everyone's kit on every copy"

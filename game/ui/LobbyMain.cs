@@ -497,13 +497,16 @@ public partial class LobbyMain : Control
         LobbyMember? me = session.Me;
         int side = me?.Side ?? 0;
         bool sides = _data.Config.Rules.FindMode(lobby.Choices.ModeId)?.Kind == MatchModeKind.Teams;
-        Kit kit = Kit.Saved(_data.Gear, _records.Data.Loadout, me?.Look ?? session.LocalLook, sides ? SideColor(side) : null);
+        Color? colour = sides ? SideColor(side) : null;
+        // As the host has it (what everyone sees), else as you saved it.
+        Kit kit = me?.Kit is { } worn ? new Kit(_data.Gear, worn, colour) : Kit.Saved(_data.Gear, _records.Data.Loadout, me?.Look ?? session.LocalLook, colour);
         _preview.Show(kit, SideColor(side));
     }
 
     /// <summary>
     /// The gear locker over the lobby, which carries on behind it (the chat, the countdown: its line shows at the top).
-    /// Done tells the host your character, and the round that starts while it's open finds what you've picked saved.
+    /// Done sends the host your kit (and so your character), and the round that starts while it's open finds what you've
+    /// picked saved and sent.
     /// </summary>
     private void OpenLocker()
     {
@@ -518,12 +521,13 @@ public partial class LobbyMain : Control
         AddChild(_locker);
         _locker.Open(_data, _view, _settings, _records, SideColor(side), SideColor(side));
         _locker.Status = () => session.LobbyView is { Phase: LobbyPhase.Countdown or LobbyPhase.Loading } ? StatusLine() : null;
+        LockerView locker = _locker;
         _locker.Closed = saved =>
         {
             _locker = null;
-            if (saved && session.Me is { } me && me.Look != _settings.PlayerLook)
+            if (saved)
             {
-                session.Ask(LobbyAsk.Look, _settings.PlayerLook);
+                session.SendKit(locker.Picked.Copy());
             }
 
             if (session.LobbyView is { } lobby)

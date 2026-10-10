@@ -77,6 +77,9 @@ public sealed class LobbyMember
 
     /// <summary>The vote option chosen (−1: none).</summary>
     public int Vote { get; set; } = -1;
+
+    /// <summary>What they wear (their gear locker's, as the host checked it; null: the field's own kit on their character).</summary>
+    public Pb.Sim.Gear.Loadout? Kit { get; set; }
 }
 
 /// <summary>A place to vote for: an area and a place in it, and what to call it.</summary>
@@ -162,6 +165,7 @@ public sealed class LobbyState
             w.WriteVarUInt((uint)m.Eliminations);
             w.WriteVarUInt((uint)m.RoundsWon);
             w.WriteVarInt(m.Vote);
+            KitCodec.Write(w, m.Kit);
         }
 
         w.WriteVarUInt((uint)Math.Min(VoteOptions.Count, MostOptions));
@@ -200,12 +204,14 @@ public sealed class LobbyState
         uint members = r.ReadVarUInt();
         for (uint i = 0; i < members && i < MostMembers && !r.Overflowed; i++)
         {
-            s.Members.Add(new LobbyMember
+            var member = new LobbyMember
             {
                 Id = (int)r.ReadVarUInt(), Name = r.ReadString(48), Look = r.ReadByte(), Side = r.ReadVarInt(), Ready = r.ReadBool(),
                 Host = r.ReadBool(), Ping_ms = (int)r.ReadVarUInt(), Eliminations = (int)r.ReadVarUInt(), RoundsWon = (int)r.ReadVarUInt(),
                 Vote = r.ReadVarInt(),
-            });
+            };
+            member.Kit = KitCodec.Read(ref r);
+            s.Members.Add(member);
         }
 
         uint options = r.ReadVarUInt();

@@ -24,6 +24,7 @@ public sealed class LobbyHost : IDisposable
     private readonly NetServer _server;
     private readonly NetSettings _settings;
     private readonly MatchRules _rules;
+    private readonly Pb.Sim.Gear.GearCatalog? _gear;
     private readonly Func<double> _clock;
     private readonly BitWriter _writer = new(4096);
     private readonly Dictionary<int, Queue<double>> _said = new();
@@ -33,11 +34,14 @@ public sealed class LobbyHost : IDisposable
     private double _sentAt = double.NegativeInfinity;
     private bool _dirty = true;
 
-    public LobbyHost(NetServer server, NetSettings settings, MatchRules rules, LobbyChoices choices, Func<double> clock, LobbyMember? host = null)
+    /// <param name="gear">The gear catalogue everyone's kit is checked against (null: kit is passed on as it comes).</param>
+    public LobbyHost(NetServer server, NetSettings settings, MatchRules rules, LobbyChoices choices, Func<double> clock, LobbyMember? host = null,
+        Pb.Sim.Gear.GearCatalog? gear = null)
     {
         _server = server;
         _settings = settings;
         _rules = rules;
+        _gear = gear;
         _clock = clock;
         State.ServerName = server.Identity.Name;
         State.Choices = choices;
@@ -46,6 +50,7 @@ public sealed class LobbyHost : IDisposable
         {
             host.Id = HostId;
             host.Host = true;
+            host.Kit = Checked(host.Kit);
             State.Members.Add(host);
         }
 
@@ -103,6 +108,22 @@ public sealed class LobbyHost : IDisposable
     }
 
     /// <summary>
+    /// A member's kit, from their gear locker, at any time (it's worn from the next round): an item that isn't one of its
+    /// slot's becomes the slot's default, and their character becomes the kit's.
+    /// </summary>
+    public void SetKit(int memberId, Pb.Sim.Gear.Loadout kit)
+    {
+        if (State.Find(memberId) is not { } member)
+        {
+            return;
+        }
+
+        member.Kit = Checked(kit);
+        member.Look = (byte)Math.Clamp(member.Kit!.Character, 0, 255);
+        Touch();
+    }
+
+    /// <summary>
     /// A member asks for something: a side, ready or not, a character, a vote. False if it was refused (the wrong time,
     /// or a side switch that the balance or the size of a side won't allow).
     /// </summary>
@@ -134,6 +155,11 @@ public sealed class LobbyHost : IDisposable
                 break;
             case LobbyAsk.Look when between && value is >= 0 and <= 255:
                 member.Look = (byte)value;
+                if (member.Kit is { } kit)
+                {
+                    kit.Character = value;
+                }
+
                 break;
             case LobbyAsk.Vote when State.Phase == LobbyPhase.Vote && value >= -1 && value < State.VoteOptions.Count:
                 member.Vote = value;
@@ -419,7 +445,7 @@ public sealed class LobbyHost : IDisposable
 
     private void Join(ClientLink link)
     {
-        var member = new LobbyMember { Id = link.Peer, Name = link.Name, Look = link.Look };
+        var member = new LobbyMember { Id = link.Peer, Name = link.Name, Look = link.Look, Kit = Checked(link.Kit) };
         if (HasSides)
         {
             member.Side = SmallerSide();
@@ -461,8 +487,14 @@ public sealed class LobbyHost : IDisposable
             case MessageType.Chat when ChatMessage.ReadSay(packet) is { } say:
                 Say(link.Peer, say.Text, say.TeamOnly);
                 break;
+            case MessageType.Kit when KitMessage.Read(packet) is { } kit:
+                SetKit(link.Peer, kit);
+                break;
         }
     }
+
+    /// <summary>A kit as the catalogue allows it (each slot one of its own items), or as it came without a catalogue.</summary>
+    private Pb.Sim.Gear.Loadout? Checked(Pb.Sim.Gear.Loadout? kit) => kit is null ? null : _gear?.Normalised(kit) ?? kit;
 
     private string Clean(string text)
     {

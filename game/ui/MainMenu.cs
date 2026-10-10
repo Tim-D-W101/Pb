@@ -388,7 +388,7 @@ public partial class MainMenu : Control
         {
             if (Args.Value("--join") is { Length: > 0 } address)
             {
-                Pb.Game.Net.NetStart.Join(GetTree(), address, name, look, password, key: you.Id);
+                Pb.Game.Net.NetStart.Join(GetTree(), _data, address, name, look, password, key: you.Id);
             }
             else
             {

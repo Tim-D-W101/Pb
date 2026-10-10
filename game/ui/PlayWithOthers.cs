@@ -271,7 +271,7 @@ public partial class PlayWithOthers : VBoxContainer
         _settings.Save();
         try
         {
-            NetStart.Join(GetTree(), a, PlayName(), (byte)_settings.PlayerLook, _joinPassword.Text.Trim(), _settings.PretendLag_ms,
+            NetStart.Join(GetTree(), _data, a, PlayName(), (byte)_settings.PlayerLook, _joinPassword.Text.Trim(), _settings.PretendLag_ms,
                 Platforms.Current.Identity.Id);
         }
         catch (InvalidOperationException ex)
