@@ -143,7 +143,9 @@ Oxbarrow Works and `--level=rail_yard` have ladders).
 `-- --paint-demo` breaks balls on four opponents in the brands' kits, the ground and the nearest wall, and looks at the
 paint wet, as they turn round, and dry, then at your marker spattered from close by (`--paint-hold=N` frames a view).
 `-- --wobble-demo` (on `--level=sports_ground`) shoots the inflatable nearest your start, filmed close up as its fabric
-dents in and shivers out where each ball strikes.
+dents in and shivers out where each ball strikes. `-- --speedball-demo` (on `--level=sports_ground`) plays a speedball
+point through your eyes: the countdown from your start box, the breakout, then you at their buzzer holding Interact until
+it's hung, and the score between points (with `--race-to=1`, the match's summary).
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
