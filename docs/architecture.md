@@ -1,6 +1,6 @@
 # Architecture plan
 
-> **Status: approved (defaults accepted 2026-09-30); Phases 1–4 built (Phases 3 and 4 but for the owner's checks).** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-open-areas) with [phase-3.md](phase-3.md) on 2026-10-05 (revised 2026-10-06: open areas, each with places). [§16](#16-phase-4-multiplayer) with [phase-4.md](phase-4.md) (multiplayer) on 2026-10-09 (defaults taken). [§17](#17-phase-5-locker-and-extras) with [phase-5.md](phase-5.md) (the locker, brands, paint, the speedball field, capture the flag and arcade) is proposed (2026-10-10), waiting for the owner's OK. Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
+> **Status: approved (defaults accepted 2026-09-30); Phases 1–4 built (Phases 3 and 4 but for the owner's checks).** On 2026-09-30 the owner changed direction to explorable compound levels; [§14](#14-direction-change-2026-09-30-the-compound) and [phase-2.md](phase-2.md) were approved on 2026-10-01, and [§15](#15-phase-3-open-areas) with [phase-3.md](phase-3.md) on 2026-10-05 (revised 2026-10-06: open areas, each with places). [§16](#16-phase-4-multiplayer) with [phase-4.md](phase-4.md) (multiplayer) on 2026-10-09 (defaults taken). [§17](#17-phase-5-locker-and-extras) with [phase-5.md](phase-5.md) (the locker, brands, paint, the speedball field, capture the flag and arcade) on 2026-10-10 (defaults taken). Requirements are in [spec.md](spec.md); this file explains how they're met. Phase results: [reports/](reports/).
 
 ## 0. Open questions, decisions and assumptions
 
@@ -1146,7 +1146,7 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 
 ## 17. Phase 5: locker and extras
 
-> **Status: proposed 2026-10-10 with the [Phase 5 plan](phase-5.md), waiting for the owner's OK.** This is the
+> **Status: approved 2026-10-10 with the [Phase 5 plan](phase-5.md) (defaults taken).** This is the
 > technical design; each part gains "as built" notes as its milestone lands. Nothing here changes how a compound round
 > plays: gear is looks only, and the field and the new modes are extra choices.
 

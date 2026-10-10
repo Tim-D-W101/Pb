@@ -1,6 +1,7 @@
 # Phase 5 — Locker and extras: plan
 
-> **Status: proposed 2026-10-10, waiting for your OK.** Phase 4 (multiplayer) is merged and finished but for your check
+> **Status: approved 2026-10-10 with the defaults ("the plan is OK go ahead"); in progress.** Phase 4 (multiplayer) is
+> merged and finished but for your check
 > ([report](reports/phase-4.md)). Technical design: [architecture.md §17](architecture.md#17-phase-5-locker-and-extras).
 > Everything in [spec.md](spec.md) still applies: ballistics, paint rules, metric units, original IP, data files, tests.
 > The compound areas and their modes play exactly as they do now; everything new here is an extra choice.
