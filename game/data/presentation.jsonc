@@ -1044,7 +1044,13 @@
     // Where the wrists sit on the marker: along it from the back (0) to the front (1), and below it.
     "triggerGrip": 0.3,
     "supportGrip": 0.85,
-    "gripDrop_m": 0.03
+    "gripDrop_m": 0.03,
+    // The kit worn over the models (Phase 5). A jersey or pants in a colour is repainted keeping its picture's shading
+    // (its brightness over the zone's mean, to the power `shading`: 1 as it is, less evens it out). Under a brand's mask
+    // the model's own face is cut away: the head's front faceDepth_m deep (back from its headfront joint), below
+    // faceBelow_m above its head's joint (the hood or hair above and behind stays); the mask's shell stands maskGap_m
+    // off the head.
+    "clothes": { "shading": 0.5, "faceDepth_m": 0.11, "faceBelow_m": 0.12, "maskGap_m": 0.008 }
   },
 
   // Paint on your mask when a ball breaks near your face (spec §1.3): drops of the ball's colour that

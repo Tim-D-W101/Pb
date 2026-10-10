@@ -12,15 +12,17 @@ using SVector3 = System.Numerics.Vector3;
 namespace Pb.Game.Core;
 
 /// <summary>
-/// <c>-- --gear-demo</c>: four opponents stand in a row on clear ground, each in one brand's whole kit in its own
-/// colours, and a camera goes round them: the row from in front, from the side and from behind, then each one's
-/// marker and head close up; then your own marker in first person in each brand's kit. Each view is held for
-/// <c>--gear-hold=N</c> frames (8) and printed as it comes, so a <c>--write-movie</c> run gives a still of each; it
-/// quits after the last. <c>--gear-side</c> dresses them in their side's colour, as in a round with sides.
+/// <c>-- --gear-demo</c>: opponents stand in a row on clear ground, each in one brand's whole kit in its own colours,
+/// and a camera goes round them: the row from in front, from the side and from behind, then each one's marker and head
+/// close up; then your own marker in first person in each brand's kit. <c>--gear-demo=masks</c> puts every brand's mask
+/// on every character (it wants <c>--size=9</c>), their hands free of the marker, and looks at each head from eight
+/// directions. Each view is held for <c>--gear-hold=N</c> frames (8) and printed as it comes, so a <c>--write-movie</c>
+/// run gives a still of each; it quits after the last. <c>--gear-side</c> dresses them in their side's colour, as in a
+/// round with sides; <c>--gear-zones</c> shows the characters' zones instead of their clothes.
 /// </summary>
 public partial class GearDemo : Node, ICommandSource
 {
-    private readonly List<(string Name, SVector3 From, SVector3 At, int FirstPerson)> _shots = new();
+    private readonly List<(string Name, SVector3 From, SVector3 At, int FirstPerson, int Head, float Around)> _shots = new();
     private readonly List<OpponentPawn> _row = new();
     private SimWorld _sim = null!;
     private PlayerController _player = null!;
@@ -40,10 +42,32 @@ public partial class GearDemo : Node, ICommandSource
         _player = player;
         _hold = Args.Ticks("--gear-hold", 8) ?? 8;
         hud.Visible = false;
-        int brands = gear.Brands.Count;
-        if (opponents.Count < brands || !FindRoom(opponents[0].State.Position, towardSun, out SVector3 centre, out _yaw))
+        bool masks = Args.Value("--gear-demo") == "masks";
+        var dresses = new List<(string Name, Loadout Loadout)>();
+        if (masks)
         {
-            GD.PushError($"GEAR DEMO needs {brands} opponents and a clear patch of ground; quitting");
+            foreach (int mask in gear.ItemsIn(GearSlot.Mask).Where(i => !MaskRecipes.IsOwn(gear.Items[i].Shape)))
+            {
+                for (int look = 0; look < 3; look++)
+                {
+                    Loadout loadout = gear.Default(look);
+                    loadout[GearSlot.Mask] = new GearChoice(mask, gear.Items[mask].Colours);
+                    dresses.Add(($"{gear.Items[mask].Brand.DisplayName} {gear.Items[mask].DisplayName} on character {look + 1}", loadout));
+                }
+            }
+        }
+        else
+        {
+            for (int i = 0; i < gear.Brands.Count; i++)
+            {
+                dresses.Add((gear.Brands[i].DisplayName, Kit.Brand(gear, gear.Brands[i].Id, i) ?? gear.Default(i)));
+            }
+        }
+
+        float spacing = masks ? 1.1f : 1.3f;
+        if (opponents.Count < dresses.Count || !FindRoom(opponents[0].State.Position, towardSun, dresses.Count * spacing * 0.5f + 1.5f, out SVector3 centre, out _yaw))
+        {
+            GD.PushError($"GEAR DEMO needs {dresses.Count} opponents and a clear patch of ground; quitting");
             GetTree().Quit(1);
             return;
         }
@@ -54,39 +78,53 @@ public partial class GearDemo : Node, ICommandSource
         for (int i = 0; i < opponents.Count; i++)
         {
             OpponentPawn pawn = opponents[i];
-            if (i >= brands)
+            if (i >= dresses.Count)
             {
                 pawn.Teleport(centre - ahead * 40f + across * (i * 3f), _yaw);
                 pawn.Visible = false;
                 continue;
             }
 
-            SVector3 at = centre + across * ((i - (brands - 1) * 0.5f) * 1.3f);
+            SVector3 at = centre + across * ((i - (dresses.Count - 1) * 0.5f) * spacing);
             pawn.Teleport(at, _yaw);
             pawn.Steer(this);
-            Loadout loadout = Kit.Brand(gear, gear.Brands[i].Id, i) ?? gear.Default(i);
-            pawn.Redress(new Kit(gear, loadout, Args.Has("--gear-side") ? sideColour(pawn.State.Team) : null));
+            pawn.Redress(new Kit(gear, dresses[i].Loadout, Args.Has("--gear-side") ? sideColour(pawn.State.Team) : null));
+            pawn.Visual.HoldsMarker = !masks;
             _row.Add(pawn);
         }
 
         _paint = sideColour(player.State.Team);
         SVector3 up = new(0f, 1f, 0f);
         SVector3 middle = centre + up * 1.05f;
-        _shots.Add(("the row from in front", middle + ahead * 4.6f + up * 0.35f, middle, -1));
-        _shots.Add(("the row from the right", middle + ahead * 3.2f + across * 3.4f + up * 0.3f, middle, -1));
-        _shots.Add(("the row from behind", middle - ahead * 3.4f - across * 2.2f + up * 0.5f, middle, -1));
-        for (int i = 0; i < _row.Count; i++)
+        float wide = dresses.Count * spacing * 0.55f;
+        _shots.Add(("the row from in front", middle + ahead * (wide + 2.4f) + up * 0.35f, middle, -1, -1, 0f));
+        if (masks)
         {
-            SVector3 at = _row[i].State.Position;
-            string brand = gear.Brands[i].DisplayName;
-            _shots.Add(($"{brand}: marker, loader and tank", at + across * 1.05f + ahead * 0.55f + up * 1.42f, at + up * 1.28f + ahead * 0.25f, -1));
-            _shots.Add(($"{brand}: from the other side", at - across * 1.05f + ahead * 0.35f + up * 1.38f, at + up * 1.25f + ahead * 0.2f, -1));
-            _shots.Add(($"{brand}: head and mask", at + ahead * 0.95f + across * 0.25f + up * 1.62f, at + up * 1.55f, -1));
+            for (int i = 0; i < _row.Count; i++)
+            {
+                for (int k = 0; k < 8; k++)
+                {
+                    _shots.Add(($"{dresses[i].Name}, from {k * 45}°", default, default, -1, i, k * Mathf.Pi / 4f));
+                }
+            }
         }
-
-        for (int i = 0; i < brands; i++)
+        else
         {
-            _shots.Add(($"{gear.Brands[i].DisplayName} in first person", SVector3.Zero, SVector3.Zero, i));
+            _shots.Add(("the row from the right", middle + ahead * 3.2f + across * 3.4f + up * 0.3f, middle, -1, -1, 0f));
+            _shots.Add(("the row from behind", middle - ahead * 3.4f - across * 2.2f + up * 0.5f, middle, -1, -1, 0f));
+            for (int i = 0; i < _row.Count; i++)
+            {
+                SVector3 at = _row[i].State.Position;
+                string brand = dresses[i].Name;
+                _shots.Add(($"{brand}: marker, loader and tank", at + across * 1.05f + ahead * 0.55f + up * 1.42f, at + up * 1.28f + ahead * 0.25f, -1, -1, 0f));
+                _shots.Add(($"{brand}: from the other side", at - across * 1.05f + ahead * 0.35f + up * 1.38f, at + up * 1.25f + ahead * 0.2f, -1, -1, 0f));
+                _shots.Add(($"{brand}: head and mask", default, default, -1, i, -0.6f));
+            }
+
+            for (int i = 0; i < gear.Brands.Count; i++)
+            {
+                _shots.Add(($"{gear.Brands[i].DisplayName} in first person", SVector3.Zero, SVector3.Zero, i, -1, 0f));
+            }
         }
 
         _camera = new Camera3D { Name = "GearCamera", Fov = 40f, Far = farClip, Near = 0.03f };
@@ -114,7 +152,7 @@ public partial class GearDemo : Node, ICommandSource
         if (index != _shown)
         {
             _shown = index;
-            (string name, SVector3 from, SVector3 at, int firstPerson) = _shots[index];
+            (string name, SVector3 from, SVector3 at, int firstPerson, int head, float around) = _shots[index];
             if (firstPerson >= 0)
             {
                 Loadout loadout = Kit.Brand(_gear, _gear.Brands[firstPerson].Id, 0) ?? _gear.Default(0);
@@ -123,8 +161,23 @@ public partial class GearDemo : Node, ICommandSource
             }
             else
             {
-                _camera.GlobalPosition = from.ToGodot();
-                _camera.LookAt(at.ToGodot(), Vector3.Up);
+                if (head >= 0)
+                {
+                    // Round the head at its own height, from the front (0) turning to the right.
+                    Vector3 middle = _row[head].Visual.Model?.Attachment("Head").GlobalPosition + Vector3.Up * 0.06f
+                                     ?? (_row[head].State.Position + new SVector3(0f, 1.55f, 0f)).ToGodot();
+                    SVector3 ahead = ViewAngles.FlatForward(_yaw);
+                    var forward = new Vector3(ahead.X, 0f, ahead.Z);
+                    Vector3 offset = forward.Rotated(Vector3.Up, -around) * 0.6f + Vector3.Up * 0.04f;
+                    _camera.GlobalPosition = middle + offset;
+                    _camera.LookAt(middle, Vector3.Up);
+                }
+                else
+                {
+                    _camera.GlobalPosition = from.ToGodot();
+                    _camera.LookAt(at.ToGodot(), Vector3.Up);
+                }
+
                 _camera.MakeCurrent();
             }
 
@@ -138,10 +191,10 @@ public partial class GearDemo : Node, ICommandSource
     public InputCommand Next(int tick, PlayerState me) => new() { Tick = tick, Yaw = _yaw, Pitch = 0f };
 
     /// <summary>
-    /// Clear ground near <paramref name="near"/> for the row and the cameras round it (searched outwards on a 2 m grid),
-    /// with the row facing the sun's side so it's lit.
+    /// Clear ground near <paramref name="near"/> for the row (<paramref name="half"/> either side) and the cameras round
+    /// it (searched outwards on a 2 m grid), with the row facing the sun's side so it's lit.
     /// </summary>
-    private bool FindRoom(SVector3 near, SVector3 towardSun, out SVector3 centre, out float yaw)
+    private bool FindRoom(SVector3 near, SVector3 towardSun, float half, out SVector3 centre, out float yaw)
     {
         yaw = Mathf.Atan2(-towardSun.X, -towardSun.Z);
         for (int ring = 0; ring <= 40; ring++)
@@ -157,7 +210,7 @@ public partial class GearDemo : Node, ICommandSource
 
                     SVector3 probe = near + new SVector3(x * 2f, 0f, z * 2f);
                     if (_sim.Collision.SweepSphere(probe + new SVector3(0f, 2f, 0f), probe - new SVector3(0f, 2f, 0f), 0f, out var floor) &&
-                        Clear(floor.Point, yaw))
+                        Clear(floor.Point, yaw, half))
                     {
                         centre = floor.Point;
                         return true;
@@ -170,14 +223,14 @@ public partial class GearDemo : Node, ICommandSource
         return false;
     }
 
-    /// <summary>Room to stand and level ground from 4 m behind the row to 5 m ahead of it, 4 m either side.</summary>
-    private bool Clear(SVector3 from, float yaw)
+    /// <summary>Room to stand and level ground from 4 m behind the row to 5 m ahead of it, <paramref name="half"/> either side.</summary>
+    private bool Clear(SVector3 from, float yaw, float half)
     {
         SVector3 ahead = ViewAngles.FlatForward(yaw);
         SVector3 side = new(-ahead.Z, 0f, ahead.X);
         for (float d = -4f; d <= 5f; d += 0.75f)
         {
-            for (float s = -4f; s <= 4f; s += 1f)
+            for (float s = -half; s <= half; s += 1f)
             {
                 SVector3 at = from + ahead * d + side * s;
                 bool room = !_sim.Collision.SweepSphere(at + new SVector3(0f, 0.45f, 0f), at + new SVector3(0f, 2.2f, 0f), 0.35f, out _);

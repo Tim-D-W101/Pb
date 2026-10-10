@@ -122,6 +122,7 @@ public partial class CharacterVisual : Node3D
             if (_model is not null)
             {
                 AddChild(_model);
+                _model.Dress(kit);
                 // Their own timing for breathing and shifting weight.
                 _model.Steps?.Vary(state.Id * 7919 + index);
                 _breathPhase = (state.Id * 0.618034f) % 1f;
@@ -182,6 +183,23 @@ public partial class CharacterVisual : Node3D
 
         Capture();
         ApplyPose(1f);
+    }
+
+    /// <summary>Whether they hold their marker up (true) or have it out of the way with their hands free (the gear demo's head close-ups).</summary>
+    public bool HoldsMarker
+    {
+        set
+        {
+            foreach (HitboxPart gear in new[] { HitboxPart.Marker, HitboxPart.Loader, HitboxPart.Tank })
+            {
+                _parts[_indexOfPart[(int)gear]].Visible = value;
+            }
+
+            if (_model is not null)
+            {
+                _model.Poser.HandsOnMarker = value;
+            }
+        }
     }
 
     /// <summary>What a splat at <paramref name="point"/> on <paramref name="part"/> should stick to.</summary>

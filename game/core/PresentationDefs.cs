@@ -1381,8 +1381,12 @@ public sealed class CharactersDef : IValidatable
     /// <summary>How far the legs turn from the facing towards where the body is going.</summary>
     public float MaxLegYaw_deg { get; set; }
 
+    /// <summary>The kit worn over the models (Phase 5): how the clothes are repainted, where the face is, how a mask sits.</summary>
+    public ClothesDef Clothes { get; set; } = new();
+
     public void Validate(Validator v)
     {
+        Clothes.Validate(v.Scope(nameof(Clothes)));
         foreach (string tint in Tints)
         {
             if (!Godot.Color.HtmlIsValid(tint))
@@ -1420,6 +1424,30 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(GripDrop_m), GripDrop_m, -0.3, 0.3);
         v.InRange(nameof(ClipBlend_s), ClipBlend_s, 0.02, 2);
         v.InRange(nameof(MaxLegYaw_deg), MaxLegYaw_deg, 0, 90);
+    }
+}
+
+/// <summary>The kit worn over the character models (<see cref="Pb.Game.Player.ClothesZones"/>, character.gdshader).</summary>
+public sealed class ClothesDef : IValidatable
+{
+    /// <summary>How strongly a repainted jersey or pants keeps its picture's shading: the power of its brightness over the zone's mean.</summary>
+    public float Shading { get; set; }
+
+    /// <summary>Under a brand's mask the model's own face is cut away: the head's front this deep (m, back from its headfront joint)...</summary>
+    public float FaceDepth_m { get; set; }
+
+    /// <summary>...and below this far above it (m), so the hood or hair above and behind stays.</summary>
+    public float FaceBelow_m { get; set; }
+
+    /// <summary>How far a mask's shell stands off the head (m).</summary>
+    public float MaskGap_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Shading), Shading, 0, 1.5);
+        v.InRange(nameof(FaceDepth_m), FaceDepth_m, 0.02, 0.25);
+        v.InRange(nameof(FaceBelow_m), FaceBelow_m, -0.1, 0.4);
+        v.InRange(nameof(MaskGap_m), MaskGap_m, 0, 0.05);
     }
 }
 

@@ -56,6 +56,14 @@ public static class BrandMarks
         return _atlas;
     }
 
+    /// <summary>Where <paramref name="brand"/>'s mark is in the atlas (UVs) and its width over its height; false before the atlas is painted.</summary>
+    public static bool Row(GearBrand brand, out Rect2 uv, out float aspect)
+    {
+        bool found = Rows.TryGetValue(brand.Mark, out (Rect2 Uv, float Aspect) row);
+        (uv, aspect) = row;
+        return found;
+    }
+
     /// <summary>
     /// Prints <paramref name="brand"/>'s mark on <paramref name="mesh"/> as surface <paramref name="zone"/>: centred on
     /// <paramref name="centre"/>, reading along <paramref name="right"/> with <paramref name="up"/> up and facing out of
