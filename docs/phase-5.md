@@ -1,7 +1,7 @@
 # Phase 5 — Locker and extras: plan
 
-> **Status: approved 2026-10-10 with the defaults ("the plan is OK go ahead"); in progress.** Phase 4 (multiplayer) is
-> merged and finished but for your check
+> **Status: approved 2026-10-10 with the defaults ("the plan is OK go ahead"); finished but for your check
+> ([report](reports/phase-5.md)).** Phase 4 (multiplayer) is merged and finished but for your check
 > ([report](reports/phase-4.md)). Technical design: [architecture.md §17](architecture.md#17-phase-5-locker-and-extras).
 > Everything in [spec.md](spec.md) still applies: ballistics, paint rules, metric units, original IP, data files, tests.
 > The compound areas and their modes play exactly as they do now; everything new here is an extra choice.
@@ -309,12 +309,15 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
 
 ### M5.9 Verify and report
 
-- [ ] Tests (below), and CI:
+- [x] Tests (below), and CI:
   - the smoke tests open the locker and play a bot match on the field in each new mode;
   - the networked rounds gain a speedball match, a flag round and an arcade match.
-- [ ] Screenshots: the locker, each brand's kit in first person and on the characters, the paint, the field from both
-  ends, a breakout, and the flag and arcade HUDs.
-- [ ] `docs/reports/phase-5.md`.
+  (501 sim tests and 87 network tests. The smoke tests play bot matches in every new mode on the field and in the
+  compounds; the networked rounds play a speedball match on Crossfire, a flag match in the Cold Store and an arcade
+  round in the Hospital Wing. The benchmark gains the new formats' cost: about 0.01 ms a tick.)
+- [x] Screenshots: the locker, each brand's kit in first person and on the characters, the paint, the field from both
+  ends, a breakout, and the flag and arcade HUDs. (In [the report](reports/phase-5.md#screenshots), by milestone.)
+- [x] [`docs/reports/phase-5.md`](reports/phase-5.md).
 - [ ] Your check: the locker, a speedball match against the bots, the paint on your PC, and the frame rate.
 
 ## Tests

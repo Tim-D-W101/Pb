@@ -1756,3 +1756,20 @@ As built (M5.8):
 - **Smoke tests:** the locker opens and saves; a bot match on the field in each new mode; `MainMenu`'s tour shows the
   locker.
 - **CI's networked rounds** (`tools/ci/net-round.jsonc`) gain a speedball match, a flag round and an arcade match.
+
+As built (M5.9):
+
+- **The tests:** 501 sim tests and 87 net tests. The locker's smoke test is the menu's: it builds the locker, offers every
+  slot's items and saves what was picked.
+- **The smoke tests' bot matches:**
+  - speedball on both layouts;
+  - capture the flag on the field and in Oxbarrow Works;
+  - arcade in Oxbarrow Works, on the Rail Yard (free-for-all) and on the field. An arcade match fails if someone who
+    went out didn't come back.
+- **The networked rounds:** a speedball match to two on Crossfire, a flag match in the Cold Store and an arcade round in
+  the Hospital Wing.
+- **The benchmark** (`tools/Pb.Bench`) gains the new formats' cost on each area, with ten players in and no balls:
+  - an arcade round that brings someone back every quarter of a second;
+  - a flag point with both flags carried round.
+
+  The numbers are in the [Phase 5 report](reports/phase-5.md#performance).
