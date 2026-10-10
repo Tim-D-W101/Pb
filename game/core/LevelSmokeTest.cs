@@ -393,7 +393,7 @@ public sealed class LevelSmokeTest
             DoorSpec d = _sim.Doors[i];
             SVector3 stand = d.ShutCenter - d.Side * 1.3f;
             SVector3 beyond = d.ShutCenter + d.Side * 1.6f;
-            if (d.Hinge.Y > 0.2f || d.Partner >= 0 ||
+            if (d.Hinge.Y > 0.2f || d.Partner >= 0 || (_sim.Level is { } level && !InReach(level, d.ShutCenter)) ||
                 _sim.Collision.SweepSphere(stand + up, d.ShutCenter + up - d.Side * 0.1f, 0.3f, out _, includeDynamic: false) ||
                 _sim.Collision.SweepSphere(d.ShutCenter + up + d.Side * 0.1f, beyond + up, 0.3f, out _, includeDynamic: false))
             {
@@ -493,8 +493,9 @@ public sealed class LevelSmokeTest
                  $"jump {(jumpOk ? "ok" : "FAILED")} (height {_jumpHeight:0.00} m)");
         bool shotOk = _gotShot && _outcome == RoundOutcome.Eliminated;
         GD.Print($"SMOKE duel: shoot {(shootOk ? "ok" : "FAILED")} ({_shootNote}); get shot {(shotOk ? "ok" : "FAILED")} ({_shotNote})");
-        // A level without doors has nothing to check here.
-        bool doorOk = _sim.Doors.Count == 0 || (_doorStopped && _doorOpened && _doorWalked);
+        // A level without doors you can get to has nothing to check here.
+        int doors = DoorsInReach();
+        bool doorOk = doors == 0 || (_doorStopped && _doorOpened && _doorWalked);
         GD.Print($"SMOKE door: {(doorOk ? "ok" : "FAILED")} ({_doorNote})");
 
         // Sound: the bank rendered whole, every kind of event made its sound (headless, through the dummy driver), and the
@@ -502,7 +503,7 @@ public sealed class LevelSmokeTest
         Pb.Game.Audio.AudioDirector audio = _host.Audio;
         Pb.Game.Audio.SoundBank? bank = audio.Bank;
         bool audioOk = bank is { Problems.Count: 0 } && audio.Shots > 0 && audio.Breaks > 0 && audio.Steps > 0 &&
-                       (_sim.Doors.Count == 0 || audio.Doors > 0) && _host.Referee.Called.Count > 0;
+                       (doors == 0 || audio.Doors > 0) && _host.Referee.Called.Count > 0;
         GD.Print($"SMOKE audio: {(audioOk ? "ok" : "FAILED")} (" +
                  (bank is null ? "no sound bank" : $"{bank.SoundCount} sounds in {bank.VariationCount} variations, rendered in {bank.RenderMilliseconds:0} ms") +
                  $"; shots {audio.Shots}, breaks {audio.Breaks}, bounces {audio.Bounces}, steps {audio.Steps}, doors {audio.Doors}, cues {audio.Cues}: " +
@@ -547,6 +548,11 @@ public sealed class LevelSmokeTest
                 continue; // a tilted piece of a heap, not a way up
             }
 
+            if (!InReach(level, bottom) || !InReach(level, top))
+            {
+                continue; // scenery past the level's bounds (the works beyond a field's nets): nobody gets there
+            }
+
             SVector3 flat = SVector3.Normalize(new SVector3(uphill.X, 0f, uphill.Z));
             SVector3 start = new SVector3(bottom.X, bottom.Y + 0.05f, bottom.Z) - flat * 0.5f;
             float yaw = System.MathF.Atan2(-flat.X, -flat.Z);
@@ -554,6 +560,22 @@ public sealed class LevelSmokeTest
         }
 
         return climbs;
+    }
+
+    /// <summary>Inside the level's bounds, where you can get to (scenery beyond them is out of reach).</summary>
+    private static bool InReach(LevelLayout level, SVector3 at) =>
+        at.X >= level.Bounds.Min.X && at.X <= level.Bounds.Max.X && at.Z >= level.Bounds.Min.Z && at.Z <= level.Bounds.Max.Z;
+
+    /// <summary>The doors you can get to.</summary>
+    private int DoorsInReach()
+    {
+        int count = 0;
+        for (int i = 0; i < _sim.Doors.Count; i++)
+        {
+            count += _sim.Level is not { } level || InReach(level, _sim.Doors[i].ShutCenter) ? 1 : 0;
+        }
+
+        return count;
     }
 
     private readonly record struct Climb(string Name, SVector3 Start, float Yaw, float TopY);

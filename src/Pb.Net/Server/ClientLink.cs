@@ -30,6 +30,9 @@ public sealed class ClientLink
     /// <summary>Which of the characters they play.</summary>
     public byte Look { get; internal set; }
 
+    /// <summary>What they wear, as their hello said (the lobby checks it against the catalogue).</summary>
+    public Pb.Sim.Gear.Loadout? Kit { get; internal set; }
+
     /// <summary>Who they are: their identity's id, the same each time they join (empty if their copy didn't say).</summary>
     public string Key { get; internal set; } = "";
 

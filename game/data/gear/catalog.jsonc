@@ -1,0 +1,67 @@
+// The gear locker's catalogue (Phase 5): four brands of our own, and what each makes for the six slots. Looks only:
+// every marker fires as markers/standard.jsonc says, every loader holds what loaders/standard.jsonc says and every tank
+// gives the air air/standard_1100ml_310bar.jsonc gives, whoever's kit it is. The hitboxes are the same for everyone
+// (hitboxes.jsonc) and each item is built to fill them, so what you see is still what can be hit.
+//   brands: id, displayName, line (a line about the brand, for the locker), mark (its name as printed on its kit: A-Z,
+//     spaces and dashes, in the stencil hand of the yard's markings).
+//   items: id, slot (marker, loader, tank, mask, jersey, pants), brand, displayName, shape (the recipe the game builds it
+//     from, game/player/GearShapes.cs; a jersey's or pants' shape is its pattern), colours [main, second, accent]
+//     (#rrggbb: what each paints is up to the shape). A generated `model` is drawn instead of the shape when it loads,
+//     and `includes` names other slots it has built in (drawn with it, whatever's picked for them).
+//   defaults: the item each slot starts with, and falls back to when the one picked is gone.
+{
+  "brands": [
+    { "id": "kilnmark", "displayName": "Kilnmark", "line": "Workshop-built and rugged: machined steel, knurled grips, matt finishes.", "mark": "KILNMARK" },
+    { "id": "vellis", "displayName": "Vellis", "line": "Tournament kit: sleek, light and bright.", "mark": "VELLIS" },
+    { "id": "quarrow", "displayName": "Quarrow", "line": "For the woods and the long game: rails, pouches and camouflage.", "mark": "QUARROW" },
+    { "id": "norrel", "displayName": "Norrel", "line": "What the field hands out: plain, sturdy and everywhere.", "mark": "NORREL" }
+  ],
+
+  "items": [
+    // Markers: the receiver and barrel take the main and second colours, the grips and small parts stay black and steel.
+    { "id": "kilnmark_forge", "slot": "marker", "brand": "kilnmark", "displayName": "Forge", "shape": "marker_forge", "colours": ["#2c2e31", "#b4572b", "#c8c2b2"] },
+    { "id": "vellis_glide", "slot": "marker", "brand": "vellis", "displayName": "Glide", "shape": "marker_glide", "colours": ["#1f2328", "#16a7c2", "#e4e7ea"] },
+    { "id": "quarrow_ranger", "slot": "marker", "brand": "quarrow", "displayName": "Ranger", "shape": "marker_ranger", "colours": ["#4a4e39", "#9f8963", "#262823"] },
+    {
+      "id": "norrel_field", "slot": "marker", "brand": "norrel", "displayName": "Field issue", "shape": "marker_field", "colours": ["#1c1e21", "#0f1012", "#7f8287"],
+      "model": "res://art/models/marker.glb", "includes": ["loader", "tank"]
+    },
+
+    // Loaders: the shell (main), the lid (second) and a band or the clamp (accent); the paint inside is the side's.
+    { "id": "kilnmark_hod", "slot": "loader", "brand": "kilnmark", "displayName": "Hod", "shape": "loader_hod", "colours": ["#2c2e31", "#b4572b", "#c8c2b2"] },
+    { "id": "vellis_halo", "slot": "loader", "brand": "vellis", "displayName": "Halo", "shape": "loader_halo", "colours": ["#1f2328", "#16a7c2", "#e4e7ea"] },
+    { "id": "quarrow_satchel", "slot": "loader", "brand": "quarrow", "displayName": "Satchel", "shape": "loader_satchel", "colours": ["#4a4e39", "#9f8963", "#262823"] },
+    { "id": "norrel_bowl", "slot": "loader", "brand": "norrel", "displayName": "Bowl", "shape": "loader_bowl", "colours": ["#2a2d31", "#1f2124", "#7f8287"] },
+
+    // Tanks: the bottle (main), its cover or wrap (second), the regulator's trim (accent).
+    { "id": "kilnmark_ingot", "slot": "tank", "brand": "kilnmark", "displayName": "Ingot", "shape": "tank_ingot", "colours": ["#5b5e62", "#b4572b", "#c8c2b2"] },
+    { "id": "vellis_fibre", "slot": "tank", "brand": "vellis", "displayName": "Fibre", "shape": "tank_fibre", "colours": ["#1b1d20", "#16a7c2", "#e4e7ea"] },
+    { "id": "quarrow_canteen", "slot": "tank", "brand": "quarrow", "displayName": "Canteen", "shape": "tank_sleeved", "colours": ["#4a4e39", "#9f8963", "#262823"] },
+    { "id": "norrel_bottle", "slot": "tank", "brand": "norrel", "displayName": "Bottle", "shape": "tank_bottle", "colours": ["#c5c8cd", "#1f2124", "#7f8287"] },
+
+    // Masks: the frame (main), the lower face and vents (second), the strap and trim (accent); the lens is always smoked.
+    // Norrel's is the one each character came with.
+    { "id": "kilnmark_visor", "slot": "mask", "brand": "kilnmark", "displayName": "Visor", "shape": "mask_visor", "colours": ["#2c2e31", "#b4572b", "#c8c2b2"] },
+    { "id": "vellis_arc", "slot": "mask", "brand": "vellis", "displayName": "Arc", "shape": "mask_arc", "colours": ["#e4e7ea", "#16a7c2", "#1f2328"] },
+    { "id": "quarrow_thicket", "slot": "mask", "brand": "quarrow", "displayName": "Thicket", "shape": "mask_thicket", "colours": ["#4a4e39", "#9f8963", "#262823"] },
+    { "id": "norrel_issue_mask", "slot": "mask", "brand": "norrel", "displayName": "Issue", "shape": "mask_own", "colours": ["#ffffff", "#ffffff", "#ffffff"] },
+
+    // Jerseys and pants: patterns drawn over the character's own clothes, keeping their folds and seams. "own" keeps
+    // the clothes as they are (tinted by the main colour, white leaving them be).
+    { "id": "kilnmark_workshirt", "slot": "jersey", "brand": "kilnmark", "displayName": "Workshirt", "shape": "yoke", "colours": ["#3a3f45", "#b4572b", "#c8c2b2"] },
+    { "id": "vellis_race", "slot": "jersey", "brand": "vellis", "displayName": "Race", "shape": "panels", "colours": ["#e4e7ea", "#16a7c2", "#1f2328"] },
+    { "id": "quarrow_woodland", "slot": "jersey", "brand": "quarrow", "displayName": "Woodland", "shape": "camo", "colours": ["#4a4e39", "#9f8963", "#262823"] },
+    { "id": "norrel_issue_jersey", "slot": "jersey", "brand": "norrel", "displayName": "Issue", "shape": "own", "colours": ["#ffffff", "#ffffff", "#ffffff"] },
+
+    { "id": "kilnmark_graft", "slot": "pants", "brand": "kilnmark", "displayName": "Graft", "shape": "patches", "colours": ["#2f3236", "#b4572b", "#c8c2b2"] },
+    { "id": "vellis_pace", "slot": "pants", "brand": "vellis", "displayName": "Pace", "shape": "stripe", "colours": ["#1f2328", "#16a7c2", "#e4e7ea"] },
+    { "id": "quarrow_woodland_pants", "slot": "pants", "brand": "quarrow", "displayName": "Woodland", "shape": "camo", "colours": ["#4a4e39", "#9f8963", "#262823"] },
+    { "id": "norrel_issue_pants", "slot": "pants", "brand": "norrel", "displayName": "Issue", "shape": "own", "colours": ["#ffffff", "#ffffff", "#ffffff"] }
+  ],
+
+  // The kit everyone starts with: the field's own, as the game looked before the locker.
+  "defaults": {
+    "marker": "norrel_field", "loader": "norrel_bowl", "tank": "norrel_bottle",
+    "mask": "norrel_issue_mask", "jersey": "norrel_issue_jersey", "pants": "norrel_issue_pants"
+  }
+}

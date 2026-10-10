@@ -17,6 +17,8 @@ public class ServerConfigTests
             Assert.True(TestData.Data.Levels.TryGetValue(r.Level, out Level.LevelLayout? level), $"no area '{r.Level}'");
             Assert.True(r.Place is null || level!.Places.Any(p => p.Id == r.Place), $"{r.Level} has no place '{r.Place}'");
             Match.GameMode mode = Assert.IsType<Match.GameMode>(TestData.Config.Rules.FindMode(r.Mode));
+            // Phase 5 (M5.6): only a mode the area offers (the field plays speedball alone).
+            Assert.Contains(mode, TestData.Config.Rules.ModesFor(TestData.Data.Areas.Areas.First(a => a.Id == r.Level)));
             Assert.Contains(r.Size, mode.Sizes);
             Assert.Contains(TestData.Data.Areas.Areas.First(a => a.Id == r.Level).Tiers, t => t.Id == r.Tier);
         }

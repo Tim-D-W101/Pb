@@ -16,6 +16,8 @@ public readonly record struct PersonInRound(int MemberId, int PlayerId, int Team
 /// It decides every request (a switch that would put the sides more than one apart is refused while balance is on;
 /// chat is cut to length and limited), and sends the lobby to everyone whenever it changes, and every few seconds
 /// during a round for the pings. The host's own player, if they play, is member 0; on a dedicated server there's none.
+/// A match of points (speedball, capture the flag) is played point after point without the lobby in between (<see cref="NextPoint"/>), its score kept
+/// here until it's won.
 /// </summary>
 public sealed class LobbyHost : IDisposable
 {
@@ -24,6 +26,7 @@ public sealed class LobbyHost : IDisposable
     private readonly NetServer _server;
     private readonly NetSettings _settings;
     private readonly MatchRules _rules;
+    private readonly Pb.Sim.Gear.GearCatalog? _gear;
     private readonly Func<double> _clock;
     private readonly BitWriter _writer = new(4096);
     private readonly Dictionary<int, Queue<double>> _said = new();
@@ -33,11 +36,14 @@ public sealed class LobbyHost : IDisposable
     private double _sentAt = double.NegativeInfinity;
     private bool _dirty = true;
 
-    public LobbyHost(NetServer server, NetSettings settings, MatchRules rules, LobbyChoices choices, Func<double> clock, LobbyMember? host = null)
+    /// <param name="gear">The gear catalogue everyone's kit is checked against (null: kit is passed on as it comes).</param>
+    public LobbyHost(NetServer server, NetSettings settings, MatchRules rules, LobbyChoices choices, Func<double> clock, LobbyMember? host = null,
+        Pb.Sim.Gear.GearCatalog? gear = null)
     {
         _server = server;
         _settings = settings;
         _rules = rules;
+        _gear = gear;
         _clock = clock;
         State.ServerName = server.Identity.Name;
         State.Choices = choices;
@@ -46,6 +52,7 @@ public sealed class LobbyHost : IDisposable
         {
             host.Id = HostId;
             host.Host = true;
+            host.Kit = Checked(host.Kit);
             State.Members.Add(host);
         }
 
@@ -70,6 +77,21 @@ public sealed class LobbyHost : IDisposable
 
     /// <summary>The mode chosen plays sides that people choose (teams).</summary>
     public bool HasSides => KindOf(State.Choices.ModeId) == MatchModeKind.Teams;
+
+    /// <summary>The mode chosen plays a match of points (speedball, capture the flag).</summary>
+    public bool PlaysMatch => Points is not null;
+
+    /// <summary>The points a side needs to win the match.</summary>
+    public int RaceTo => State.Choices.RaceTo > 0 ? State.Choices.RaceTo : Points?.RaceTo ?? 1;
+
+    /// <summary>A match has begun and nobody has won it yet: its next point comes straight after the last.</summary>
+    public bool MatchOn => PlaysMatch && State.MatchPlayed > 0 && State.MatchPoints[0] < RaceTo && State.MatchPoints[1] < RaceTo;
+
+    /// <summary>The match's rules (null when the mode chosen plays one round).</summary>
+    private IPointRules? Points => _rules.FindMode(State.Choices.ModeId) is { } mode ? _rules.PointsFor(mode.Format) : null;
+
+    /// <summary>The match as it stands, for its next point's setup.</summary>
+    public MatchScore Score => new(RaceTo, State.MatchPoints[0], State.MatchPoints[1], State.MatchPlayed);
 
     /// <summary>Chat lines for the host's own screen (everything said that the host may read), each once.</summary>
     public IReadOnlyList<ChatLine> TakeChat()
@@ -99,6 +121,22 @@ public sealed class LobbyHost : IDisposable
             State.Phase = LobbyPhase.Lobby;
         }
 
+        Touch();
+    }
+
+    /// <summary>
+    /// A member's kit, from their gear locker, at any time (it's worn from the next round): an item that isn't one of its
+    /// slot's becomes the slot's default, and their character becomes the kit's.
+    /// </summary>
+    public void SetKit(int memberId, Pb.Sim.Gear.Loadout kit)
+    {
+        if (State.Find(memberId) is not { } member)
+        {
+            return;
+        }
+
+        member.Kit = Checked(kit);
+        member.Look = (byte)Math.Clamp(member.Kit!.Character, 0, 255);
         Touch();
     }
 
@@ -134,6 +172,11 @@ public sealed class LobbyHost : IDisposable
                 break;
             case LobbyAsk.Look when between && value is >= 0 and <= 255:
                 member.Look = (byte)value;
+                if (member.Kit is { } kit)
+                {
+                    kit.Character = value;
+                }
+
                 break;
             case LobbyAsk.Vote when State.Phase == LobbyPhase.Vote && value >= -1 && value < State.VoteOptions.Count:
                 member.Vote = value;
@@ -239,7 +282,16 @@ public sealed class LobbyHost : IDisposable
     public void RoundOver(MatchResult result, IReadOnlyList<PersonInRound> people, IReadOnlyList<StatsEntry> stats)
     {
         MatchModeKind kind = KindOf(State.Choices.ModeId);
-        if (kind != MatchModeKind.FreeForAll && result.Winner is 0 or 1)
+        if (PlaysMatch)
+        {
+            // A point of the match: the side that reaches the target wins it, and that's what the session counts.
+            State.MatchPlayed++;
+            if (result.Winner is 0 or 1 && ++State.MatchPoints[result.Winner] >= RaceTo)
+            {
+                State.SideWins[result.Winner]++;
+            }
+        }
+        else if (kind != MatchModeKind.FreeForAll && result.Winner is 0 or 1)
         {
             State.SideWins[result.Winner]++;
         }
@@ -283,6 +335,10 @@ public sealed class LobbyHost : IDisposable
             m.Vote = -1;
         }
 
+        // A match won (or left unfinished) is over: the next one starts from nothing.
+        State.MatchPoints[0] = State.MatchPoints[1] = 0;
+        State.MatchPlayed = 0;
+
         State.VoteOptions.Clear();
         State.Forced = false;
         if (State.Choices.Vote && options is { Count: >= 2 })
@@ -296,6 +352,14 @@ public sealed class LobbyHost : IDisposable
             State.Phase = LobbyPhase.Lobby;
         }
 
+        Touch();
+    }
+
+    /// <summary>A point's over and the match goes on: its next point is being built now, everyone still in.</summary>
+    public void NextPoint()
+    {
+        _server.LeaveRound();
+        State.Phase = LobbyPhase.Loading;
         Touch();
     }
 
@@ -419,7 +483,7 @@ public sealed class LobbyHost : IDisposable
 
     private void Join(ClientLink link)
     {
-        var member = new LobbyMember { Id = link.Peer, Name = link.Name, Look = link.Look };
+        var member = new LobbyMember { Id = link.Peer, Name = link.Name, Look = link.Look, Kit = Checked(link.Kit) };
         if (HasSides)
         {
             member.Side = SmallerSide();
@@ -461,8 +525,14 @@ public sealed class LobbyHost : IDisposable
             case MessageType.Chat when ChatMessage.ReadSay(packet) is { } say:
                 Say(link.Peer, say.Text, say.TeamOnly);
                 break;
+            case MessageType.Kit when KitMessage.Read(packet) is { } kit:
+                SetKit(link.Peer, kit);
+                break;
         }
     }
+
+    /// <summary>A kit as the catalogue allows it (each slot one of its own items), or as it came without a catalogue.</summary>
+    private Pb.Sim.Gear.Loadout? Checked(Pb.Sim.Gear.Loadout? kit) => kit is null ? null : _gear?.Normalised(kit) ?? kit;
 
     private string Clean(string text)
     {

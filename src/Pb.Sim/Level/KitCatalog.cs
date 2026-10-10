@@ -27,10 +27,13 @@ public sealed class PropColliderTemplate
 
     public required Quaternion Rotation { get; init; }
 
-    /// <summary>Box half extents, or (radius, half height, radius) for cylinders.</summary>
+    /// <summary>Box (or wedge) half extents, (radius, half height, radius) for cylinders, (radius, radius, half length) for capsules.</summary>
     public required Vector3 HalfExtents { get; init; }
 
     public required MaterialRef Material { get; init; }
+
+    /// <summary>The kit material's id (what a shape built in code picks its trim by).</summary>
+    public string MaterialId { get; init; } = "";
 
     public required bool Walk { get; init; }
 
@@ -131,13 +134,23 @@ public sealed class KitCatalog
                 MaterialRef material = ResolveMaterial(byId, item.Item(nameof(PropTypeDef.Colliders), c), nameof(ColliderDef.Material), cd.Material);
                 colliders.Add(new PropColliderTemplate
                 {
-                    Kind = cd.Shape == ColliderShape.Cylinder ? PrimitiveKind.Cylinder : PrimitiveKind.Box,
+                    Kind = cd.Shape switch
+                    {
+                        ColliderShape.Cylinder => PrimitiveKind.Cylinder,
+                        ColliderShape.Wedge => PrimitiveKind.Wedge,
+                        ColliderShape.Capsule => PrimitiveKind.Capsule,
+                        _ => PrimitiveKind.Box,
+                    },
                     Center = Validator.ToVector3(cd.Center_m),
                     Rotation = EulerDegrees(cd.Rotation_deg),
-                    HalfExtents = cd.Shape == ColliderShape.Cylinder
-                        ? new Vector3(cd.Radius_m, cd.Height_m * 0.5f, cd.Radius_m)
-                        : Validator.ToVector3(cd.Size_m) * 0.5f,
+                    HalfExtents = cd.Shape switch
+                    {
+                        ColliderShape.Cylinder => new Vector3(cd.Radius_m, cd.Height_m * 0.5f, cd.Radius_m),
+                        ColliderShape.Capsule => new Vector3(cd.Radius_m, cd.Radius_m, cd.Length_m * 0.5f),
+                        _ => Validator.ToVector3(cd.Size_m) * 0.5f,
+                    },
                     Material = material,
+                    MaterialId = cd.Material,
                     Walk = cd.Walk,
                     Paint = cd.Paint,
                 });

@@ -7,14 +7,19 @@ namespace Pb.Net.Protocol;
 /// <summary>
 /// Another player as a snapshot carries them, quantised to a list of fields: where they stand, how they move, look and
 /// lean, and what they're doing (on a ladder, refilling, out). It's everything their character is drawn from, and their
-/// hitboxes on a joining copy.
+/// hitboxes on a joining copy; and in arcade how often they've been out, how long their shield has left and how long until
+/// they're back in.
 /// </summary>
 public static class PuppetFields
 {
-    public const int Count = 20;
+    public const int Count = 23;
 
     private const int X = 0, Y = 1, Z = 2, VX = 3, VY = 4, VZ = 5, Yaw = 6, Pitch = 7, Head = 8, Stance = 9, Eye = 10, Lean = 11,
-        Shoulder = 12, Tuck = 13, Flags = 14, Ladder = 15, Phase = 16, Refill = 17, Eliminations = 18, Hits = 19;
+        Shoulder = 12, Tuck = 13, Flags = 14, Ladder = 15, Phase = 16, Refill = 17, Eliminations = 18, Hits = 19, TimesOut = 20,
+        Shield = 21, BackIn = 22;
+
+    /// <summary>The most ticks the shield's and the respawn's fields hold (rules.jsonc caps both well inside them at 120 Hz).</summary>
+    private const int MostShield = (1 << 11) - 1, MostBackIn = (1 << 12) - 1;
 
     private const float MaxSpeed = 16f;
     private const float HalfTurn = MathF.PI * 0.5f;
@@ -41,9 +46,13 @@ public static class PuppetFields
         into[Refill] = 8;
         into[Eliminations] = 7;
         into[Hits] = 8;
+        into[TimesOut] = 7;
+        into[Shield] = 11;
+        into[BackIn] = 12;
     }
 
-    public static void Capture(PlayerState p, in PositionQuant grid, Span<uint> into)
+    /// <summary>Their fields as of <paramref name="tick"/> (the arcade's shield and time out as ticks left from it).</summary>
+    public static void Capture(PlayerState p, int tick, in PositionQuant grid, Span<uint> into)
     {
         grid.Quantize(p.Position, out into[X], out into[Y], out into[Z]);
         into[VX] = Quant.Range(p.Velocity.X, -MaxSpeed, MaxSpeed, 12);
@@ -65,6 +74,9 @@ public static class PuppetFields
         into[Refill] = refilling ? Quant.Range(p.Marker.Refill.Progress(p.Marker.Paint.Params), 0f, 1f, 8) : 0;
         into[Eliminations] = (uint)Math.Clamp(p.Eliminations, 0, 127);
         into[Hits] = (uint)Math.Clamp(p.Hits, 0, 255);
+        into[TimesOut] = (uint)Math.Clamp(p.TimesOut, 0, 127);
+        into[Shield] = (uint)Math.Clamp(p.ShieldUntilTick - tick, 0, MostShield);
+        into[BackIn] = p.RespawnTick < 0 ? 0 : (uint)Math.Clamp(p.RespawnTick - tick, 1, MostBackIn);
     }
 
     /// <summary>A player's state, as a joining copy draws them, from two snapshots' fields <paramref name="t"/> of the way from a to b.</summary>
@@ -107,6 +119,17 @@ public static class PuppetFields
     {
         p.Eliminations = (int)fields[Eliminations];
         p.Hits = (int)fields[Hits];
+    }
+
+    /// <summary>
+    /// Arcade, on a joining copy: how often they've been out, and (from snapshot <paramref name="tick"/>'s fields) when their
+    /// shield runs out and when they're back in, as ticks of the round (−1: neither).
+    /// </summary>
+    public static void Arcade(PlayerState p, ReadOnlySpan<uint> fields, int tick)
+    {
+        p.TimesOut = (int)fields[TimesOut];
+        p.ShieldUntilTick = fields[Shield] > 0 ? tick + (int)fields[Shield] : -1;
+        p.RespawnTick = fields[BackIn] > 0 ? tick + (int)fields[BackIn] : -1;
     }
 
     private static Vector3 Velocity(ReadOnlySpan<uint> f) => new(

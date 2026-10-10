@@ -18,8 +18,13 @@ public sealed class RotationDef : IValidatable
 
     public string Tier { get; set; } = "normal";
 
+    /// <summary>Speedball: the points a side needs to win the match (0, or left out: the rules' own).</summary>
+    [Optional]
+    public int RaceTo { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(RaceTo), RaceTo, 0, 20);
         if (Level.Length == 0)
         {
             v.Error(nameof(Level), "needs an area's id");

@@ -18,6 +18,7 @@ public sealed class MaterialLibrary
     private readonly Dictionary<string, int> _ids = new(System.StringComparer.Ordinal);
     private readonly Dictionary<int, Material> _materials = new();
     private readonly Dictionary<(int Index, Color Color), Material> _recoloured = new();
+    private readonly List<ShaderMaterial> _wobbly = new();
     private readonly Shader _shader;
 
     public MaterialLibrary(IReadOnlyList<KitMaterial> materials)
@@ -46,6 +47,9 @@ public sealed class MaterialLibrary
 
     public bool IsTransparent(int index) => this[index] is StandardMaterial3D;
 
+    /// <summary>The materials made so far whose fabric wobbles where a ball strikes it (an inflatable's, recoloured ones too).</summary>
+    public IReadOnlyList<ShaderMaterial> Wobbly => _wobbly;
+
     /// <summary>The index of the kit material with this id, or −1.</summary>
     public int Find(string id) => _ids.TryGetValue(id, out int index) ? index : -1;
 
@@ -64,6 +68,10 @@ public sealed class MaterialLibrary
         if (material is ShaderMaterial shader)
         {
             shader.SetShaderParameter(shader.GetShaderParameter("use_textures").AsBool() ? "texture_tint" : "base_color", color);
+            if (shader.GetShaderParameter("wobble").AsBool())
+            {
+                _wobbly.Add(shader);
+            }
         }
         else if (material is StandardMaterial3D standard)
         {
@@ -77,6 +85,23 @@ public sealed class MaterialLibrary
     private Material Create(MaterialDef def)
     {
         Color color = Conv.ParseColor(def.Color, new Color(0.6f, 0.6f, 0.6f));
+        if (def.Pattern == MaterialPattern.Net)
+        {
+            // Cords on nothing: the texture is one square of the net, its mipmaps averaging the cords into a veil as it
+            // goes off into the distance. Seen from both sides, lit but hardly shiny.
+            return new StandardMaterial3D
+            {
+                AlbedoColor = new Color(color, def.Alpha),
+                AlbedoTexture = NetTexture(def.Cord_m / def.Tile_m),
+                TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
+                Uv1Scale = Vector3.One / def.Tile_m,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                Roughness = def.Roughness,
+                MetallicSpecular = 0.2f,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            };
+        }
+
         if (def.Alpha < 0.999f)
         {
             // The kit's UVs are in metres, so a texture repeats every tile_m. A roughness map holds the
@@ -126,8 +151,41 @@ public sealed class MaterialLibrary
             material.SetShaderParameter("roughness_tex", roughness);
         }
 
+        if (def.Surface == InflatableWobble.Surface)
+        {
+            InflatableWobble.Prepare(material);
+            _wobbly.Add(material);
+        }
+
         return material;
     }
 
     private static Texture2D? LoadTexture(string? path) => ArtFiles.Load<Texture2D>(path);
+
+    /// <summary>
+    /// One square of netting: white cords (the material's colour tints them) on nothing, one along its top and one down
+    /// its left, <paramref name="cord"/> of its width thick, knotted where they cross; so the squares meet seamlessly.
+    /// </summary>
+    private static ImageTexture NetTexture(float cord)
+    {
+        const int Size = 64;
+        var image = Image.CreateEmpty(Size, Size, false, Image.Format.Rgba8);
+        float half = System.MathF.Max(cord * Size * 0.5f, 0.5f);
+        for (int y = 0; y < Size; y++)
+        {
+            for (int x = 0; x < Size; x++)
+            {
+                // How far this texel is from the cords along the square's edges (which the next square shares).
+                float dy = System.MathF.Min(y + 0.5f, Size - y - 0.5f), dx = System.MathF.Min(x + 0.5f, Size - x - 0.5f);
+                float cover = System.MathF.Max(System.MathF.Max(Cover(dx, half), Cover(dy, half)), Cover(System.MathF.Sqrt(dx * dx + dy * dy), half * 1.8f));
+                image.SetPixel(x, y, new Color(1f, 1f, 1f, cover));
+            }
+        }
+
+        image.GenerateMipmaps();
+        return ImageTexture.CreateFromImage(image);
+    }
+
+    /// <summary>How much of a texel <paramref name="distance"/> from a cord's middle the cord covers, <paramref name="half"/> its half thickness.</summary>
+    private static float Cover(float distance, float half) => Mathf.Clamp(half + 0.5f - distance, 0f, 1f);
 }

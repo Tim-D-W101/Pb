@@ -38,6 +38,18 @@ public class CastingTests
     }
 
     [Fact]
+    public void Each_person_is_cast_in_their_kit_and_the_bots_in_none()
+    {
+        // Phase 5 (M5.3): what each person wears goes in the roster; a bot's is dealt from the seed on every copy.
+        Pb.Sim.Gear.Loadout kit = TestData.Data.Gear.Deal(9, 1, character: 2);
+        CastRound cast = Cast("teams", 3, ObjectiveKind.Eliminate, 1, new Person("Ada", 2, Side: 0, Kit: kit), new Person("Bo", Side: 1));
+        RosterEntry ada = cast.Setup.Roster.Single(e => e.Name == "Ada");
+        Assert.True(ada.Kit!.SameAs(kit));
+        Assert.Null(cast.Setup.Roster.Single(e => e.Name == "Bo").Kit);
+        Assert.All(cast.Setup.Roster.Where(e => !e.Person), e => Assert.Null(e.Kit));
+    }
+
+    [Fact]
     public void Without_bots_teams_and_free_for_all_are_people_alone_and_co_op_keeps_the_squad()
     {
         CastRound teams = CastWith("teams", 3, ObjectiveKind.Eliminate, 1, bots: false, new Person("Ada", Side: 0), new Person("Bo", Side: 1), new Person("Cy", Side: 1));

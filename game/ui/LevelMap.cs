@@ -36,6 +36,7 @@ public partial class LevelMap : Control
     private readonly List<Vector2> _team = new();
     private readonly List<Rect2> _objectiveAreas = new();
     private readonly List<Vector2> _exits = new();
+    private readonly List<(Vector2 At, Color Colour)> _flags = new();
     private Color _accent = UiKit.Accent;
     private Color _objectiveColour = UiKit.Accent;
 
@@ -140,6 +141,18 @@ public partial class LevelMap : Control
         QueueRedraw();
     }
 
+    /// <summary>Capture the flag: each flag where it stands, in its colour (<paramref name="colourOf"/> a side's; −1 the one in the middle).</summary>
+    public void MarkFlags(FlagSet flags, Func<int, Color> colourOf)
+    {
+        _flags.Clear();
+        for (int i = 0; i < flags.Count; i++)
+        {
+            _flags.Add((new Vector2(flags.Home(i).X, flags.Home(i).Z), colourOf(flags.Owner(i))));
+        }
+
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
         Vector2 size = Size;
@@ -206,6 +219,16 @@ public partial class LevelMap : Control
         {
             DrawArc(Map(exit), 7f, 0f, Mathf.Tau, 20, _objectiveColour, 2.5f, antialiased: true);
             DrawCircle(Map(exit), 2.5f, _objectiveColour);
+        }
+
+        // The flags: a pole and its pennant.
+        foreach ((Vector2 at, Color colour) in _flags)
+        {
+            Vector2 pole = Map(at);
+            DrawLine(pole + new Vector2(-4f, 6f), pole + new Vector2(-4f, -9f), new Color(0f, 0f, 0f, 0.85f), 3f, antialiased: true);
+            Vector2[] pennant = { pole + new Vector2(-4f, -9f), pole + new Vector2(8f, -5f), pole + new Vector2(-4f, -1f) };
+            DrawColoredPolygon(pennant, colour);
+            DrawPolyline(new[] { pennant[0], pennant[1], pennant[2], pennant[0] }, new Color(0f, 0f, 0f, 0.75f), 1.5f, antialiased: true);
         }
 
         // Teammates, then you: an arrow the way you face.

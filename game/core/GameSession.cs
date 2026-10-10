@@ -23,6 +23,9 @@ public static class GameSession
     /// <summary>"eliminate", "retrieve" or "hold" (solo and teams; free-for-all is always eliminate).</summary>
     public static string? ObjectiveId { get; set; }
 
+    /// <summary>A match of points under way offline (speedball, capture the flag), kept across the level's reloads between points.</summary>
+    public static PointsMatch? Points { get; set; }
+
     /// <summary>The menu to open on returning to the main scene ("levels" after a round).</summary>
     public static string? ReturnTo { get; set; }
 

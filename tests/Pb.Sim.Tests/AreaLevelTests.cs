@@ -63,12 +63,14 @@ public class AreaLevelTests
         (LevelLayout level, _, CoverSet cover) = BotArena.SharedFor(levelId);
         var world = new CollisionWorld();
         level.BuildCollision(world);
-        Assert.True(level.Objectives.Offers(ObjectiveKind.Retrieve), "no case spots or ways out");
-        Assert.True(level.Objectives.Offers(ObjectiveKind.Hold), "no rooms to hold");
+        // Every compound offers the objectives; a field (the Sports Ground) has no buildings to carry a case out of or hold.
+        bool field = level.Field is not null;
+        Assert.True(field || level.Objectives.Offers(ObjectiveKind.Retrieve), "no case spots or ways out");
+        Assert.True(field || level.Objectives.Offers(ObjectiveKind.Hold), "no rooms to hold");
         ObjectiveRules rules = TestData.Config.Rules.Objectives;
         foreach (GameMode mode in TestData.Config.Rules.Modes)
         {
-            foreach (ObjectiveKind kind in mode.Kind == MatchModeKind.FreeForAll
+            foreach (ObjectiveKind kind in mode.Kind == MatchModeKind.FreeForAll || field
                          ? new[] { ObjectiveKind.Eliminate }
                          : new[] { ObjectiveKind.Eliminate, ObjectiveKind.Retrieve, ObjectiveKind.Hold })
             {
@@ -87,7 +89,7 @@ public class AreaLevelTests
         }
     }
 
-    /// <summary>Each level in each mode, and with each objective, from random starts.</summary>
+    /// <summary>Each level in each mode, and with each objective it offers, from random starts.</summary>
     public static IEnumerable<object[]> Rounds() =>
         Levels().Select(l => (string)l[0]).SelectMany(level => new[]
         {
@@ -96,7 +98,7 @@ public class AreaLevelTests
             new object[] { level, "ffa", 8, ObjectiveKind.Eliminate, 3UL },
             new object[] { level, "teams", 3, ObjectiveKind.Retrieve, 4UL },
             new object[] { level, "solo", 5, ObjectiveKind.Hold, 5UL },
-        });
+        }.Where(round => (ObjectiveKind)round[3] == ObjectiveKind.Eliminate || TestData.Data.Levels[level].Objectives.Offers((ObjectiveKind)round[3])));
 
     [Theory]
     [MemberData(nameof(Rounds))]

@@ -10,6 +10,8 @@
 // wheelchair, bench, operating_table, ambulance_wreck, fountain, boiler, chimney), else the colliders as greybox.
 //   box:      center_m, size_m [x, y, z]
 //   cylinder: center_m, radius_m, height_m (axis = +Y, tilt with rotation_deg)
+//   wedge:    center_m, size_m [base width, height, length]: an A-frame prism in that box, its ridge along the top
+//   capsule:  center_m, radius_m, length_m (tip to tip, lying along Z; turn it with rotation_deg)
 //   rotation_deg [about X, about Y, about Z]; walk: false lets characters pass (paint still hits);
 //   paint: false lets paint and sight through (it still blocks walking)
 // Props at least 0.9 m tall count as cover for bots unless "cover": false (colliders paint passes never do).
@@ -447,6 +449,36 @@
         { "shape": "cylinder", "center_m": [0, 13.0, 0], "radius_m": 1.0, "height_m": 26.0, "material": "brick_red" },
         { "shape": "box", "center_m": [0, 1.5, 0], "size_m": [2.8, 3.0, 2.8], "material": "brick_red" }
       ]
-    }
+    },
+
+    // The Sports Ground's inflatable bunkers (Phase 5; PropShapes.Inflatables.cs "inflatable": each collider drawn as an
+    // air-filled one of its shape in the club's nylon, its seams and a band in the club's other colour, pegged down).
+    // The wedge is the spec's "Dorito", renamed: that name echoes a snack's. Snakes, cakes, wedges and bricks are 1.2 m
+    // tall, so a crouched player hides behind them; the can and the temple hide one standing.
+    { "id": "bunker_wedge", "displayName": "Wedge", "shape": "inflatable",
+      "colliders": [ { "shape": "wedge", "center_m": [0, 0.6, 0], "size_m": [1.7, 1.2, 1.4], "material": "nylon_yellow" } ] },
+    { "id": "bunker_brick", "displayName": "Brick", "shape": "inflatable",
+      "colliders": [ { "shape": "box", "center_m": [0, 0.6, 0], "size_m": [1.8, 1.2, 0.9], "material": "nylon_navy" } ] },
+    { "id": "bunker_can", "displayName": "Can", "shape": "inflatable",
+      "colliders": [ { "shape": "cylinder", "center_m": [0, 0.9, 0], "radius_m": 0.75, "height_m": 1.8, "material": "nylon_yellow" } ] },
+    { "id": "bunker_cake", "displayName": "Cake", "shape": "inflatable",
+      "colliders": [ { "shape": "cylinder", "center_m": [0, 0.6, 0], "radius_m": 1.1, "height_m": 1.2, "material": "nylon_navy" } ] },
+    { "id": "bunker_temple", "displayName": "Temple", "shape": "inflatable",
+      "colliders": [
+        { "shape": "box", "center_m": [0, 0.5, 0], "size_m": [1.6, 1.0, 1.0], "material": "nylon_yellow" },
+        { "shape": "wedge", "center_m": [0, 1.45, 0], "size_m": [1.6, 0.9, 1.0], "material": "nylon_yellow" }
+      ] },
+    { "id": "bunker_snake", "displayName": "Snake", "shape": "inflatable",
+      "colliders": [
+        { "shape": "capsule", "center_m": [0.17, 0.6, -3.0], "radius_m": 0.6, "length_m": 3.6, "rotation_deg": [0, -8, 0], "material": "nylon_navy" },
+        { "shape": "capsule", "center_m": [0, 0.6, 0], "radius_m": 0.6, "length_m": 3.6, "material": "nylon_navy" },
+        { "shape": "capsule", "center_m": [0.17, 0.6, 3.0], "radius_m": 0.6, "length_m": 3.6, "rotation_deg": [0, 8, 0], "material": "nylon_navy" }
+      ] },
+
+    // The club's pits: a pop-up gazebo (its canopy's box: the legs stand at its corners, the canopy peaks 0.6 m over it).
+    { "id": "gazebo_yellow", "displayName": "Gazebo", "shape": "gazebo", "cover": false,
+      "colliders": [ { "shape": "box", "center_m": [0, 2.55, 0], "size_m": [3.0, 0.5, 3.0], "material": "nylon_yellow", "walk": false } ] },
+    { "id": "gazebo_navy", "displayName": "Gazebo", "shape": "gazebo", "cover": false,
+      "colliders": [ { "shape": "box", "center_m": [0, 2.55, 0], "size_m": [3.0, 0.5, 3.0], "material": "nylon_navy", "walk": false } ] }
   ]
 }

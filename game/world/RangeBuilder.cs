@@ -39,6 +39,9 @@ public partial class RangeBuilder : Node3D
     private readonly List<Material> _recoloured = new();
     private readonly Dictionary<(int Index, Color Color), int> _recolouredIds = new();
     private MaterialLibrary _materials = null!;
+
+    /// <summary>The kit's materials as drawn here (the inflatables' wobble reaches them through it).</summary>
+    public MaterialLibrary Materials => _materials;
     private TrainingGroundDef _def = null!;
 
     public IReadOnlyList<TargetView> Targets => _targets;

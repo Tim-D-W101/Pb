@@ -30,6 +30,43 @@ public partial class PawnBody : CharacterBody3D
 
     public void ApplyMovementParams(MovementParams movement) => Move = movement;
 
+    private uint _layer;
+    private uint _mask;
+
+    /// <summary>Walked off the field: out of everyone's way.</summary>
+    protected bool Removed { get; private set; }
+
+    /// <summary>Takes the body out of everyone's way once they've walked off (once).</summary>
+    protected void TakeOff()
+    {
+        if (Removed)
+        {
+            return;
+        }
+
+        Removed = true;
+        _layer = CollisionLayer;
+        _mask = CollisionMask;
+        CollisionLayer = 0;
+        CollisionMask = 0;
+    }
+
+    /// <summary>
+    /// Arcade: back in, where the sim's put them (a new start): the body jumps there, still, and is in everyone's way
+    /// again if it had walked off.
+    /// </summary>
+    public virtual void Respawned()
+    {
+        Teleport(State.Position, State.Yaw);
+        GroundedOverride = null;
+        if (Removed)
+        {
+            Removed = false;
+            CollisionLayer = _layer;
+            CollisionMask = _mask;
+        }
+    }
+
     public virtual void Teleport(System.Numerics.Vector3 position, float yaw)
     {
         GlobalPosition = position.ToGodot();

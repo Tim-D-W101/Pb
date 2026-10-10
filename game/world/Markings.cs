@@ -81,6 +81,16 @@ public partial class Markings : Node3D
             }
         }
 
+        // A field's banners: their words stencilled on the backing FieldDressing hangs on the nets.
+        foreach (FieldBannerDef banner in level.FieldDressing?.Banners ?? Array.Empty<FieldBannerDef>())
+        {
+            Vector3 normal = new Basis(Vector3.Up, Mathf.DegToRad(banner.Yaw_deg)) * Vector3.Back;
+            Vector3 face = new Vector3(banner.At_m[0], banner.At_m[1], banner.At_m[2]) + normal * FieldDressing.BannerStandoff;
+            float size = MathF.Min(banner.Size_m[1] * 0.62f, banner.Size_m[0] / (banner.Text.Length * MarkingPainter.DigitAspect * 0.92f + 0.6f));
+            var words = new StencilDef { Text = banner.Text, At_m = new[] { face.X, face.Y, face.Z }, Size_m = size, Yaw_deg = banner.Yaw_deg, Wall = true };
+            Stencil(cards, PlanFrame.Identity, words, Color.FromHtml(banner.TextColor), view, random, printed: true);
+        }
+
         CardCount = cards.Count;
         if (cards.Count == 0)
         {
@@ -169,7 +179,11 @@ public partial class Markings : Node3D
     }
 
     /// <summary>Stencilled characters side by side, centred on the stencil's point, on the floor or upright on a wall.</summary>
-    private static void Stencil(List<Card> cards, PlanFrame frame, StencilDef stencil, Color paint, MarkingsViewDef view, Random random)
+    /// <summary>
+    /// A stencil's characters, each a card; <paramref name="printed"/> ones (a banner's words) are solid and all one shade,
+    /// not sprayed on by hand.
+    /// </summary>
+    private static void Stencil(List<Card> cards, PlanFrame frame, StencilDef stencil, Color paint, MarkingsViewDef view, Random random, bool printed = false)
     {
         var at = new Vector3(stencil.At_m[0], stencil.At_m[1], stencil.At_m[2]);
         var turn = new Basis(Vector3.Up, Mathf.DegToRad(stencil.Yaw_deg));
@@ -189,7 +203,9 @@ public partial class Markings : Node3D
             }
 
             float offset = (i - (stencil.Text.Length - 1) * 0.5f) * step;
-            cards.Add(new Card(middle + right * offset, right * size, up * size, normal, cell, Shade(paint, random), Opacity(view, random)));
+            cards.Add(printed
+                ? new Card(middle + right * offset, right * size, up * size, normal, cell, paint.SrgbToLinear(), 1f)
+                : new Card(middle + right * offset, right * size, up * size, normal, cell, Shade(paint, random), Opacity(view, random)));
         }
     }
 

@@ -368,7 +368,7 @@ CLAUDE.md lists every flag for playing with others.
 
 From the [revised roadmap](../phase-2.md#revised-roadmap): the gear locker, fictional brands, gear models and splat
 shaders, with the speedball field, CTF and Arcade as optional modes. As every phase has, it starts with a plan for your
-OK.
+OK: [phase-5.md](../phase-5.md).
 
 Gear models would need generated art again. Higgsfield is on its free plan with no credits, so without credits the gear
 would be built in code, as the new levels' props were.

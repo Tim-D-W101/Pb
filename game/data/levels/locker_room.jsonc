@@ -1,0 +1,26 @@
+// The gear locker's room (Phase 5): the works' changing room on its own, a patch of yard round it seen through the
+// windows and the door. Not a place to play: the locker builds it and stands you on a turntable (the one player spawn)
+// in the middle of the room's length, a little towards the windows so its lamp hangs clear of the strip lights down
+// the middle, facing down the length to the east, where the camera has the most room. World frame as the areas':
+// metres, x east, z south, y up; the room's middle is the origin.
+{
+  "id": "locker_room",
+  "displayName": "The changing room",
+  "description": "The works' old changing room, where you pick your kit.",
+  "boundsMin_m": [-16, -2, -16],
+  "boundsMax_m": [16, 10, 16],
+  "groundMaterial": "asphalt_cracked",
+  "groundPatches": [ { "rect_m": [-16, -16, 16, -6], "material": "gravel" } ],
+  "playerSpawns": [ { "position_m": [0, 0, -0.75], "yaw_deg": -90 } ],
+  "spawnArea": "the changing room",
+  "deadZone_m": [0, 0, 0],
+  "buildings": [ { "building": "changing_room", "position_m": [-4, 0, -3] } ],
+  "props": [
+    { "prop": "oil_drum_rust", "position_m": [-6.2, 0, 4.4] },
+    { "prop": "pallet_stack", "position_m": [6.5, 0, 5.2], "yaw_deg": 12 }
+  ],
+  "areas": [ { "name": "the changing room", "rect_m": [-4, -3, 4, 3] } ],
+  "opponentSpawns": [],
+  "viewpoints": [ { "name": "the changing room", "position_m": [0, 1.6, 2.4], "yaw_deg": 0, "pitch_deg": -8 } ],
+  "places": [ { "id": "whole", "displayName": "The changing room", "still": "the changing room", "description": "The works' old changing room." } ]
+}

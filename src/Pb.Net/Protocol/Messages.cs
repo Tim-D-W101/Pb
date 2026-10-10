@@ -44,15 +44,21 @@ public enum MessageType : byte
 
     /// <summary>Leaving, or being sent away, and why (reliable).</summary>
     Bye,
+
+    /// <summary>A player's kit, changed in the gear locker between rounds (reliable).</summary>
+    Kit,
 }
 
 public static class NetProtocol
 {
     /// <summary>
     /// Bumped whenever a message changes: copies on different versions refuse each other (2: the callout key; 3: who you
-    /// are, in the hello).
+    /// are, in the hello; 4: everyone's kit, in the hello, the lobby and the round's roster; 5: speedball's countdown,
+    /// buzzers and match score, in the snapshot, the round's setup and the lobby; 6: capture the flag's flags and their
+    /// events, in the snapshot; 7: arcade's respawns, shields and times out, in the snapshot, the events and the round's
+    /// numbers).
     /// </summary>
-    public const int Version = 3;
+    public const int Version = 7;
 
     public static MessageType TypeOf(ReadOnlySpan<byte> packet) => packet.Length > 0 ? (MessageType)packet[0] : MessageType.None;
 }
@@ -95,6 +101,9 @@ public sealed class HelloMessage
     /// <summary>Who they are: their platform identity's id, which stays theirs from game to game (empty if unknown).</summary>
     public string Key { get; set; } = "";
 
+    /// <summary>What they wear, from their gear locker (null: the field's own kit on their character).</summary>
+    public Pb.Sim.Gear.Loadout? Kit { get; set; }
+
     public void Write(BitWriter w)
     {
         w.WriteByte((byte)MessageType.Hello);
@@ -105,6 +114,7 @@ public sealed class HelloMessage
         w.WriteString(Password, 64);
         w.WriteByte(Look);
         w.WriteString(Key, 64);
+        KitCodec.Write(w, Kit);
     }
 
     public static HelloMessage? Read(ReadOnlySpan<byte> packet)
@@ -121,10 +131,15 @@ public sealed class HelloMessage
             Password = r.ReadString(64), Look = r.ReadByte(),
         };
 
-        // Version 2's hello ends there; it's still read, so the copy is told which version to update to.
+        // Older hellos end sooner; they're still read, so the copy is told which version to update to.
         if (m.Protocol >= 3)
         {
             m.Key = r.ReadString(64);
+        }
+
+        if (m.Protocol >= 4)
+        {
+            m.Kit = KitCodec.Read(ref r);
         }
 
         return r.Overflowed ? null : m;
@@ -202,6 +217,9 @@ public sealed record RosterEntry
 
     public byte Look { get; init; }
 
+    /// <summary>What a person wears (their gear locker's; null: the field's own on their character). Bots' is dealt on every copy.</summary>
+    public Pb.Sim.Gear.Loadout? Kit { get; init; }
+
     public required Vector3 Position { get; init; }
 
     public required float Yaw { get; init; }
@@ -242,6 +260,16 @@ public sealed class RoundSetupMessage
 
     public bool EndWhenPeopleOut { get; set; }
 
+    /// <summary>A point of a speedball match: the points a side needs (0: not a match), and the score before this point.</summary>
+    public int RaceTo { get; set; }
+
+    public int Points0 { get; set; }
+
+    public int Points1 { get; set; }
+
+    /// <summary>The match's points played before this one (those nobody won included).</summary>
+    public int PointsPlayed { get; set; }
+
     public List<RosterEntry> Roster { get; } = new();
 
     /// <summary>The player this copy plays (−1: watching).</summary>
@@ -265,6 +293,10 @@ public sealed class RoundSetupMessage
         w.WriteBool(Pickups);
         w.WriteByte(Attackers);
         w.WriteBool(EndWhenPeopleOut);
+        w.WriteVarUInt((uint)RaceTo);
+        w.WriteVarUInt((uint)Points0);
+        w.WriteVarUInt((uint)Points1);
+        w.WriteVarUInt((uint)PointsPlayed);
         w.WriteVarInt(YourPlayerId);
         w.WriteVarUInt((uint)Roster.Count);
         foreach (RosterEntry e in Roster)
@@ -274,6 +306,7 @@ public sealed class RoundSetupMessage
             w.WriteString(e.Name, 48);
             w.WriteBool(e.Person);
             w.WriteByte(e.Look);
+            KitCodec.Write(w, e.Kit);
             w.WriteFloat(e.Position.X);
             w.WriteFloat(e.Position.Y);
             w.WriteFloat(e.Position.Z);
@@ -303,6 +336,10 @@ public sealed class RoundSetupMessage
         m.Pickups = r.ReadBool();
         m.Attackers = r.ReadByte();
         m.EndWhenPeopleOut = r.ReadBool();
+        m.RaceTo = (int)r.ReadVarUInt();
+        m.Points0 = (int)r.ReadVarUInt();
+        m.Points1 = (int)r.ReadVarUInt();
+        m.PointsPlayed = (int)r.ReadVarUInt();
         m.YourPlayerId = r.ReadVarInt();
         if (m.PlaceId.Length == 0)
         {
@@ -312,9 +349,15 @@ public sealed class RoundSetupMessage
         uint count = r.ReadVarUInt();
         for (uint i = 0; i < count && i < 64 && !r.Overflowed; i++)
         {
+            int id = (int)r.ReadVarUInt();
+            byte team = r.ReadByte();
+            string name = r.ReadString(48);
+            bool person = r.ReadBool();
+            byte look = r.ReadByte();
+            Pb.Sim.Gear.Loadout? kit = KitCodec.Read(ref r);
             m.Roster.Add(new RosterEntry
             {
-                PlayerId = (int)r.ReadVarUInt(), Team = r.ReadByte(), Name = r.ReadString(48), Person = r.ReadBool(), Look = r.ReadByte(),
+                PlayerId = id, Team = team, Name = name, Person = person, Look = look, Kit = kit,
                 Position = new Vector3(r.ReadFloat(), r.ReadFloat(), r.ReadFloat()), Yaw = r.ReadFloat(),
             });
         }
@@ -324,7 +367,7 @@ public sealed class RoundSetupMessage
 }
 
 /// <summary>One player's numbers for the round, as the server kept them.</summary>
-public readonly record struct StatsEntry(int PlayerId, int Shots, int Hits, int Eliminations, int Pickups, float TimeIn, int OutTick);
+public readonly record struct StatsEntry(int PlayerId, int Shots, int Hits, int Eliminations, int Pickups, float TimeIn, int OutTick, int TimesOut = 0);
 
 /// <summary>A round over: why, who won, how long it took and everyone's numbers.</summary>
 public sealed class RoundOverMessage
@@ -357,6 +400,7 @@ public sealed class RoundOverMessage
             w.WriteVarUInt((uint)s.Pickups);
             w.WriteFloat(s.TimeIn);
             w.WriteVarInt(s.OutTick);
+            w.WriteVarUInt((uint)s.TimesOut);
         }
     }
 
@@ -365,7 +409,7 @@ public sealed class RoundOverMessage
     {
         foreach (StatsEntry s in Stats)
         {
-            match.StatsFor(s.PlayerId)?.ApplyServer(s.Shots, s.Hits, s.Eliminations, s.Pickups, s.TimeIn, s.OutTick);
+            match.StatsFor(s.PlayerId)?.ApplyServer(s.Shots, s.Hits, s.Eliminations, s.Pickups, s.TimeIn, s.OutTick, s.TimesOut);
         }
     }
 
@@ -386,7 +430,7 @@ public sealed class RoundOverMessage
         for (uint i = 0; i < count && i < 64 && !r.Overflowed; i++)
         {
             m.Stats.Add(new StatsEntry((int)r.ReadVarUInt(), (int)r.ReadVarUInt(), (int)r.ReadVarUInt(), (int)r.ReadVarUInt(),
-                (int)r.ReadVarUInt(), r.ReadFloat(), r.ReadVarInt()));
+                (int)r.ReadVarUInt(), r.ReadFloat(), r.ReadVarInt(), (int)r.ReadVarUInt()));
         }
 
         return r.Overflowed || count > 64 ? null : m;
@@ -419,5 +463,27 @@ public static class SimpleMessage
         w.WriteByte((byte)MessageType.Bye);
         w.WriteByte((byte)reason);
         w.WriteString(text, 200);
+    }
+}
+
+/// <summary>A player's kit, changed in the gear locker: to the host, which checks it and puts it in the lobby.</summary>
+public static class KitMessage
+{
+    public static void Write(BitWriter w, Pb.Sim.Gear.Loadout kit)
+    {
+        w.WriteByte((byte)MessageType.Kit);
+        KitCodec.Write(w, kit);
+    }
+
+    public static Pb.Sim.Gear.Loadout? Read(ReadOnlySpan<byte> packet)
+    {
+        var r = new BitReader(packet);
+        if ((MessageType)r.ReadByte() != MessageType.Kit)
+        {
+            return null;
+        }
+
+        Pb.Sim.Gear.Loadout? kit = KitCodec.Read(ref r);
+        return r.Overflowed ? null : kit;
     }
 }

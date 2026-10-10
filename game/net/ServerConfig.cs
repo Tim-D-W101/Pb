@@ -52,6 +52,7 @@ public sealed class ServerConfig
             rotation[i] = RoundChoices.Fit(data, new LobbyChoices
             {
                 LevelId = r.Level, PlaceId = r.Place, ModeId = r.Mode, Size = r.Size, ObjectiveId = r.Objective, TierId = r.Tier, Vote = def.Vote,
+                RaceTo = r.RaceTo,
             });
             warnings.AddRange(Unfitted(i + 1, r, rotation[i]));
         }
@@ -77,7 +78,7 @@ public sealed class ServerConfig
 
         if (asked.Mode != played.ModeId)
         {
-            yield return $"round {n}: there's no mode \"{asked.Mode}\", so it's {played.ModeId}";
+            yield return $"round {n}: {played.LevelId} has no mode \"{asked.Mode}\", so it's {played.ModeId}";
         }
         else if (asked.Size != played.Size)
         {

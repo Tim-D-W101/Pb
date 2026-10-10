@@ -304,12 +304,12 @@ public partial class WeedField : Node3D
             return false;
         }
 
-        /// <summary>The outline of a primitive's foot on the ground (upright boxes and cylinders exactly, anything else by its bounds).</summary>
+        /// <summary>The outline of a primitive's foot on the ground (upright boxes, wedges, tubes and cylinders exactly, anything else by its bounds).</summary>
         private static void Footprint(LevelPrimitive p, List<Vector2> outline)
         {
             outline.Clear();
             SVector3 up = SVector3.Transform(SVector3.UnitY, p.Rotation);
-            if (up.Y > 0.95f && p.Kind == PrimitiveKind.Box)
+            if (up.Y > 0.95f && p.Kind is PrimitiveKind.Box or PrimitiveKind.Wedge or PrimitiveKind.Capsule)
             {
                 SVector3 ax = SVector3.Transform(SVector3.UnitX, p.Rotation) * p.HalfExtents.X;
                 SVector3 az = SVector3.Transform(SVector3.UnitZ, p.Rotation) * p.HalfExtents.Z;

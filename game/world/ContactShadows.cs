@@ -75,8 +75,9 @@ public partial class ContactShadows : Node3D
                     continue;
                 }
 
+                // A cylinder's foot is round, a lying tube's a long rounded box, a wedge's its base.
                 bool round = p.Kind == PrimitiveKind.Cylinder;
-                Card(at, x, z, p.HalfExtents.X, round ? p.HalfExtents.X : p.HalfExtents.Z, round ? p.HalfExtents.X : 0.03f,
+                Card(at, x, z, p.HalfExtents.X, round ? p.HalfExtents.X : p.HalfExtents.Z, round || p.Kind == PrimitiveKind.Capsule ? p.HalfExtents.X : 0.03f,
                     p.Role == PrimitiveRole.Prop ? def.PropReach_m : def.WallReach_m, p.Role == PrimitiveRole.Prop ? def.PropStrength : def.WallStrength);
             }
             else

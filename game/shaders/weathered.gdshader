@@ -51,7 +51,51 @@ instance uniform vec3 local_origin = vec3(0.0);
 varying vec3 world_pos;
 varying vec3 world_normal;
 
+// An inflatable's fabric (the Sports Ground's bunkers): where a ball has just struck, it dents in and shivers out from
+// there for a moment. game/world/InflatableWobble.cs hands on the last few hits (world position, when they landed) and
+// the clock; the rest of the kit leaves it off.
+uniform bool wobble = false;
+uniform vec4 wobble_hits[8];
+uniform float wobble_now = 0.0;
+uniform float wobble_depth_m = 0.025;
+uniform float wobble_reach_m = 0.7;
+uniform float wobble_fade_s = 0.6;
+uniform float wobble_hz = 9.0;
+
+// How far the fabric is pushed in at a point (a share of wobble_depth_m) by the last few hits, and how that changes
+// across it (world space): the vertices dent by the one, and each pixel's light leans with the other, so the rings show
+// however coarse the mesh.
+float wobble_at(vec3 at, out vec3 slope) {
+	float push = 0.0;
+	slope = vec3(0.0);
+	for (int i = 0; i < 8; i++) {
+		vec4 hit = wobble_hits[i];
+		float age = wobble_now - hit.w;
+		vec3 out_from = at - hit.xyz;
+		float d = length(out_from);
+		if (age < 0.0 || age > wobble_fade_s || d > wobble_reach_m) {
+			continue;
+		}
+
+		float fade = 1.0 - age / wobble_fade_s;
+		float t = d / wobble_reach_m;
+		float reach = 1.0 - smoothstep(0.0, 1.0, t);
+		float wave = 6.2831853 * wobble_hz * age - d * 9.0;
+		push += reach * fade * fade * cos(wave);
+		// d(push)/dd: the falloff's slope times the wave, plus the falloff times the wave's.
+		float along = (-6.0 * t * (1.0 - t) / wobble_reach_m * cos(wave) + reach * 9.0 * sin(wave)) * fade * fade;
+		slope += along * out_from / max(d, 0.001);
+	}
+
+	return push;
+}
+
 void vertex() {
+	if (wobble) {
+		vec3 slope;
+		VERTEX -= NORMAL * wobble_depth_m * wobble_at((MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz, slope);
+	}
+
 	world_pos = local_pattern ? VERTEX + local_origin : (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = local_pattern ? NORMAL : normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
@@ -445,6 +489,14 @@ void fragment() {
 	// Fade the procedural bump with distance so far surfaces don't shimmer.
 	h *= 1.0 - smoothstep(18.0, 45.0, length(VERTEX));
 	NORMAL = perturb_normal(NORMAL, VERTEX, h);
+	if (wobble && !local_pattern) {
+		// The pushed-in surface leans by the push's slope along it.
+		vec3 slope;
+		wobble_at(world_pos, slope);
+		vec3 lean = (VIEW_MATRIX * vec4(slope, 0.0)).xyz;
+		NORMAL = normalize(NORMAL + wobble_depth_m * (lean - dot(lean, NORMAL) * NORMAL));
+	}
+
 	if (use_textures && has_normal_tex) {
 		vec3 nm = look(normal_tex, tuv, off_a, off_b, blend).rgb;
 		NORMAL_MAP = vec3(nm.r, 1.0 - nm.g, nm.b);

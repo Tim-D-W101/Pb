@@ -36,7 +36,9 @@ public sealed class ClientSession
     private readonly int[] _seqs = new int[History];
     private readonly int[] _causes = new int[Enum.GetValues<PredictionDifference>().Length];
     private readonly (uint Seq, int Target)[] _ownHits = new (uint, int)[OwnHits];
+    private readonly uint[] _withdrawn = new uint[OwnHits];
     private int _ownHitNext;
+    private int _withdrawnNext;
     private InputCommand _pending;
     private bool _predicted;
     private uint _predictedShots;
@@ -52,6 +54,7 @@ public sealed class ClientSession
         Local = sim.FindPlayer(localPlayerId);
         Fields = new WorldFields(sim.Players.Count, sim.Doors.Count, NetServer.Grid(sim));
         Array.Fill(_seqs, -1);
+        Array.Fill(_withdrawn, uint.MaxValue);
         client.BeginRound(round, Fields);
     }
 
@@ -77,6 +80,12 @@ public sealed class ClientSession
     public int ReplayedTicks { get; private set; }
 
     public double ReplayTime { get; private set; }
+
+    /// <summary>
+    /// Splats this copy drew for its own balls breaking on someone that the server says didn't (they missed there,
+    /// bounced off, or broke elsewhere), taken off again with <see cref="SimEventType.SplatWithdrawn"/>.
+    /// </summary>
+    public int SplatsWithdrawn { get; private set; }
 
     /// <summary>This copy's own player is out: it's shown where the server walks it, no longer predicted.</summary>
     public bool Following { get; private set; }
@@ -159,6 +168,18 @@ public sealed class ClientSession
             return;
         }
 
+        if (Following)
+        {
+            // Arcade: back in, where the server put this copy's player. Predicted again from there: nothing from before is
+            // replayed on it.
+            Following = false;
+            CorrectionOffset = Vector3.Zero;
+            Array.Fill(_seqs, -1);
+            server.Restore(Local, Sim.Time);
+            _body?.Reset(server);
+            return;
+        }
+
         int slot = lastRun & (History - 1);
         if (lastRun < 0 || _seqs[slot] != lastRun)
         {
@@ -208,21 +229,29 @@ public sealed class ClientSession
 
         IReadOnlyList<PlayerState> players = Sim.Players;
         MovementParams move = Sim.Config.Movement;
+        ReceivedSnapshot? newest = Client.Newest;
+        bool arcade = Sim.Match?.Setup.Format == Pb.Sim.Data.MatchFormat.Arcade;
         for (int i = 0; i < players.Count && i < Fields.Players; i++)
         {
             if (players[i].Id != Sim.LocalPlayerId)
             {
                 PuppetFields.Pose(players[i], Fields.Puppet(a.World, i), Fields.Puppet(b.World, i), t, Fields.Grid, move);
             }
-            else if (Client.Newest is { } latest)
+            else if (newest is not null)
             {
                 // This copy's own numbers come from the server too (it never decides a hit itself).
-                PuppetFields.Scores(players[i], Fields.Puppet(latest.World, i));
+                PuppetFields.Scores(players[i], Fields.Puppet(newest.World, i));
+            }
+
+            if (arcade && newest is not null)
+            {
+                // Arcade: everyone's time out, shield and time to come back in, as the server has them now.
+                PuppetFields.Arcade(players[i], Fields.Puppet(newest.World, i), newest.Tick);
             }
         }
 
         Fields.ApplyDoors(Sim, (t < 0.5f ? a : b).World);
-        if (Client.Newest is { } newest)
+        if (newest is not null)
         {
             Fields.ApplyRound(Sim, newest.World);
         }
@@ -252,6 +281,7 @@ public sealed class ClientSession
 
     private bool AboutMe(in SimEvent e) =>
         Local is not null && (e.Type == SimEventType.PlayerEliminated && e.TargetId == Local.Id || e.Type == SimEventType.MaskSprayed ||
+                              e.Type == SimEventType.PlayerRespawned && e.PlayerId == Local.Id ||
                               e.PlayerId == Local.Id && e.Type is SimEventType.BallBroke or SimEventType.BallBounced or SimEventType.BallDespawned
                                   or SimEventType.ShotFired);
 
@@ -299,10 +329,36 @@ public sealed class ClientSession
             return;
         }
 
-        // Gone here already. Our own ball ended where this copy flew it, but a player it didn't see hit is the server's to
-        // show; someone else's this copy never had (it came before the round, or the air was full) shows where it broke.
+        // Gone here already. Someone else's this copy never had (it came before the round, or the air was full) shows
+        // where it broke.
+        if (!own)
+        {
+            if (e.Type == SimEventType.BallBroke)
+            {
+                Inject(e);
+            }
+
+            return;
+        }
+
+        // Our own ball ended where this copy flew it, unless it broke here on someone the server says it didn't break on:
+        // the splat this copy drew there comes off, and the ball's end is drawn where the server had it. A player it
+        // didn't see hit here is the server's to show.
+        int here = OwnHitOn(e.ShotSequence);
+        if (here >= 0 && !(e.Type == SimEventType.BallBroke && e.TargetId == here))
+        {
+            Inject(new SimEvent
+            {
+                Type = SimEventType.SplatWithdrawn, PlayerId = e.PlayerId, ShotSequence = e.ShotSequence, Team = e.Team, TargetId = here, ColliderId = -1,
+            });
+            ForgetOwnHit(e.ShotSequence);
+            _withdrawn[_withdrawnNext] = e.ShotSequence;
+            _withdrawnNext = (_withdrawnNext + 1) % OwnHits;
+            SplatsWithdrawn++;
+        }
+
         bool onPlayer = e.Type == SimEventType.BallBroke && PlayerHitboxes.IsPlayer(e.TargetId);
-        if (own ? onPlayer && !HitHere(e.ShotSequence, e.TargetId) : e.Type == SimEventType.BallBroke)
+        if (e.Type == SimEventType.BallBroke && (onPlayer ? !HitHere(e.ShotSequence, e.TargetId) : Array.IndexOf(_withdrawn, e.ShotSequence) >= 0))
         {
             Inject(e);
         }
@@ -326,6 +382,31 @@ public sealed class ClientSession
             {
                 _ownHits[_ownHitNext] = (e.ShotSequence, e.TargetId);
                 _ownHitNext = (_ownHitNext + 1) % OwnHits;
+            }
+        }
+    }
+
+    /// <summary>The player (receiver id) this copy saw its own ball <paramref name="seq"/> break on, or −1.</summary>
+    private int OwnHitOn(uint seq)
+    {
+        foreach ((uint s, int t) in _ownHits)
+        {
+            if (s == seq && PlayerHitboxes.IsPlayer(t))
+            {
+                return t;
+            }
+        }
+
+        return -1;
+    }
+
+    private void ForgetOwnHit(uint seq)
+    {
+        for (int i = 0; i < OwnHits; i++)
+        {
+            if (_ownHits[i].Seq == seq)
+            {
+                _ownHits[i].Target = -1;
             }
         }
     }

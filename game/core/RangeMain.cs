@@ -32,6 +32,7 @@ public partial class RangeMain : Node3D, ISimEventListener
     private PlayerController _player = null!;
     private BallRenderer _balls = null!;
     private SplatSystem _splats = null!;
+    private PaintCost _paintCost = null!;
     private PaintDrips _drips = null!;
     private ArcPreview _arc = null!;
     private Hud _hud = null!;
@@ -87,10 +88,12 @@ public partial class RangeMain : Node3D, ISimEventListener
         _world.Weeds?.Follow(_sim);
         Atmosphere.ApplyLighting(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), _view.Lighting);
         ApplyGraphics(_view.Graphics.Effective(_settings.GraphicsPreset, _settings.Graphics));
-        _player.Initialize(_sim, state, _view, _settings, teamColor);
-        _player.BuildBody(_view.Characters, teamColor, look: 0);
+        _player.Initialize(_sim, state, _view, _settings, teamColor, Kit.Saved(_data.Gear, Profile.Load(_data.Areas).Data.Loadout, _settings.PlayerLook));
+        _player.BuildBody(_view.Characters, teamColor);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
         _splats.Initialize(_view, (i, _, _) => _world.TargetNode(i) is { } target ? new SplatAnchor(target) : null);
+        _splats.FirstPerson = () => _player.ViewModel;
+        _splats.Collision = _sim.Collision;
         GetNode<ImpactFx>("ImpactFx").Initialize(_view);
         var dust = new FootDust { Name = "FootDust" };
         AddChild(dust);
@@ -113,12 +116,29 @@ public partial class RangeMain : Node3D, ISimEventListener
         _driver.AddDriver(_player);
         _driver.AddListener(_balls);
         _driver.AddListener(_splats);
+        // Inflatables dent and shiver where balls strike them.
+        var wobble = new Pb.Game.World.InflatableWobble { Name = "InflatableWobble" };
+        AddChild(wobble);
+        wobble.Initialize(_world.Materials, _sim.Config.Surfaces.Get(Pb.Game.World.InflatableWobble.Surface), _view.Inflatables);
+        _driver.AddListener(wobble);
         _driver.AddListener(GetNode<ImpactFx>("ImpactFx"));
         _driver.AddListener(dust);
         _driver.AddListener(_drips);
         _driver.AddListener(audio);
         _driver.AddListener(_hud);
         _driver.AddListener(this);
+
+        // The stress mode measures what the decals cost the GPU; over the budget, the world's paint goes on cards.
+        _paintCost = new PaintCost { Name = "PaintCost" };
+        AddChild(_paintCost);
+        _paintCost.Start(_splats, _view.Splat, () => _sim.Stress?.Enabled == true, cost =>
+        {
+            _settings.Graphics.PaintCards = true;
+            _settings.Save();
+            ApplyGraphics(_view.Graphics.Effective(_settings.GraphicsPreset, _settings.Graphics));
+            _hud.Toast($"The paint's decals cost {cost:0.0} ms a frame here: it's drawn as cards now (Settings: Graphics, Paint as cards)");
+        });
+        _hud.PerfExtra = () => _paintCost.Summary;
 
         if (IsSmokeTest(out int ticks))
         {
@@ -310,6 +330,8 @@ public partial class RangeMain : Node3D, ISimEventListener
         {
             paint.Visible = preset.OldPaint;
         }
+
+        _splats.Cards = preset.PaintCards;
 
         _world.Weeds?.ApplyPreset(preset);
     }

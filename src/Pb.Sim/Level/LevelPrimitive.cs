@@ -7,6 +7,10 @@ public enum PrimitiveKind : byte
 {
     Box,
     Cylinder,
+    /// <summary>An A-frame prism: its base on the rotated −Y face of its box, its ridge along the box's top, along Z.</summary>
+    Wedge,
+    /// <summary>A capsule along the rotated +Z axis (a lying tube when the rotation is a yaw).</summary>
+    Capsule,
 }
 
 /// <summary>What a level primitive is used for. One primitive can feed several systems.</summary>
@@ -46,7 +50,9 @@ public enum PrimitiveRole : byte
 /// One analytic piece of level geometry in world space. Paint collision, walking collision,
 /// occluders and the greybox mesh are all generated from the same primitive, so they can't drift
 /// apart. Cylinders store (radius, half height, radius) in <see cref="HalfExtents"/> and use the
-/// rotated +Y axis.
+/// rotated +Y axis. Wedges store half their box (base width, height, length): the base lies on the
+/// box's bottom face, the ridge along its top. Capsules store (radius, radius, half their length
+/// tip to tip) and lie along the rotated +Z axis.
 /// </summary>
 public sealed class LevelPrimitive
 {
@@ -79,6 +85,10 @@ public sealed class LevelPrimitive
     {
         PrimitiveKind.Box => new BoxShape(Center, Rotation, HalfExtents),
         PrimitiveKind.Cylinder => new CylinderShape(Center, Vector3.Transform(Vector3.UnitY, Rotation), HalfExtents.Y, HalfExtents.X),
+        PrimitiveKind.Wedge => ConvexShape.Wedge(Center - Vector3.Transform(Vector3.UnitY, Rotation) * HalfExtents.Y, Rotation,
+            HalfExtents.X * 2f, HalfExtents.Y * 2f, HalfExtents.Z * 2f),
+        PrimitiveKind.Capsule => new CapsuleShape(Center - Vector3.Transform(Vector3.UnitZ, Rotation) * (HalfExtents.Z - HalfExtents.X),
+            Center + Vector3.Transform(Vector3.UnitZ, Rotation) * (HalfExtents.Z - HalfExtents.X), HalfExtents.X),
         _ => throw new InvalidOperationException($"Unknown primitive kind {Kind}."),
     };
 }

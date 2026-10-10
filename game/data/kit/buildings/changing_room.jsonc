@@ -1,0 +1,45 @@
+// The works' changing room (the gear locker, Phase 5): one storey, 8 × 6 m inside its painted brick walls, a lino
+// floor, a row of small high windows along the north wall and a door in the south-west corner left ajar. Lockers line
+// the west and east walls with benches in front of them, and the middle is clear: the locker stands you there on a
+// turntable under a lamp. The strip lights hang from the ceiling.
+// Wall segments: 0 north (x 0→8), 1 east (z 0→6), 2 south (x 8→0, at_m = 8 − x), 3 west (z 6→0, at_m = 6 − z).
+{
+  "id": "changing_room",
+  "displayName": "Changing room",
+  "storeys_m": [3.0],
+  "slabThickness_m": 0.2,
+  "footprint_m": [0, 0, 8, 6],
+  "floorMaterial": "lino",
+  "frames": "steel_painted",
+  "ceilingLights": "enamel_white",
+  "skirting": "paint_green",
+  "markings": {
+    "color": "#3d6b52", "lineWidth_m": 0.1,
+    "stencils": [ { "text": "CHANGING", "at_m": [4, 2.35, 5.84], "size_m": 0.22, "yaw_deg": 180, "wall": true } ]
+  },
+  "walls": [
+    {
+      "storey": 0, "points_m": [[0, 0], [8, 0], [8, 6], [0, 6]], "closed": true,
+      "thickness_m": 0.3, "material": "brick_painted",
+      "openings": [
+        { "segment": 0, "at_m": 1.7, "width_m": 1.1, "sill_m": 1.95, "height_m": 0.65, "kind": "window" },
+        { "segment": 0, "at_m": 4.0, "width_m": 1.1, "sill_m": 1.95, "height_m": 0.65, "kind": "window" },
+        { "segment": 0, "at_m": 6.3, "width_m": 1.1, "sill_m": 1.95, "height_m": 0.65, "kind": "window" },
+        { "segment": 2, "at_m": 6.9, "width_m": 0.9, "height_m": 2.1, "kind": "door", "leaf": { "door": "panel", "hinge": "end", "swing": "left", "start": "ajar" } }
+      ]
+    }
+  ],
+  "roof": { "rect_m": [-0.3, -0.3, 8.3, 6.3], "material": "roof_felt", "ceilingMaterial": "panel_white" },
+  "props": [
+    // Three banks of lockers down each long wall, their backs to it, and a bench in front of each side.
+    { "prop": "locker_bank", "position_m": [0.42, 0, 1.25], "yaw_deg": -90 },
+    { "prop": "locker_bank", "position_m": [0.42, 0, 2.9], "yaw_deg": -90 },
+    { "prop": "locker_bank", "position_m": [0.42, 0, 4.55], "yaw_deg": -90 },
+    { "prop": "locker_bank", "position_m": [7.58, 0, 1.25], "yaw_deg": 90 },
+    { "prop": "locker_bank", "position_m": [7.58, 0, 2.9], "yaw_deg": 90 },
+    { "prop": "locker_bank", "position_m": [7.58, 0, 4.55], "yaw_deg": 90 },
+    { "prop": "bench", "position_m": [1.25, 0, 2.9], "yaw_deg": -90 },
+    { "prop": "bench", "position_m": [6.75, 0, 2.9], "yaw_deg": 90 }
+  ],
+  "areas": [ { "name": "changing room", "rect_m": [0, 0, 8, 6], "maxY_m": 3.0, "indoor": true, "light": 0.4 } ]
+}

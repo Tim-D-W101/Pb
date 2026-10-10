@@ -305,6 +305,60 @@ public class NetRoundTests
     }
 
     [Fact]
+    public void A_splat_your_copy_drew_on_someone_the_server_says_you_missed_comes_off()
+    {
+        // Without lag compensation, at 100 ms, many of the shots your copy sees hit a runner miss on the server.
+        var rig = new NetRig();
+        rig.Server.LagCompensation = false;
+        RigClient me = rig.Join("Me", Ping100);
+        rig.Run(30);
+        rig.StartRound("teams", 900f, (0, 0, true, 0f, 0f), (1, 1, false, -6f, -20f));
+        rig.GoLive();
+        rig.Run(Second);
+        rig.BotScript = (t, p) => new InputCommand
+            { Tick = t, Move = new Vector2(0f, 1f), Yaw = (t / 260) % 2 == 0 ? -MathF.PI / 2f : MathF.PI / 2f, Pitch = 0f };
+        rig.AfterServerStep = sim =>
+        {
+            PlayerState bot = sim.FindPlayer(1)!;
+            bot.Alive = true;
+            bot.Present = true;
+        };
+        float speed = TestData.Config.Shot.MuzzleVelocity;
+        me.Script = (t, p) =>
+        {
+            PlayerState target = me.Sim!.FindPlayer(1)!;
+            Vector3 chest = target.Position + new Vector3(0f, 1.2f, 0f);
+            float flight = Vector3.Distance(p.EyePosition, chest) / (speed * 0.93f);
+            Vector3 aim = chest + new Vector3(target.Velocity.X, 0f, target.Velocity.Z) * flight + new Vector3(0f, 0.5f * 9.81f * flight * flight, 0f);
+            (float yaw, float pitch) = ViewAngles.FromDirection(aim - p.EyePosition);
+            return new InputCommand { Tick = t, Yaw = yaw, Pitch = pitch, Buttons = t % 30 == 0 ? InputButtons.Fire : InputButtons.None };
+        };
+        rig.Run(10 * Second);
+        me.Script = null;
+        rig.Run(Second);
+
+        int bot = PlayerHitboxes.ReceiverIdBase + 1;
+        static HashSet<uint> Balls(IEnumerable<SimEvent> events, Func<SimEvent, bool> which) =>
+            events.Where(e => e.PlayerId == 0 && which(e)).Select(e => e.ShotSequence).ToHashSet();
+        HashSet<uint> server = Balls(rig.ServerEvents, e => e.Type == SimEventType.BallBroke && e.TargetId == bot);
+        HashSet<uint> drawn = Balls(me.Events, e => e.Type == SimEventType.BallBroke && e.TargetId == bot);
+        HashSet<uint> withdrawn = Balls(me.Events, e => e.Type == SimEventType.SplatWithdrawn);
+        var expected = drawn.Except(server).ToHashSet();
+        _out.WriteLine($"{server.Count} of your balls broke on the runner on the server, {drawn.Count} on your copy; {withdrawn.Count} splats taken off again");
+        Assert.NotEmpty(withdrawn);
+        Assert.Equal(expected.OrderBy(s => s), withdrawn.OrderBy(s => s));
+        Assert.Equal(withdrawn.Count, me.Session!.SplatsWithdrawn);
+        Assert.All(me.Events.Where(e => e.Type == SimEventType.SplatWithdrawn), e => Assert.Equal(bot, e.TargetId));
+
+        // Each of them is drawn where it really ended, once the server broke it there (and never on the runner again).
+        HashSet<uint> brokeElsewhere = Balls(rig.ServerEvents, e => e.Type == SimEventType.BallBroke && e.TargetId != bot);
+        foreach (uint ball in withdrawn.Where(brokeElsewhere.Contains))
+        {
+            Assert.Contains(me.Events, e => e.Type == SimEventType.BallBroke && e.PlayerId == 0 && e.ShotSequence == ball && e.TargetId != bot);
+        }
+    }
+
+    [Fact]
     public void The_server_holds_a_cheat_to_the_rules()
     {
         var rig = new NetRig();

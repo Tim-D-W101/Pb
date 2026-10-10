@@ -9,6 +9,13 @@ uniform float metallic : hint_range(0.0, 1.0) = 0.0;
 uniform float viewmodel_fov_deg = 62.0;
 uniform float depth_squash : hint_range(0.5, 0.999) = 0.9;
 
+// Paint that has spattered the marker and the gloves, in the first-person rig's frame (game/player/ViewModel.cs).
+#include "res://shaders/paint.gdshaderinc"
+
+uniform mat4 paint_frame = mat4(1.0);
+varying vec3 paint_vertex;
+varying vec3 paint_normal_rig;
+
 void vertex() {
 	mat4 projection = PROJECTION_MATRIX;
 	float focal = 1.0 / tan(radians(viewmodel_fov_deg) * 0.5);
@@ -17,11 +24,19 @@ void vertex() {
 	projection[1][1] = sign(projection[1][1]) * focal;
 	POSITION = projection * (MODELVIEW_MATRIX * vec4(VERTEX, 1.0));
 	POSITION.z = POSITION.w * depth_squash + (1.0 - depth_squash) * POSITION.z;
+	// The paint's frame: the first-person rig's (paint_frame takes the world into it).
+	paint_vertex = (paint_frame * MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	paint_normal_rig = mat3(paint_frame) * (mat3(MODEL_MATRIX) * NORMAL);
 }
 
 void fragment() {
-	ALBEDO = albedo.rgb;
-	ALPHA = albedo.a;
-	ROUGHNESS = roughness;
-	METALLIC = metallic;
+	vec3 colour = albedo.rgb;
+	float rough = roughness;
+	vec3 normal = NORMAL;
+	float painted = splat_apply(paint_vertex, paint_normal_rig, VERTEX, colour, rough, normal);
+	NORMAL = normal;
+	ALBEDO = colour;
+	ALPHA = max(albedo.a, painted);
+	ROUGHNESS = rough;
+	METALLIC = metallic * (1.0 - painted);
 }

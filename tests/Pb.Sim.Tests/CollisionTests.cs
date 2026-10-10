@@ -1,5 +1,6 @@
 using System.Numerics;
 using Pb.Sim.Collision;
+using Pb.Sim.Level;
 using Pb.Sim.Core;
 
 namespace Pb.Sim.Tests;
@@ -97,6 +98,46 @@ public class CollisionTests
         AssertVector(Vector3.Normalize(new Vector3(1, 1, 0)), n);
 
         Assert.False(wedge.Sweep(new Vector3(1.2f, 3, 0), new Vector3(0, -6, 0), 0f, out _, out _));
+    }
+
+    [Fact]
+    public void A_levels_wedge_and_lying_tube_are_where_their_boxes_say()
+    {
+        // A wedge piece 2 m wide, 1.2 m tall and 3 m long, turned a quarter round: its ridge runs along X, 1.2 m up.
+        Quaternion turn = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2f);
+        var wedge = new LevelPrimitive
+        {
+            Kind = PrimitiveKind.Wedge, Center = new Vector3(5f, 0.6f, 0f), Rotation = turn, HalfExtents = new Vector3(1f, 0.6f, 1.5f),
+            Material = 0, Surface = new SurfaceId(0), Flags = PrimitiveFlags.Paint, Role = PrimitiveRole.Prop, Owner = 0,
+        };
+        Shape w = wedge.CreateShape();
+        Assert.Equal(0f, w.Bounds.Min.Y, 4);
+        Assert.Equal(1.2f, w.Bounds.Max.Y, 4);
+        Assert.Equal(1.2f, wedge.Height, 4);
+        // Down onto the ridge anywhere along it, and onto its slope (half way down at 0.5 m across: 0.6 m up).
+        Assert.True(w.Sweep(new Vector3(6.2f, 3f, 0f), new Vector3(0f, -6f, 0f), 0f, out float t, out _));
+        Assert.Equal((3f - 1.2f) / 6f, t, 3);
+        Assert.True(w.Sweep(new Vector3(5f, 3f, 0.5f), new Vector3(0f, -6f, 0f), 0f, out t, out Vector3 n));
+        Assert.Equal((3f - 0.6f) / 6f, t, 3);
+        Assert.True(n.Y > 0.5f && n.Z > 0.5f, $"the slope faces up and out along +Z: {n}");
+        Assert.False(w.Sweep(new Vector3(5f, 3f, 1.2f), new Vector3(0f, -6f, 0f), 0f, out _, out _));
+
+        // A tube 1.2 m round and 4 m long lying along Z: its top 1.2 m up, its rounded ends 2 m either side.
+        var tube = new LevelPrimitive
+        {
+            Kind = PrimitiveKind.Capsule, Center = new Vector3(0f, 0.6f, 0f), Rotation = Quaternion.Identity, HalfExtents = new Vector3(0.6f, 0.6f, 2f),
+            Material = 0, Surface = new SurfaceId(0), Flags = PrimitiveFlags.Paint, Role = PrimitiveRole.Prop, Owner = 0,
+        };
+        Shape c = tube.CreateShape();
+        Assert.Equal(1.2f, tube.Height, 4);
+        AssertVector(new Vector3(-0.6f, 0f, -2f), c.Bounds.Min);
+        AssertVector(new Vector3(0.6f, 1.2f, 2f), c.Bounds.Max);
+        Assert.True(c.Sweep(new Vector3(0f, 3f, 1.3f), new Vector3(0f, -6f, 0f), BallRadius, out t, out n));
+        Assert.Equal((3f - 1.2f - BallRadius) / 6f, t, 3);
+        AssertVector(Vector3.UnitY, n);
+        Assert.True(c.Sweep(new Vector3(0f, 0.6f, 6f), new Vector3(0f, 0f, -6f), BallRadius, out t, out n));
+        Assert.Equal((6f - 2f - BallRadius) / 6f, t, 3);
+        AssertVector(Vector3.UnitZ, n);
     }
 
     [Fact]

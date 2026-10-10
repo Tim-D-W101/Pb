@@ -323,6 +323,18 @@ public partial class AudioDirector : Node, ISimEventListener
             case SimEventType.CaseExtracted:
                 Cue(Sfx.CaseOut);
                 break;
+            case SimEventType.FlagTaken:
+                // A flag's the case's cousin: the same take and drop where it happens, and the same cues for your side.
+                Play3D(Sfx.CaseTake, e.Position.ToGodot(), _mix.Objective, 1f, CaseRange);
+                Cue(e.Team == _player.Team ? Sfx.HoldOurs : Sfx.CaseAlarm);
+                break;
+            case SimEventType.FlagDropped:
+                Play3D(Sfx.CaseDrop, e.Position.ToGodot(), _mix.Objective, 1f, CaseRange);
+                Cue(e.Team == _player.Team ? Sfx.HoldTheirs : Sfx.HoldOurs);
+                break;
+            case SimEventType.FlagCaptured:
+                Cue(Sfx.CaseOut);
+                break;
             case SimEventType.HoldChanged:
                 Sfx? hold = (HoldStatus)e.Extra switch
                 {
@@ -340,12 +352,12 @@ public partial class AudioDirector : Node, ISimEventListener
         }
     }
 
-    /// <summary>The breakout horn or the referee's whistle (<see cref="Core.RefereeCalls"/>).</summary>
+    /// <summary>The breakout horn (and speedball's countdown pips) or the referee's whistle (<see cref="Core.RefereeCalls"/>).</summary>
     public void Round(Sfx sfx)
     {
         if (_set is not null)
         {
-            Play2D(_round, sfx, sfx == Sfx.Horn ? _mix.Horn : _mix.Whistle);
+            Play2D(_round, sfx, sfx is Sfx.Horn or Sfx.CountdownPip ? _mix.Horn : _mix.Whistle);
         }
     }
 

@@ -16,6 +16,11 @@
   //                 work round to your side once a teammate calls you out, marksmen watch from high ground.
   //   restlessAfter_s  a bot that has had nothing to go on for this long starts hunting, so a round
   //                 doesn't stall with everyone holding a corner (0 = never)
+  //   format        how it's won (optional): "round" (the default) is one round, won by the last side standing or
+  //                 the objective; "speedball" (teams only, on a field) and "flag" (teams only, capture the flag) are
+  //                 matches of points (see "speedball" and "flag" below); "arcade" (teams or free-for-all) is one
+  //                 timed round where everyone comes back, won on eliminations (see "arcade" below). Which modes each area offers is
+  //                 levels/areas.jsonc "modes" (by default, every mode but speedball, which needs a field).
   "modes": [
     {
       "id": "solo", "displayName": "Solo", "kind": "solo",
@@ -49,6 +54,50 @@
         { "role": "patroller", "weight": 1 }
       ],
       "restlessAfter_s": 40
+    },
+    {
+      "id": "speedball", "displayName": "Speedball", "kind": "teams", "format": "speedball",
+      "description": "Two sides of up to five on the field. Each point starts at the horn: put the other side out, or hang their buzzer, to win it. First to the target wins the match.",
+      "sizes": [3, 4, 5], "defaultSize": 5,
+      // Each bot is dealt its place on the field (front, middle or back) and a bunker by the squad at every breakout.
+      "roles": [ { "role": "speedball", "weight": 1 } ]
+    },
+    {
+      "id": "flag", "displayName": "Capture the flag", "kind": "teams", "format": "flag",
+      "description": "Two sides and their flags. On the field one flag stands in the middle: carry it to their buzzer. In the compounds each side has its own at its starts: bring theirs home. A carrier can't sprint, and drops the flag where they're hit.",
+      "sizes": [3, 4, 5], "defaultSize": 4,
+      // The squad gives each bot its part (defending its side's flag, or going for theirs) on top of its behaviour;
+      // on the field every bot plays the field's own ("flag" → "fieldRole").
+      "roles": [
+        { "role": "hunter", "weight": 4 },
+        { "role": "flanker", "weight": 2 },
+        { "role": "rusher", "weight": 2 },
+        { "role": "sentry", "weight": 1 }
+      ],
+      "restlessAfter_s": 40
+    },
+    {
+      "id": "arcade", "displayName": "Arcade", "kind": "teams", "format": "arcade",
+      "description": "Your team against theirs for five minutes, and nobody's out for long: three seconds after a hit you're back, somewhere they can't see you. The team with the most eliminations wins.",
+      "sizes": [2, 3, 4, 5], "defaultSize": 4,
+      // Nobody holds a post for long when everyone comes back: they hunt, rush and go round.
+      "roles": [
+        { "role": "hunter", "weight": 6 },
+        { "role": "rusher", "weight": 3 },
+        { "role": "flanker", "weight": 2 }
+      ],
+      "restlessAfter_s": 15
+    },
+    {
+      "id": "arcade_ffa", "displayName": "Arcade free-for-all", "kind": "freeForAll", "format": "arcade",
+      "description": "Everyone against everyone for five minutes, back three seconds after every hit. The most eliminations wins.",
+      "sizes": [4, 6, 8, 10], "defaultSize": 6,
+      "roles": [
+        { "role": "hunter", "weight": 6 },
+        { "role": "rusher", "weight": 3 },
+        { "role": "flanker", "weight": 1 }
+      ],
+      "restlessAfter_s": 15
     }
   ],
 
@@ -68,6 +117,35 @@
 
   // An air pickup refills a tank that's below this share of full; fuller tanks leave it.
   "airPickupBelow": 0.9,
+
+  // Speedball (the modes with "format": "speedball"): the first side to raceTo points wins the match. Each point starts
+  // with both sides in their start boxes and a countdown of countdown_s (nobody moves until the horn), and lasts at most
+  // pointTime_s. It's won by putting the other side out, or by hanging their buzzer: Interact held for hangTime_s within
+  // hangReach_m of its station (let go, step off or go out and it starts again). At time up the side with more players
+  // still in wins it; level, nobody does. Between points the score shows for betweenPoints_s.
+  "speedball": { "raceTo": 4, "pointTime_s": 180, "countdown_s": 3, "hangTime_s": 2, "hangReach_m": 1.2, "betweenPoints_s": 6 },
+
+  // Capture the flag (the modes with "format": "flag"): the first side to raceTo points wins the match. Each point starts
+  // with a countdown of countdown_s and lasts at most pointTime_s (fieldPointTime_s on a field). On a field one flag
+  // stands on top of the bunker at its flag spot (the level's "field" → "flag_m"), and either side scores by carrying it to
+  // the other side's buzzer station; elsewhere each side's flag stands at its starts, and a side scores by carrying the
+  // other side's to its own. A flag is taken by walking within pickupReach_m of it (nobody takes their own), carried
+  // without sprinting (unless carrierCanSprint), dropped where its carrier goes out and left there for whoever may take
+  // it, and scores within scoreReach_m. Putting the other side out wins a point too, and at time up the side with more
+  // players still in takes it. Between points the score shows for betweenPoints_s. On a field every bot plays
+  // fieldRole (the field's own behaviour, as in speedball).
+  "flag": {
+    "raceTo": 3, "pointTime_s": 300, "fieldPointTime_s": 180, "countdown_s": 3, "betweenPoints_s": 6,
+    "pickupReach_m": 1.6, "scoreReach_m": 2.5, "carrierCanSprint": false, "fieldRole": "speedball"
+  },
+
+  // Arcade (the modes with "format": "arcade"): one round of matchTime_s, and nobody is out for good. respawn_s after going
+  // out a player is back, with full gear, at one of the area's starts (its player and opponent spawns, and on a field
+  // the start boxes' places): one at least startClearance_m from anyone standing there that nobody of the other side can
+  // see, as far from them as can be, out to farEnough_m (beyond that any will do, picked at random). For shield_s after,
+  // a ball paints them but doesn't put them out, until they fire. At time up the side (in free-for-all, the player) with
+  // the most eliminations wins; level, nobody does.
+  "arcade": { "matchTime_s": 300, "respawn_s": 3, "shield_s": 2, "startClearance_m": 1.5, "farEnough_m": 30 },
 
   // The callout key: your character shouts "Contact!" about the opponent nearest where you're aiming, within this
   // cone and range and in sight, and your side (bots and people alike) takes it as a contact, as the bots' own callouts
@@ -95,6 +173,10 @@
     // With an objective you come in at one of the level's player spawns at least minDistanceFromYou_m plus this from
     // it (the farthest if none is), so its guards can start by it out of your way.
     "objectiveClearance_m": 10,
+    // Capture the flag with a flag each: a side's flag stands where its first player starts. You come in at a player
+    // spawn, on the ground; the other team's spot on the far side is a fair start no more than this above or below
+    // yours, and its first player starts on it (a flag up on a container or a roof couldn't be reached on foot).
+    "baseHeight_m": 0.3,
     // Share of opponents placed at cover points rather than the level's opponent spawns.
     "coverShare": 0.5,
     // Behaviour of an opponent placed at a cover point, by chance (opponent spawns pick one of their

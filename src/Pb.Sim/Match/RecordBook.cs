@@ -54,8 +54,8 @@ public sealed class LastChoices
 }
 
 /// <summary>
-/// Saved records as they're stored: your records and your last choices. (Saves from the ladder also list the levels
-/// it had opened; every area is open now, so that's ignored.)
+/// Saved records as they're stored: your records, your last choices and your loadout. (Saves from the ladder also list
+/// the levels it had opened; every area is open now, so that's ignored.)
 /// </summary>
 public sealed class ProfileData
 {
@@ -66,12 +66,15 @@ public sealed class ProfileData
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    /// <summary>Bumped when the format changes (2: records by place, no levels to open).</summary>
-    public int Version { get; set; } = 2;
+    /// <summary>Bumped when the format changes (2: records by place, no levels to open; 3: your loadout).</summary>
+    public int Version { get; set; } = 3;
 
     public List<LevelRecord> Records { get; set; } = new();
 
     public LastChoices? Last { get; set; }
+
+    /// <summary>What you wear, from the gear locker (null in a profile from before it: the default kit, on your saved character).</summary>
+    public Pb.Sim.Gear.SavedLoadout? Loadout { get; set; }
 
     public string ToJson() => JsonSerializer.Serialize(this, Json);
 
@@ -94,7 +97,7 @@ public sealed class ProfileData
                 r.Place = string.IsNullOrEmpty(r.Place) ? RecordBook.WholeArea : r.Place;
             }
 
-            data.Version = 2;
+            data.Version = 3;
             return data;
         }
         catch (JsonException)

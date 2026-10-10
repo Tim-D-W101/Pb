@@ -71,6 +71,28 @@ foreach ((string id, LevelLayout level) in data.Levels)
     Console.WriteLine();
 }
 
+// Phase 5 (M5.9): the new formats' own cost, with ten players in and no balls in the air (the plan's budget: within 0.5 ms).
+Console.WriteLine("The new formats with ten players in, no balls: an **arcade** round with someone back in every quarter of a second (where is " +
+                  "picked against the other side's sight; the busiest bot rounds, on the field, bring one back every two seconds or so), and a " +
+                  "**capture the flag** point " +
+                  "with both flags carried round:");
+Console.WriteLine();
+Console.WriteLine("| Area | Arcade, mean ms/tick | p95 | Max | Flag point, mean ms/tick | p95 | Max |");
+Console.WriteLine("|---|---|---|---|---|---|---|");
+bool formatsWithin = true;
+foreach ((string id, LevelLayout level) in data.Levels)
+{
+    MeasureFormat(data, level, Pb.Sim.Data.MatchFormat.Arcade, 240); // warm-ups
+    MeasureFormat(data, level, Pb.Sim.Data.MatchFormat.Flag, 240);
+    (double am, double ap, double ax) = MeasureFormat(data, level, Pb.Sim.Data.MatchFormat.Arcade, measureTicks);
+    (double fm, double fp, double fx) = MeasureFormat(data, level, Pb.Sim.Data.MatchFormat.Flag, measureTicks);
+    formatsWithin &= am <= 0.5 && fm <= 0.5;
+    Console.WriteLine($"| {level.DisplayName} | {am:0.000} | {ap:0.000} | {ax:0.000} | {fm:0.000} | {fp:0.000} | {fx:0.000} |");
+}
+
+Console.WriteLine();
+Console.WriteLine($"Budget 0.5 ms a tick on average: {(formatsWithin ? "within" : "OVER")}.");
+Console.WriteLine();
 Console.WriteLine("_Sim only (no rendering). The 60 fps check itself runs in the game's stress mode on real hardware._");
 Console.WriteLine();
 Console.WriteLine($"## Bots ({RuntimeLabel()})");
@@ -271,11 +293,19 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
     var sim = new SimWorld(config);
     sim.LoadLevel(level);
     sim.AddPlayer(1, 0, level.PlayerSpawn, level.PlayerSpawnYaw);
-    // The others stand away from the spawns the balls are fired from: at the pickups and patrol points.
+    // The others stand away from the spawns the balls are fired from: at the pickups and patrol points, or (a level with
+    // neither, like the field) in a row from the player starts.
     List<Vector3> spots = level.Pickups.Select(x => x.Position).Concat(level.Patrols.SelectMany(r => r.Points)).ToList();
+    bool row = spots.Count == 0;
+    if (row)
+    {
+        spots.AddRange(level.PlayerSpawns.Select(s => s.Position).DefaultIfEmpty(level.PlayerSpawn));
+    }
+
     for (int p = 1; p < players; p++)
     {
-        sim.AddPlayer(1 + p, 1, spots[(p - 1) % spots.Count], 0f);
+        Vector3 at = spots[(p - 1) % spots.Count] + (row ? new Vector3(1.2f * p, 0f, 0f) : Vector3.Zero);
+        sim.AddPlayer(1 + p, 1, at, 0f);
     }
 
     var commands = new InputCommand[players];
@@ -334,6 +364,77 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
 
     Array.Sort(samples);
     return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], liveSum / ticks);
+}
+
+// Phase 5 (M5.8/M5.9): the sim's tick in a ten-player round of each new format on a level: arcade with someone coming back
+// in every `every` ticks (where they come back is picked against everyone of the other side's sight), and a flag point
+// with both flags carried round their bases. Nobody fires, so it's the format's own cost on top of ten players' hitboxes.
+static (double Mean, double P95, double Max) MeasureFormat(GameData data, LevelLayout level, Pb.Sim.Data.MatchFormat format, int ticks, int every = 30)
+{
+    var sim = new SimWorld(data.Config);
+    sim.LoadLevel(level);
+    List<Vector3> starts = level.PlayerSpawns.Select(s => s.Position).Concat(level.OpponentSpawns.Select(s => s.Position)).ToList();
+    for (int p = 0; p < 10; p++)
+    {
+        sim.AddPlayer(p, (byte)(p % 2), starts[p % starts.Count] + new Vector3(0.8f * (p / starts.Count), 0f, 0f), 0f);
+    }
+
+    var setup = new Pb.Sim.Match.MatchSetup
+    {
+        People = new[] { 0 }, Mode = Pb.Sim.Data.MatchModeKind.Teams, TimeLimit = 3600f, StartPods = 2, BotPods = 2, Pickups = false,
+    };
+    sim.StartMatch(setup.As(format, data.Config.Rules, level.Field is not null).WithTimeLimit(3600f));
+    sim.GoLive();
+    var commands = new InputCommand[10];
+    int next = 0;
+
+    void Step(int tick)
+    {
+        for (int p = 0; p < commands.Length; p++)
+        {
+            commands[p] = new InputCommand { Tick = tick, Yaw = sim.Players[p].Yaw };
+        }
+
+        if (format == Pb.Sim.Data.MatchFormat.Arcade && tick % every == 0)
+        {
+            // One out, back in on the next tick.
+            PlayerState gone = sim.Players[next++ % sim.Players.Count];
+            gone.Alive = false;
+            gone.RespawnTick = sim.Tick + 1;
+        }
+        else if (format == Pb.Sim.Data.MatchFormat.Flag && sim.Match!.Flags is { } flags)
+        {
+            // Each side's first player takes the other's flag (on a field, the first takes the one in the middle) and walks it
+            // round in a circle: it never scores.
+            for (int side = 0; side < (flags.IsCentre ? 1 : 2); side++)
+            {
+                PlayerState carrier = sim.Players[side];
+                int theirs = flags.IsCentre ? 0 : flags.FlagOfSide(1 - side);
+                Vector3 home = flags.Home(theirs);
+                float a = tick * 0.01f;
+                carrier.Position = home + new Vector3(MathF.Cos(a), 0f, MathF.Sin(a)) * (flags.Carrier(theirs) == carrier.Id ? 6f : 0.5f);
+            }
+        }
+
+        sim.Step(commands);
+        sim.Events.Clear();
+    }
+
+    for (int t = 0; t < 240; t++)
+    {
+        Step(t);
+    }
+
+    var samples = new double[ticks];
+    for (int i = 0; i < ticks; i++)
+    {
+        long start = Stopwatch.GetTimestamp();
+        Step(240 + i);
+        samples[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+    }
+
+    Array.Sort(samples);
+    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1]);
 }
 
 // A round with the hardest tier's bots at the roster's spawns and you standing in the open (hitboxes off so

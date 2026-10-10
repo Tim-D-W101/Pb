@@ -310,7 +310,7 @@ public sealed class NetServer : IDisposable
         var over = new RoundOverMessage { Round = _round, Result = match.Result, Elapsed = match.Elapsed, EndTick = match.EndTick };
         foreach (Pb.Sim.Match.PlayerStats s in match.Stats)
         {
-            over.Stats.Add(new StatsEntry(s.PlayerId, s.Shots, s.Hits, s.Eliminations, s.Pickups, s.TimeIn, s.OutTick));
+            over.Stats.Add(new StatsEntry(s.PlayerId, s.Shots, s.Hits, s.Eliminations, s.Pickups, s.TimeIn, s.OutTick, s.TimesOut));
         }
 
         _writer.Reset();
@@ -492,6 +492,7 @@ public sealed class NetServer : IDisposable
         link.Welcomed = true;
         link.Name = UniqueName(hello!.Name, link);
         link.Look = hello.Look;
+        link.Kit = hello.Kit;
         link.Key = Printable(hello.Key, 64);
         _writer.Reset();
         new WelcomeMessage { ClientId = link.Peer, ServerName = Identity.Name, Name = link.Name }.Write(_writer);

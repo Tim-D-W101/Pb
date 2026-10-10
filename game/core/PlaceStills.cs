@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 using Pb.Game.Ui;
 using Pb.Sim.Level;
@@ -9,6 +10,8 @@ namespace Pb.Game.Core;
 /// shows, from the viewpoint its <c>"still"</c> names (<see cref="PlaceSpec.Still"/>), and saves it as
 /// <c>DIR/LEVEL_PLACE.jpg</c>, then quits. Run it under a real renderer (lavapipe in a container, see CLAUDE.md) into
 /// <c>res://ui/places</c>, where the menu finds them; a missing picture just leaves the space empty. Nobody's in them.
+/// A field's places are its layouts, each with its own bunkers, so it takes only the places of the layout loaded: run it
+/// once for each, with <c>--place=ID</c>.
 /// </summary>
 public partial class PlaceStills : Node
 {
@@ -23,6 +26,7 @@ public partial class PlaceStills : Node
 
     private Camera3D _camera = null!;
     private LevelLayout _level = null!;
+    private PlaceSpec[] _places = System.Array.Empty<PlaceSpec>();
     private string _dir = "";
     private int _frame;
 
@@ -33,8 +37,10 @@ public partial class PlaceStills : Node
         return ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
     }
 
+    /// <param name="level">The level, with all its places.</param>
+    /// <param name="loaded">The place of it loaded (on a field, the layout whose places can be taken).</param>
     /// <param name="people">Everyone on the field: left out of the pictures, which are of the places.</param>
-    public void Start(LevelLayout level, string dir, Hud hud, Node3D viewModel, System.Collections.Generic.IEnumerable<Node3D> people, float farClip)
+    public void Start(LevelLayout level, LevelLayout loaded, string dir, Hud hud, Node3D viewModel, System.Collections.Generic.IEnumerable<Node3D> people, float farClip)
     {
         foreach (Node3D person in people)
         {
@@ -42,6 +48,9 @@ public partial class PlaceStills : Node
         }
 
         _level = level;
+        _places = level.Field is { } field
+            ? level.Places.Where(p => field.Layout(p.Layout).Id == loaded.FieldLayout?.Id).ToArray()
+            : level.Places.ToArray();
         _dir = dir.StartsWith("res://", System.StringComparison.Ordinal) || dir.StartsWith("user://", System.StringComparison.Ordinal)
             ? ProjectSettings.GlobalizePath(dir)
             : dir;
@@ -51,7 +60,8 @@ public partial class PlaceStills : Node
         _camera = new Camera3D { Name = "StillCamera", Fov = 62f, Far = farClip, Near = 0.05f };
         AddChild(_camera);
         _camera.MakeCurrent();
-        GD.Print($"STILLS {level.Places.Count} places of {level.DisplayName} into {_dir}");
+        GD.Print($"STILLS {_places.Length} of the {level.Places.Count} places of {level.DisplayName} into {_dir}" +
+                 (_places.Length < level.Places.Count ? $" (those of the {loaded.FieldLayout?.Id} layout: --place=ID for the others)" : ""));
     }
 
     public override void _Process(double delta)
@@ -62,13 +72,13 @@ public partial class PlaceStills : Node
         }
 
         int index = _frame / (Settle + 1);
-        if (index >= _level.Places.Count)
+        if (index >= _places.Length)
         {
             GetTree().Quit();
             return;
         }
 
-        PlaceSpec place = _level.Places[index];
+        PlaceSpec place = _places[index];
         int step = _frame % (Settle + 1);
         if (step == 0)
         {

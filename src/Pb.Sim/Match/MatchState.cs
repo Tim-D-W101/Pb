@@ -11,6 +11,11 @@ public enum MatchPhase : byte
     Live,
     /// <summary>The round is decided; the summary follows.</summary>
     Ended,
+    /// <summary>
+    /// Speedball's breakout: the countdown to the horn (<see cref="MatchSetup.Countdown"/>), everyone in their start box;
+    /// nobody moves or fires yet. Then it goes live by itself.
+    /// </summary>
+    Countdown,
 }
 
 /// <summary>How a round ended, from one side (yours, offline): see <see cref="MatchState.OutcomeFor"/>.</summary>
@@ -34,13 +39,30 @@ public enum RoundOutcome : byte
     CaseLost,
     /// <summary>Hold, defending: the other side held the room.</summary>
     RoomLost,
+    /// <summary>Speedball: your side hung the other side's buzzer.</summary>
+    BuzzerHung,
+    /// <summary>Speedball: the other side hung yours.</summary>
+    BuzzerLost,
+    /// <summary>Speedball: at time up your side had more players still in.</summary>
+    AheadAtTime,
+    /// <summary>Speedball: at time up the other side had more players still in.</summary>
+    BehindAtTime,
+    /// <summary>Capture the flag: your side carried a flag to where it scores.</summary>
+    FlagCaptured,
+    /// <summary>Capture the flag: the other side did.</summary>
+    FlagLost,
+    /// <summary>Arcade: at time up your side (or, in free-for-all, you) had the most eliminations.</summary>
+    MostEliminations,
+    /// <summary>Arcade: someone else had more.</summary>
+    FewerEliminations,
 }
 
 public static class RoundOutcomes
 {
     /// <summary>The round was won from your side: the last one standing, the objective done, or defended to the end.</summary>
     public static bool IsWin(this RoundOutcome outcome) =>
-        outcome is RoundOutcome.Cleared or RoundOutcome.Extracted or RoundOutcome.Held or RoundOutcome.HeldOff;
+        outcome is RoundOutcome.Cleared or RoundOutcome.Extracted or RoundOutcome.Held or RoundOutcome.HeldOff or RoundOutcome.BuzzerHung or
+            RoundOutcome.AheadAtTime or RoundOutcome.FlagCaptured or RoundOutcome.MostEliminations;
 }
 
 /// <summary>Why a round ended: the same for everyone in it.</summary>
@@ -62,6 +84,14 @@ public enum RoundEnd : byte
     /// for. The team with the most players still in wins; a tie, nobody.
     /// </summary>
     PeopleOut,
+    /// <summary>Speedball: <see cref="MatchResult.Winner"/> hung the other side's buzzer.</summary>
+    Hung,
+    /// <summary>A point of a match: time ran out with <see cref="MatchResult.Winner"/> having more players still in.</summary>
+    MoreIn,
+    /// <summary>Capture the flag: <see cref="MatchResult.Winner"/> carried a flag to where it scores.</summary>
+    Captured,
+    /// <summary>Arcade: time ran out with <see cref="MatchResult.Winner"/> (a side, or in free-for-all a player's) on the most eliminations.</summary>
+    MostEliminations,
 }
 
 /// <summary>How a round stands, or how it ended, from nobody's side: why, and the winning team (−1 for none).</summary>
@@ -70,6 +100,59 @@ public readonly record struct MatchResult(RoundEnd Reason, int Winner)
     public static readonly MatchResult Undecided = new(RoundEnd.None, -1);
 
     public bool Decided => Reason != RoundEnd.None;
+}
+
+/// <summary>
+/// A match of points' common rules (SI): the points it's raced to, each point's clock (on a field, or not), the countdown
+/// at each point's start, and how long the score shows between points.
+/// </summary>
+public interface IPointRules
+{
+    int RaceTo { get; }
+
+    float Countdown { get; }
+
+    float BetweenPoints { get; }
+
+    float ClockFor(bool onField);
+}
+
+/// <summary>
+/// Speedball (SI): the points a match is raced to, each point's clock, the countdown at its breakout, how long Interact is
+/// held at the other side's buzzer to hang it and from how near, and how long the score shows between points.
+/// </summary>
+public sealed record SpeedballRules(int RaceTo, float PointTime, float Countdown, float HangTime, float HangReach, float BetweenPoints) : IPointRules
+{
+    public float ClockFor(bool onField) => PointTime;
+}
+
+/// <summary>
+/// Capture the flag (SI): the points a match is raced to, each point's clock (in a compound area, and on a field), the
+/// countdown, the wait between points, how near a flag is taken and where a carrier scores, whether a carrier may sprint,
+/// and the bot behaviour played on a field.
+/// </summary>
+public sealed record FlagRules(int RaceTo, float PointTime, float FieldPointTime, float Countdown, float BetweenPoints, float PickupReach, float ScoreReach,
+    bool CarrierCanSprint, string FieldRole) : IPointRules
+{
+    public float ClockFor(bool onField) => onField ? FieldPointTime : PointTime;
+}
+
+/// <summary>
+/// Arcade (SI): the round's clock; how long after going out a player's back, and shielded after (s); how clear of others a
+/// start must be, and how far from the other side a start is far enough (m).
+/// </summary>
+public sealed record ArcadeRules(float MatchTime, float Respawn, float Shield, float StartClearance, float FarEnough);
+
+public static class MatchFormats
+{
+    /// <summary>Played as a match of points (each point a round of its own), not one round (as one round and arcade are).</summary>
+    public static bool IsMatch(this MatchFormat format) => format is MatchFormat.Speedball or MatchFormat.Flag;
+
+    /// <summary>Only on a field (speedball's buzzers and start boxes).</summary>
+    public static bool NeedsField(this MatchFormat format) => format == MatchFormat.Speedball;
+
+    /// <summary>Takes an objective (retrieve, hold) as well as putting the others out: one round only, not a match or arcade.</summary>
+    public static bool TakesObjective(this MatchFormat format) => format == MatchFormat.Round;
 }
 
 /// <summary>Round rules (SI), from rules.jsonc.</summary>
@@ -107,6 +190,52 @@ public sealed class MatchRules
     /// <summary>The callout key's rules.</summary>
     public required CalloutRules Callout { get; init; }
 
+    /// <summary>How speedball is played.</summary>
+    public required SpeedballRules Speedball { get; init; }
+
+    /// <summary>How capture the flag is played.</summary>
+    public required FlagRules Flag { get; init; }
+
+    /// <summary>How arcade is played.</summary>
+    public required ArcadeRules Arcade { get; init; }
+
+    /// <summary>
+    /// The bot behaviour everyone plays on a field in <paramref name="mode"/>: speedball's own role, or capture the flag's
+    /// field role.
+    /// </summary>
+    public string FieldRoleOf(GameMode mode) => mode.Format == MatchFormat.Flag ? Flag.FieldRole
+        : mode.Roles.Count > 0 ? mode.Roles[0].Role : Flag.FieldRole;
+
+    /// <summary>A match of points' rules for <paramref name="format"/>, or null for one round.</summary>
+    public IPointRules? PointsFor(MatchFormat format) => format switch
+    {
+        MatchFormat.Speedball => Speedball,
+        MatchFormat.Flag => Flag,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The modes <paramref name="area"/> offers, in its order: those it lists, else every mode that doesn't need a field.
+    /// </summary>
+    public IReadOnlyList<GameMode> ModesFor(AreaEntryDef area)
+    {
+        if (area.Modes is not { } ids)
+        {
+            return Modes.Where(m => !m.Format.NeedsField()).ToArray();
+        }
+
+        var modes = new List<GameMode>(ids.Length);
+        foreach (string id in ids)
+        {
+            if (FindMode(id) is { } mode)
+            {
+                modes.Add(mode);
+            }
+        }
+
+        return modes;
+    }
+
     /// <summary>The mode with this id, or null.</summary>
     public GameMode? FindMode(string id)
     {
@@ -135,6 +264,9 @@ public sealed class GameMode
     public required string Description { get; init; }
 
     public required MatchModeKind Kind { get; init; }
+
+    /// <summary>How it's won: one round, or a speedball match of points.</summary>
+    public MatchFormat Format { get; init; }
 
     public required IReadOnlyList<int> Sizes { get; init; }
 
@@ -184,6 +316,9 @@ public sealed class SpawnRules
     /// <summary>With an objective, you come in at least <see cref="MinDistanceFromYou"/> plus this from it.</summary>
     public required float ObjectiveClearance { get; init; }
 
+    /// <summary>Capture the flag with a flag each: the other team's base (its first start) is no higher or lower than this from you.</summary>
+    public required float BaseHeight { get; init; }
+
     /// <summary>These rules with every distance scaled by <paramref name="scale"/> (for a smaller place to play).</summary>
     public SpawnRules Scaled(float scale) => scale == 1f ? this : new SpawnRules
     {
@@ -197,6 +332,7 @@ public sealed class SpawnRules
         TeammateSpacing = TeammateSpacing,
         TeamSpread = TeamSpread * scale,
         ObjectiveClearance = ObjectiveClearance * scale,
+        BaseHeight = BaseHeight,
     };
 }
 
@@ -255,6 +391,36 @@ public sealed class MatchSetup
     /// <summary>How the round is won besides being the last team standing; <see cref="Attackers"/> attack it, the others defend.</summary>
     public ObjectiveKind Objective { get; init; } = ObjectiveKind.Eliminate;
 
+    /// <summary>One round, or a point of a speedball match (the buzzers, and more players in winning at time up).</summary>
+    public MatchFormat Format { get; init; }
+
+    /// <summary>The countdown to the horn once the briefing's over (s; 0 = straight to live).</summary>
+    public float Countdown { get; init; }
+
+    /// <summary>
+    /// This setup played as <paramref name="format"/>: a point of a match (speedball, capture the flag) has its format's
+    /// clock (<paramref name="onField"/> or not) and countdown, no objective and no pickups; arcade has its own clock and no
+    /// objective. One round is left as it is.
+    /// </summary>
+    public MatchSetup As(MatchFormat format, MatchRules rules, bool onField) => format == MatchFormat.Arcade ? new MatchSetup
+    {
+        // Arcade: its own clock, straight to live, no objective; the tier's gear and pickups.
+        People = People, Attackers = Attackers, EndWhenPeopleOut = EndWhenPeopleOut, Mode = Mode, TimeLimit = rules.Arcade.MatchTime,
+        StartPods = StartPods, BotPods = BotPods, Pickups = Pickups, Objective = ObjectiveKind.Eliminate, Format = format,
+    }
+        : rules.PointsFor(format) is not { } points ? this : new MatchSetup
+    {
+        People = People, Attackers = Attackers, EndWhenPeopleOut = EndWhenPeopleOut, Mode = Mode, TimeLimit = points.ClockFor(onField),
+        StartPods = StartPods, BotPods = BotPods, Pickups = false, Objective = ObjectiveKind.Eliminate, Format = format, Countdown = points.Countdown,
+    };
+
+    /// <summary>This setup with another clock (s).</summary>
+    public MatchSetup WithTimeLimit(float timeLimit) => new()
+    {
+        People = People, Attackers = Attackers, EndWhenPeopleOut = EndWhenPeopleOut, Mode = Mode, TimeLimit = timeLimit, StartPods = StartPods,
+        BotPods = BotPods, Pickups = Pickups, Objective = Objective, Format = Format, Countdown = Countdown,
+    };
+
     public static MatchSetup From(TierDef tier, int heroId, MatchModeKind mode = MatchModeKind.Solo,
         ObjectiveKind objective = ObjectiveKind.Eliminate) => new()
     {
@@ -290,13 +456,16 @@ public sealed class PlayerStats
     /// <summary>Live time spent still in the round (s).</summary>
     public float TimeIn { get; internal set; }
 
-    /// <summary>The tick they went out on, or −1 while they're still in.</summary>
+    /// <summary>The tick they went out on, or −1 while they're still in (in arcade, back in again).</summary>
     public int OutTick { get; internal set; } = -1;
+
+    /// <summary>Arcade: how many times they went out.</summary>
+    public int TimesOut { get; internal set; }
 
     public float Accuracy => Shots > 0 ? (float)Hits / Shots : 0f;
 
     /// <summary>A joining copy: the numbers the server kept.</summary>
-    internal void ApplyServer(int shots, int hits, int eliminations, int pickups, float timeIn, int outTick)
+    internal void ApplyServer(int shots, int hits, int eliminations, int pickups, float timeIn, int outTick, int timesOut = 0)
     {
         Shots = shots;
         Hits = hits;
@@ -304,6 +473,7 @@ public sealed class PlayerStats
         Pickups = pickups;
         TimeIn = timeIn;
         OutTick = outTick;
+        TimesOut = timesOut;
     }
 }
 
@@ -360,7 +530,7 @@ public sealed class LastTeamStandingMode : IMatchMode
     }
 
     /// <summary>The team with the most players still in, or −1 if two share the most.</summary>
-    private static int MostStillIn(IReadOnlyList<PlayerState> players)
+    internal static int MostStillIn(IReadOnlyList<PlayerState> players)
     {
         Span<int> counts = stackalloc int[256];
         counts.Clear();
@@ -393,6 +563,65 @@ public sealed class LastTeamStandingMode : IMatchMode
 }
 
 /// <summary>
+/// Speedball: a point is won by hanging the other side's buzzer (<see cref="RoundEnd.Hung"/>) or, as in every mode, by
+/// being the last side standing. Time up is the match state's (the side with more players in wins it).
+/// </summary>
+public sealed class SpeedballMode : IMatchMode
+{
+    public static readonly SpeedballMode Instance = new();
+
+    public MatchResult Evaluate(SimWorld sim, MatchState match)
+    {
+        if (match.Buzzers is { HungSide: >= 0 } buzzers && sim.FindPlayer(buzzers.HungBy) is { } hanger)
+        {
+            return new MatchResult(RoundEnd.Hung, hanger.Team);
+        }
+
+        return LastTeamStandingMode.Instance.Evaluate(sim, match);
+    }
+}
+
+/// <summary>
+/// Capture the flag: a point is won by carrying a flag to where your side scores (<see cref="RoundEnd.Captured"/>) or, as in
+/// every mode, by being the last side standing. Time up is the match state's (the side with more players in wins it).
+/// </summary>
+/// <summary>
+/// Arcade: nobody's out for good, so the round goes to the clock (see <see cref="MatchState.MostEliminations"/>), unless
+/// everyone playing it with others has left the game.
+/// </summary>
+public sealed class ArcadeMode : IMatchMode
+{
+    public static readonly ArcadeMode Instance = new();
+
+    public MatchResult Evaluate(SimWorld sim, MatchState match)
+    {
+        if (!match.Setup.EndWhenPeopleOut || match.Setup.People.Count == 0)
+        {
+            return MatchResult.Undecided;
+        }
+
+        for (int i = 0; i < match.Setup.People.Count; i++)
+        {
+            if (sim.FindPlayer(match.Setup.People[i]) is { Left: false })
+            {
+                return MatchResult.Undecided;
+            }
+        }
+
+        return match.MostEliminations(sim);
+    }
+}
+
+public sealed class CaptureMode : IMatchMode
+{
+    public static readonly CaptureMode Instance = new();
+
+    public MatchResult Evaluate(SimWorld sim, MatchState match) => match.Flags is { CapturedBy: >= 0 } flags
+        ? new MatchResult(RoundEnd.Captured, flags.CapturedBy)
+        : LastTeamStandingMode.Instance.Evaluate(sim, match);
+}
+
+/// <summary>
 /// One round (spec'd in the Phase 2 plan): briefing → live → ended. While live it keeps everyone's
 /// stats from the sim's events (and the order they went out, for free-for-all placings) and asks the
 /// mode how the round stands; once it's decided it waits up to the settle time for balls still in the
@@ -403,7 +632,8 @@ public sealed class MatchState
     private readonly List<PlayerStats> _stats = new();
     private int _settleFrom = -1;
 
-    internal MatchState(MatchSetup setup, MatchRules rules, IMatchMode mode, byte attackers, int heroTeam, ObjectiveState? objective = null)
+    internal MatchState(MatchSetup setup, MatchRules rules, IMatchMode mode, byte attackers, int heroTeam, ObjectiveState? objective = null,
+        BuzzerSet? buzzers = null, FlagSet? flags = null)
     {
         Setup = setup;
         Rules = rules;
@@ -411,6 +641,8 @@ public sealed class MatchState
         Attackers = attackers;
         HeroTeam = heroTeam;
         Objective = objective;
+        Buzzers = buzzers;
+        Flags = flags;
     }
 
     public MatchSetup Setup { get; }
@@ -421,6 +653,15 @@ public sealed class MatchState
 
     /// <summary>The case or the room, when the round has an objective (null for eliminate).</summary>
     public ObjectiveState? Objective { get; }
+
+    /// <summary>Speedball's buzzers (null in a round of any other format).</summary>
+    public BuzzerSet? Buzzers { get; }
+
+    /// <summary>Capture the flag's flags (null in a round of any other format).</summary>
+    public FlagSet? Flags { get; }
+
+    /// <summary>The countdown to the horn still to go (s), while <see cref="Phase"/> is <see cref="MatchPhase.Countdown"/>.</summary>
+    public float CountdownLeft { get; private set; }
 
     public MatchPhase Phase { get; private set; } = MatchPhase.Briefing;
 
@@ -444,6 +685,10 @@ public sealed class MatchState
         RoundEnd.TimeUp => Objective is not null && team == Result.Winner ? RoundOutcome.HeldOff : RoundOutcome.TimeUp,
         RoundEnd.Extracted => team == Attackers ? RoundOutcome.Extracted : RoundOutcome.CaseLost,
         RoundEnd.Held => team == Attackers ? RoundOutcome.Held : RoundOutcome.RoomLost,
+        RoundEnd.Hung => team == Result.Winner ? RoundOutcome.BuzzerHung : RoundOutcome.BuzzerLost,
+        RoundEnd.MoreIn => team == Result.Winner ? RoundOutcome.AheadAtTime : RoundOutcome.BehindAtTime,
+        RoundEnd.Captured => team == Result.Winner ? RoundOutcome.FlagCaptured : RoundOutcome.FlagLost,
+        RoundEnd.MostEliminations => team == Result.Winner ? RoundOutcome.MostEliminations : RoundOutcome.FewerEliminations,
         _ => RoundOutcome.None,
     };
 
@@ -483,6 +728,18 @@ public sealed class MatchState
             return 0;
         }
 
+        if (Setup.Format == MatchFormat.Arcade)
+        {
+            // Arcade: by eliminations (those level share a place).
+            int more = 0;
+            foreach (PlayerStats s in _stats)
+            {
+                more += s.Eliminations > me.Eliminations ? 1 : 0;
+            }
+
+            return more + 1;
+        }
+
         if (me.OutTick < 0)
         {
             return 1;
@@ -503,15 +760,17 @@ public sealed class MatchState
     internal void AddPlayer(int playerId) => _stats.Add(new PlayerStats(playerId));
 
     /// <summary>A joining copy: the round as the server says it stands (the copy never runs the round itself).</summary>
-    internal void ApplyServer(MatchPhase phase, int liveFromTick, int endTick, float elapsed, MatchResult result)
+    internal void ApplyServer(MatchPhase phase, int liveFromTick, int endTick, float elapsed, MatchResult result, float countdownLeft = 0f)
     {
         Phase = phase;
         LiveFromTick = liveFromTick;
         EndTick = endTick;
         Elapsed = elapsed;
         Result = result;
+        CountdownLeft = countdownLeft;
     }
 
+    /// <summary>The briefing's over: live, or first the countdown to the horn if the round has one.</summary>
     internal void GoLive(SimWorld sim)
     {
         if (Phase != MatchPhase.Briefing)
@@ -519,8 +778,20 @@ public sealed class MatchState
             return;
         }
 
-        Phase = MatchPhase.Live;
+        if (Setup.Countdown > 0f)
+        {
+            CountdownLeft = Setup.Countdown;
+            ChangePhase(sim, MatchPhase.Countdown);
+            return;
+        }
+
         LiveFromTick = sim.Tick;
+        ChangePhase(sim, MatchPhase.Live);
+    }
+
+    private void ChangePhase(SimWorld sim, MatchPhase phase)
+    {
+        Phase = phase;
         sim.Events.Add(new SimEvent
         {
             Type = SimEventType.MatchPhaseChanged, Tick = sim.Tick, PlayerId = -1, TargetId = -1, ColliderId = -1, Extra = (int)Phase,
@@ -530,6 +801,20 @@ public sealed class MatchState
     /// <summary>After the tick's balls have flown: stats from this tick's events, then the outcome.</summary>
     internal void Update(SimWorld sim, int firstEvent)
     {
+        if (Phase == MatchPhase.Countdown)
+        {
+            // The horn goes on the tick the countdown runs out.
+            CountdownLeft -= sim.Dt;
+            if (CountdownLeft <= 1e-4f)
+            {
+                CountdownLeft = 0f;
+                LiveFromTick = sim.Tick + 1;
+                ChangePhase(sim, MatchPhase.Live);
+            }
+
+            return;
+        }
+
         if (Phase != MatchPhase.Live)
         {
             return;
@@ -549,10 +834,20 @@ public sealed class MatchState
         }
 
         Objective?.Update(sim, dt);
-        if (Elapsed >= Setup.TimeLimit && Objective is not { Done: true })
+        Buzzers?.Update(sim, dt);
+        Flags?.Update(sim);
+        if (Setup.Format == MatchFormat.Arcade)
         {
-            // Without an objective nobody wins on time; with one, its defenders do.
-            End(sim, new MatchResult(RoundEnd.TimeUp, Objective is null ? -1 : DefendingTeam(sim)));
+            RespawnDue(sim);
+        }
+
+        if (Elapsed >= Setup.TimeLimit && Objective is not { Done: true } && Buzzers is not { HungSide: >= 0 } && Flags is not { CapturedBy: >= 0 })
+        {
+            // Without an objective nobody wins on time; with one, its defenders do; in a match of points, the side with more
+            // in; in arcade, the most eliminations.
+            End(sim, Setup.Format == MatchFormat.Arcade ? MostEliminations(sim)
+                : Setup.Format.IsMatch() ? MoreIn(sim)
+                : new MatchResult(RoundEnd.TimeUp, Objective is null ? -1 : DefendingTeam(sim)));
             return;
         }
 
@@ -602,6 +897,13 @@ public sealed class MatchState
                     if (StatsFor(e.TargetId) is { } victimStats)
                     {
                         victimStats.OutTick = e.Tick;
+                        if (Setup.Format == MatchFormat.Arcade && sim.FindPlayer(e.TargetId) is { Left: false } back)
+                        {
+                            // Back after the respawn time (someone who left the game isn't).
+                            victimStats.TimesOut++;
+                            back.TimesOut++;
+                            back.RespawnTick = e.Tick + (int)MathF.Round(Rules.Arcade.Respawn * sim.Config.TickRate);
+                        }
                     }
 
                     // Only opponents count: putting out a teammate is no achievement.
@@ -616,6 +918,80 @@ public sealed class MatchState
                     break;
             }
         }
+    }
+
+    /// <summary>Arcade: everyone whose time out is up comes back, at a start out of the other side's sight, shielded.</summary>
+    private void RespawnDue(SimWorld sim)
+    {
+        IReadOnlyList<PlayerState> players = sim.Players;
+        int shield = (int)MathF.Round(Rules.Arcade.Shield * sim.Config.TickRate);
+        for (int i = 0; i < players.Count; i++)
+        {
+            PlayerState p = players[i];
+            if (p.RespawnTick < 0 || sim.Tick < p.RespawnTick || p.Alive || p.Left)
+            {
+                continue;
+            }
+
+            (System.Numerics.Vector3 at, float yaw) = sim.ArcadeStart(p);
+            sim.Respawn(p, at, yaw, sim.Tick + shield);
+            if (StatsFor(p.Id) is { } s)
+            {
+                s.OutTick = -1;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Arcade at time up (or once everyone playing it has left): the side with the most eliminations wins, each player's own
+    /// in free-for-all (every player a side of their own); level, nobody does.
+    /// </summary>
+    internal MatchResult MostEliminations(SimWorld sim)
+    {
+        IReadOnlyList<PlayerState> players = sim.Players;
+        int best = -1, bestTeam = -1;
+        bool level = false;
+        for (int i = 0; i < players.Count; i++)
+        {
+            int team = players[i].Team;
+            bool counted = false;
+            for (int j = 0; j < i && !counted; j++)
+            {
+                counted = players[j].Team == team;
+            }
+
+            if (counted)
+            {
+                continue;
+            }
+
+            int total = 0;
+            for (int j = i; j < players.Count; j++)
+            {
+                if (players[j].Team == team && StatsFor(players[j].Id) is { } s)
+                {
+                    total += s.Eliminations;
+                }
+            }
+
+            if (total > best)
+            {
+                (best, bestTeam, level) = (total, team, false);
+            }
+            else if (total == best)
+            {
+                level = true;
+            }
+        }
+
+        return bestTeam < 0 || level ? new MatchResult(RoundEnd.TimeUp, -1) : new MatchResult(RoundEnd.MostEliminations, bestTeam);
+    }
+
+    /// <summary>A point at time up: the side with more players still in wins it; level, nobody does.</summary>
+    private static MatchResult MoreIn(SimWorld sim)
+    {
+        int ahead = LastTeamStandingMode.MostStillIn(sim.Players);
+        return ahead >= 0 ? new MatchResult(RoundEnd.MoreIn, ahead) : new MatchResult(RoundEnd.TimeUp, -1);
     }
 
     /// <summary>The team defending the objective: the first team in the round that isn't the attackers (−1 if none).</summary>

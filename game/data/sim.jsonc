@@ -31,6 +31,10 @@
     "brain": "bots/brain.jsonc",
     "senses": "bots/senses.jsonc",
     "archetypes": "bots/archetypes.jsonc",
-    "difficulty": "bots/difficulty.jsonc"
+    "difficulty": "bots/difficulty.jsonc",
+    // The gear locker's brands and items (Phase 5): looks only, so the sim never reads them; they're loaded here to be
+    // checked with everything else. And the locker's room, a level of its own that isn't a place to play.
+    "gear": "gear/catalog.jsonc",
+    "lockerRoom": "levels/locker_room.jsonc"
   }
 }

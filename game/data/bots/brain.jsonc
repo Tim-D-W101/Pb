@@ -113,5 +113,30 @@
   "vantageRays": 12,
   "vantageRange_m": 60,
   "vantageArc_deg": 140,
-  "vantageHeightBonus_perM": 0.05
+  "vantageHeightBonus_perM": 0.05,
+
+  // Speedball (the field's points). At the horn the squad deals each side's bots a place: backShare of them at the back
+  // and midShare in the middle (at least one of each when there are three or more), the rest up front; and each a bunker
+  // of its side tagged for its place (the field's layouts tag them), spread over the snake side, the wedge side and
+  // the centre. Each sprints to its bunker (a run lasting at most breakoutFor_s, then it fights from where it got to),
+  // and fighting from cover prefers the spots at its own bunker by bunkerBias (a cover score: being able to shoot back
+  // is worth 12). With advanceMargin more players in than the other side, a side moves one bot up a bunker, at most
+  // one every advanceEvery_s. Every hangCheck_s the squad looks at the other side's buzzer: when none of them still in
+  // can see it, the nearest bot goes and hangs it.
+  "speedball": {
+    "backShare": 0.2, "midShare": 0.4, "breakoutFor_s": 5, "bunkerBias": 14,
+    "advanceMargin": 1, "advanceEvery_s": 5, "hangCheck_s": 0.5
+  },
+
+  // Capture the flag. With a flag for each side (the compound areas), at the horn the squad gives defendShare of each
+  // side's bots (at least one, from two up) a post round their own flag, and sends the rest for the other side's. A bot
+  // that takes a flag carries it to where its side scores, and the attackers escort it there. On the field (one flag in
+  // the middle) everyone plays speedball, and every speedball hangCheck_s the squad sends a side's bot nearest the flag
+  // to take it when none of the other side can see it, or when its side has more players in. When the other side
+  // carries a flag, the chasers of a side nearest the carrier go after them, told where they are every alarmInterval_s;
+  // a side's own flag dropped, its defenders guard it where it lies. Any bot within nearDropped_m of a dropped flag it
+  // may take goes for it. A bot going for a flag, or carrying one, that has been in a fight for pressOnAfter_s without
+  // it ending presses on for pressFor_s: on for the flag, or home with it, whatever it sees (one life each, two bots
+  // peeking at each other from cover would otherwise hold the point up until time ran out).
+  "flag": { "defendShare": 0.4, "chasers": 2, "alarmInterval_s": 4, "nearDropped_m": 12, "pressOnAfter_s": 12, "pressFor_s": 6 }
 }

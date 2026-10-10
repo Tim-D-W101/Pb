@@ -150,6 +150,7 @@ public class SettingsTests
         s.FrameCap = 144;
         s.Graphics.Shadows = "off";
         s.Graphics.Glow = false;
+        s.Graphics.PaintCards = true;
         s.CrosshairStyle = "circle";
         s.CrosshairColor = "#4de8ff";
         s.TeamColors = "redGreen";
@@ -159,6 +160,7 @@ public class SettingsTests
         Assert.Null(problem);
         Assert.Equal(s.ToJson(), back.ToJson());
         Assert.Equal("off", back.Graphics.Shadows);
+        Assert.True(back.Graphics.PaintCards);
         Assert.Equal("key:J", back.Bindings["jump"].First);
         Assert.Equal("", back.Bindings["jump"].Pad);
         Assert.Null(back.Bindings["jump"].Second);

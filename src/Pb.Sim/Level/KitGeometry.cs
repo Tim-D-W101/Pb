@@ -54,6 +54,11 @@ public sealed class PrimitiveSink
     public List<DoorSpec> Doors { get; } = new();
 
     public void AddBox(PlanFrame frame, Vector3 center, Quaternion rotation, Vector3 half, MaterialRef material,
+        PrimitiveFlags flags, PrimitiveRole role, int owner) =>
+        Add(PrimitiveKind.Box, frame, center, rotation, half, material, flags, role, owner);
+
+    /// <summary>A box, a wedge in its box or a capsule (<see cref="LevelPrimitive"/> says what <paramref name="half"/> holds for each).</summary>
+    public void Add(PrimitiveKind kind, PlanFrame frame, Vector3 center, Quaternion rotation, Vector3 half, MaterialRef material,
         PrimitiveFlags flags, PrimitiveRole role, int owner)
     {
         if (half.X < MinExtent || half.Y < MinExtent || half.Z < MinExtent)
@@ -63,7 +68,7 @@ public sealed class PrimitiveSink
 
         Items.Add(new LevelPrimitive
         {
-            Kind = PrimitiveKind.Box,
+            Kind = kind,
             Center = frame.ToWorld(center),
             Rotation = frame.ToWorld(rotation),
             HalfExtents = half,
@@ -547,6 +552,7 @@ public static class KitGeometry
                 flags |= PrimitiveFlags.Render;
             }
 
+            // (A capsule lies in its box of (radius, radius, half length), a wedge's ridge along its box's top.)
             float top = c.Kind == PrimitiveKind.Cylinder
                 ? c.Center.Y + MathF.Abs(Vector3.Transform(Vector3.UnitY, c.Rotation).Y) * c.HalfExtents.Y
                 : c.Center.Y + BoxHalfHeight(c.Rotation, c.HalfExtents);
@@ -562,7 +568,7 @@ public static class KitGeometry
             }
             else
             {
-                sink.AddBox(frame, c.Center, c.Rotation, c.HalfExtents, c.Material, flags, PrimitiveRole.Prop, owner);
+                sink.Add(c.Kind, frame, c.Center, c.Rotation, c.HalfExtents, c.Material, flags, PrimitiveRole.Prop, owner);
             }
         }
     }

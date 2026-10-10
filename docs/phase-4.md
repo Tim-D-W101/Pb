@@ -1,6 +1,7 @@
 # Phase 4 — Multiplayer: plan
 
-> **Status: finished 2026-10-09, but for your check ([report](reports/phase-4.md)).** Approved 2026-10-09 with the
+> **Status: finished 2026-10-09, but for your check ([report](reports/phase-4.md)); merged into main 2026-10-10.** Next:
+> [Phase 5](phase-5.md). Approved 2026-10-09 with the
 > defaults ("the plan is OK go ahead"). Phase 3 is finished but for your play-test ([report](reports/phase-3.md)). Technical
 > design: [architecture.md §16](architecture.md#16-phase-4-multiplayer). Hosting: [hosting.md](hosting.md).
 > Everything in [spec.md](spec.md) still applies: ballistics, paint rules, gear, metric units, original IP, data files,

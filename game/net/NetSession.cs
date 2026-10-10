@@ -82,9 +82,12 @@ public partial class NetSession : Node
     /// <summary>The session is over, and why.</summary>
     public event Action<string>? Ended;
 
-    /// <summary>Starts hosting on <paramref name="port"/> with these choices in the lobby; your own player is player 0.</summary>
+    /// <summary>
+    /// Starts hosting on <paramref name="port"/> with these choices in the lobby; your own player is player 0, wearing
+    /// <paramref name="kit"/>. Everyone's kit is checked against <paramref name="gear"/>.
+    /// </summary>
     public static NetSession Host(SceneTree tree, NetSettings settings, ServerIdentity identity, int port, LagSettings lag, string name, byte look,
-        MatchRules rules, LobbyChoices choices)
+        MatchRules rules, LobbyChoices choices, Pb.Sim.Gear.Loadout? kit = null, Pb.Sim.Gear.GearCatalog? gear = null)
     {
         Current?.Leave("a new game");
         var session = new NetSession { Name = "NetSession", Settings = settings, LocalName = name, LocalLook = look };
@@ -95,7 +98,8 @@ public partial class NetSession : Node
         }
 
         session.Server = new NetServer(transport, settings, identity, () => session.Now, 1f / 120f) { HostName = name };
-        session.Lobby = new LobbyHost(session.Server, settings, rules, choices, () => session.Now, new LobbyMember { Name = name, Look = look });
+        session.Lobby = new LobbyHost(session.Server, settings, rules, choices, () => session.Now, new LobbyMember { Name = name, Look = look, Kit = kit },
+            gear);
         session.Lobby.Changed += () => session._hostVersion++;
         session.Server.Violation += (link, what) => GD.Print($"NET {link.Name} sent {what}");
         session.Server.Joined += link => GD.Print($"NET {link.Name} joined ({link.Peer})");
@@ -108,17 +112,17 @@ public partial class NetSession : Node
 
     /// <summary>
     /// A dedicated server: hosts on <paramref name="port"/> with nobody of its own playing, the lobby starting with
-    /// <paramref name="choices"/>.
+    /// <paramref name="choices"/>, everyone's kit checked against <paramref name="gear"/>.
     /// </summary>
     public static NetSession Serve(SceneTree tree, NetSettings settings, ServerIdentity identity, int port, MatchRules rules, LobbyChoices choices,
-        int maxPeople)
+        int maxPeople, Pb.Sim.Gear.GearCatalog? gear = null)
     {
         Current?.Leave("a new game");
         var limited = maxPeople == settings.MaxPeople ? settings : settings.WithMaxPeople(maxPeople);
         var session = new NetSession { Name = "NetSession", Settings = limited, Dedicated = true };
         ITransport transport = EnetTransport.Listen(port, limited.MaxPeople, limited.LinkTimeoutMin, limited.LinkTimeoutMax);
         session.Server = new NetServer(transport, limited, identity, () => session.Now, 1f / 120f) { Dedicated = true };
-        session.Lobby = new LobbyHost(session.Server, limited, rules, choices, () => session.Now);
+        session.Lobby = new LobbyHost(session.Server, limited, rules, choices, () => session.Now, gear: gear);
         session.Lobby.Changed += () => session._hostVersion++;
         session.Server.Violation += (link, what) => ServerLog.Line($"{link.Name} sent {what}");
         session.Server.Joined += link => ServerLog.Line($"{link.Name} joined ({session.Server.Clients.Count(c => c.Welcomed)} in the game)");
@@ -223,6 +227,20 @@ public partial class NetSession : Node
         else
         {
             Client?.Ask(ask, value);
+        }
+    }
+
+    /// <summary>Your kit, changed in the gear locker: worn from the next round, and seen in the lobby (hosting, it's put there here).</summary>
+    public void SendKit(Pb.Sim.Gear.Loadout kit)
+    {
+        LocalLook = (byte)Math.Clamp(kit.Character, 0, 255);
+        if (Lobby is { } lobby)
+        {
+            lobby.SetKit(LobbyHost.HostId, kit);
+        }
+        else
+        {
+            Client?.SendKit(kit);
         }
     }
 

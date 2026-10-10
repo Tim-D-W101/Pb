@@ -32,7 +32,7 @@ public static class NetStart
         var identity = new ServerIdentity($"{name}'s game", BuildStamp.Build, BuildStamp.DataHash, password);
         int gamePort = port ?? settings.Port;
         NetSession session = NetSession.Host(tree, settings, identity, gamePort, Lag(pretendLag_ms), name, look, data.Config.Rules,
-            RoundChoices.FromMenu(data));
+            RoundChoices.FromMenu(data), YourKit(data, look), data.Gear);
         session.Announce(() => Announcement(data, session, gamePort));
         return session;
     }
@@ -54,7 +54,7 @@ public static class NetStart
     /// Joining the host at <paramref name="address"/> ("host" or "host:port") as <paramref name="name"/>, telling it who you
     /// are (<paramref name="key"/>: your platform identity's id, so it knows you again if you come back).
     /// </summary>
-    public static NetSession Join(SceneTree tree, string address, string name, byte look, string password = "", float pretendLag_ms = 0f,
+    public static NetSession Join(SceneTree tree, GameData data, string address, string name, byte look, string password = "", float pretendLag_ms = 0f,
         string key = "")
     {
         NetSettings settings = Settings();
@@ -62,9 +62,25 @@ public static class NetStart
         var hello = new HelloMessage
         {
             Protocol = NetProtocol.Version, Build = BuildStamp.Build, DataHash = BuildStamp.DataHash, Name = name, Password = password, Look = look,
-            Key = key,
+            Key = key, Kit = YourKit(data, look),
         };
         return NetSession.Join(tree, settings, host, port, hello, Lag(pretendLag_ms));
+    }
+
+    /// <summary>
+    /// The kit you take into a game with others: what you saved in the gear locker, on <paramref name="look"/> (or with
+    /// <c>--kit=BRAND</c>, every slot from that brand's range).
+    /// </summary>
+    public static Pb.Sim.Gear.Loadout YourKit(GameData data, int look)
+    {
+        if (Args.Value("--kit") is { Length: > 0 } brand && Pb.Game.Player.Kit.Brand(data.Gear, brand, look) is { } branded)
+        {
+            return branded;
+        }
+
+        Pb.Sim.Gear.Loadout kit = data.Gear.Read(Profile.Load(data.Areas).Data.Loadout, look);
+        kit.Character = look;
+        return kit;
     }
 
     /// <summary>"host" or "host:port" (an IPv6 address in brackets: "[::1]:47820").</summary>
