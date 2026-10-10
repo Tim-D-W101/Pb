@@ -34,9 +34,9 @@ internal sealed class BotArena
     private readonly List<BotBrain?> _brains = new();
     private InputCommand[] _commands = Array.Empty<InputCommand>();
 
-    private BotArena(string tier, ulong seed, string levelId)
+    private BotArena(string tier, ulong seed, string levelId, string? place = null)
     {
-        (LevelLayout level, NavGrid grid, CoverSet cover) = SharedFor(levelId);
+        (LevelLayout level, NavGrid grid, CoverSet cover) = SharedFor(levelId, place);
         cover.ReleaseAll();
         Level = level;
         SimConfig config = TestData.Config;
@@ -82,11 +82,15 @@ internal sealed class BotArena
 
     public static BotArena Create(string tier = "normal", ulong seed = 0, string level = "oxbarrow_works") => new(tier, seed, level);
 
-    /// <summary>A level with its navigation grid and cover set, built once and shared by every arena on it.</summary>
-    public static (LevelLayout Level, NavGrid Grid, CoverSet Cover) SharedFor(string levelId) =>
-        Shared.GetOrAdd(levelId, id => new Lazy<(LevelLayout, NavGrid, CoverSet)>(() =>
+    /// <summary>
+    /// A level (in one of its places, for a field's other layouts) with its navigation grid and cover set, built once and
+    /// shared by every arena on it.
+    /// </summary>
+    public static (LevelLayout Level, NavGrid Grid, CoverSet Cover) SharedFor(string levelId, string? place = null) =>
+        Shared.GetOrAdd(place is null ? levelId : $"{levelId}/{place}", _ => new Lazy<(LevelLayout, NavGrid, CoverSet)>(() =>
         {
-            LevelLayout level = TestData.Data.Levels[id];
+            LevelLayout whole = TestData.Data.Levels[levelId];
+            LevelLayout level = place is null ? whole : whole.ForPlace(whole.Places.First(p => p.Id == place));
             NavGrid grid = NavGrid.Build(level, TestData.Data.Bots.Navigation);
             CoverSet cover = CoverSet.Build(level, grid, TestData.Config.Movement.StandEyeHeight, TestData.Config.Movement.CrouchEyeHeight);
             return (level, grid, cover);
@@ -114,6 +118,52 @@ internal sealed class BotArena
         BotBrain brain = Squad.Add(Hero, TestData.Data.Bots.Archetypes[archetype], Tier, spawn);
         _brains[0] = brain;
         return brain;
+    }
+
+    /// <summary>
+    /// A speedball point on the Sports Ground (in <paramref name="place"/>'s layout): you and <paramref name="perSide"/> − 1
+    /// bots on the south side against <paramref name="perSide"/> on the north, everyone in their start box, every bot
+    /// playing speedball (you too, unless <paramref name="heroBot"/> is false). <see cref="StartSpeedball"/> starts it.
+    /// </summary>
+    public static BotArena Speedball(int perSide = 5, string tier = "normal", ulong seed = 0, string place = "whole", bool heroBot = true)
+    {
+        var arena = new BotArena(tier, seed, "sports_ground", place);
+        FieldSpec field = arena.Level.Field!;
+        arena.Hero.Position = field.StartOf(0, 0, perSide);
+        arena.Hero.Yaw = FieldSpec.StartYaw(0);
+        if (heroBot)
+        {
+            arena.HeroBot("speedball");
+        }
+
+        for (int side = 0; side < 2; side++)
+        {
+            for (int i = side == 0 ? 1 : 0; i < perSide; i++)
+            {
+                var spawn = new OpponentSpawn
+                {
+                    Id = $"{(side == 0 ? "south" : "north")}{i}", Position = field.StartOf(side, i, perSide), Yaw = FieldSpec.StartYaw(side),
+                    Roles = new[] { "speedball" },
+                };
+                arena.AddBotAt(spawn, (byte)side, "speedball");
+            }
+        }
+
+        return arena;
+    }
+
+    /// <summary>Starts a speedball point: the briefing over, the countdown running (the horn comes by itself).</summary>
+    public BotArena StartSpeedball(int pods = 2)
+    {
+        SpeedballRules rules = Sim.Config.Rules.Speedball;
+        Sim.StartMatch(new MatchSetup
+        {
+            HeroId = 0, Mode = MatchModeKind.Teams, Format = MatchFormat.Speedball, TimeLimit = rules.PointTime, Countdown = rules.Countdown,
+            StartPods = pods, BotPods = pods, Pickups = false,
+        });
+        Sim.GoLive();
+        _commands = new InputCommand[Sim.Players.Count];
+        return this;
     }
 
     /// <summary>Starts the round (gear, stats) and goes live.</summary>

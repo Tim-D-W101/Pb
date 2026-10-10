@@ -245,20 +245,33 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
 
 ### M5.6 Speedball
 
-- [ ] The rules: 5 v 5 (people and bots), a horn countdown at every breakout (3, 2, 1, horn), a point won by putting the
+- [x] The rules: 5 v 5 (people and bots), a horn countdown at every breakout (3, 2, 1, horn), a point won by putting the
   other side out or hanging their buzzer (Interact held for 2 s), and 3 minutes a point. At time up the side with more
-  players in wins the point, and a tie scores nothing.
-- [ ] The match: first to 4 points (data). Between points: the score, then the next breakout. The summary comes at the
-  match's end. It works offline and online, where the lobby comes back when the match is won.
-- [ ] The bots:
+  players in wins the point, and a tie scores nothing. (A pip on each second of the countdown, then the horn; the
+  buzzer is hung from within 1.2 m of the other side's station, by one player at a time, and starts again if they let
+  go, step off or go out.)
+- [x] The match: first to 4 points (data). Between points: the score, then the next breakout. The summary comes at the
+  match's end. It works offline and online, where the lobby comes back when the match is won. (Between points: whose
+  point and how, the score, and the next point's countdown, for 6 s. Each point is the level built again; out with
+  the point still on, Enter plays the rest of it four times as fast. Online, each point's setup carries the score, and
+  the host and the dedicated server go straight on to the next point. `--race-to=N` for a shorter match.)
+- [x] The bots:
   - at the horn, each sprints to the bunker the squad gives it, shooting the lanes on the way;
   - they hold and snap-shoot, and watch the lanes;
   - they move up a bunker when ahead by the layout's margin, and work the sides;
   - they hang the buzzer when nobody covers it.
   - All three difficulty tiers.
-- [ ] The HUD: the point's clock, the match score, the buzzer's hang bar. Records keep matches played and won.
-- [ ] The modes go by area: the Sports Ground offers speedball (and capture the flag and arcade as they come), and the
-  compound areas keep solo, free-for-all and teams.
+
+  (As built: the squad deals each side back, middle and front places and a bunker for each, spread across the field.
+  Sprinting blocks firing, for bots as for you, so the runners don't shoot on the way: the back player covers the
+  lanes while they run. Ahead by one, a side moves one bot up every 5 s: the middle to the front, the back to the
+  middle, then the front on into the other half. Working the sides isn't a move of its own: the deal spreads a side
+  across the field's width, and the moves into the other half go up either side.)
+- [x] The HUD: the point's clock, the match score, the buzzer's hang bar. Records keep matches played and won. (The
+  clock is the top bar's, as in every round; the score is under it; the hang bar fills while a buzzer is being hung.
+  A match goes in the records as one round, won or lost, with its totals.)
+- [x] The modes go by area: the Sports Ground offers speedball (and capture the flag and arcade as they come), and the
+  compound areas keep solo, free-for-all and teams. (In the menu, the lobby, the vote and the server's rotation.)
 
 ### M5.7 Capture the flag
 

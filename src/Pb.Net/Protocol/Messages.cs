@@ -53,9 +53,10 @@ public static class NetProtocol
 {
     /// <summary>
     /// Bumped whenever a message changes: copies on different versions refuse each other (2: the callout key; 3: who you
-    /// are, in the hello; 4: everyone's kit, in the hello, the lobby and the round's roster).
+    /// are, in the hello; 4: everyone's kit, in the hello, the lobby and the round's roster; 5: speedball's countdown,
+    /// buzzers and match score, in the snapshot, the round's setup and the lobby).
     /// </summary>
-    public const int Version = 4;
+    public const int Version = 5;
 
     public static MessageType TypeOf(ReadOnlySpan<byte> packet) => packet.Length > 0 ? (MessageType)packet[0] : MessageType.None;
 }
@@ -257,6 +258,16 @@ public sealed class RoundSetupMessage
 
     public bool EndWhenPeopleOut { get; set; }
 
+    /// <summary>A point of a speedball match: the points a side needs (0: not a match), and the score before this point.</summary>
+    public int RaceTo { get; set; }
+
+    public int Points0 { get; set; }
+
+    public int Points1 { get; set; }
+
+    /// <summary>The match's points played before this one (those nobody won included).</summary>
+    public int PointsPlayed { get; set; }
+
     public List<RosterEntry> Roster { get; } = new();
 
     /// <summary>The player this copy plays (−1: watching).</summary>
@@ -280,6 +291,10 @@ public sealed class RoundSetupMessage
         w.WriteBool(Pickups);
         w.WriteByte(Attackers);
         w.WriteBool(EndWhenPeopleOut);
+        w.WriteVarUInt((uint)RaceTo);
+        w.WriteVarUInt((uint)Points0);
+        w.WriteVarUInt((uint)Points1);
+        w.WriteVarUInt((uint)PointsPlayed);
         w.WriteVarInt(YourPlayerId);
         w.WriteVarUInt((uint)Roster.Count);
         foreach (RosterEntry e in Roster)
@@ -319,6 +334,10 @@ public sealed class RoundSetupMessage
         m.Pickups = r.ReadBool();
         m.Attackers = r.ReadByte();
         m.EndWhenPeopleOut = r.ReadBool();
+        m.RaceTo = (int)r.ReadVarUInt();
+        m.Points0 = (int)r.ReadVarUInt();
+        m.Points1 = (int)r.ReadVarUInt();
+        m.PointsPlayed = (int)r.ReadVarUInt();
         m.YourPlayerId = r.ReadVarInt();
         if (m.PlaceId.Length == 0)
         {

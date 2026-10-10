@@ -13,7 +13,7 @@ ORDER = {
     "callouts": ["spotted", "lost", "underFire", "refill", "hit", "flanking", "pushing", "moving", "manDown", "caseTaken",
                  "caseDown", "caseAlarm", "roomAlarm"],
     "referee": ["start", "oneMinute", "thirtySeconds", "timeUp", "youreOut", "won", "lost", "lastStanding", "caseOut",
-                "roomHeld", "roomTaken", "roomContested"],
+                "roomHeld", "roomTaken", "roomContested", "buzzer", "pointWon", "pointLost", "noPoint"],
 }
 
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # CI's networked rounds (architecture §16.14): a headless dedicated server and five headless players on this machine, over
-# real UDP, playing a round on every area in all three modes (tools/ci/net-round.jsonc), with bots filling to ten. Each
-# player has a bot at its controls, sending its commands through the network as a person's would:
+# real UDP, playing a round on every area in all four modes (tools/ci/net-round.jsonc; on the Sports Ground a speedball
+# match, point after point, which counts once), with bots filling to ten. Each player has a bot at its controls, sending
+# its commands through the network as a person's would:
 #   Ada, Bo and Cy  play fairly at 100 ms round trip, with jitter and 1% loss, each in a brand's kit (--kit=BRAND);
 #   Trigger         flips its trigger on every tick (--net-cheat=fire): the server must hold it to the fire rate;
 #   Clock           runs twice as fast (--net-cheat=fast), sending twice the commands: the server must drop them, and log it.
-# It fails on any error, on any copy whose result differs from the server's, on more than 25 KB/s sent to a player while
+# It fails on any error, on any copy whose result (of every round and point) differs from the server's, on more than 25 KB/s sent to a player while
 # a round is live (architecture §16.5), on a shot rate over the cap, if the extra commands aren't logged, or if a copy's
 # roster doesn't have Ada, Bo and Cy in their kits.
 #   tools/ci/net-round.sh path/to/godot [time-limit-s]
@@ -64,8 +65,10 @@ for name in "${names[@]}"; do
   fi
 done
 
-# Every copy ends every round with the server's result, to the shot.
-for r in $(seq "$rounds"); do
+# Every copy ends every round (each point of a speedball match one of them) with the server's result, to the shot.
+played=$(grep -c "^NET RESULT round" "$logs/server.log")
+[ "$played" -gt "$rounds" ] || fail "the server played $played rounds: a speedball match should have had at least two points"
+for r in $(seq "$played"); do
   expected="$(grep -m1 "^NET RESULT round $r:" "$logs/server.log")"
   [ -n "$expected" ] || { fail "the server has no result for round $r"; continue; }
   echo "$expected"
@@ -111,4 +114,4 @@ if [ "$failed" -ne 0 ]; then
   echo "Logs: $logs"
   exit 1
 fi
-echo "NET ROUNDS PASS: $rounds rounds, every copy with the server's result; traffic within $budget_kBps KB/s; Trigger held to the cap ($trigger_shots shots); Clock's extra commands dropped and logged; everyone's kit on every copy"
+echo "NET ROUNDS PASS: $rounds rounds ($played with each point of the speedball match), every copy with the server's result; traffic within $budget_kBps KB/s; Trigger held to the cap ($trigger_shots shots); Clock's extra commands dropped and logged; everyone's kit on every copy"

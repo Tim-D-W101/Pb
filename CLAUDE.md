@@ -147,8 +147,11 @@ dents in and shivers out where each ball strikes.
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
-the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
-objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`), e.g.
+the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame); on the
+Sports Ground it plays a speedball match point after point, the level built again for each (`--race-to=N` points to
+win, here and when hosting). `--mode=solo|ffa|teams|speedball`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
+objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`; the menu
+offers an area only its `modes` from `areas.jsonc`, but `--mode` plays any), e.g.
 `-- --round-tour --mode=ffa --size=6 --place=warehouse` (the Sports Ground's places are its layouts: `--level=sports_ground
 --place=crossfire`); `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
 runs quicker; and

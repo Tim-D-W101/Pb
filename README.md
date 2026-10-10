@@ -20,8 +20,9 @@ online, everyone sees everyone's kit; and M5.4: paint that looks like paint, wet
 satin, wrapped round players and their gear and moving with them, spattering your own marker and gloves when a ball breaks
 close to you; and M5.5: **the Sports Ground**, a fifth area, the paintball club's speedball field beside the works:
 inflatable bunkers on mown turf inside nets, in two layouts (Classic, mirrored, and Crossfire, turned half round), the
-club's pits and the brands' banners round it, and the works over the fence. Until speedball comes (M5.6) it plays the
-compound modes.** Phase 2 is built
+club's pits and the brands' banners round it, and the works over the fence; and M5.6: **speedball** on it, 5 v 5 with
+bots on either side, each point from the start boxes after a countdown to the horn, won by putting the other side out
+or holding Interact at their buzzer for 2 s, first to 4 points, offline and online.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a

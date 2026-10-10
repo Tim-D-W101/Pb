@@ -94,6 +94,33 @@ public static class SpawnPlanner
         return planner.Run();
     }
 
+    /// <summary>
+    /// A speedball point's starts: both sides in a row across their start boxes facing up the field, you in the middle of
+    /// the south's (side 0) with <paramref name="size"/> − 1 teammates, <paramref name="size"/> against you in the north's.
+    /// Every bot plays the mode's first role (speedball's own: the squad deals each its place at the horn).
+    /// </summary>
+    public static SpawnPlan Speedball(FieldSpec field, GameMode mode, int size)
+    {
+        string role = mode.Roles.Count > 0 ? mode.Roles[0].Role : "speedball";
+        int you = size / 2;
+        var teammates = new List<OpponentSpawn>(size);
+        var opponents = new List<OpponentSpawn>(size);
+        for (int i = 0; i < size; i++)
+        {
+            if (i != you)
+            {
+                teammates.Add(new OpponentSpawn { Id = $"south_{i}", Position = field.StartOf(0, i, size), Yaw = FieldSpec.StartYaw(0), Roles = new[] { role } });
+            }
+
+            opponents.Add(new OpponentSpawn { Id = $"north_{i}", Position = field.StartOf(1, i, size), Yaw = FieldSpec.StartYaw(1), Roles = new[] { role } });
+        }
+
+        return new SpawnPlan
+        {
+            You = new SpawnPoint(field.StartOf(0, you, size), FieldSpec.StartYaw(0)), Teammates = teammates, Opponents = opponents,
+        };
+    }
+
     /// <summary>One of the level's player spawns at random; with an objective, one well clear of it (the farthest if none is).</summary>
     private static SpawnPoint YourStart(LevelLayout level, SpawnRules rules, ObjectiveFocus? objective, ref Pcg32 rng)
     {

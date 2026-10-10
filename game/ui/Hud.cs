@@ -159,6 +159,19 @@ public partial class Hud : CanvasLayer, ISimEventListener
         hud.Initialize(_sim, _player, objective, view);
     }
 
+    /// <summary>Speedball: the countdown, the match's score (<paramref name="score"/>) and the hang under way.</summary>
+    public void InitializeSpeedball(Func<(int Ours, int Theirs, int RaceTo, int Point)?> score)
+    {
+        if (_sim.Match?.Buzzers is null || _hudDef is null)
+        {
+            return;
+        }
+
+        var hud = new SpeedballHud { Name = "Speedball" };
+        GetNode<Control>("Root").AddChild(hud);
+        hud.Initialize(_sim, _player, _teams[_player.Team % _teams.Length], _hudDef.HornShow_s, score);
+    }
+
     /// <summary>Playing with others: a warning that the connection's poor (null takes it away).</summary>
     public void Connection(string? warning)
     {
@@ -468,6 +481,24 @@ public partial class Hud : CanvasLayer, ISimEventListener
             _prompt.Text = $"{InputSetup.KeyName("interact")} · {(shut ? "open the door (hold to ease it open)" : "shut the door")}";
             _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
             return;
+        }
+
+        // At the other side's buzzer: how to hang it.
+        if (_sim.Match?.Buzzers is { HungSide: < 0 } buzzers)
+        {
+            for (int side = 0; side < buzzers.Count; side++)
+            {
+                if (buzzers.InReach(_player, side))
+                {
+                    int hanger = buzzers.Hanger(side);
+                    _prompt.Visible = true;
+                    _prompt.Text = hanger == _player.Id ? $"Keep holding {InputSetup.KeyName("interact")} · hanging the buzzer"
+                        : hanger >= 0 ? "Someone's already hanging the buzzer"
+                        : $"Hold {InputSetup.KeyName("interact")} · hang their buzzer";
+                    _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
+                    return;
+                }
+            }
         }
 
         if (!pickups.Active)

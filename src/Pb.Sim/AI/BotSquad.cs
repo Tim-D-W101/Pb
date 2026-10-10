@@ -1,4 +1,6 @@
 using System.Numerics;
+using Pb.Sim.Collision;
+using Pb.Sim.Core;
 using Pb.Sim.Data;
 using Pb.Sim.Events;
 using Pb.Sim.Level;
@@ -25,6 +27,15 @@ public sealed class BotSquad
     private int _syncedTick = int.MinValue;
     private int _searchesLeft;
     private float _alarmLeft;
+
+    // Speedball: whether this point's places have been dealt, when a side next looks at moving up and at the buzzers,
+    // the dealer's random numbers, and a side's bots (kept, so dealing allocates nothing).
+    private readonly List<BotBrain> _side = new(16);
+    private readonly List<int> _found = new(64);
+    private bool _dealt;
+    private float _advanceLeft;
+    private float _hangLeft;
+    private Pcg32 _dealer;
 
     public BotSquad(SimWorld sim, BotConfig config, NavGrid grid, CoverSet cover)
     {
@@ -160,6 +171,7 @@ public sealed class BotSquad
         _incomingContacts.Clear();
         _searchesLeft = Config.Navigation.SearchesPerTick;
         UpdateObjective();
+        UpdateSpeedball();
     }
 
     /// <summary>
@@ -272,6 +284,327 @@ public sealed class BotSquad
                 bot.Alarm(nearest);
             }
         }
+    }
+
+    /// <summary>
+    /// Speedball, once a tick while a point is on: at the horn each side's bots are dealt their places and bunkers; then a
+    /// side ahead by the margin moves one of its bots up a bunker now and then, and one goes to hang the other side's
+    /// buzzer when none of that side still in can see it.
+    /// </summary>
+    private void UpdateSpeedball()
+    {
+        if (Sim.Match is not { Buzzers: { HungSide: < 0 } buzzers } || Sim.Level?.FieldLayout is not { } layout || !Sim.IsLive)
+        {
+            return;
+        }
+
+        SpeedballBrain rules = Config.Brain.Speedball;
+        if (!_dealt)
+        {
+            _dealt = true;
+            _dealer = new Pcg32(SeedHash.Combine(Sim.MatchSeed, 0x5BA11UL));
+            Deal(layout, 0);
+            Deal(layout, 1);
+            _advanceLeft = rules.AdvanceEvery;
+            _hangLeft = rules.HangCheck;
+            return;
+        }
+
+        if ((_advanceLeft -= Sim.Dt) <= 0f)
+        {
+            _advanceLeft = rules.AdvanceEvery;
+            Advance(layout);
+        }
+
+        if ((_hangLeft -= Sim.Dt) <= 0f)
+        {
+            _hangLeft = rules.HangCheck;
+            SendToHang(buzzers, 0);
+            SendToHang(buzzers, 1);
+        }
+    }
+
+    /// <summary>Side <paramref name="side"/>'s speedball bots still in, into <see cref="_side"/>.</summary>
+    private void GatherSide(int side)
+    {
+        _side.Clear();
+        foreach (BotBrain bot in _bots)
+        {
+            if (bot.Self.Alive && bot.Self.Team == side && bot.Archetype.Idle == BotIdle.Speedball)
+            {
+                _side.Add(bot);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The breakout: side <paramref name="side"/>'s bots (in a shuffled order) get their places, the back and middle
+    /// shares of the side (at least one each with three or more, and at least one up front), and a bunker each; all but
+    /// the back sprint for theirs.
+    /// </summary>
+    private void Deal(FieldLayoutSpec layout, int side)
+    {
+        GatherSide(side);
+        int n = _side.Count;
+        for (int i = n - 1; i > 0; i--)
+        {
+            int j = (int)(_dealer.NextUInt() % (uint)(i + 1));
+            (_side[i], _side[j]) = (_side[j], _side[i]);
+        }
+
+        SpeedballBrain rules = Config.Brain.Speedball;
+        int back = n >= 3 ? Math.Max(1, (int)MathF.Round(n * rules.BackShare)) : 0;
+        int mid = n >= 3 ? Math.Max(1, (int)MathF.Round(n * rules.MidShare)) : n == 2 ? 1 : 0;
+        mid = Math.Min(mid, Math.Max(0, n - back - 1));
+        for (int k = 0; k < n; k++)
+        {
+            // The back covers the lanes at the horn (it fights whoever it sees running, then takes its bunker); the
+            // rest sprint for theirs.
+            SpeedballPlace place = k < back ? SpeedballPlace.Back : k < back + mid ? SpeedballPlace.Mid : SpeedballPlace.Front;
+            Send(_side[k], layout, place, breakout: place != SpeedballPlace.Back);
+        }
+    }
+
+    /// <summary>
+    /// <paramref name="bot"/> to a bunker for <paramref name="place"/>: one of its side's (or on the halfway line) tagged for
+    /// the place that nobody of its side plays from, spread over the snake side, the wedge side and the centre; failing
+    /// one, any free bunker of its side. It plays from a free cover point there on its side's side of the bunker.
+    /// </summary>
+    private void Send(BotBrain bot, FieldLayoutSpec layout, SpeedballPlace place, bool breakout)
+    {
+        int side = bot.Self.Team;
+        // Deep is the other half's front bunkers, then its middle ones.
+        int half = place == SpeedballPlace.Deep ? 1 - side : side;
+        string tag = place switch { SpeedballPlace.Back => "back", SpeedballPlace.Mid => "mid", _ => "front" };
+        ulong tried = 0; // bunkers with no cover point left to take (a layout has fewer than 64)
+        while (true)
+        {
+            int best = -1;
+            float bestScore = float.MinValue;
+            for (int i = 0; i < layout.Bunkers.Count && i < 64; i++)
+            {
+                FieldBunker b = layout.Bunkers[i];
+                // The halfway line's bunkers are either side's front.
+                bool there = b.Side == half || (b.Side == -1 && place != SpeedballPlace.Deep);
+                if (!there || (tried & (1UL << i)) != 0 || PlayedFrom(i, side, bot))
+                {
+                    continue;
+                }
+
+                float score = (b.Has(tag) ? 10f : place == SpeedballPlace.Deep && b.Has("mid") ? 5f : 0f) - SameSide(layout, b, side, bot) * 3f +
+                              _dealer.NextFloat();
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    best = i;
+                }
+            }
+
+            if (best < 0)
+            {
+                return;
+            }
+
+            int cover = CoverAt(layout, best, side, bot.Self.Id);
+            if (cover >= 0)
+            {
+                bot.Place = place;
+                bot.PlayFrom(best, cover, breakout);
+                return;
+            }
+
+            tried |= 1UL << best;
+        }
+    }
+
+    /// <summary>Whether a teammate of <paramref name="bot"/>'s (still in) plays from bunker <paramref name="bunker"/>.</summary>
+    private bool PlayedFrom(int bunker, int side, BotBrain bot)
+    {
+        foreach (BotBrain other in _bots)
+        {
+            if (other != bot && other.Self.Alive && other.Self.Team == side && other.Bunker == bunker)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>How many of <paramref name="bot"/>'s teammates play on the same side of the field as bunker <paramref name="b"/>.</summary>
+    private int SameSide(FieldLayoutSpec layout, FieldBunker b, int side, BotBrain bot)
+    {
+        int count = 0;
+        foreach (BotBrain other in _bots)
+        {
+            if (other != bot && other.Self.Alive && other.Self.Team == side && other.Bunker >= 0 && other.Bunker < layout.Bunkers.Count)
+            {
+                FieldBunker theirs = layout.Bunkers[other.Bunker];
+                count += (theirs.Has("snake") && b.Has("snake")) || (theirs.Has("wedge") && b.Has("wedge")) || (theirs.Has("centre") && b.Has("centre")) ? 1 : 0;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// A free cover point at bunker <paramref name="bunker"/> on side <paramref name="side"/>'s side of it (claimed for
+    /// <paramref name="who"/>), or −1: the one facing most squarely back towards the side's start box.
+    /// </summary>
+    private int CoverAt(FieldLayoutSpec layout, int bunker, int side, int who)
+    {
+        FieldBunker b = layout.Bunkers[bunker];
+        Cover.Near(b.Position, 8f, _found);
+        float home = side == 0 ? 1f : -1f;
+        int best = -1;
+        float bestScore = float.MinValue;
+        for (int k = 0; k < _found.Count; k++)
+        {
+            int i = _found[k];
+            CoverPoint p = Cover.Points[i];
+            int holder = Cover.ClaimedBy(i);
+            float facing = p.Normal.Z * home;
+            if ((holder != -1 && holder != who) || facing < 0.3f || !AtBunker(bunker, p.Position))
+            {
+                continue;
+            }
+
+            float score = facing * 2f + (p.Height == CoverHeight.Full ? 0.5f : 0f) - Flat(p.Position - b.Position) * 0.2f;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = i;
+            }
+        }
+
+        return best >= 0 && Cover.Claim(best, who) ? best : -1;
+    }
+
+    /// <summary>Whether <paramref name="at"/> is by bunker <paramref name="bunker"/> of the field's layout (within a metre of one of its pieces).</summary>
+    internal bool AtBunker(int bunker, Vector3 at)
+    {
+        if (Sim.Level is not { FieldLayout: { } layout } level || bunker < 0 || bunker >= layout.Bunkers.Count)
+        {
+            return false;
+        }
+
+        PropInstance prop = level.Props[layout.Bunkers[bunker].PropIndex];
+        for (int i = prop.FirstPrimitive; i < prop.FirstPrimitive + prop.PrimitiveCount; i++)
+        {
+            Aabb box = level.Primitives[i].Bounds;
+            if (at.X > box.Min.X - 1f && at.X < box.Max.X + 1f && at.Z > box.Min.Z - 1f && at.Z < box.Max.Z + 1f)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// A side with the margin's more players in moves one bot up a bunker: from the middle up front, else from the back;
+    /// with nobody left behind the front, one from the front on into the other half.
+    /// </summary>
+    internal void Advance(FieldLayoutSpec layout)
+    {
+        int south = 0, north = 0;
+        foreach (PlayerState p in Sim.Players)
+        {
+            if (p.Alive)
+            {
+                south += p.Team == 0 ? 1 : 0;
+                north += p.Team == 1 ? 1 : 0;
+            }
+        }
+
+        int margin = Config.Brain.Speedball.AdvanceMargin;
+        for (int side = 0; side < 2; side++)
+        {
+            int lead = side == 0 ? south - north : north - south;
+            if (lead < margin)
+            {
+                continue;
+            }
+
+            GatherSide(side);
+            BotBrain? up = null;
+            foreach (BotBrain bot in _side)
+            {
+                if (bot.Hanging || bot.BreakingOut || bot.Place is SpeedballPlace.None or SpeedballPlace.Deep)
+                {
+                    continue;
+                }
+
+                // The middle moves up first (the back stays covering the lanes longest), then the back, then the front.
+                if (up is null || Rank(bot.Place) > Rank(up.Place))
+                {
+                    up = bot;
+                }
+            }
+
+            if (up is not null)
+            {
+                SpeedballPlace next = up.Place switch
+                {
+                    SpeedballPlace.Back => SpeedballPlace.Mid,
+                    SpeedballPlace.Mid => SpeedballPlace.Front,
+                    _ => SpeedballPlace.Deep,
+                };
+                Send(up, layout, next, breakout: false);
+            }
+        }
+    }
+
+    /// <summary>Which places move up first: the middle, then the back, then the front.</summary>
+    private static int Rank(SpeedballPlace place) => place switch
+    {
+        SpeedballPlace.Mid => 3,
+        SpeedballPlace.Back => 2,
+        SpeedballPlace.Front => 1,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// Side <paramref name="side"/> looks at the other side's buzzer: if none of that side still in can see its station,
+    /// its bot nearest the station goes to hang it (unless one already is).
+    /// </summary>
+    private void SendToHang(BuzzerSet buzzers, int side)
+    {
+        int theirs = 1 - side;
+        Vector3 station = buzzers.Post(theirs) + new Vector3(0f, 1.2f, 0f);
+        BotBrain? nearest = null;
+        foreach (BotBrain bot in _bots)
+        {
+            if (!bot.Self.Alive || bot.Self.Team != side || bot.Archetype.Idle != BotIdle.Speedball)
+            {
+                continue;
+            }
+
+            if (bot.Hanging)
+            {
+                return;
+            }
+
+            if (nearest is null || Flat(bot.Self.Position - station) < Flat(nearest.Self.Position - station))
+            {
+                nearest = bot;
+            }
+        }
+
+        if (nearest is null)
+        {
+            return;
+        }
+
+        foreach (PlayerState p in Sim.Players)
+        {
+            if (p.Alive && p.Present && p.Team == theirs && !Sim.Collision.SweepSphere(p.EyePosition, station, 0.02f, out _))
+            {
+                return; // someone of theirs watches it
+            }
+        }
+
+        nearest.HangBuzzer();
     }
 
     /// <summary>A defender's post on the walkable ground nearest <paramref name="spot"/>.</summary>

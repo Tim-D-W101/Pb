@@ -105,6 +105,7 @@ public sealed class GameData
                     DisplayName = m.DisplayName,
                     Description = m.Description,
                     Kind = m.Kind,
+                    Format = m.Format,
                     Sizes = m.Sizes,
                     DefaultSize = m.DefaultSize,
                     Roles = m.Roles.Select(r => (r.Role, r.Weight)).ToArray(),
@@ -112,6 +113,8 @@ public sealed class GameData
                 }).ToArray(),
                 MaxPlayers = rules.MaxPlayers,
                 Callout = new CalloutRules(MathF.Cos(rules.Callout.Cone_deg * Units.DegreesToRadians), rules.Callout.Range_m, rules.Callout.Cooldown_s),
+                Speedball = new SpeedballRules(rules.Speedball.RaceTo, rules.Speedball.PointTime_s, rules.Speedball.Countdown_s, rules.Speedball.HangTime_s,
+                    rules.Speedball.HangReach_m, rules.Speedball.BetweenPoints_s),
                 SettleTime = rules.SettleTime_s,
                 TradeCountsAsClear = rules.TradeCountsAsClear,
                 PickupRadius = rules.PickupRadius_m,
@@ -190,6 +193,19 @@ public sealed class GameData
 
             LevelLayout built = LevelFactory.Build(level, entry.File, kit);
             CheckTiers(entry, built, files.Areas, bots);
+            foreach (string mode in entry.Modes ?? Array.Empty<string>())
+            {
+                ModeDef? def = rules.Modes.FirstOrDefault(m => m.Id == mode);
+                if (def is null)
+                {
+                    throw new DataException(files.Areas, $"areas: '{entry.Id}' offers the mode '{mode}', which rules.jsonc doesn't have");
+                }
+
+                if (def.Format == MatchFormat.Speedball && built.Field is null)
+                {
+                    throw new DataException(files.Areas, $"areas: '{entry.Id}' offers speedball, but its level has no field");
+                }
+            }
             levels[entry.Id] = built;
         }
 

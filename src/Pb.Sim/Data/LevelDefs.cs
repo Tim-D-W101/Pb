@@ -1880,11 +1880,22 @@ public sealed class AreaEntryDef : IValidatable
     /// </summary>
     public string[] Roster { get; set; } = Array.Empty<string>();
 
+    /// <summary>
+    /// The modes the area offers (rules.jsonc "modes" ids), in the menu's order; without it, every mode played as one
+    /// round (a field lists its own: speedball's matches are played nowhere else).
+    /// </summary>
+    [Optional]
+    public string[]? Modes { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.NotEmpty(nameof(DisplayName), DisplayName);
         v.NotEmpty(nameof(File), File);
+        if (Modes is { } modes && (modes.Length == 0 || modes.Distinct(StringComparer.Ordinal).Count() != modes.Length))
+        {
+            v.Error(nameof(Modes), "lists no mode, or one twice");
+        }
         if (Tiers.Length == 0)
         {
             v.Error(nameof(Tiers), "an area needs at least one difficulty tier");

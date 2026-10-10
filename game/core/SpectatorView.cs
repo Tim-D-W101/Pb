@@ -87,7 +87,9 @@ public partial class SpectatorView : Node3D
     /// <paramref name="colourOf"/> (a team's colour), until <paramref name="skip"/> is chosen. The camera
     /// keeps out of <paramref name="world"/>'s walls, like a spring arm.
     /// </summary>
-    public void Follow(Func<IReadOnlyList<PlayerState>> watchable, Func<int, Color> colourOf, Action skip, ICollisionWorld world)
+    /// <param name="skipText">The skip button's words (null: no skip button, nothing to skip to).</param>
+    public void Follow(Func<IReadOnlyList<PlayerState>> watchable, Func<int, Color> colourOf, Action skip, ICollisionWorld world,
+        string? skipText = "Skip to summary (Enter)")
     {
         _watchable = watchable;
         _colourOf = colourOf;
@@ -111,7 +113,11 @@ public partial class SpectatorView : Node3D
         _watchLabel.AddThemeConstantOverride("outline_size", 8);
         bar.AddChild(_watchLabel);
         bar.AddChild(UiKit.Button("Next player (Space)", Next, 240));
-        bar.AddChild(UiKit.Button("Skip to summary (Enter)", () => _skip?.Invoke(), 280));
+        if (skipText is not null)
+        {
+            bar.AddChild(UiKit.Button(skipText, () => _skip?.Invoke(), 280));
+        }
+
         _layer.AddChild(bar);
         Next();
     }

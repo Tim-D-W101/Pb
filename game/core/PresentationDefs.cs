@@ -2455,6 +2455,9 @@ public sealed class HudDef : IValidatable
 
     public float ChatShow_s { get; set; }
 
+    /// <summary>Speedball: "GO" stays up this long after the horn (s).</summary>
+    public float HornShow_s { get; set; }
+
     public string[] Callsigns { get; set; } = System.Array.Empty<string>();
 
     public CalloutsDef Callouts { get; set; } = new();
@@ -2476,6 +2479,7 @@ public sealed class HudDef : IValidatable
         v.InRange(nameof(CalloutMark_s), CalloutMark_s, 0.5, 30);
         v.InRange(nameof(ChatLines), ChatLines, 1, 20);
         v.InRange(nameof(ChatShow_s), ChatShow_s, 1, 120);
+        v.InRange(nameof(HornShow_s), HornShow_s, 0, 5);
         if (!Godot.Color.HtmlIsValid(HitMarkerColor))
         {
             v.Error(nameof(HitMarkerColor), $"'{HitMarkerColor}' is not a valid colour");
@@ -2528,9 +2532,19 @@ public sealed class RefereeDef : IValidatable
 
     public string[] RoomContested { get; set; } = System.Array.Empty<string>();
 
+    /// <summary>Speedball: a buzzer's been hung; then whose point it is, or nobody's.</summary>
+    public string[] Buzzer { get; set; } = System.Array.Empty<string>();
+
+    public string[] PointWon { get; set; } = System.Array.Empty<string>();
+
+    public string[] PointLost { get; set; } = System.Array.Empty<string>();
+
+    public string[] NoPoint { get; set; } = System.Array.Empty<string>();
+
     /// <summary>Every line, in order (the referee's script).</summary>
     public IEnumerable<string> All => Start.Concat(OneMinute).Concat(ThirtySeconds).Concat(TimeUp).Concat(YoureOut).Concat(Won).Concat(Lost)
-        .Concat(LastStanding).Concat(CaseOut).Concat(RoomHeld).Concat(RoomTaken).Concat(RoomContested);
+        .Concat(LastStanding).Concat(CaseOut).Concat(RoomHeld).Concat(RoomTaken).Concat(RoomContested).Concat(Buzzer).Concat(PointWon)
+        .Concat(PointLost).Concat(NoPoint);
 
     public void Validate(Validator v)
     {
@@ -2624,8 +2638,12 @@ public sealed class SpectatorDef : IValidatable
 
     public float FollowHeight_m { get; set; }
 
+    /// <summary>Speedball, out with the point still on: Enter plays the rest of it this many times as fast.</summary>
+    public float FastForward { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(FastForward), FastForward, 1, 8);
         v.InRange(nameof(Duration_s), Duration_s, 0.5, 30);
         v.InRange(nameof(Height_m), Height_m, 0, 10);
         v.InRange(nameof(Back_m), Back_m, 0, 20);

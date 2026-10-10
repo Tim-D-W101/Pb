@@ -53,6 +53,8 @@ namespace Pb.Game.Core;
 ///   --gear-demo           four opponents in a row, each in one brand's kit, close up; then each brand's marker in first person
 ///   --paint-demo          four opponents in a row painted by balls from every side, the ground and a wall too: wet, turning round, dry
 ///   --wobble-demo         you shoot the inflatable nearest your start, filmed close up as its fabric dents in and shivers out
+///   --speedball-demo      a speedball point through your eyes: the countdown, the breakout, you hanging their buzzer, the score
+///   --race-to=N           a speedball match is won at N points (default: rules.jsonc's)
 ///   --kit=BRAND           you wear every slot from that brand's range (kilnmark, vellis, quarrow, norrel)
 ///   --cover-at=X,Z        with --cover-demo, the low cover nearest that point (else the nearest out in the open)
 ///   --ladder-demo         an opponent climbs a ladder, steps off at the top, turns round and climbs down, from the side
@@ -142,6 +144,12 @@ public partial class LevelMain : Node3D, ISimEventListener
     private bool _ready;
     /// <summary>A real round (not a scripted run or a tour): it goes in your records when it ends.</summary>
     private bool _counts;
+
+    /// <summary>Speedball offline: the match this point belongs to (kept in <see cref="GameSession"/> between points).</summary>
+    private SpeedballMatch? _speedball;
+
+    /// <summary><c>--speedball-demo</c>: a scripted point, played on through its screens (unlike the other scripted runs).</summary>
+    private bool _speedballDemo;
 
     /// <summary>Playing with others: the session (null offline).</summary>
     private NetSession? _net;
@@ -243,6 +251,11 @@ public partial class LevelMain : Node3D, ISimEventListener
                 throw new InvalidOperationException($"{area.DisplayName}: {_level.Place?.DisplayName} has no places for {_objective.DisplayName}");
             }
 
+            if (_mode.Format == MatchFormat.Speedball && _level.Field is null)
+            {
+                throw new InvalidOperationException($"{area.DisplayName} has no field to play {_mode.DisplayName} on");
+            }
+
             _round = new RoundInfo(_level, _tier, _mode, _size, _objective);
         }
         catch (Exception ex) when (ex is DataException or InvalidOperationException)
@@ -276,8 +289,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool paintDemo = Args.Has("--paint-demo");
         bool wobbleDemo = Args.Has("--wobble-demo");
         _botMatch = Args.Has("--bot-match");
+        _speedballDemo = Args.Has("--speedball-demo");
         _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || gearDemo || paintDemo || wobbleDemo || _botMatch || Args.Has("--objective-demo");
+                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || gearDemo || paintDemo || wobbleDemo || _botMatch || Args.Has("--objective-demo") ||
+                    _speedballDemo;
         bool roundTour = Args.Has("--round-tour");
         // Rounds played with others don't go in your records: they stay your bests alone.
         _counts = !_scripted && !roundTour && _net is null;
@@ -289,6 +304,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             : ulong.TryParse(Args.Value("--seed"), out ulong given) ? given
             : repeatable && _net is null ? _data.Config.MatchSeed
             : (ulong)System.Random.Shared.NextInt64();
+        if (_netSetup is null && GameSession.Speedball is { Series.Done: false, Point: > 1 } playing)
+        {
+            // Each point of a speedball match plays out its own way, in repeatable runs too.
+            seed += (ulong)(playing.Point - 1) * 0x9E3779B97F4A7C15UL;
+        }
+
         _sim = new SimWorld(_data.Config, seed);
         _sim.LoadLevel(_level);
         // Everything built once from the level as it stands (cover, starts, weeds, old paint, light) leaves the doors
@@ -305,6 +326,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _starts = _net is not null ? null
+            : _mode.Format == MatchFormat.Speedball ? SpawnPlanner.Speedball(_level.Field!, _mode, _size)
             : !repeatable || Args.Has("--random-spawns") || _mode.Kind != MatchModeKind.Solo || focus is not null || _level.Place is { Whole: false }
             ? SpawnPlanner.Plan(_level, _squad.Cover, _sim.Collision, _data.Config.Rules.Spawning, _data.Bots,
                 RoundShape.Of(_mode, _size, focus), _data.Config.Movement.StandEyeHeight, seed)
@@ -438,7 +460,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else
         {
-            SpawnBots(hostile: botDemo || roleDemo is not null || _botMatch || (!_scripted && !roundTour));
+            SpawnBots(hostile: botDemo || roleDemo is not null || _botMatch || _speedballDemo || (!_scripted && !roundTour));
         }
         _botDebug = new BotDebugOverlay { Name = "BotDebug" };
         AddChild(_botDebug);
@@ -475,19 +497,36 @@ public partial class LevelMain : Node3D, ISimEventListener
         _hud.Initialize(_sim, state, _driver, _settings, _view, () => (_splats.ActiveCount, _splats.Capacity), () => _arc.Summary);
         _hud.InitializeMatch(_view, MatchClock);
         _hud.ShowHelp = false;
-        MatchSetup setup = _netSetup is { } cast ? RoundWorld.MatchSetupOf(_data.Config, cast) : MatchSetup.From(_tier, state.Id, _mode.Kind, _objective.Kind);
+        MatchSetup setup = _netSetup is { } cast ? RoundWorld.MatchSetupOf(_data.Config, cast)
+            : MatchSetup.From(_tier, state.Id, _mode.Kind, _objective.Kind).As(_mode.Format, _data.Config.Rules.Speedball);
         if (_netSetup is null &&
             float.TryParse(Args.Value("--time-limit"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float limit))
         {
-            setup = new MatchSetup
-            {
-                HeroId = setup.HeroId, Mode = setup.Mode, TimeLimit = limit, StartPods = setup.StartPods, BotPods = setup.BotPods, Pickups = setup.Pickups,
-                Objective = setup.Objective,
-            };
+            setup = setup.WithTimeLimit(limit);
         }
 
+        if (_net is null && setup.Format == MatchFormat.Speedball)
+        {
+            // A point of the match under way, or the first of a new one (another choice, or the last match over).
+            string key = $"{_entry.Id}/{_level.Place?.Id}/{_mode.Id}/{_size}/{_tier.Id}";
+            int raceTo = Args.Ticks("--race-to", _data.Config.Rules.Speedball.RaceTo) ?? _data.Config.Rules.Speedball.RaceTo;
+            if (GameSession.Speedball is not { Series.Done: false } going || going.Key != key)
+            {
+                GameSession.Speedball = new SpeedballMatch(key, raceTo);
+            }
+
+            _speedball = GameSession.Speedball;
+        }
+        else if (_netSetup is { RaceTo: > 0 } point)
+        {
+            // A point of a match played with others: the score so far comes with it (the lobby keeps the match).
+            _speedball = SpeedballMatch.Joined(point.Round, point.RaceTo, point.Points0, point.Points1, point.PointsPlayed);
+        }
+
+        _round = _round with { TimeLimit = setup.TimeLimit };
         _match = _sim.StartMatch(setup);
         _hud.InitializeObjective(_view.Objectives);
+        _hud.InitializeSpeedball(SpeedballScore);
         BuildOthersHud(state);
         var objectiveViews = new ObjectiveViews { Name = "Objective" };
         AddChild(objectiveViews);
@@ -500,7 +539,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _pause = new PauseMenu { Name = "Pause" };
         AddChild(_pause);
         _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Effective(s.GraphicsPreset, s.Graphics)),
-            restart: _net is null ? () => GetTree().ReloadCurrentScene() : null, hudChanged: _ => _hud.ApplySettings(),
+            restart: _net is null ? RestartRound : null, hudChanged: _ => _hud.ApplySettings(),
             quit: _net is null ? null : LeaveGame);
 
         var maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
@@ -570,6 +609,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             _hud.ShowHelp = false;
             _hud.ShowPerf = false;
         }
+        else if (_speedballDemo)
+        {
+            _player.AutoPilot = new SpeedballDemo(_sim, _player, _bots);
+            _hud.ShowHelp = false;
+            _hud.ShowPerf = false;
+        }
         else if (Args.Has("--duel-demo"))
         {
             var demo = new DuelDemo(this, _sim, _pawns);
@@ -592,8 +637,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (_botMatch)
         {
-            var you = new OpponentSpawn { Id = "you", Position = start.Position, Yaw = start.Yaw, Roles = new[] { "hunter" } };
-            BotBrain brain = _squad.Add(state, _data.Bots.Archetypes["hunter"], _data.Bots.Difficulty[_tier.Bots], you);
+            // A hunter, or in speedball a speedball player like everyone else on the field.
+            string role = _mode.Format == MatchFormat.Speedball ? _mode.Roles[0].Role : "hunter";
+            var you = new OpponentSpawn { Id = "you", Position = start.Position, Yaw = start.Yaw, Roles = new[] { role } };
+            BotBrain brain = _squad.Add(state, _data.Bots.Archetypes[role], _data.Bots.Difficulty[_tier.Bots], you);
             _player.AutoPilot = Args.Has("--call-outs") ? new CallingPilot(brain) : new BotPilot(brain);
             _hud.ShowPerf = false;
             if (Args.Has("--fast"))
@@ -603,7 +650,7 @@ public partial class LevelMain : Node3D, ISimEventListener
                 Engine.MaxPhysicsStepsPerFrame = 1024;
             }
 
-            GD.Print($"BOT MATCH a hunter bot plays your slot in {_round.Line} with {_bots.Count} {_tier.Bots} bots, {setup.TimeLimit:0} s on the clock");
+            GD.Print($"BOT MATCH a {role} bot plays your slot in {_round.Line} with {_bots.Count} {_tier.Bots} bots, {setup.TimeLimit:0} s on the clock");
             // Every 10 s of the round: where your bot is, what it's doing, and how the objective stands (for CI's log).
             int every = (int)(10f * _sim.Config.TickRate);
             _driver.Ticked += tick =>
@@ -688,11 +735,16 @@ public partial class LevelMain : Node3D, ISimEventListener
         else if (_net is not null)
         {
             ShowOverlay(RoundScreens.Briefing(_round, BeginRound, LeaveGame, BriefingMap(), _match.Objective,
-                waiting: _net.Hosting ? "Waiting for everyone to be ready…" : "The round starts once everyone's in."));
+                waiting: _net.Hosting ? "Waiting for everyone to be ready…" : "The round starts once everyone's in.", race: _speedball?.Series.RaceTo));
+        }
+        else if (_speedball is { Point: > 1 })
+        {
+            // The match's next point: no briefing, straight to the countdown.
+            BeginRound();
         }
         else
         {
-            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective));
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective, race: _speedball?.Series.RaceTo));
         }
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
@@ -924,8 +976,9 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         float? limit = float.TryParse(Args.Value("--time-limit"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
             out float given) ? given : null;
+        LobbyHost lobby = session.Lobby!;
         _cast = RoundCasting.Cast(_level, _squad.Cover, _sim.Collision, _data.Config, _data.Bots, _mode, _size, _objective, _tier, people, seed,
-            session.RoundsPlayed + 1, _view.Hud.Callsigns, _entry.Id, _level.Place?.Id, limit);
+            session.RoundsPlayed + 1, _view.Hud.Callsigns, _entry.Id, _level.Place?.Id, limit, match: lobby.Speedball ? lobby.Score : null);
         _netSetup = _cast.Setup;
     }
 
@@ -1407,6 +1460,21 @@ public partial class LevelMain : Node3D, ISimEventListener
         GetTree().ChangeSceneToFile(GameSession.LobbyScene);
     }
 
+    /// <summary>Hosting a speedball match still on: its next point, straight after the last, with everyone still in it.</summary>
+    private void NextPoint()
+    {
+        if (_net?.Lobby is not { } lobby || _netLeft)
+        {
+            return;
+        }
+
+        _netLeft = true;
+        _net.RoundsPlayed = _netSetup!.Round;
+        lobby.NextPoint();
+        StopNetwork();
+        GetTree().ReloadCurrentScene();
+    }
+
     /// <summary>Joined: the host has gone back to the lobby; so do you.</summary>
     private void FollowToLobby()
     {
@@ -1460,6 +1528,13 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         string after = $"After {lobby.RoundsPlayed} round{(lobby.RoundsPlayed == 1 ? "" : "s")}";
         int me = _net.MemberId;
+        if (_speedball is not null)
+        {
+            // Speedball's session counts matches won.
+            int ours = _player.State.Team % 2;
+            return $"Matches won: your side {lobby.SideWins[ours]}, theirs {lobby.SideWins[1 - ours]}.";
+        }
+
         return _mode.Kind switch
         {
             MatchModeKind.FreeForAll => $"{after}, rounds won: " +
@@ -1557,7 +1632,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
     }
 
-    public override void _ExitTree() => StopNetwork();
+    public override void _ExitTree()
+    {
+        // Left (or the pause menu's restart) while a point played fast: the next scene runs at its own pace.
+        Engine.TimeScale = 1.0;
+        StopNetwork();
+    }
 
     private Color TeamColor(int team) => Color.FromHtml(_view.TeamColors[team % _view.TeamColors.Length]);
 
@@ -1677,7 +1757,21 @@ public partial class LevelMain : Node3D, ISimEventListener
             }
             else if (_match.Phase != MatchPhase.Ended && Watchable().Count > 0)
             {
-                _spectator.Follow(Watchable, TeamColor, ShowSummary, _sim.Collision);
+                if (_speedball is not null && _net is null)
+                {
+                    // No summary until the match is over: the rest of the point plays faster instead (or at its pace again).
+                    _spectator.Follow(Watchable, TeamColor, () => Engine.TimeScale = Engine.TimeScale > 1.0 ? 1.0 : _view.Spectator.FastForward,
+                        _sim.Collision, $"Play on ×{_view.Spectator.FastForward:0} (Enter)");
+                }
+                else if (_speedball is not null)
+                {
+                    // Playing with others the point plays out at everyone's pace: just watch.
+                    _spectator.Follow(Watchable, TeamColor, () => { }, _sim.Collision, skipText: null);
+                }
+                else
+                {
+                    _spectator.Follow(Watchable, TeamColor, ShowSummary, _sim.Collision);
+                }
             }
             else
             {
@@ -1700,14 +1794,28 @@ public partial class LevelMain : Node3D, ISimEventListener
 
     private void OnRoundEnded()
     {
+        Engine.TimeScale = 1.0;
+        // Hosting: the session's score (and a speedball match's) first, so what comes next knows it.
+        ScoreRound();
+        if (_speedball is { } going && (!_scripted || _botMatch || _speedballDemo))
+        {
+            going.Add(_match.Result, _match.StatsFor(_player.State.Id)!, _match.Elapsed);
+        }
+
         if (_botMatch)
         {
             FinishBotMatch();
             return;
         }
 
-        if (_scripted)
+        if (_scripted && !_speedballDemo)
         {
+            return;
+        }
+
+        if (_speedball is { } match)
+        {
+            PointOver(match);
             return;
         }
 
@@ -1715,8 +1823,6 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             RecordRound();
         }
-
-        ScoreRound();
 
         // Skipped ahead to the summary: it shows the final result now.
         if (_summaryEarly)
@@ -1731,6 +1837,84 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             GetTree().CreateTimer(1.5).Timeout += ShowSummary;
         }
+    }
+
+    /// <summary>
+    /// A speedball point's over. With the match still on, the score shows between points and the next point is set up
+    /// (offline here, by the host online); once it's won or lost, it goes in your records (offline) and the summary shows.
+    /// </summary>
+    private void PointOver(SpeedballMatch match)
+    {
+        if (!match.Series.Done)
+        {
+            Input.MouseMode = Input.MouseModeEnum.Visible;
+            float wait = _data.Config.Rules.Speedball.BetweenPoints;
+            GetTree().CreateTimer(1.2).Timeout += () =>
+            {
+                _spectator?.StopFollowing();
+                _hud.Visible = false;
+                ShowOverlay(RoundScreens.BetweenPoints(_round, match, _player.State.Team, PointLine(), wait));
+            };
+            // Offline the level's built again for the next point; hosting, everyone's sent it; joined, it comes from the host.
+            if (_net is null)
+            {
+                GetTree().CreateTimer(1.2 + wait).Timeout += () => GetTree().ReloadCurrentScene();
+            }
+            else if (_net.Hosting)
+            {
+                GetTree().CreateTimer(1.2 + wait).Timeout += NextPoint;
+            }
+
+            return;
+        }
+
+        if (_counts)
+        {
+            RecordMatch(match);
+        }
+
+        GetTree().CreateTimer(1.5).Timeout += ShowSummary;
+    }
+
+    /// <summary>How a speedball point was won, in a sentence, for the screen between points.</summary>
+    private string PointLine()
+    {
+        PlayerState you = _player.State;
+        int ours = _sim.Players.Count(p => p.Alive && p.Team == you.Team);
+        int theirs = _sim.Players.Count(p => p.Alive && p.Team != you.Team);
+        MatchResult result = _match.Result;
+        return result.Reason switch
+        {
+            RoundEnd.Hung => ObjectiveLine() ?? "The buzzer was hung.",
+            RoundEnd.LastStanding when result.Winner == you.Team => ours == 1 && you.Alive
+                ? "You're the last one standing: every one of theirs is out."
+                : $"Every one of theirs is out, with {ours} of yours still in.",
+            RoundEnd.LastStanding => $"Your side is out, with {theirs} of theirs still in.",
+            RoundEnd.MoreIn => $"Time up with {ours} of yours against {theirs} of theirs still in.",
+            RoundEnd.TimeUp => $"Time up, level at {ours} each: nobody takes the point.",
+            RoundEnd.Traded => "The last of both sides went out together: nobody takes the point.",
+            // Online: with every person out the bots don't play it out; the side with more still in takes it.
+            RoundEnd.PeopleOut => result.Winner < 0 ? $"Everyone playing is out, and it's level at {ours} each: nobody takes the point."
+                : $"Everyone playing is out: {ours} of yours against {theirs} of theirs still in.",
+            _ => "",
+        };
+    }
+
+    /// <summary>The pause menu's Restart: the round again from its briefing (a speedball match from its first point).</summary>
+    private void RestartRound()
+    {
+        GameSession.Speedball = null;
+        GetTree().ReloadCurrentScene();
+    }
+
+    /// <summary>A speedball match won or lost goes in your records as one: a win, your numbers over all its points.</summary>
+    private void RecordMatch(SpeedballMatch match)
+    {
+        RecordBook records = Profile.Load(_data.Areas);
+        RoundOutcome outcome = match.Series.Winner == _player.State.Team ? RoundOutcome.Cleared : RoundOutcome.Eliminated;
+        records.Add(new RoundResult(_entry.Id, _mode.Id, _tier.Id, outcome, match.Time, match.Shots, match.Hits, match.Eliminations,
+            RecordBook.Eliminate, _level.Place?.Id ?? RecordBook.WholeArea));
+        Profile.Save(records);
     }
 
     /// <summary>Adds the round to your records (for where in the area it was played) and saves them.</summary>
@@ -1765,6 +1949,46 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _reported = true;
+        if (_speedball is { } going && _net is null)
+        {
+            // A point of a speedball match: on to the next until the match is won (CI checks each point and the match).
+            GD.Print($"SPEEDBALL point {going.Series.Played}: {_match.Result.Reason} won by side {_match.Result.Winner} after {_match.Elapsed:0.0} s " +
+                     $"with {_sim.Players.Count(p => p.Alive && p.Team == 0)} v {_sim.Players.Count(p => p.Alive && p.Team == 1)} still in, " +
+                     $"{_match.Stats.Sum(p => p.Shots)} shots; {going.Series.PointsOf(0)}–{going.Series.PointsOf(1)} (first to {going.Series.RaceTo})");
+            if (_driver.ErrorCount > 0 || _match.Result.Reason == RoundEnd.None)
+            {
+                GD.Print($"SMOKE FAIL: speedball point {going.Series.Played} ({_round.Line}) ended {_match.Result.Reason}, simErrors={_driver.ErrorCount}");
+                QuitBotMatch(false);
+                return;
+            }
+
+            if (!going.Series.Done)
+            {
+                GetTree().CreateTimer(1.0).Timeout += () => GetTree().ReloadCurrentScene();
+                return;
+            }
+
+            bool won = going.Series.Winner == _player.State.Team;
+            if (Args.Has("--record"))
+            {
+                RecordMatch(going);
+            }
+
+            GD.Print($"SMOKE PASS: speedball match ({_round.Line}) {(won ? "won" : "lost")} {going.Series.PointsOf(_player.State.Team)}–" +
+                     $"{going.Series.PointsOf(1 - _player.State.Team)} in {going.Series.Played} points ({going.Time:0} s): you put out {going.Eliminations}, " +
+                     $"{going.Shots} shots, {going.Hits} hits; simErrors={_driver.ErrorCount} avgStepMs={_driver.AverageStepMs:0.000}");
+            GameSession.Speedball = null;
+            if (Args.Has("--show-summary"))
+            {
+                ShowSummary();
+                GetTree().CreateTimer(3.0).Timeout += () => QuitBotMatch(true);
+                return;
+            }
+
+            QuitBotMatch(true);
+            return;
+        }
+
         if (Args.Has("--record"))
         {
             // CI: the round goes in the profile as if you'd played it, so saving it is exercised too.
@@ -1794,18 +2018,24 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
-        // Playing with others, --rounds=N plays N rounds before the game ends (CI): back to the lobby for the next.
-        _roundsReported++;
+        // Playing with others, --rounds=N plays N rounds before the game ends (CI): back to the lobby for the next. A
+        // speedball match counts once, when it's won, and its next point follows straight on.
+        bool matchOn = _speedball is { Series.Done: false };
+        if (!matchOn)
+        {
+            _roundsReported++;
+        }
+
         if (!ok)
         {
             _failedRounds++;
         }
 
-        if (_net is { } others && _roundsReported < (Args.Ticks("--rounds", 1) ?? 1))
+        if (_net is { } others && (matchOn || _roundsReported < (Args.Ticks("--rounds", 1) ?? 1)))
         {
             if (others.Hosting)
             {
-                GetTree().CreateTimer(2.0).Timeout += BackToLobby;
+                GetTree().CreateTimer(2.0).Timeout += matchOn ? NextPoint : BackToLobby;
             }
 
             return;
@@ -1875,6 +2105,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
+        // A speedball match still on has no summary: the score shows between its points.
+        if (_speedball is { Series.Done: false } && !_botMatch)
+        {
+            return;
+        }
+
         _spectator?.StopFollowing();
         _hud.Visible = false;
         _summaryShown = true;
@@ -1913,15 +2149,29 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         ShowOverlay(RoundScreens.Summary(_round, _match, _match.StatsFor(you.Id)!, facts,
-            retry: () => GetTree().ReloadCurrentScene(),
+            retry: () =>
+            {
+                GameSession.Speedball = null;
+                GetTree().ReloadCurrentScene();
+            },
             levelSelect: BackToLevelSelect,
-            mainMenu: () => GetTree().ChangeSceneToFile(GameSession.MainScene),
-            actions, note));
+            mainMenu: () =>
+            {
+                GameSession.Speedball = null;
+                GetTree().ChangeSceneToFile(GameSession.MainScene);
+            },
+            actions, note, _speedball, you.Team));
     }
 
     /// <summary>How the objective went, in a sentence, for the summary's headline.</summary>
     private string? ObjectiveLine()
     {
+        if (_match.Buzzers is { HungSide: >= 0 } buzzers)
+        {
+            string who = buzzers.HungBy == _player.State.Id ? "You" : _sim.FindPlayer(buzzers.HungBy)?.Name ?? "Someone";
+            return $"{who} hung {(buzzers.HungSide == _player.State.Team ? "your" : "their")} buzzer at {RoundScreens.Clock(_match.Elapsed)}.";
+        }
+
         if (_match.Objective is not { } o)
         {
             return null;
@@ -1955,6 +2205,7 @@ public partial class LevelMain : Node3D, ISimEventListener
 
     private void BackToLevelSelect()
     {
+        GameSession.Speedball = null;
         GameSession.ReturnTo = "levels";
         GetTree().ChangeSceneToFile(GameSession.MainScene);
     }
@@ -1971,6 +2222,15 @@ public partial class LevelMain : Node3D, ISimEventListener
     {
         _overlay?.QueueFree();
         _overlay = null;
+    }
+
+    /// <summary>Speedball's score for the HUD: your side's points and theirs, the points to win, and the point being played.</summary>
+    private (int Ours, int Theirs, int RaceTo, int Point)? SpeedballScore()
+    {
+        int team = _player.State.Team;
+        return _speedball is { } match
+            ? (match.Series.PointsOf(team), match.Series.PointsOf(1 - team), match.Series.RaceTo, match.Series.Done ? match.Series.Played : match.Point)
+            : null;
     }
 
     /// <summary>The top bar's clock: the full time limit during the briefing, then the time left.</summary>
@@ -2237,7 +2497,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         MatchRules rules = data.Config.Rules;
-        string modeId = GameSession.ModeId ?? Args.Value("--mode") ?? rules.Modes[0].Id;
+        string modeId = GameSession.ModeId ?? Args.Value("--mode") ?? rules.ModesFor(entry)[0].Id;
         GameMode mode = rules.FindMode(modeId)
             ?? throw new InvalidOperationException($"No mode '{modeId}' (known: {string.Join(", ", rules.Modes.Select(m => m.Id))})");
         int size = GameSession.ModeId is not null && GameSession.Size is { } chosen ? chosen

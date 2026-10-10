@@ -59,8 +59,15 @@ internal static class NetBench
         }
 
         // Everyone for themselves, so every tick pays for all ten sets of hitboxes: nine people and a bot, away from the
-        // spawns the balls are fired from.
+        // spawns the balls are fired from (a level without pickups or patrols, like the field, has them in a row from
+        // its player starts).
         List<Vector3> spots = level.Pickups.Select(x => x.Position).Concat(level.Patrols.SelectMany(r => r.Points)).ToList();
+        if (spots.Count == 0)
+        {
+            Vector3 from = level.PlayerSpawn;
+            spots.AddRange(Enumerable.Range(1, People).Select(i => from + new Vector3(1.2f * i, 0f, 0f)));
+        }
+
         var setup = new RoundSetupMessage
         {
             Round = 1, LevelId = "", ModeId = "ffa", Size = People + 1, TierId = "normal", Seed = 7, TimeLimit = 3600f, StartPods = 3, BotPods = 2,

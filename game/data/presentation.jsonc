@@ -1107,8 +1107,10 @@
 
   // After you're eliminated, a view from above and behind where you stood, facing whoever got you,
   // for duration_s. Then, while your team (or, in free-for-all, anyone) is still in, a camera follows
-  // one of them from followBack_m behind and followHeight_m above their eyes; click for the next.
-  "spectator": { "duration_s": 4.0, "height_m": 1.4, "back_m": 2.5, "followBack_m": 3.2, "followHeight_m": 0.9 },
+  // one of them from followBack_m behind and followHeight_m above their eyes; click for the next. In a
+  // speedball match there's no summary between points: Enter plays the rest of the point fastForward times
+  // as fast instead.
+  "spectator": { "duration_s": 4.0, "height_m": 1.4, "back_m": 2.5, "followBack_m": 3.2, "followHeight_m": 0.9, "fastForward": 4 },
 
   // The match HUD (spec §6): top bar with the clock and an in/out icon per player, kill feed,
   // subtitles for what players shout, pickup prompts and a hit marker.
@@ -1137,6 +1139,9 @@
     "calloutMark_s": 4,
     "chatLines": 6,
     "chatShow_s": 10,
+    // Speedball: the countdown to the horn counts down big in the middle of the screen, and "GO" stays up this long
+    // after it.
+    "hornShow_s": 0.8,
     // Opponents' callsigns, dealt in a shuffled order each round (invented names only).
     "callsigns": ["Rook", "Magpie", "Tinker", "Moth", "Ferret", "Badger", "Sparrow", "Flint", "Gannet", "Wren", "Otter", "Lark"],
     // What bots shout; one line is picked per call. Each line is also a voice file per voice in the cast ("audio" →
@@ -1172,7 +1177,12 @@
       "caseOut": ["The case is out! Round over."],
       "roomHeld": ["Room held! Round over."],
       "roomTaken": ["Room taken. Hold it!"],
-      "roomContested": ["The room is contested!"]
+      "roomContested": ["The room is contested!"],
+      // Speedball's points (no take of these yet: they're subtitled only until one's imported).
+      "buzzer": ["Buzzer!"],
+      "pointWon": ["Point to you!"],
+      "pointLost": ["Point to them."],
+      "noPoint": ["No point!"]
     }
   },
 

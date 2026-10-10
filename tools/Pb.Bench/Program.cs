@@ -271,11 +271,19 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
     var sim = new SimWorld(config);
     sim.LoadLevel(level);
     sim.AddPlayer(1, 0, level.PlayerSpawn, level.PlayerSpawnYaw);
-    // The others stand away from the spawns the balls are fired from: at the pickups and patrol points.
+    // The others stand away from the spawns the balls are fired from: at the pickups and patrol points, or (a level with
+    // neither, like the field) in a row from the player starts.
     List<Vector3> spots = level.Pickups.Select(x => x.Position).Concat(level.Patrols.SelectMany(r => r.Points)).ToList();
+    bool row = spots.Count == 0;
+    if (row)
+    {
+        spots.AddRange(level.PlayerSpawns.Select(s => s.Position).DefaultIfEmpty(level.PlayerSpawn));
+    }
+
     for (int p = 1; p < players; p++)
     {
-        sim.AddPlayer(1 + p, 1, spots[(p - 1) % spots.Count], 0f);
+        Vector3 at = spots[(p - 1) % spots.Count] + (row ? new Vector3(1.2f * p, 0f, 0f) : Vector3.Zero);
+        sim.AddPlayer(1 + p, 1, at, 0f);
     }
 
     var commands = new InputCommand[players];

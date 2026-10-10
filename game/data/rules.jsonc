@@ -16,6 +16,9 @@
   //                 work round to your side once a teammate calls you out, marksmen watch from high ground.
   //   restlessAfter_s  a bot that has had nothing to go on for this long starts hunting, so a round
   //                 doesn't stall with everyone holding a corner (0 = never)
+  //   format        how it's won (optional): "round" (the default) is one round, won by the last side standing or
+  //                 the objective; "speedball" (teams only, on a field) is a match of points (see "speedball" below).
+  //                 Which modes each area offers is levels/areas.jsonc "modes" (by default, the one-round ones).
   "modes": [
     {
       "id": "solo", "displayName": "Solo", "kind": "solo",
@@ -49,6 +52,13 @@
         { "role": "patroller", "weight": 1 }
       ],
       "restlessAfter_s": 40
+    },
+    {
+      "id": "speedball", "displayName": "Speedball", "kind": "teams", "format": "speedball",
+      "description": "Two sides of up to five on the field. Each point starts at the horn: put the other side out, or hang their buzzer, to win it. First to the target wins the match.",
+      "sizes": [3, 4, 5], "defaultSize": 5,
+      // Each bot is dealt its place on the field (front, middle or back) and a bunker by the squad at every breakout.
+      "roles": [ { "role": "speedball", "weight": 1 } ]
     }
   ],
 
@@ -68,6 +78,13 @@
 
   // An air pickup refills a tank that's below this share of full; fuller tanks leave it.
   "airPickupBelow": 0.9,
+
+  // Speedball (the modes with "format": "speedball"): the first side to raceTo points wins the match. Each point starts
+  // with both sides in their start boxes and a countdown of countdown_s (nobody moves until the horn), and lasts at most
+  // pointTime_s. It's won by putting the other side out, or by hanging their buzzer: Interact held for hangTime_s within
+  // hangReach_m of its station (let go, step off or go out and it starts again). At time up the side with more players
+  // still in wins it; level, nobody does. Between points the score shows for betweenPoints_s.
+  "speedball": { "raceTo": 4, "pointTime_s": 180, "countdown_s": 3, "hangTime_s": 2, "hangReach_m": 1.2, "betweenPoints_s": 6 },
 
   // The callout key: your character shouts "Contact!" about the opponent nearest where you're aiming, within this
   // cone and range and in sight, and your side (bots and people alike) takes it as a contact, as the bots' own callouts

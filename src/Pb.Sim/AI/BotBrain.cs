@@ -87,6 +87,24 @@ public enum CalloutKind : byte
     RoomAlarm,
 }
 
+/// <summary>Speedball: where on the field a bot plays (the layout tags its bunkers by it).</summary>
+public enum SpeedballPlace : byte
+{
+    /// <summary>Not dealt one (not a speedball round, or not yet live).</summary>
+    None,
+
+    /// <summary>The bunkers furthest up the field: in the fight first.</summary>
+    Front,
+
+    Mid,
+
+    /// <summary>The bunkers by the start box: covering the lanes and the rest of the side.</summary>
+    Back,
+
+    /// <summary>Pushed on past the halfway line, into the other side's bunkers (a side well ahead finishing the point).</summary>
+    Deep,
+}
+
 /// <summary>Where a bot fighting from cover is in its cycle.</summary>
 public enum CoverPhase : byte
 {
@@ -207,6 +225,14 @@ public sealed class BotBrain
     private Vector3 _roomGoal;
     private int _roomFor = -1;
 
+    // Speedball: the bunker it was dealt (an index into the layout's bunkers) and the cover point there it plays from,
+    // what's left of its breakout run, and whether it's been sent to hang the other side's buzzer.
+    private int _bunker = -1;
+    private int _postCover = -1;
+    private float _breakoutLeft;
+    private bool _hanging;
+    private float _retryIn;
+
     // Doors on the way.
     private int _doorLeaf = -1;
     private float _doorTime;
@@ -283,15 +309,31 @@ public sealed class BotBrain
     private bool Attacking => _sim.Match?.Objective is { Done: false } objective && Self.Team == objective.Attackers;
 
     /// <summary>
-    /// Carrying the case, or in the room it's holding: nothing short of an enemy in sight takes it off the objective
-    /// (no investigating sounds, no searching).
+    /// Carrying the case, in the room it's holding, or sent to hang a buzzer: nothing short of an enemy in sight takes it
+    /// off the task (no investigating sounds, no searching).
     /// </summary>
-    private bool OnTask => _sim.Match?.Objective is { Done: false } objective && Self.Team == objective.Attackers &&
-                           (objective.Carrier == Self.Id ||
-                            (objective.Room is { } room && room.Contains(Self.Position + new Vector3(0f, 0.1f, 0f))));
+    private bool OnTask => (_hanging && _sim.Match?.Buzzers is { HungSide: < 0 }) ||
+                           (_sim.Match?.Objective is { Done: false } objective && Self.Team == objective.Attackers &&
+                            (objective.Carrier == Self.Id ||
+                             (objective.Room is { } room && room.Contains(Self.Position + new Vector3(0f, 0.1f, 0f)))));
 
-    /// <summary>The objective post this defender has been sent to guard, if any.</summary>
+    /// <summary>The objective post this defender has been sent to guard, if any (in speedball, its bunker's spot).</summary>
     public Vector3? DutyPost => _dutyPost;
+
+    /// <summary>Speedball: where on the field it plays (dealt at each breakout).</summary>
+    public SpeedballPlace Place { get; internal set; }
+
+    /// <summary>Speedball: the bunker it plays from (an index into the field layout's bunkers; −1: none dealt).</summary>
+    public int Bunker => _bunker;
+
+    /// <summary>Speedball: the cover point at its bunker it plays from (−1: none).</summary>
+    public int PostCover => _postCover;
+
+    /// <summary>Speedball: on its breakout run.</summary>
+    public bool BreakingOut => _breakoutLeft > 0f;
+
+    /// <summary>Speedball: sent to hang the other side's buzzer.</summary>
+    public bool Hanging => _hanging;
 
     public BotMode Mode { get; private set; }
 
@@ -343,6 +385,7 @@ public sealed class BotBrain
 
         _modeTime += dt;
         _phaseTime += dt;
+        _breakoutLeft = MathF.Max(0f, _breakoutLeft - dt);
         _sincePull += dt;
         _sinceCallout += dt;
         _sinceShare += dt;
@@ -465,6 +508,17 @@ public sealed class BotBrain
         Awareness? f = Senses.Focus;
         bool seen = f is { Spotted: true, Visible: true };
         bool fighting = f is { Spotted: true } && f.SinceSeen < _b.GiveUpTime;
+
+        if (_breakoutLeft > 0f)
+        {
+            // Speedball's breakout: on to its bunker whatever it sees (flat out it couldn't shoot anyway), then the point.
+            if (_dutyPost is { } post && FlatDistance(Self.Position, post) > 0.8f)
+            {
+                return;
+            }
+
+            _breakoutLeft = 0f;
+        }
 
         if (OutOfPaint() && Mode != BotMode.Resupply && TryFindPod(out Vector3 pod))
         {
@@ -728,6 +782,11 @@ public sealed class BotBrain
             return;
         }
 
+        if (Archetype.Idle == BotIdle.Speedball && ActSpeedball(dt))
+        {
+            return;
+        }
+
         if (_dutyPost is { } post)
         {
             HoldPost(post, _dutyYaw, dt);
@@ -792,6 +851,141 @@ public sealed class BotBrain
         Stop();
         _wantYaw = Sweep(yaw, dt);
         _wantPitch = 0f;
+    }
+
+    /// <summary>
+    /// Speedball, while nothing's in sight: sent to hang the other side's buzzer, get to it and hold Interact; else to its
+    /// bunker (flat out on the breakout) and, there, tucked in behind it watching the other side's runs. False with no
+    /// bunker dealt (the round isn't speedball, or it hasn't gone live).
+    /// </summary>
+    private bool ActSpeedball(float dt)
+    {
+        if (_hanging && _sim.Match?.Buzzers is { HungSide: < 0 } buzzers)
+        {
+            int theirs = Self.Team == 0 ? 1 : 0;
+            Vector3 station = buzzers.Post(theirs);
+            if (!buzzers.InReach(Self, theirs))
+            {
+                if (!_hasGoal || FlatDistance(_goal, station) > 0.5f)
+                {
+                    GoTo(station, BotGait.Run);
+                }
+
+                FollowPath(dt);
+                LookAlongPath();
+                return true;
+            }
+
+            Stop();
+            _cmd.Buttons |= InputButtons.Interact;
+            LookToward(station, slow: false);
+            return true;
+        }
+
+        if (_dutyPost is not { } post || _postCover < 0)
+        {
+            return false;
+        }
+
+        if (FlatDistance(Self.Position, post) > 0.5f)
+        {
+            BotGait gait = _breakoutLeft > 0f ? BotGait.Sprint : BotGait.Run;
+            if (_hasGoal && _gait != gait)
+            {
+                GoTo(post, gait);
+            }
+            else if (!_hasGoal || FlatDistance(_goal, post) > 0.5f)
+            {
+                // A way there not found (or given up on): try again a little later, not every tick.
+                if ((_retryIn -= dt) > 0f)
+                {
+                    return true;
+                }
+
+                _retryIn = 1f;
+                GoTo(post, gait);
+            }
+
+            FollowPath(dt);
+            LookAlongPath();
+            return true;
+        }
+
+        // At its bunker: tucked in behind it, watching where the other side runs (crouching only once it's stopped
+        // sprinting: crouch at a sprint is a slide).
+        _breakoutLeft = 0f;
+        Stop();
+        CoverPoint p = _squad.Cover.Points[_postCover];
+        if ((p.Height == CoverHeight.Half || !p.HasEdge) && !Self.Sprinting)
+        {
+            _cmd.Buttons |= InputButtons.Crouch;
+        }
+
+        _wantYaw = Sweep(WatchYaw(), dt);
+        _wantPitch = 0f;
+        return true;
+    }
+
+    /// <summary>Speedball: which way to watch from its bunker: the nearest of the other side's runs, else the way it faces.</summary>
+    private float WatchYaw()
+    {
+        if (_sim.Level?.FieldLayout is not { } layout)
+        {
+            return _dutyYaw;
+        }
+
+        float best = float.MaxValue;
+        Vector3 at = default;
+        foreach (FieldLane lane in layout.Lanes)
+        {
+            if (lane.Side == Self.Team)
+            {
+                continue;
+            }
+
+            Vector3 middle = (lane.From + lane.To) * 0.5f;
+            float d = FlatDistance(Self.Position, middle);
+            if (d < best)
+            {
+                best = d;
+                at = middle;
+            }
+        }
+
+        return best < float.MaxValue && best > 1f ? YawTo(Self.Position, at) : _dutyYaw;
+    }
+
+    /// <summary>
+    /// Speedball, from the squad: play from <paramref name="cover"/> (a point at bunker <paramref name="bunker"/>, claimed),
+    /// sprinting there if it's the <paramref name="breakout"/>, facing past the bunker.
+    /// </summary>
+    internal void PlayFrom(int bunker, int cover, bool breakout)
+    {
+        CoverPoint p = _squad.Cover.Points[cover];
+        _bunker = bunker;
+        _postCover = cover;
+        _hanging = false;
+        _dutyPost = p.Position;
+        _dutyYaw = MathF.Atan2(p.Normal.X, p.Normal.Z);
+        _breakoutLeft = breakout ? _b.Speedball.BreakoutFor : 0f;
+        if (Mode is BotMode.Return)
+        {
+            SetMode(BotMode.Idle);
+        }
+    }
+
+    /// <summary>Speedball: done with the breakout run, wherever it's got to (the tests' shortcut to a point under way).</summary>
+    internal void EndBreakout() => _breakoutLeft = 0f;
+
+    /// <summary>Speedball, from the squad: nobody covers the other side's buzzer, so go and hang it.</summary>
+    internal void HangBuzzer()
+    {
+        _hanging = true;
+        _breakoutLeft = 0f;
+        if (Mode is BotMode.Return or BotMode.Suspicious or BotMode.Investigate or BotMode.Search)
+        {
+            SetMode(BotMode.Idle);
+        }
     }
 
     /// <summary>
@@ -1395,6 +1589,11 @@ public sealed class BotBrain
 
             float travel = FlatDistance(Self.Position, p.Position);
             float score = -travel * 1.2f - MathF.Abs(toThreat - Archetype.EngageRange) * 0.4f + (canShoot ? 12f : 0f) + (p.Height == CoverHeight.Full ? 1.5f : 0f);
+            if (_bunker >= 0 && _squad.AtBunker(_bunker, p.Position))
+            {
+                score += _b.Speedball.BunkerBias; // speedball: its own bunker first
+            }
+
             if (Archetype.Vantage > 0f)
             {
                 score += Archetype.Vantage * _squad.Vantage[i] * 10f;
@@ -2217,6 +2416,11 @@ public sealed class BotBrain
         if (gait is BotGait.Walk or BotGait.Stroll)
         {
             _cmd.Buttons |= InputButtons.Walk;
+        }
+        else if (gait == BotGait.Sprint)
+        {
+            // Flat out only straight ahead (the movement rules ask it): it looks along its path as it runs.
+            _cmd.Buttons |= InputButtons.Sprint;
         }
     }
 

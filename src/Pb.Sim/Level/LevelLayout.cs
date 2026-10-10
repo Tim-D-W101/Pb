@@ -168,6 +168,21 @@ public sealed class FieldSpec
     /// <summary>The layout called <paramref name="id"/> (null or unknown: the first).</summary>
     public FieldLayoutSpec Layout(string? id) => Layouts.FirstOrDefault(l => l.Id == id) ?? Layouts[0];
 
+    /// <summary>
+    /// Where the <paramref name="index"/>th of <paramref name="count"/> players of side <paramref name="side"/> starts a
+    /// speedball point: in a row across its start box, half a metre in from each end, on the ground.
+    /// </summary>
+    public Vector3 StartOf(int side, int index, int count)
+    {
+        Aabb box = StartBoxOf(side, 0f, 0f);
+        float across = box.Max.X - box.Min.X - 1f;
+        float x = count <= 1 ? (box.Min.X + box.Max.X) * 0.5f : box.Min.X + 0.5f + across * index / (count - 1);
+        return new Vector3(x, 0f, (box.Min.Z + box.Max.Z) * 0.5f);
+    }
+
+    /// <summary>The way side <paramref name="side"/> faces from its start box: up the field.</summary>
+    public static float StartYaw(int side) => side == 0 ? 0f : MathF.PI;
+
     /// <summary>Side <paramref name="side"/>'s start box on the plan (its back line's middle at its front edge).</summary>
     public Aabb StartBoxOf(int side, float minY, float maxY)
     {

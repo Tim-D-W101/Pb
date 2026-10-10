@@ -954,6 +954,19 @@ public enum MatchModeKind
     Teams,
 }
 
+/// <summary>How a mode is played out: who plays whom is its <see cref="MatchModeKind"/>, this is how it's won.</summary>
+public enum MatchFormat
+{
+    /// <summary>One round, won by the last side standing (or the objective).</summary>
+    Round,
+
+    /// <summary>
+    /// Speedball (two sides on a field): a match of short points, each started by a horn countdown and won by putting the
+    /// other side out or hanging their buzzer, raced to a number of points (rules.jsonc "speedball").
+    /// </summary>
+    Speedball,
+}
+
 /// <summary>How a round is won besides being the last team standing (solo and teams; free-for-all is always eliminate).</summary>
 public enum ObjectiveKind
 {
@@ -992,10 +1005,14 @@ public sealed class RulesDef : IValidatable
 
     public CalloutDef Callout { get; set; } = new();
 
+    /// <summary>How speedball is played (the modes with <see cref="MatchFormat.Speedball"/>).</summary>
+    public SpeedballDef Speedball { get; set; } = new();
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(MaxPlayers), MaxPlayers, 2, 32);
         Callout.Validate(v.Scope(nameof(Callout)));
+        Speedball.Validate(v.Scope(nameof(Speedball)));
         Objectives.Validate(v.Scope(nameof(Objectives)));
         v.InRange(nameof(SettleTime_s), SettleTime_s, 0, 10);
         v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.1, 5);
@@ -1020,6 +1037,38 @@ public sealed class RulesDef : IValidatable
         {
             v.Error(nameof(Modes), "two modes share an id");
         }
+    }
+}
+
+/// <summary>Speedball (rules.jsonc "speedball"): a match of points on a field, each started by a horn countdown.</summary>
+public sealed class SpeedballDef : IValidatable
+{
+    /// <summary>The first side to this many points wins the match.</summary>
+    public int RaceTo { get; set; }
+
+    /// <summary>Each point's clock.</summary>
+    public float PointTime_s { get; set; }
+
+    /// <summary>The countdown at each breakout (nobody moves until the horn).</summary>
+    public float Countdown_s { get; set; }
+
+    /// <summary>Interact held this long at the other side's buzzer hangs it, and wins the point.</summary>
+    public float HangTime_s { get; set; }
+
+    /// <summary>… from within this far of the station (feet to its post, along the ground).</summary>
+    public float HangReach_m { get; set; }
+
+    /// <summary>Between points, the score shows this long before the next point is set up.</summary>
+    public float BetweenPoints_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(RaceTo), RaceTo, 1, 20);
+        v.InRange(nameof(PointTime_s), PointTime_s, 20, 1800);
+        v.InRange(nameof(Countdown_s), Countdown_s, 0, 10);
+        v.InRange(nameof(HangTime_s), HangTime_s, 0.2, 10);
+        v.InRange(nameof(HangReach_m), HangReach_m, 0.3, 3);
+        v.InRange(nameof(BetweenPoints_s), BetweenPoints_s, 0, 30);
     }
 }
 
@@ -1230,6 +1279,10 @@ public sealed class ModeDef : IValidatable
 
     public MatchModeKind Kind { get; set; }
 
+    /// <summary>How it's won: one round (the default), or a speedball match of points (two sides only).</summary>
+    [Optional]
+    public MatchFormat Format { get; set; }
+
     /// <summary>The sizes offered: opponents (solo), players including you (free-for-all) or players a side (teams).</summary>
     public int[] Sizes { get; set; } = Array.Empty<int>();
 
@@ -1276,6 +1329,11 @@ public sealed class ModeDef : IValidatable
         if (Kind != MatchModeKind.Solo && Roles.Length == 0)
         {
             v.Error(nameof(Roles), "needs at least one bot behaviour (only solo uses the level's spawn roles)");
+        }
+
+        if (Format == MatchFormat.Speedball && Kind != MatchModeKind.Teams)
+        {
+            v.Error(nameof(Format), "speedball is played by two sides: its kind must be teams");
         }
 
         for (int i = 0; i < Roles.Length; i++)

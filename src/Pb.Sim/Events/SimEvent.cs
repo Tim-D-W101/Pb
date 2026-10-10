@@ -32,7 +32,7 @@ public enum SimEventType : byte
     PlayerEliminated,
     /// <summary>Paint sprayed a player's mask. TargetId = player, Team = paint, Position = break point, Value = strength 0..1.</summary>
     MaskSprayed,
-    /// <summary>The round moved on (briefing → live). Extra = <see cref="Match.MatchPhase"/>.</summary>
+    /// <summary>The round moved on (briefing → countdown → live). Extra = <see cref="Match.MatchPhase"/>.</summary>
     MatchPhaseChanged,
     /// <summary>The round is decided. Extra = <see cref="Match.RoundOutcome"/>.</summary>
     RoundEnded,
@@ -68,6 +68,16 @@ public enum SimEventType : byte
     /// the ball, <see cref="SimEvent.TargetId"/> who it was drawn on. Raised on that copy only, never sent.
     /// </summary>
     SplatWithdrawn,
+
+    /// <summary>
+    /// Speedball: someone started hanging a buzzer (<see cref="SimEvent.Value"/> 1), or stopped before it was done (0).
+    /// <see cref="SimEvent.PlayerId"/> who, <see cref="SimEvent.Team"/> their side, <see cref="SimEvent.Extra"/> whose
+    /// buzzer it is, <see cref="SimEvent.Position"/> its station.
+    /// </summary>
+    BuzzerHanging,
+
+    /// <summary>Speedball: a buzzer was hung, which wins the point. As <see cref="BuzzerHanging"/>.</summary>
+    BuzzerHung,
 }
 
 public enum FootstepKind : byte

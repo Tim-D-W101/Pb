@@ -23,6 +23,12 @@ public static class GameSession
     /// <summary>"eliminate", "retrieve" or "hold" (solo and teams; free-for-all is always eliminate).</summary>
     public static string? ObjectiveId { get; set; }
 
+    /// <summary>
+    /// The speedball match being played offline: kept across the level's reloads between its points (null when none is;
+    /// the menu's Play, a retry and leaving to the menu start afresh).
+    /// </summary>
+    public static SpeedballMatch? Speedball { get; set; }
+
     /// <summary>The menu to open on returning to the main scene ("levels" after a round).</summary>
     public static string? ReturnTo { get; set; }
 

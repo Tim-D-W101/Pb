@@ -340,12 +340,12 @@ public partial class AudioDirector : Node, ISimEventListener
         }
     }
 
-    /// <summary>The breakout horn or the referee's whistle (<see cref="Core.RefereeCalls"/>).</summary>
+    /// <summary>The breakout horn (and speedball's countdown pips) or the referee's whistle (<see cref="Core.RefereeCalls"/>).</summary>
     public void Round(Sfx sfx)
     {
         if (_set is not null)
         {
-            Play2D(_round, sfx, sfx == Sfx.Horn ? _mix.Horn : _mix.Whistle);
+            Play2D(_round, sfx, sfx is Sfx.Horn or Sfx.CountdownPip ? _mix.Horn : _mix.Whistle);
         }
     }
 

@@ -48,6 +48,9 @@ public sealed record LobbyChoices
 
     /// <summary>Between rounds, a vote on where to play next.</summary>
     public bool Vote { get; init; }
+
+    /// <summary>Speedball: the points a side needs to win the match (0: the rules' own).</summary>
+    public int RaceTo { get; init; }
 }
 
 /// <summary>Someone in the game: who, which character, which side (teams), ready or not, their ping and their score so far.</summary>
@@ -110,8 +113,13 @@ public sealed class LobbyState
 
     public int RoundsPlayed { get; set; }
 
-    /// <summary>Rounds won by each side (co-op: side 0 is the people, side 1 the squad).</summary>
+    /// <summary>Rounds won by each side (co-op: side 0 is the people, side 1 the squad); in speedball, matches won.</summary>
     public int[] SideWins { get; } = new int[2];
+
+    /// <summary>Speedball: the match under way, each side's points and the points played (0: none under way).</summary>
+    public int[] MatchPoints { get; } = new int[2];
+
+    public int MatchPlayed { get; set; }
 
     public List<VoteOption> VoteOptions { get; } = new();
 
@@ -145,11 +153,15 @@ public sealed class LobbyState
         w.WriteString(c.TierId, 32);
         w.WriteBool(c.Balance);
         w.WriteBool(c.Vote);
+        w.WriteVarUInt((uint)Math.Max(0, c.RaceTo));
         w.WriteFloat(TimeLeft);
         w.WriteBool(Forced);
         w.WriteVarUInt((uint)RoundsPlayed);
         w.WriteVarUInt((uint)SideWins[0]);
         w.WriteVarUInt((uint)SideWins[1]);
+        w.WriteVarUInt((uint)MatchPoints[0]);
+        w.WriteVarUInt((uint)MatchPoints[1]);
+        w.WriteVarUInt((uint)MatchPlayed);
         w.WriteVarUInt((uint)MaxPeople);
         w.WriteVarUInt((uint)Math.Min(Members.Count, MostMembers));
         for (int i = 0; i < Members.Count && i < MostMembers; i++)
@@ -190,16 +202,20 @@ public sealed class LobbyState
         int size = (int)r.ReadVarUInt();
         string objective = r.ReadString(32), tier = r.ReadString(32);
         bool balance = r.ReadBool(), vote = r.ReadBool();
+        int raceTo = (int)r.ReadVarUInt();
         s.Choices = new LobbyChoices
         {
             LevelId = level, PlaceId = place.Length == 0 ? null : place, ModeId = mode, Size = size, ObjectiveId = objective, TierId = tier,
-            Balance = balance, Vote = vote,
+            Balance = balance, Vote = vote, RaceTo = raceTo,
         };
         s.TimeLeft = r.ReadFloat();
         s.Forced = r.ReadBool();
         s.RoundsPlayed = (int)r.ReadVarUInt();
         s.SideWins[0] = (int)r.ReadVarUInt();
         s.SideWins[1] = (int)r.ReadVarUInt();
+        s.MatchPoints[0] = (int)r.ReadVarUInt();
+        s.MatchPoints[1] = (int)r.ReadVarUInt();
+        s.MatchPlayed = (int)r.ReadVarUInt();
         s.MaxPeople = (int)r.ReadVarUInt();
         uint members = r.ReadVarUInt();
         for (uint i = 0; i < members && i < MostMembers && !r.Overflowed; i++)

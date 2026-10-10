@@ -207,7 +207,8 @@ public sealed class SimWorld
     /// Starts a round with everyone already added, each on their team (in free-for-all, a team each):
     /// gear by the tier (full loaders and tanks, the tier's pods for people and for bots), pickups out or not, stats
     /// from zero. Every mode is won by the last team standing; an objective (its attackers the first person's side,
-    /// unless the setup names them) is another way to win. The round waits in the briefing until <see cref="GoLive"/>.
+    /// unless the setup names them) is another way to win, and so is a speedball point's buzzer (on the level's field).
+    /// The round waits in the briefing until <see cref="GoLive"/>.
     /// </summary>
     public MatchState StartMatch(MatchSetup setup)
     {
@@ -228,7 +229,19 @@ public sealed class SimWorld
             mode = kind == ObjectiveKind.Retrieve ? RetrieveMode.Instance : HoldMode.Instance;
         }
 
-        Match = new MatchState(setup, Config.Rules, mode, attackers, heroTeam, objective);
+        BuzzerSet? buzzers = null;
+        if (setup.Format == MatchFormat.Speedball)
+        {
+            if (Level?.Field is not { } field)
+            {
+                throw new InvalidOperationException($"{Level?.Id ?? "the range"} has no field to play speedball on");
+            }
+
+            buzzers = new BuzzerSet(field.Buzzers, Config.Rules.Speedball);
+            mode = SpeedballMode.Instance;
+        }
+
+        Match = new MatchState(setup, Config.Rules, mode, attackers, heroTeam, objective, buzzers);
         foreach (PlayerState p in _players)
         {
             p.SprintBlocked = false;
@@ -303,7 +316,9 @@ public sealed class SimWorld
 
                 if (!client)
                 {
-                    Doors.Interact(this, player, IsLive && player.Alive && !climbing && cmd.Has(InputButtons.Interact), dt);
+                    bool interact = IsLive && player.Alive && !climbing && cmd.Has(InputButtons.Interact);
+                    Doors.Interact(this, player, interact, dt);
+                    Match?.Buzzers?.Hold(this, player, interact);
                     CallOut(player, cmd.Has(InputButtons.Callout), t0);
                 }
             }

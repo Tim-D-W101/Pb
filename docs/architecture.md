@@ -1412,8 +1412,8 @@ As built (M5.5):
     detail, which would stretch the cords, and casting no shadow;
   - each buzzer station: a post, a box, a button and a horn;
   - the banners' backings, their words printed on by `Markings` (solid, unlike its sprayed stencils).
-- **The menu.** The fifth area, its two layouts its places, each with its still. Until speedball (M5.6) it plays the
-  compound areas' modes from its opponent spawns, eliminate only (it has no objectives).
+- **The menu.** The fifth area, its two layouts its places, each with its still. From M5.6 it plays speedball alone
+  (§17.7).
 - **Tests** (`FieldTests`):
   - each place plays its layout and only its bunkers, and every bunker has its twin;
   - every bunker stops paint and feet and gives cover, and a ball leaving the nets is gone;
@@ -1423,35 +1423,81 @@ As built (M5.5):
 
 ### 17.6 A match of rounds, and the breakout
 
-- **`MatchSeries`** (`Pb.Sim/Match`, engine-free) holds the target (`raceTo`), each side's points, the next point's
-  setup, and the match's end.
-  - **Offline**, `GameSession` holds it across `LevelMain`'s reloads.
-  - **Online**, `LobbyHost`'s session score gains the target (`LobbyState.RaceTo`) and ends the match, and then the
-    lobby comes back.
-- **The countdown.** `MatchPhase.Countdown` comes between `Briefing` and `Live` (`breakout.countdown_s`, 3). Nobody
-  moves, and `RefereeCalls` plays the beeps and then the horn at go. Online, it replaces `briefing_s`'s status line for
-  these modes.
+As built (M5.6):
+
+- **`MatchSeries`** (`Pb.Sim/Match`, engine-free) is a match raced to `RaceTo`: each side's points, the points played
+  (those nobody won included), and the winner once a side reaches the target. `Restore` puts back a match as it stood.
+- **Offline**, `SpeedballMatch` (`game/core`) keeps a series in `GameSession.Speedball` across `LevelMain`'s reloads,
+  keyed by the area, place, mode, size and difficulty (another choice starts a new match), with your numbers over all
+  its points.
+  - Each point is the level built again, its seed the round's plus the point's number, so the points of a repeatable
+    run differ too. The first point has the briefing; the later ones go straight to the countdown.
+  - Between points `RoundScreens.BetweenPoints` shows whose point it was and how, the score and the next point's
+    countdown, for `speedball.betweenPoints_s` (6 s). The summary comes once the match is won or lost: MATCH WON or
+    MATCH LOST, the score, and the match's totals. The records keep the match as one round, won or lost, with its
+    totals. Retry, the pause menu's Restart, Level select and the main menu each start a new match.
+  - Out with the point still on, there's no summary to skip to: Enter plays the rest of the point
+    `spectator.fastForward` (4) times as fast instead.
+  - `-- --race-to=N` sets the points to win (CI plays to 2).
+- **Online**, `LobbyHost` keeps the match and each point's setup carries it (§17.11); the lobby comes back once it's won.
+- **The countdown.** `MatchPhase.Countdown` comes after `Live` and `Ended` in the enum, so the wire values stay as they
+  were, and between `Briefing` and `Live` in a round. `MatchSetup.Countdown` (`speedball.countdown_s`, 3; the plan
+  called it `breakout.countdown_s`) makes `GoLive` start it, and the authority counts it down and goes live at 0.
+  `SimWorld.IsLive` is false until then, so nobody moves or fires. `RefereeCalls` pips each second
+  (`Sfx.CountdownPip`, synthesised) and sounds the horn at go. `SpeedballHud` shows 3, 2, 1 big in the middle, then GO
+  for `hud.hornShow_s`.
 
 ### 17.7 Speedball rules
 
-- **`SpeedballMode`** (`IMatchMode`):
-  - the last side standing wins the point;
-  - **the buzzer** (`BuzzerSet`, two stations): a player of the other side holds Interact within `hangReach_m` for
-    `hangTime_s`. The hang resets if they let go, move off or go out. Events: `BuzzerHanging`, `BuzzerHung`;
-  - at time up, the side with more players in wins the point, and nobody does on a tie (new `RoundEnd` values `Hung` and
-    `MoreIn`).
+As built (M5.6):
+
+- **Data** (`rules.jsonc`): the `speedball` mode (kind `teams`, `format: speedball`, 3 to 5 a side, 5 by default, every
+  bot the `speedball` role), and the `speedball` block: `raceTo` 4, `pointTime_s` 180, `countdown_s` 3,
+  `hangTime_s` 2, `hangReach_m` 1.2 and `betweenPoints_s` 6. `MatchSetup.As(format, rules)` makes a round a point: the
+  point's clock and countdown, no pickups, no objective.
+- **The modes go by area.** An `areas.jsonc` entry may list its `modes` (`MatchRules.ModesFor`). The Sports Ground lists
+  `speedball`, and an area without the key gets every one-round mode, so the compound areas keep solo, free-for-all and
+  teams. The menu, the lobby, the vote and the server's rotation offer only an area's own (the data checks every id,
+  and that speedball has a field to play on). Scripted runs may still name any mode (`--mode`): CI's level smoke test
+  plays solo on the field.
+- **The starts.** `FieldSpec.StartOf(side, i, n)` puts a side in a row across its start box, half a metre in from each
+  end, at the box's middle depth, everyone facing up the field (`FieldSpec.StartYaw`). `SpawnPlanner.Speedball` puts you
+  in the middle of the south's (side 0).
+- **`BuzzerSet`** (`Pb.Sim/Match/Buzzers.cs`): a station at each side's post. `SimWorld.Step` passes each player's
+  Interact to `Hold` on the authority (live, in, not climbing). The first player of the other side within
+  `hangReach_m` hangs it, one at a time; `MatchState.Update` runs the hang on, and starts it again if they let go,
+  step off or go out. Events: `BuzzerHanging` (value 1 as a hang starts, 0 as it stops) and `BuzzerHung`.
+- **`SpeedballMode`** (`IMatchMode`): a hung buzzer wins the point for the hanger's side (`RoundEnd.Hung`); otherwise the
+  last side standing wins it. At time up the side with more players still in takes it (`RoundEnd.MoreIn`), and a tie
+  is `TimeUp`, nobody's. `RoundOutcome` gained `BuzzerHung`, `BuzzerLost`, `AheadAtTime` and `BehindAtTime`.
+- **The HUD** (`SpeedballHud`): the countdown; "POINT 2 · 1–0 · FIRST TO 4" under the top bar; and while a buzzer's being
+  hung, a bar filling over the hang time and a line saying whose (in your side's colour when it's theirs, in red when
+  it's yours). In reach of their station the prompt says to hold Interact. The referee calls the buzzer and whose point
+  it is (`hud.referee`: `buzzer`, `pointWon`, `pointLost`, `noPoint`). Those lines are subtitled only until a take of
+  them is imported (`tools/art/voice-script.py referee` prints the script).
 - The movement and marker rules are the same as everywhere: sprinting blocks firing, and slides end crouched.
 
 ### 17.8 Speedball bots
 
-- **A `speedball` idle kind**, with archetypes by the layout's tags: `front`, `mid` and `back`.
-- **Breakout.** At go, `BotSquad` deals each bot a bunker by its role and side (claimed, as cover is). The bot sprints to
-  it, on a new `Sprint` gait (bots have never sprinted), firing down a lane on the way if someone is crossing it.
-- **Hold.** The cover cycle as now, with the lanes as directions to watch between targets.
-- **Advance.** When its side is ahead by `advanceMargin` players, a bot claims the next bunker forward on its side.
-- **Flank.** As now, along the field's sides.
-- **Hang.** When no opponent can see the buzzer (by the squad's sight lines), the nearest bot goes and hangs it.
-- **Tests** run whole bot-against-bot matches headless on `NavGridMover`, as the compound's bot rounds do.
+As built (M5.6), from `bots/brain.jsonc` → `speedball`:
+
+- **The deal.** At the first live tick `BotSquad` deals each side's bots (shuffled from the match's seed) a place:
+  `backShare` (0.2) of them at the back (one at least, from three a side), `midShare` (0.4) in the middle, the rest at
+  the front (one at least). Each gets a bunker of its side by the layout's tags, spread across the field (a bunker
+  nobody else on its side has), and a spot at it facing home, claimed as cover is (`CoverSet.Claim`).
+- **Breakout.** All but the back sprint for their spots for up to `breakoutFor_s` (5 s), on the new `Sprint` gait (bots
+  never sprinted before); the back covers the lanes first. At its spot a bot crouches (not at a sprint, which would be
+  a slide) and sweeps towards the nearest of the other side's lanes between targets. `ChooseCover` favours its own
+  bunker's spots (`bunkerBias`).
+- **Moving up.** Every `advanceEvery_s` (5 s), a side ahead by `advanceMargin` (1) player moves one bot up a place: the
+  middle to the front first, then the back to the middle, then the front on into the other half (`Deep`: a bunker
+  there, on its far side).
+- **The hang.** Every `hangCheck_s` (0.5 s): if nobody of the other side who's still in and on the field can see their
+  station (1.2 m up, by the sight lines), the nearest bot goes and holds Interact at it.
+- All three tiers play it with their own aim and reactions.
+- **Tests** (`SpeedballBotTests`, headless on `NavGridMover`): the deal and the breakout on both layouts; the hang when
+  nobody watches, and none while the station's watched; moving up a place at a time; and whole points on four seeds,
+  each ending, in 9 to 28 s with five a side.
 
 ### 17.9 Capture the flag
 
@@ -1518,6 +1564,27 @@ As built (M5.5):
     ten players in ten loadouts cost what ten in one did.
   - The `NET round` log line names each person's marker and mask, and CI's networked rounds put Ada, Bo and Cy in
     Vellis's, Quarrow's and Kilnmark's ranges (`--kit=BRAND`) and check every copy's roster has them so.
+- **As built (M5.6):**
+  - **Protocol 5.** `WorldFields`' match block has 24 slots. Why the round ended takes 4 bits, and it gained the
+    countdown left, each station's hanger and hang (8 bits), and the side whose buzzer was hung and who hung it.
+    `EventCodec` carries `BuzzerHanging` and `BuzzerHung`.
+  - `RoundSetupMessage` carries the match before the point: `RaceTo` (0 when it isn't one), `Points0`, `Points1` and
+    `PointsPlayed`. The point's format and countdown come with its mode (`RoundWorld.MatchSetupOf`), as every copy has
+    the same data.
+  - `RoundCasting` casts a point into the start boxes: side 0 in the south's, whoever's on it (a bot takes the middle
+    place when no person is), on the point's clock, without pickups.
+  - **The lobby keeps the match.** `LobbyChoices.RaceTo` (0: the rules' own; the host's `--race-to`, the rotation's
+    `raceTo`), and `LobbyState.MatchPoints` and `MatchPlayed`. `LobbyHost.RoundOver` counts each point; a side reaching
+    the target wins the match, which is what `SideWins` counts in speedball. While `MatchOn`, `NextPoint` builds the
+    next point with everyone still in and ready, and `BackToLobby` ends the match.
+  - **The in-game host** shows the score between points (`RoundScreens.BetweenPoints`), then calls `NextPoint` and builds
+    the level again. Joined copies show the same screen and build the next point when its setup comes, as they always
+    have a new round. Once the match is won, everyone has the summary and the lobby comes back.
+  - **The dedicated server** goes straight on to the next point while `MatchOn`, waiting `betweenPoints_s` between
+    points and `summary_s` after the match, which counts as one round of the rotation (and of `--rounds`). It logs the
+    score after each point. The shipped `server.jsonc` plays a speedball match as its fifth round.
+  - CI's networked rounds play a speedball match to two points on Crossfire, and check every point's result on every
+    copy.
 
 ### 17.12 Testing
 

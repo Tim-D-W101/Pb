@@ -35,7 +35,8 @@ public static class RoundChoices
         int size = GameSession.ModeId is not null && GameSession.Size is { } chosen ? chosen : int.TryParse(Args.Value("--size"), out int given) ? given : 0;
         string objective = (menu ? GameSession.ObjectiveId : null) ?? Args.Value("--objective") ?? RecordBook.Eliminate;
         string tier = GameSession.TierId ?? Args.Value("--tier") ?? "normal";
-        return Fit(data, new LobbyChoices { LevelId = level, PlaceId = place, ModeId = mode, Size = size, ObjectiveId = objective, TierId = tier });
+        int raceTo = Args.Ticks("--race-to", 0) ?? 0;
+        return Fit(data, new LobbyChoices { LevelId = level, PlaceId = place, ModeId = mode, Size = size, ObjectiveId = objective, TierId = tier, RaceTo = raceTo });
     }
 
     /// <summary>The choices made to fit the data.</summary>
@@ -56,12 +57,16 @@ public static class RoundChoices
         LevelLayout area = data.Levels[entry.Id];
         PlaceSpec place = area.Places.FirstOrDefault(p => p.Id == c.PlaceId) ?? area.Places[0];
         MatchRules rules = data.Config.Rules;
-        GameMode mode = rules.FindMode(c.ModeId) ?? rules.Modes[0];
+        // Only the modes the area offers (the field plays speedball alone); another mode starts at its own size.
+        IReadOnlyList<GameMode> modes = rules.ModesFor(entry);
+        GameMode mode = modes.FirstOrDefault(m => m.Id == c.ModeId) ?? modes[0];
+        bool sameMode = c.ModeId.Length == 0 || mode.Id == c.ModeId;
         int smallest = mode.Kind == MatchModeKind.FreeForAll ? 2 : 1;
-        int size = c.Size >= smallest && mode.PlayersFor(c.Size) <= rules.MaxPlayers ? c.Size : mode.DefaultSize;
+        int size = sameMode && c.Size >= smallest && mode.PlayersFor(c.Size) <= rules.MaxPlayers ? c.Size : mode.DefaultSize;
         ObjectiveChoice eliminate = rules.Objectives.Find(ObjectiveKind.Eliminate)!;
         ObjectiveChoice objective = rules.Objectives.Kinds.FirstOrDefault(k => RecordBook.IdOf(k.Kind) == c.ObjectiveId) ?? eliminate;
-        if (mode.Kind == MatchModeKind.FreeForAll || (objective.Kind != ObjectiveKind.Eliminate && !area.ForPlace(place).Objectives.Offers(objective.Kind)))
+        if (mode.Kind == MatchModeKind.FreeForAll || mode.Format == MatchFormat.Speedball ||
+            (objective.Kind != ObjectiveKind.Eliminate && !area.ForPlace(place).Objectives.Offers(objective.Kind)))
         {
             objective = eliminate;
         }
@@ -78,8 +83,8 @@ public static class RoundChoices
     }
 
     /// <summary>
-    /// Places to vote on: up to <paramref name="count"/>, each one the mode and objective can be played in, never the one
-    /// just played, dealt from <paramref name="seed"/>.
+    /// Places to vote on: up to <paramref name="count"/>, each one the mode and objective can be played in (in an area that
+    /// offers the mode), never the one just played, dealt from <paramref name="seed"/>.
     /// </summary>
     public static IReadOnlyList<VoteOption> VoteOptions(GameData data, LobbyChoices choices, int count, ulong seed)
     {
@@ -87,6 +92,11 @@ public static class RoundChoices
         var all = new List<VoteOption>();
         foreach (AreaEntryDef entry in data.Areas.Areas.Where(a => data.Levels.ContainsKey(a.Id)))
         {
+            if (!data.Config.Rules.ModesFor(entry).Contains(now.Mode))
+            {
+                continue;
+            }
+
             LevelLayout area = data.Levels[entry.Id];
             foreach (PlaceSpec place in area.Places)
             {
