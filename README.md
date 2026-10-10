@@ -13,7 +13,9 @@ vs player for up to ten, hosted from the game or on a dedicated server) is finis
 ([report](docs/reports/phase-4.md), [plan](docs/phase-4.md), [hosting](docs/hosting.md)), and merged.** **Phase 5 (the gear
 locker, four brands of our own, gear models, paint that looks like paint, and the speedball field with capture the flag
 and arcade) is under way: the plan is approved with its defaults ([plan](docs/phase-5.md)); M5.1 is built (the four
-brands' kit, built in code, worn in first person and by every character, bots dealt theirs).** Phase 2 is built
+brands' kit, built in code, worn in first person and by every character, bots dealt theirs), and so is M5.2: the **Gear
+locker** in the main menu and the lobby, an old changing room where you stand on a turntable under a lamp and pick your
+character, each slot's item by brand and its three colours, saved to your profile and worn in every round.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a

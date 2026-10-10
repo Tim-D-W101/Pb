@@ -129,6 +129,9 @@ public sealed class PresentationDef : IValidatable
 
     public CharactersDef Characters { get; set; } = new();
 
+    /// <summary>The gear locker (Phase 5): the turntable, its lamp, the camera and each slot's framing, the palette.</summary>
+    public LockerDef Locker { get; set; } = new();
+
     public MaskSprayViewDef MaskSpray { get; set; } = new();
 
     public SpectatorDef Spectator { get; set; } = new();
@@ -217,6 +220,7 @@ public sealed class PresentationDef : IValidatable
         Dust.Validate(v.Scope(nameof(Dust)));
         WindowLight.Validate(v.Scope(nameof(WindowLight)));
         Characters.Validate(v.Scope(nameof(Characters)));
+        Locker.Validate(v.Scope(nameof(Locker)));
         MaskSpray.Validate(v.Scope(nameof(MaskSpray)));
         Spectator.Validate(v.Scope(nameof(Spectator)));
         Hud.Validate(v.Scope(nameof(Hud)));
@@ -1424,6 +1428,181 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(GripDrop_m), GripDrop_m, -0.3, 0.3);
         v.InRange(nameof(ClipBlend_s), ClipBlend_s, 0.02, 2);
         v.InRange(nameof(MaxLegYaw_deg), MaxLegYaw_deg, 0, 90);
+    }
+}
+
+/// <summary>The gear locker (<see cref="Pb.Game.Ui.LockerView"/>): you on a turntable under a lamp in the works' changing room.</summary>
+public sealed class LockerDef : IValidatable
+{
+    /// <summary>The turntable you stand on: its radius and height (m), and the kit materials of its drum and its top.</summary>
+    public float TurntableRadius_m { get; set; }
+
+    public float TurntableHeight_m { get; set; }
+
+    public string TurntableMaterial { get; set; } = "";
+
+    public string TurntableTopMaterial { get; set; } = "";
+
+    /// <summary>The lamp over it: how high (m), how bright, how wide its beam (degrees), its colour, its shade's kit material.</summary>
+    public float LampHeight_m { get; set; }
+
+    public float LampEnergy { get; set; }
+
+    public float LampAngle_deg { get; set; }
+
+    public string LampColor { get; set; } = "";
+
+    public string LampMaterial { get; set; } = "";
+
+    /// <summary>A soft light from beside the camera, so the side of you it looks at always reads: how bright, its colour.</summary>
+    public float FillEnergy { get; set; }
+
+    public string FillColor { get; set; } = "";
+
+    /// <summary>How much brighter the room is shown than the areas' indoors (a multiple of their exposure).</summary>
+    public float Exposure { get; set; }
+
+    /// <summary>How far down you hold your marker while you stand there (degrees), so it's off your mask.</summary>
+    public float HoldPitch_deg { get; set; }
+
+    /// <summary>How far your head turns to follow the camera round (degrees either way).</summary>
+    public float HeadTurn_deg { get; set; }
+
+    /// <summary>Dragging turns the camera round you this many degrees per pixel; scrolling moves it this much nearer or further (m).</summary>
+    public float DragDegPerPx { get; set; }
+
+    /// <summary>A pad's right stick, pushed all the way, turns the camera round you this fast (degrees a second).</summary>
+    public float PadTurn_degPerS { get; set; }
+
+    public float ScrollStep_m { get; set; }
+
+    /// <summary>How near and far the camera goes (m), and how far down and up it looks at you (degrees).</summary>
+    public float MinDistance_m { get; set; }
+
+    public float MaxDistance_m { get; set; }
+
+    public float MinPitch_deg { get; set; }
+
+    public float MaxPitch_deg { get; set; }
+
+    /// <summary>How long the camera takes to come round to a slot's framing (s).</summary>
+    public float Ease_s { get; set; }
+
+    /// <summary>The whole of you, and each slot close up.</summary>
+    public LockerFramingDef All { get; set; } = new();
+
+    public LockerFramingDef Marker { get; set; } = new();
+
+    public LockerFramingDef Loader { get; set; } = new();
+
+    public LockerFramingDef Tank { get; set; } = new();
+
+    public LockerFramingDef Mask { get; set; } = new();
+
+    public LockerFramingDef Jersey { get; set; } = new();
+
+    public LockerFramingDef Pants { get; set; } = new();
+
+    /// <summary>The colours offered for every item's three, besides any you pick yourself (#rrggbb).</summary>
+    public string[] Palette { get; set; } = System.Array.Empty<string>();
+
+    public LockerFramingDef Framing(Pb.Sim.Gear.GearSlot? slot) => slot switch
+    {
+        Pb.Sim.Gear.GearSlot.Marker => Marker,
+        Pb.Sim.Gear.GearSlot.Loader => Loader,
+        Pb.Sim.Gear.GearSlot.Tank => Tank,
+        Pb.Sim.Gear.GearSlot.Mask => Mask,
+        Pb.Sim.Gear.GearSlot.Jersey => Jersey,
+        Pb.Sim.Gear.GearSlot.Pants => Pants,
+        _ => All,
+    };
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(TurntableRadius_m), TurntableRadius_m, 0.2, 2);
+        v.InRange(nameof(TurntableHeight_m), TurntableHeight_m, 0, 0.2);
+        v.NotEmpty(nameof(TurntableMaterial), TurntableMaterial);
+        v.NotEmpty(nameof(TurntableTopMaterial), TurntableTopMaterial);
+        v.InRange(nameof(LampHeight_m), LampHeight_m, 1.8, 4);
+        v.InRange(nameof(LampEnergy), LampEnergy, 0, 20);
+        v.InRange(nameof(LampAngle_deg), LampAngle_deg, 5, 89);
+        v.NotEmpty(nameof(LampMaterial), LampMaterial);
+        v.InRange(nameof(FillEnergy), FillEnergy, 0, 5);
+        v.InRange(nameof(Exposure), Exposure, 0.25, 4);
+        v.InRange(nameof(HoldPitch_deg), HoldPitch_deg, -60, 0);
+        v.InRange(nameof(HeadTurn_deg), HeadTurn_deg, 0, 80);
+        foreach ((string name, string colour) in new[] { (nameof(LampColor), LampColor), (nameof(FillColor), FillColor) })
+        {
+            if (!Godot.Color.HtmlIsValid(colour))
+            {
+                v.Error(name, $"'{colour}' is not a valid colour");
+            }
+        }
+
+        v.InRange(nameof(DragDegPerPx), DragDegPerPx, 0.01, 2);
+        v.InRange(nameof(PadTurn_degPerS), PadTurn_degPerS, 10, 720);
+        v.InRange(nameof(ScrollStep_m), ScrollStep_m, 0.01, 1);
+        v.InRange(nameof(MinDistance_m), MinDistance_m, 0.2, 5);
+        v.InRange(nameof(MaxDistance_m), MaxDistance_m, MinDistance_m, 8);
+        v.InRange(nameof(MinPitch_deg), MinPitch_deg, -80, 0);
+        v.InRange(nameof(MaxPitch_deg), MaxPitch_deg, 0, 80);
+        v.InRange(nameof(Ease_s), Ease_s, 0.01, 3);
+        foreach ((string name, LockerFramingDef framing) in new[] { (nameof(All), All), (nameof(Marker), Marker), (nameof(Loader), Loader),
+                     (nameof(Tank), Tank), (nameof(Mask), Mask), (nameof(Jersey), Jersey), (nameof(Pants), Pants) })
+        {
+            framing.Validate(v.Scope(name), this);
+        }
+
+        if (Palette.Length == 0)
+        {
+            v.Error(nameof(Palette), "needs at least one colour");
+        }
+
+        foreach (string colour in Palette)
+        {
+            if (!Pb.Sim.Gear.GearColours.TryParse(colour, out _))
+            {
+                v.Error(nameof(Palette), $"'{colour}' isn't a colour (#rrggbb)");
+            }
+        }
+    }
+}
+
+/// <summary>How the locker's camera frames you or a slot: the point it looks at, how far off, from which way round and how high.</summary>
+public sealed class LockerFramingDef
+{
+    /// <summary>
+    /// The hitbox part looked at (mask, marker, loader, tank, head, torso, arms, legs), with <see cref="Height_m"/> above
+    /// its middle; empty looks at <see cref="Height_m"/> over the turntable.
+    /// </summary>
+    [Optional]
+    public string Part { get; set; } = "";
+
+    /// <summary>The point looked at is this high over the part's middle, or over the turntable (m).</summary>
+    public float Height_m { get; set; }
+
+    public float Distance_m { get; set; }
+
+    /// <summary>From straight in front of you (0), round to your right (positive) or left (degrees).</summary>
+    public float Yaw_deg { get; set; }
+
+    /// <summary>Looking down on you (positive) or up (degrees).</summary>
+    public float Pitch_deg { get; set; }
+
+    /// <summary>The camera's field of view, top to bottom (degrees): narrower close up, as a photographer's would be.</summary>
+    public float Fov_deg { get; set; }
+
+    public void Validate(Validator v, LockerDef locker)
+    {
+        v.InRange(nameof(Fov_deg), Fov_deg, 15, 90);
+        v.InRange(nameof(Height_m), Height_m, Part.Length > 0 ? -1 : 0, 2.2);
+        if (Part.Length > 0 && (!System.Enum.TryParse(Part, ignoreCase: true, out Pb.Sim.Collision.HitboxPart part) || part == Pb.Sim.Collision.HitboxPart.Body))
+        {
+            v.Error(nameof(Part), $"'{Part}' isn't one of a player's hitbox parts (mask, marker, loader, tank, head, torso, arms, legs)");
+        }
+        v.InRange(nameof(Distance_m), Distance_m, locker.MinDistance_m, locker.MaxDistance_m);
+        v.InRange(nameof(Yaw_deg), Yaw_deg, -180, 180);
+        v.InRange(nameof(Pitch_deg), Pitch_deg, locker.MinPitch_deg, locker.MaxPitch_deg);
     }
 }
 

@@ -21,7 +21,7 @@ public sealed class GameData
     public const string DefaultSimFile = "sim.jsonc";
 
     private GameData(SimConfig config, RangeLayout range, StressSettings stress, KitCatalog kit, AreaListDef areas,
-        IReadOnlyDictionary<string, LevelLayout> levels, BotConfig bots, GearCatalog gear)
+        IReadOnlyDictionary<string, LevelLayout> levels, BotConfig bots, GearCatalog gear, LevelLayout lockerRoom)
     {
         Config = config;
         Gear = gear;
@@ -31,6 +31,7 @@ public sealed class GameData
         Kit = kit;
         Areas = areas;
         Levels = levels;
+        LockerRoom = lockerRoom;
     }
 
     public SimConfig Config { get; }
@@ -49,6 +50,9 @@ public sealed class GameData
 
     /// <summary>The areas to play in, every one open, in menu order.</summary>
     public AreaListDef Areas { get; }
+
+    /// <summary>The gear locker's room (a level of its own, not a place to play), built and checked with the rest.</summary>
+    public LevelLayout LockerRoom { get; }
 
     /// <summary>Every area's level, built and validated at load (keyed by level id), the whole of it; <see cref="LevelLayout.ForPlace"/> gives a round in one of its places.</summary>
     public IReadOnlyDictionary<string, LevelLayout> Levels { get; }
@@ -190,7 +194,8 @@ public sealed class GameData
         }
 
         GearCatalog gear = GearCatalog.From(Jsonc.Load<GearCatalogDef>(source, files.Gear));
-        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, areas, levels, bots, gear);
+        LevelLayout lockerRoom = LevelFactory.Build(Jsonc.Load<LevelDef>(source, files.LockerRoom), files.LockerRoom, kit);
+        return new GameData(config, ToRange(range, files.Range, surfaces), ToStress(stress), kit, areas, levels, bots, gear, lockerRoom);
     }
 
     public static ProjectileParams ToProjectile(ProjectileDef d) => new()

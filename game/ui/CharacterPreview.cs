@@ -9,8 +9,8 @@ using Pb.Sim.Players;
 namespace Pb.Game.Ui;
 
 /// <summary>
-/// The character you'll play, turning slowly in your side's colour, in a little world of its own (the lobby): the
-/// round's own character drawing, on a tiny sim with only the ground and you in it.
+/// The character you'll play in your kit, turning slowly, in a little world of its own (the lobby): the round's own
+/// character drawing, on a tiny sim with only the ground and you in it.
 /// </summary>
 public partial class CharacterPreview : SubViewportContainer
 {
@@ -19,17 +19,17 @@ public partial class CharacterPreview : SubViewportContainer
     private SimWorld _sim = null!;
     private PlayerState _state = null!;
     private PresentationDef _view = null!;
-    private Pb.Sim.Gear.GearCatalog _gear = null!;
     private CharacterVisual? _visual;
-    private (int Look, Color Jersey) _shown = (-1, Colors.Black);
+    private Pb.Sim.Gear.Loadout? _shown;
+    private Color? _shownSide;
+    private Color _shownJersey;
 
     /// <summary>How fast it turns (rad/s).</summary>
     public float TurnSpeed { get; set; } = 0.6f;
 
-    public void Build(SimConfig config, PresentationDef view, Pb.Sim.Gear.GearCatalog gear, Vector2 size)
+    public void Build(SimConfig config, PresentationDef view, Vector2 size)
     {
         _view = view;
-        _gear = gear;
         Stretch = true;
         CustomMinimumSize = size;
         MouseFilter = MouseFilterEnum.Ignore;
@@ -61,19 +61,21 @@ public partial class CharacterPreview : SubViewportContainer
         _state = _sim.AddPlayer(0, 0, System.Numerics.Vector3.Zero, 0.6f);
     }
 
-    /// <summary>Shows character <paramref name="look"/> in the field's kit, its armbands in <paramref name="jersey"/> (built again only when either changes).</summary>
-    public void Show(int look, Color jersey)
+    /// <summary>Shows you in <paramref name="kit"/>, its armbands in <paramref name="jersey"/> (built again only when either changes).</summary>
+    public void Show(Kit kit, Color jersey)
     {
-        if (_shown == (look, jersey))
+        if (_shown is not null && _shown.SameAs(kit.Loadout) && _shownSide == kit.Side && _shownJersey == jersey)
         {
             return;
         }
 
-        _shown = (look, jersey);
+        _shown = kit.Loadout.Copy();
+        _shownSide = kit.Side;
+        _shownJersey = jersey;
         _visual?.QueueFree();
         _visual = new CharacterVisual { Name = "Character" };
         _stage.AddChild(_visual);
-        _visual.Build(_sim, _state, jersey, Kit.Default(_gear, look), _view.Characters, look, _view.MarkerModel);
+        _visual.Build(_sim, _state, jersey, kit, _view.Characters, kit.Loadout.Character, _view.MarkerModel);
     }
 
     public override void _Process(double delta)

@@ -119,6 +119,45 @@ public class GearCatalogTests
         Assert.Equal(3u, colours[2]);
     }
 
+    [Fact]
+    public void A_loadout_saved_to_the_profile_reads_back_the_same()
+    {
+        Loadout kit = Gear.Deal(7, 2, character: 1);
+        kit[GearSlot.Jersey] = kit[GearSlot.Jersey] with { Colours = new GearColours(0x123456, 0xABCDEF, 0x0F0F0F) };
+        var profile = new Pb.Sim.Match.ProfileData { Loadout = Gear.Write(kit) };
+        Pb.Sim.Match.ProfileData? loaded = Pb.Sim.Match.ProfileData.FromJson(profile.ToJson());
+        Assert.NotNull(loaded?.Loadout);
+        Assert.True(Gear.Read(loaded!.Loadout, character: 0).SameAs(kit));
+        Assert.Contains("\"#123456\"", profile.ToJson());
+        Assert.Contains($"\"{Gear.Items[kit[GearSlot.Marker].Item].Id}\"", profile.ToJson());
+    }
+
+    [Fact]
+    public void A_profile_from_before_the_locker_wears_the_default_kit_on_its_character()
+    {
+        Pb.Sim.Match.ProfileData? old = Pb.Sim.Match.ProfileData.FromJson("{ \"version\": 2, \"records\": [] }");
+        Assert.Null(old!.Loadout);
+        Assert.True(Gear.Read(old.Loadout, character: 2).SameAs(Gear.Default(2)));
+    }
+
+    [Fact]
+    public void A_saved_item_the_catalogue_no_longer_has_reads_as_its_slots_default()
+    {
+        var saved = Gear.Write(Gear.Deal(9, 1, 0));
+        saved.Marker = new SavedPick { Item = "gone_marker", Colours = new[] { "#000000", "#000000", "#000000" } };
+        saved.Mask = new SavedPick { Item = "vellis_glide", Colours = new[] { "#000000", "#000000", "#000000" } };
+        saved.Tank = null;
+        saved.Pants = new SavedPick { Item = "vellis_pace", Colours = new[] { "red", "#000000" } };
+        Loadout read = Gear.Read(saved, character: 0);
+        Assert.Equal(Gear.DefaultItem(GearSlot.Marker), read[GearSlot.Marker].Item);
+        Assert.Equal(Gear.Items[Gear.DefaultItem(GearSlot.Marker)].Colours, read[GearSlot.Marker].Colours);
+        Assert.Equal(Gear.DefaultItem(GearSlot.Mask), read[GearSlot.Mask].Item);
+        Assert.Equal(Gear.DefaultItem(GearSlot.Tank), read[GearSlot.Tank].Item);
+        // An item it has, with colours that don't read: the item in its own colours.
+        int pace = Gear.IndexOf("vellis_pace");
+        Assert.Equal(new GearChoice(pace, Gear.Items[pace].Colours), read[GearSlot.Pants]);
+    }
+
     private static string ReplaceFirst(string text, string from, string to)
     {
         int at = text.IndexOf(from, StringComparison.Ordinal);

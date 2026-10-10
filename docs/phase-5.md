@@ -188,15 +188,19 @@ Each milestone is pushed as it lands, and each can be played. M5.2 is the first 
 
 ### M5.2 The locker
 
-- [ ] The room: a changing room at the works, built from the kit (lockers, benches, a window, a strip light), with your
-  character on a turntable under a lamp.
-- [ ] The camera turns round the character as you drag, comes closer as you scroll, and goes to a slot when you pick
-  it.
-- [ ] Choose your character, then each slot's item by brand, then its three colours from a palette or a colour picker.
+- [x] The room: a changing room at the works, built from the kit (lockers down both walls, benches, high windows,
+  strip lights, a door left ajar), with your character on a turntable under a lamp. You hold your marker low and look
+  at the camera as it goes round.
+- [x] The camera turns round the character as you drag (or with a pad's right stick), comes closer as you scroll, and
+  goes to a slot when you pick it.
+- [x] Choose your character, then each slot's item by brand, then its three colours from a palette or a colour picker.
   Done saves the loadout to your profile (its format goes to version 3, and an older profile loads with the default
-  kit).
-- [ ] **Gear locker** in the main menu. In Play with others and the lobby, the character pickers become the locker, and
-  the lobby's preview shows your kit.
+  kit). The whole kit's panel can put a brand's range on you, or the field's own kit; the clothes' panels show them in
+  a side's colour; what can't be changed (the generated marker's own finish, and the loader and bottle that come with
+  it) says why.
+- [x] **Gear locker** in the main menu. In Play with others and the lobby, the character pickers become the locker, and
+  the lobby's preview shows your kit. You wear it in every round and on the training ground; online, the others see it
+  from M5.3. (`--locker-tour` shows each slot.)
 
 ### M5.3 Kit online
 

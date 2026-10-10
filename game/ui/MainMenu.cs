@@ -31,7 +31,12 @@ public partial class MainMenu : Control
     private Control _levels = null!;
     private Control _settingsScreen = null!;
     private Control _others = null!;
+    private LockerView? _locker;
     private int _tourFrame = -1;
+    private bool _touringLocker;
+    private int _lockerFrame;
+    private int _lockerWait;
+    private List<(string Name, Action Do)>? _lockerSteps;
     private TextureRect _backdrop = null!;
     private static bool _skippedToLevel;
     private static bool _runtimeLogged;
@@ -103,7 +108,7 @@ public partial class MainMenu : Control
 
         // The compound behind the menu, where there's a screen to show it on (not in CI's headless runs):
         // built a piece a frame behind the plain backdrop, which then fades to a shade over it.
-        if (DisplayServer.GetName() != "headless" && !Args.Has("--smoke-test") && !(Args.Has("--level") && !_skippedToLevel))
+        if (DisplayServer.GetName() != "headless" && !Args.Has("--smoke-test") && !Args.Has("--locker-tour") && !(Args.Has("--level") && !_skippedToLevel))
         {
             var shade = new TextureRect
             {
@@ -148,6 +153,10 @@ public partial class MainMenu : Control
         {
             _tourFrame = 0;
         }
+        else if (Args.Has("--locker-tour"))
+        {
+            _touringLocker = true;
+        }
         else if ((Args.Has("--host") || Args.Has("--join")) && !_skippedToLevel)
         {
             // Playing with others from the command line (once): hosting, or joining the address given, then the lobby.
@@ -164,6 +173,12 @@ public partial class MainMenu : Control
 
     public override void _Process(double delta)
     {
+        if (_touringLocker)
+        {
+            LockerTour();
+            return;
+        }
+
         if (_tourFrame < 0)
         {
             return;
@@ -205,10 +220,157 @@ public partial class MainMenu : Control
                 }
 
                 break;
-            case 210:
+            case 195:
+                // The gear locker: the whole kit, then the marker and the mask close up.
+                OpenLocker(_title);
+                break;
+            case 225:
+                _locker?.Pick(Pb.Sim.Gear.GearSlot.Marker);
+                break;
+            case 245:
+                _locker?.Pick(Pb.Sim.Gear.GearSlot.Mask);
+                break;
+            case 265:
+                _locker?.Close(false);
+                break;
+            case 275:
                 GetTree().Quit();
                 break;
         }
+    }
+
+    /// <summary>
+    /// <c>-- --locker-tour</c>: the gear locker on its own, the whole kit and then each slot close up, a brand's range,
+    /// the clothes in a side's colour, held <c>--locker-hold=N</c> frames each (24) and printed as they come, then quits
+    /// (<c>--locker-from=N</c> starts at step N).
+    /// </summary>
+    private void LockerTour()
+    {
+        if (_locker is null && _lockerWait == 0)
+        {
+            OpenLocker(_title);
+        }
+
+        // Each step once the room's built (it takes a few frames).
+        if (_locker is not { Built: true } locker)
+        {
+            if (++_lockerWait > 600)
+            {
+                GD.PushError("LOCKER TOUR: the locker never finished building");
+                GetTree().Quit(1);
+            }
+
+            return;
+        }
+
+        if (_lockerSteps is null)
+        {
+            _lockerSteps = new List<(string Name, Action Do)> { ("the whole kit", () => locker.Pick(null)) };
+            foreach (Pb.Sim.Gear.GearSlot slot in Enum.GetValues<Pb.Sim.Gear.GearSlot>())
+            {
+                _lockerSteps.Add(($"the {slot.ToString().ToLowerInvariant()}", () => locker.Pick(slot)));
+            }
+
+            _lockerSteps.Add(("Vellis's range", () =>
+            {
+                locker.Pick(null);
+                (locker.FindChild("Range_vellis", recursive: true, owned: false) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+            }));
+            _lockerSteps.Add(("its jersey in a side's colour", () =>
+            {
+                locker.Pick(Pb.Sim.Gear.GearSlot.Jersey);
+                if (locker.FindChild("SideColour", recursive: true, owned: false) is Node row &&
+                    row.FindChildren("*", nameof(Button), owned: false).FirstOrDefault() is Button toggle)
+                {
+                    toggle.ButtonPressed = true;
+                }
+            }));
+            _lockerSteps.Add(("its marker in colours of your own", () =>
+            {
+                locker.Pick(Pb.Sim.Gear.GearSlot.Marker);
+                locker.SetColour(0, Color.FromHtml("#8a2b2b"));
+                locker.SetColour(1, Color.FromHtml("#f0a830"));
+            }));
+            // The other characters, each in another brand's range, the whole of them and their mask.
+            foreach ((int character, string brand) in new[] { (1, "quarrow"), (2, "kilnmark") })
+            {
+                _lockerSteps.Add(($"character {character + 1} in {brand}'s range", () =>
+                {
+                    locker.Pick(null);
+                    if (locker.FindChild($"Look_{character}", recursive: true, owned: false) is Button look)
+                    {
+                        look.ButtonPressed = true;
+                    }
+
+                    (locker.FindChild($"Range_{brand}", recursive: true, owned: false) as Button)?.EmitSignal(BaseButton.SignalName.Pressed);
+                }));
+                _lockerSteps.Add(($"character {character + 1}'s mask", () => locker.Pick(Pb.Sim.Gear.GearSlot.Mask)));
+            }
+        }
+
+        int hold = Args.Ticks("--locker-hold", 24) ?? 24;
+        if (_lockerFrame == 0)
+        {
+            // --locker-from=N starts at step N (the steps before it skipped).
+            _lockerFrame = Math.Max(0, Args.Ticks("--locker-from", 0) ?? 0) * hold;
+        }
+
+        int frame = _lockerFrame++;
+        if (frame % hold != 0)
+        {
+            return;
+        }
+
+        int index = frame / hold;
+        if (index > 0)
+        {
+            GD.Print($"LOCKER TOUR camera: {locker.CameraLine}");
+        }
+
+        if (index >= _lockerSteps.Count)
+        {
+            GD.Print("LOCKER TOUR done");
+            GetTree().Quit();
+            return;
+        }
+
+        _lockerSteps[index].Do();
+        GD.Print($"LOCKER TOUR {index}: {_lockerSteps[index].Name} (frames {frame}–{frame + hold - 1} after it was built)");
+    }
+
+    /// <summary>
+    /// The gear locker over the menu, its screens put away and the level behind them not drawn until it closes; then
+    /// back to <paramref name="returnTo"/>.
+    /// </summary>
+    private void OpenLocker(Control returnTo)
+    {
+        if (_locker is not null)
+        {
+            return;
+        }
+
+        foreach (Control s in new[] { _title, _levels, _settingsScreen, _others })
+        {
+            s.Visible = false;
+        }
+
+        GetViewport().Disable3D = true;
+        _view.UseTeamColors(_settings.TeamColors);
+        Color ours = Color.FromHtml(_view.TeamColors[0]);
+        _locker = new LockerView();
+        AddChild(_locker);
+        _locker.Open(_data, _view, _settings, _records, ours, ours);
+        _locker.Closed = saved =>
+        {
+            _locker = null;
+            GetViewport().Disable3D = false;
+            if (saved && _others.FindChild("Others", recursive: true, owned: false) is PlayWithOthers others)
+            {
+                others.ShowCharacter();
+            }
+
+            Open(returnTo, returnTo.FindChild(returnTo == _title ? "GearLocker" : "Locker", recursive: true, owned: false) as Button);
+        };
     }
 
     /// <summary>
@@ -302,6 +464,9 @@ public partial class MainMenu : Control
         Button others = UiKit.Button("Play with others", () => Open(_others));
         others.Name = "PlayWithOthers";
         buttons.AddChild(others);
+        Button locker = UiKit.Button("Gear locker", () => OpenLocker(_title));
+        locker.Name = "GearLocker";
+        buttons.AddChild(locker);
         buttons.AddChild(UiKit.Button("Training ground", () => Load(GameSession.RangeScene, "Training ground", "Setting out the targets…")));
         buttons.AddChild(UiKit.Button("Settings", () => Open(_settingsScreen)));
         buttons.AddChild(UiKit.Button("Quit", () => GetTree().Quit()));
@@ -551,6 +716,7 @@ public partial class MainMenu : Control
         var screen = new PlayWithOthers { Name = "Others" };
         screen.Build(_data, _view, _settings);
         screen.Back = () => Open(_title);
+        screen.OpenLocker = () => OpenLocker(_others);
         return Screen(UiKit.Panel(screen, 1260f), left: true);
     }
 
@@ -670,6 +836,72 @@ public partial class MainMenu : Control
         return rect;
     }
 
+    /// <summary>
+    /// The gear locker from the title: it builds, offers every slot's items, and Done saves what was picked (a brand's
+    /// marker in a colour of its own and a brand's mask) to the profile. The profile is put back as it was afterwards.
+    /// </summary>
+    private async System.Threading.Tasks.Task<string> LockerCheck(List<string> problems)
+    {
+        Pb.Sim.Gear.SavedLoadout? before = _records.Data.Loadout;
+        int look = _settings.PlayerLook;
+        if (_title.FindChild("GearLocker", recursive: true, owned: false) is not Button button)
+        {
+            problems.Add("the title has no Gear locker");
+            return "no gear locker";
+        }
+
+        button.EmitSignal(BaseButton.SignalName.Pressed);
+        LockerView? locker = _locker;
+        for (int i = 0; i < 300 && locker is { Built: false }; i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+
+        if (locker is not { Built: true })
+        {
+            problems.Add("the gear locker didn't build");
+            return "no gear locker";
+        }
+
+        Pb.Sim.Gear.GearCatalog gear = _data.Gear;
+        int slots = 0;
+        foreach (Pb.Sim.Gear.GearSlot slot in Enum.GetValues<Pb.Sim.Gear.GearSlot>())
+        {
+            locker.Pick(slot);
+            int offered = locker.FindChildren("Item_*", nameof(Button), owned: false).Count(b => !b.IsQueuedForDeletion());
+            if (offered != gear.ItemsIn(slot).Count)
+            {
+                problems.Add($"the gear locker offers {offered} {slot} items, not {gear.ItemsIn(slot).Count}");
+            }
+            else
+            {
+                slots++;
+            }
+        }
+
+        int marker = gear.ItemsIn(Pb.Sim.Gear.GearSlot.Marker).First(i => gear.Items[i].Model is null);
+        int mask = gear.ItemsIn(Pb.Sim.Gear.GearSlot.Mask).First(i => !Pb.Game.Player.MaskRecipes.IsOwn(gear.Items[i].Shape));
+        locker.Pick(Pb.Sim.Gear.GearSlot.Marker);
+        locker.Wear(marker);
+        locker.SetColour(0, new Color(0.5f, 0.1f, 0.1f));
+        locker.Pick(Pb.Sim.Gear.GearSlot.Mask);
+        locker.Wear(mask);
+        Pb.Sim.Gear.Loadout picked = locker.Picked.Copy();
+        locker.Close(true);
+        Pb.Sim.Gear.Loadout saved = gear.Read(Profile.Load(_data.Areas).Data.Loadout, look);
+        if (!saved.SameAs(picked))
+        {
+            problems.Add("the gear locker's Done didn't save what was picked");
+        }
+
+        // As it was (it may be a developer's own profile).
+        _records.Data.Loadout = before;
+        Profile.Save(_records);
+        _settings.PlayerLook = look;
+        _settings.Save();
+        return $"the gear locker's {slots} slots";
+    }
+
     private async void SmokeTest()
     {
         var problems = new List<string>();
@@ -766,8 +998,8 @@ public partial class MainMenu : Control
             problems.Add(settingsNote);
         }
 
-        // Play with others: your name, Host and Join, and it fits on the screen.
-        foreach (string part in new[] { "Name", "Host", "Join", "Address" })
+        // Play with others: your name, the locker, Host and Join, and it fits on the screen.
+        foreach (string part in new[] { "Name", "Locker", "Host", "Join", "Address" })
         {
             if (_others.FindChild(part, recursive: true, owned: false) is null)
             {
@@ -809,9 +1041,10 @@ public partial class MainMenu : Control
             }
         }
 
+        string lockerNote = await LockerCheck(problems);
         bool ok = areas.Length >= 1 && problems.Count == 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {areas.Length} area{(areas.Length == 1 ? "" : "s")} with {places} places to play, all open, each card on one screen, " +
-                 $"{modes.Count} modes with their sizes, objectives and the difficulty tiers, {settingsNote}, and Play with others" +
+                 $"{modes.Count} modes with their sizes, objectives and the difficulty tiers, {settingsNote}, Play with others and {lockerNote}" +
                  $"{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
         GetTree().Quit(ok ? 0 : 1);
     }

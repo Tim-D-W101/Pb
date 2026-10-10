@@ -114,6 +114,20 @@ public partial class CharacterModel : Node3D
     }
 
     /// <summary>
+    /// Stops the idle clip at its start (where it loops round), so the body only breathes and shifts its weight: the
+    /// locker, where its looking round would turn the head away from the camera.
+    /// </summary>
+    public void HoldIdle()
+    {
+        if (_animation is not null && _animation.GetAnimationList() is { Length: > 0 } clips)
+        {
+            _animation.Play(clips[0]);
+            _animation.Seek(0.0, update: true);
+            _animation.Pause();
+        }
+    }
+
+    /// <summary>
     /// The bone a splat at <paramref name="point"/> on <paramref name="part"/> should stick to, or null for
     /// gear. The point is on the part's hitbox, a box round the body that the body doesn't fill (and
     /// bulges past in places): the paint reaches as far as the bone, in and out, to find the surface.
@@ -509,16 +523,36 @@ public partial class CharacterModel : Node3D
         }
 
         HideFace(_mask is not null);
+        Paint(_clothes, kit);
+    }
 
+    /// <summary>Repaints the clothes and the mask shell in <paramref name="kit"/>'s colours, the items as dressed (the locker).</summary>
+    public void Recolour(Kit kit)
+    {
+        if (_clothes is null)
+        {
+            return;
+        }
+
+        if (_mask is not null)
+        {
+            GearModels.Colour(_mask, kit.Colours(Pb.Sim.Gear.GearSlot.Mask), Colors.White);
+        }
+
+        Paint(_clothes, kit);
+    }
+
+    private static void Paint(ShaderMaterial clothes, Kit kit)
+    {
         foreach ((Pb.Sim.Gear.GearSlot slot, string name) in new[] { (Pb.Sim.Gear.GearSlot.Jersey, "jersey"), (Pb.Sim.Gear.GearSlot.Pants, "pants") })
         {
             Pb.Sim.Gear.GearColours colours = kit.Colours(slot);
             int pattern = ClothesPatterns.Index(kit.Item(slot).Shape);
-            _clothes.SetShaderParameter(name + "_on", pattern != 0 || colours.Main != 0xFFFFFF);
-            _clothes.SetShaderParameter(name + "_pattern", pattern);
-            _clothes.SetShaderParameter(name + "_main", Linear(colours.Main));
-            _clothes.SetShaderParameter(name + "_second", Linear(colours.Second));
-            _clothes.SetShaderParameter(name + "_accent", Linear(colours.Accent));
+            clothes.SetShaderParameter(name + "_on", pattern != 0 || colours.Main != 0xFFFFFF);
+            clothes.SetShaderParameter(name + "_pattern", pattern);
+            clothes.SetShaderParameter(name + "_main", Linear(colours.Main));
+            clothes.SetShaderParameter(name + "_second", Linear(colours.Second));
+            clothes.SetShaderParameter(name + "_accent", Linear(colours.Accent));
         }
     }
 

@@ -32,6 +32,17 @@ public sealed class Kit
         return slot is GearSlot.Jersey or GearSlot.Pants && Side is { } side ? colours with { Main = ToUint(side) } : colours;
     }
 
+    /// <summary>
+    /// Your kit as the locker saved it in your profile (<paramref name="saved"/>; the field's own before you've been in),
+    /// on <paramref name="character"/>.
+    /// </summary>
+    public static Kit Saved(GearCatalog gear, SavedLoadout? saved, int character, Color? side = null)
+    {
+        Loadout loadout = gear.Read(saved, character);
+        loadout.Character = System.Math.Max(0, character);
+        return new Kit(gear, loadout, side);
+    }
+
     /// <summary>The field's own kit on character <paramref name="character"/>.</summary>
     public static Kit Default(GearCatalog gear, int character, Color? side = null) => new(gear, gear.Default(character), side);
 

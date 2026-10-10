@@ -54,6 +54,7 @@ public partial class CharacterVisual : Node3D
     private Node3D? _marker;
     private MarkerModelDef? _markerDef;
     private GearModels.Worn? _markerWorn;
+    private readonly GeometryInstance3D?[] _gear = new GeometryInstance3D?[3];
     private readonly System.Collections.Generic.Dictionary<GeometryInstance3D, (GeometryInstance3D.ShadowCastingSetting Cast, bool Visible)> _drawn = new();
     private StepGait.GroundQuery _ground = null!;
 
@@ -61,6 +62,9 @@ public partial class CharacterVisual : Node3D
 
     /// <summary>The drawn model, if the character has one (null: hitbox boxes).</summary>
     public CharacterModel? Model => _model;
+
+    /// <summary>Whether the generated marker is drawn: one piece in its own finish, its loader and tank with it.</summary>
+    public bool WearsMarkerModel => _marker is not null;
 
     /// <summary>
     /// Only the character's shadow shows (your own body in first person): the model casts its shadow but
@@ -167,7 +171,8 @@ public partial class CharacterVisual : Node3D
                 else if (_marker is null || !kit.Gear.Included(kit.Loadout, slot))
                 {
                     GearModels.Worn worn = GearModels.Fit(kit.Item(slot), _current[i].HalfExtents.ToGodot() * 2f);
-                    _parts[i].AddChild(GearModels.Instance(slot.ToString(), worn.Mesh, kit.Colours(slot), jersey));
+                    _gear[(int)slot] = GearModels.Instance(slot.ToString(), worn.Mesh, kit.Colours(slot), jersey);
+                    _parts[i].AddChild(_gear[(int)slot]);
                     if (slot == GearSlot.Marker)
                     {
                         _markerWorn = worn;
@@ -183,6 +188,23 @@ public partial class CharacterVisual : Node3D
 
         Capture();
         ApplyPose(1f);
+    }
+
+    /// <summary>
+    /// Repaints what they wear in <paramref name="kit"/>'s colours: the same items as built, so only the colours may
+    /// differ (the locker, as you pick them; a new item or character is built again).
+    /// </summary>
+    public void Recolour(Kit kit)
+    {
+        foreach (GearSlot slot in new[] { GearSlot.Marker, GearSlot.Loader, GearSlot.Tank })
+        {
+            if (_gear[(int)slot] is { } instance)
+            {
+                GearModels.Colour(instance, kit.Colours(slot), _paint);
+            }
+        }
+
+        _model?.Recolour(kit);
     }
 
     /// <summary>Whether they hold their marker up (true) or have it out of the way with their hands free (the gear demo's head close-ups).</summary>

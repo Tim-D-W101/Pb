@@ -148,7 +148,8 @@ objective and where in the area (the menu's choices; they're in `rules.jsonc` an
 runs quicker; and
 `-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
 the room, the ways out. `-- --menu-tour` on the
-main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's
+main scene shows each menu screen, and `-- --locker-tour` (with `--locker-hold=N` frames a step) the gear locker's
+slots, a brand's range and the clothes in a side's colour. Frame rates under lavapipe mean nothing; only the owner's
 hardware can confirm the 60 fps target.
 
 ## Conventions

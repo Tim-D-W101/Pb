@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using Pb.Game.Core;
 using Pb.Game.Net;
+using Pb.Game.Player;
 using Pb.Net.Client;
 using Pb.Net.Lobby;
 using Pb.Sim.Data;
@@ -18,7 +19,7 @@ namespace Pb.Game.Ui;
 /// <item>who's in and on which side, with the bots that fill the places left;</item>
 /// <item>the round the host has chosen, which the host picks here: the area, place, mode, size, objective and difficulty,
 /// whether to balance the sides, and whether to vote on where to play between rounds;</item>
-/// <item>your character, turning in your side's colour;</item>
+/// <item>you in your kit, turning (in your side's colour in a round with sides), and the gear locker to change it;</item>
 /// <item>ready-up and the countdown, the vote when it's on, and text chat.</item>
 /// </list>
 /// Everyone ready starts the countdown. The host can also start without waiting, and can remove someone. Leave ends
@@ -38,7 +39,8 @@ public partial class LobbyMain : Control
     private VBoxContainer _sides = null!;
     private VBoxContainer _choices = null!;
     private CharacterPreview _preview = null!;
-    private HBoxContainer _looks = null!;
+    private Pb.Sim.Match.RecordBook _records = null!;
+    private LockerView? _locker;
     private ChatBox _chat = null!;
     private Button _ready = null!;
     private Button? _start;
@@ -48,6 +50,7 @@ public partial class LobbyMain : Control
     private string[] _names = Array.Empty<string>();
     private bool _leaving;
     private bool _scripted;
+    private GameSettings _settings = null!;
 
     public override void _Ready()
     {
@@ -65,7 +68,9 @@ public partial class LobbyMain : Control
         _data = GameData.Load(source);
         _view = Jsonc.Load<PresentationDef>(source, PresentationDef.File);
         GameSettings settings = GameSettings.Load(_view);
+        _settings = settings;
         _view.UseTeamColors(settings.TeamColors);
+        _records = Profile.Load(_data.Areas);
 
         var background = new ColorRect { Name = "Background", Color = new Color(0.07f, 0.075f, 0.08f), MouseFilter = MouseFilterEnum.Ignore };
         background.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -108,10 +113,11 @@ public partial class LobbyMain : Control
         columns.AddChild(Card("THE ROUND", _choices, 520f));
         VBoxContainer you = UiKit.Column(12);
         _preview = new CharacterPreview { Name = "Character" };
-        _preview.Build(_data.Config, _view, _data.Gear, new Vector2(220, 220));
+        _preview.Build(_data.Config, _view, new Vector2(220, 220));
         you.AddChild(_preview);
-        _looks = UiKit.Row(8);
-        you.AddChild(_looks);
+        Button locker = UiKit.Button("Gear locker", OpenLocker, 290);
+        locker.Name = "Locker";
+        you.AddChild(locker);
         _ready = UiKit.Button("Ready", () => _session.Ask(LobbyAsk.Ready, _session.Me is { Ready: true } ? 0 : 1), 290);
         _ready.Name = "Ready";
         you.AddChild(_ready);
@@ -251,8 +257,7 @@ public partial class LobbyMain : Control
         }
 
         LobbyMember? me = session.Me;
-        _preview.Show(me?.Look ?? session.LocalLook, SideColor(me?.Side ?? 0));
-        ShowLooks(me?.Look ?? session.LocalLook);
+        ShowYou(lobby);
         bool between = lobby.Phase is LobbyPhase.Lobby or LobbyPhase.Countdown;
         _ready.Disabled = me is null || !between;
         _ready.Text = me is { Ready: true } ? "Ready ✓  (press to wait)" : "Ready";
@@ -485,33 +490,49 @@ public partial class LobbyMain : Control
         _choices.AddChild(UiKit.Body("The place with the most votes is played next (the first of them on a tie).", 16, UiKit.Dim, wrap: true));
     }
 
-    /// <summary>The characters to choose from, yours lit.</summary>
-    private void ShowLooks(int look)
+    /// <summary>You in your kit, on your character, in your side's colour in a round with sides.</summary>
+    private void ShowYou(LobbyState lobby)
     {
-        int count = Math.Max(1, _view.Characters.Models.Length);
-        if (_looks.GetChildCount() == count + 1)
-        {
-            for (int i = 0; i < count; i++)
-            {
-                ((Button)_looks.GetChild(i + 1)).ButtonPressed = i == look % count;
-            }
+        NetSession session = _session!;
+        LobbyMember? me = session.Me;
+        int side = me?.Side ?? 0;
+        bool sides = _data.Config.Rules.FindMode(lobby.Choices.ModeId)?.Kind == MatchModeKind.Teams;
+        Kit kit = Kit.Saved(_data.Gear, _records.Data.Loadout, me?.Look ?? session.LocalLook, sides ? SideColor(side) : null);
+        _preview.Show(kit, SideColor(side));
+    }
 
+    /// <summary>
+    /// The gear locker over the lobby, which carries on behind it (the chat, the countdown: its line shows at the top).
+    /// Done tells the host your character, and the round that starts while it's open finds what you've picked saved.
+    /// </summary>
+    private void OpenLocker()
+    {
+        if (_locker is not null || _session is not { } session)
+        {
             return;
         }
 
-        Clear(_looks);
-        _looks.AddChild(UiKit.Body("Character", 20));
-        for (int i = 0; i < count; i++)
+        int side = session.Me?.Side ?? 0;
+        _settings.PlayerLook = session.Me?.Look ?? session.LocalLook;
+        _locker = new LockerView();
+        AddChild(_locker);
+        _locker.Open(_data, _view, _settings, _records, SideColor(side), SideColor(side));
+        _locker.Status = () => session.LobbyView is { Phase: LobbyPhase.Countdown or LobbyPhase.Loading } ? StatusLine() : null;
+        _locker.Closed = saved =>
         {
-            int index = i;
-            var button = new Button
+            _locker = null;
+            if (saved && session.Me is { } me && me.Look != _settings.PlayerLook)
             {
-                Name = $"Look_{i}", Text = $"{i + 1}", ToggleMode = true, ButtonPressed = i == look % count,
-                CustomMinimumSize = new Vector2(56, 40), FocusMode = FocusModeEnum.All,
-            };
-            button.Pressed += () => _session!.Ask(LobbyAsk.Look, index);
-            _looks.AddChild(button);
-        }
+                session.Ask(LobbyAsk.Look, _settings.PlayerLook);
+            }
+
+            if (session.LobbyView is { } lobby)
+            {
+                ShowYou(lobby);
+            }
+
+            (FindChild("Locker", recursive: true, owned: false) as Control)?.CallDeferred(Control.MethodName.GrabFocus);
+        };
     }
 
     /// <summary>What's happening, for the line under the game's name.</summary>
@@ -563,6 +584,7 @@ public partial class LobbyMain : Control
             return;
         }
 
+        _locker?.Close(true);
         _leaving = true;
         GetTree().ChangeSceneToFile(scene);
     }

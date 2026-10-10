@@ -149,6 +149,60 @@ public sealed class GearCatalog
         return loadout;
     }
 
+    /// <summary>
+    /// The loadout <paramref name="saved"/> holds, read against this catalogue: an item it no longer has (or one of
+    /// another slot) is the slot's default in its own colours, and colours that don't read are the item's own. Null (a
+    /// profile from before the locker) is the default kit on character <paramref name="character"/>.
+    /// </summary>
+    public Loadout Read(SavedLoadout? saved, int character)
+    {
+        if (saved is null)
+        {
+            return Default(Math.Max(0, character));
+        }
+
+        var loadout = new Loadout { Character = Math.Max(0, saved.Character) };
+        foreach (GearSlot slot in Enum.GetValues<GearSlot>())
+        {
+            SavedPick? pick = saved.Get(slot);
+            int item = pick is null ? -1 : IndexOf(pick.Item);
+            if (!Fits(slot, item))
+            {
+                item = DefaultItem(slot);
+                loadout[slot] = new GearChoice(item, Items[item].Colours);
+                continue;
+            }
+
+            GearColours own = Items[item].Colours;
+            string[] colours = pick!.Colours ?? Array.Empty<string>();
+            bool read = colours.Length == 3;
+            uint main = 0, second = 0, accent = 0;
+            read = read && GearColours.TryParse(colours[0], out main) && GearColours.TryParse(colours[1], out second) &&
+                   GearColours.TryParse(colours[2], out accent);
+            loadout[slot] = new GearChoice(item, read ? new GearColours(main, second, accent) : own);
+        }
+
+        return loadout;
+    }
+
+    /// <summary><paramref name="loadout"/> as the profile keeps it (by item id, colours as <c>#rrggbb</c>).</summary>
+    public SavedLoadout Write(Loadout loadout)
+    {
+        Loadout fit = Normalised(loadout);
+        var saved = new SavedLoadout { Character = fit.Character };
+        foreach (GearSlot slot in Enum.GetValues<GearSlot>())
+        {
+            GearChoice choice = fit[slot];
+            saved.Set(slot, new SavedPick
+            {
+                Item = Items[choice.Item].Id,
+                Colours = new[] { GearColours.Format(choice.Colours.Main), GearColours.Format(choice.Colours.Second), GearColours.Format(choice.Colours.Accent) },
+            });
+        }
+
+        return saved;
+    }
+
     public static GearCatalog From(GearCatalogDef def)
     {
         var brands = def.Brands.Select((b, i) => new GearBrand { Index = i, Id = b.Id, DisplayName = b.DisplayName, Line = b.Line, Mark = b.Mark }).ToList();

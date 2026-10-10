@@ -1053,6 +1053,39 @@
     "clothes": { "shading": 0.5, "faceDepth_m": 0.11, "faceBelow_m": 0.12, "maskGap_m": 0.008 }
   },
 
+  // The gear locker (Phase 5): you on a turntable under a lamp in the works' changing room (levels/locker_room.jsonc).
+  "locker": {
+    // The turntable you stand on (its drum and its top, kit materials), and the lamp hanging over it (this high above the
+    // floor, this bright and this wide, under a shade of this kit material).
+    "turntableRadius_m": 0.55, "turntableHeight_m": 0.05, "turntableMaterial": "steel_painted", "turntableTopMaterial": "rubber_plain",
+    "lampHeight_m": 2.7, "lampEnergy": 3.5, "lampAngle_deg": 38, "lampColor": "#ffe7c4", "lampMaterial": "enamel_white",
+    // A soft light from beside the camera, so whichever side of you it looks at reads; the room shown this much brighter
+    // than the areas' indoors; your marker held this far down while you stand there, off your mask; and how far your
+    // head turns to follow the camera round.
+    "fillEnergy": 1.2, "fillColor": "#dde6f0", "exposure": 1.25, "holdPitch_deg": -32, "headTurn_deg": 45,
+    // The camera turns round you as you drag (degrees per pixel, or a pad's right stick at padTurn_degPerS) and comes
+    // nearer or goes further as you scroll (metres a notch), from minDistance_m to maxDistance_m away, looking down on you
+    // at most maxPitch_deg and up at most minPitch_deg; picking a slot brings it round to that slot's framing over ease_s.
+    "dragDegPerPx": 0.35, "padTurn_degPerS": 150, "scrollStep_m": 0.15, "minDistance_m": 0.55, "maxDistance_m": 3.6, "minPitch_deg": -25, "maxPitch_deg": 40,
+    "ease_s": 0.45,
+    // Each framing: the point looked at (height_m over the middle of the hitbox part it names, or over the turntable), how
+    // far off (m), from which way round (degrees from straight in front, positive to your right), how high (degrees,
+    // looking down positive) and the camera's field of view (degrees, top to bottom).
+    "all": { "height_m": 0.95, "distance_m": 3.3, "yaw_deg": 22, "pitch_deg": 6, "fov_deg": 40 },
+    "marker": { "part": "marker", "height_m": 0, "distance_m": 1.25, "yaw_deg": 35, "pitch_deg": 12, "fov_deg": 32 },
+    "loader": { "part": "loader", "height_m": 0, "distance_m": 1.0, "yaw_deg": 30, "pitch_deg": 34, "fov_deg": 32 },
+    "tank": { "part": "tank", "height_m": 0, "distance_m": 1.05, "yaw_deg": 110, "pitch_deg": 18, "fov_deg": 32 },
+    "mask": { "part": "head", "height_m": 0.08, "distance_m": 1.4, "yaw_deg": -24, "pitch_deg": 4, "fov_deg": 30 },
+    "jersey": { "part": "torso", "height_m": 0.05, "distance_m": 1.9, "yaw_deg": -20, "pitch_deg": 4, "fov_deg": 36 },
+    "pants": { "part": "legs", "height_m": 0, "distance_m": 1.9, "yaw_deg": -15, "pitch_deg": 6, "fov_deg": 36 },
+    // The colours offered for an item's three, besides any you pick yourself.
+    "palette": [
+      "#ffffff", "#e4e7ea", "#c8c2b2", "#9aa0a6", "#5b5e62", "#3a3f45", "#2c2e31", "#1f2328", "#0f1012",
+      "#b4572b", "#c0392b", "#e2622d", "#f0a830", "#f2d544", "#9f8963", "#4a4e39", "#5f7a3a", "#2e8b57",
+      "#16a7c2", "#2f6fd6", "#1d3f8f", "#6c3fb5", "#b03a7c", "#e06a9a", "#6b4a2f", "#8a2b2b", "#2b5d5d"
+    ]
+  },
+
   // Paint on your mask when a ball breaks near your face (spec §1.3): drops of the ball's colour that
   // block part of the view and clear over duration_s.
   "maskSpray": { "duration_s": 2.5, "maxOpacity": 0.85, "drops": 6, "minSize": 0.12, "maxSize": 0.45 },

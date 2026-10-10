@@ -1180,8 +1180,9 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
     `includes` only on a generated model.
   - `GearCatalog.Deal` is the dealer (its own `Pcg32` from the match seed and the player's id); `Normalised` puts a
     slot's default in for a pick the catalogue no longer has.
-  - Until the locker (M5.2), people wear the field's own kit on their character (`--kit=BRAND` wears one brand's
-    whole range). Bots wear their dealt kit in their side's colour, on every copy.
+  - People wore the field's own kit on their character until the locker (M5.2); now you wear what you saved there
+    (`--kit=BRAND` still wears one brand's whole range). Bots wear their dealt kit in their side's colour, on every
+    copy.
 
 ### 17.2 Drawing gear and clothes
 
@@ -1261,6 +1262,43 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
   - the main menu, as a new screen in `MainMenu`'s screen lists, the menu tour and the smoke test;
   - Play with others and the lobby, in place of their character pickers. The lobby's `CharacterPreview` shows the
     loadout.
+
+- **As built (M5.2):**
+  - **An overlay, not a scene.** `LockerView` (game/ui) is a full-screen control the main menu or the lobby adds over
+    itself, so the lobby carries on behind it (its chat, the countdown; the countdown's line shows in the locker) and a
+    round that starts while it's open finds what you've picked saved. The room is drawn in a `SubViewport` with a
+    world of its own (`LockerStage`), at your preset's antialiasing and your render scale; the menu stops drawing its
+    level while the locker is open.
+  - **The room** is `levels/locker_room.jsonc`, the kit's `changing_room` building (8 × 6 m, lockers down both long
+    walls, benches, high windows, a door left ajar, strip lights), built by `LevelBuilder` with its doors, floor
+    debris, markings, cobwebs, damp, things on the walls, contact shadows and the window light. A `SimWorld` of its own
+    loads it (it never steps): your feet stand on the turntable's collider, and the camera keeps out of the room by
+    sweeping a sphere to where it wants to be. The turntable (a drum with a rubber top) and the lamp (an enamel shade on
+    its flex, a bulb, a spot down on you) are built with `ShapeMesh` in the kit's materials; a soft fill rides with the
+    camera. You face the spawn's way (down the room's length), 0.75 m off the middle towards the windows so the lamp
+    hangs clear of the strip lights (one hangs askew, and its shadow put the lamp out), and a sim test keeps 1.4 m
+    clear round you. You hold the marker low (`holdPitch_deg`) with your head up, the idle clip held at its start so it
+    doesn't look away, and your head turns to follow the camera (`headTurn_deg`), so a close-up of the mask shows its
+    front.
+  - **`LockerCamera`** orbits about you (yaw from your front, pitch, distance, field of view, the point looked at),
+    easing to each slot's framing over `ease_s` and drawing you in the middle of the room the panels leave (it slides
+    across rather than turning). A framing looks at a hitbox part's middle (the marker, loader, tank, torso, legs; the
+    head as drawn), so the close-ups follow the pose; the whole of you is looked at over the turntable. Drag turns it,
+    the wheel brings it closer, a pad's right stick turns it too.
+  - **Picking:** the item buttons are each slot's items by brand, with the brand's line; the colour chips, the palette,
+    a `ColorPickerButton` (its presets the palette) and the item's own colours. What can't change says why: a generated
+    marker's own finish and the loader and tank it `includes`, the character's own mask, and the second and accent of
+    the clothes the characters came with. Colours repaint what's drawn (`CharacterVisual.Recolour`); a new item or
+    character builds you again. Colours you give an item come back if you return to it. The whole kit's panel puts a
+    brand's range on you, or the field's own kit; the clothes' panels show them in a side's colour.
+  - **Saved:** Done writes the loadout into the profile (`ProfileData.Loadout`, format 3: each slot's item id and
+    `#rrggbb` colours, read back by `GearCatalog.Read`) and the character into the settings (`PlayerLook`, as the
+    lobby and the network still take it). Rounds, the training ground and the lobby's preview wear
+    `Kit.Saved(catalogue, profile's loadout, your character)`. In a game with others only your own copy shows your kit
+    until M5.3 sends it.
+  - **Checks:** the menu's smoke test opens it, finds every slot's items, picks a brand's marker in a colour of its own
+    and a brand's mask, presses Done, and reads the same back from the profile (then puts the profile back);
+    `-- --locker-tour` (with `--locker-hold=N`) shows each slot, a brand's range and the clothes in a side's colour.
 
 ### 17.4 Paint
 

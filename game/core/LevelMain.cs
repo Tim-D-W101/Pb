@@ -750,14 +750,16 @@ public partial class LevelMain : Node3D, ISimEventListener
     private bool Sides => _mode.Kind == MatchModeKind.Teams;
 
     /// <summary>
-    /// Your kit: the field's own on your character for now (the locker comes next), or with <c>--kit=BRAND</c> every slot
-    /// from that brand's range; in your side's colour in a round with sides.
+    /// Your kit: what you saved in the gear locker, on your character, or with <c>--kit=BRAND</c> every slot from that
+    /// brand's range; in your side's colour in a round with sides.
     /// </summary>
     private Kit PlayerKit(PlayerState state)
     {
         int look = _netSetup?.Roster.FirstOrDefault(e => e.PlayerId == state.Id)?.Look ?? _settings.PlayerLook;
-        Loadout loadout = Args.Value("--kit") is { Length: > 0 } brand && Kit.Brand(_data.Gear, brand, look) is { } branded ? branded : _data.Gear.Default(look);
-        return new Kit(_data.Gear, loadout, Sides ? TeamColor(state.Team) : null);
+        Color? side = Sides ? TeamColor(state.Team) : null;
+        return Args.Value("--kit") is { Length: > 0 } brand && Kit.Brand(_data.Gear, brand, look) is { } branded
+            ? new Kit(_data.Gear, branded, side)
+            : Kit.Saved(_data.Gear, Profile.Load(_data.Areas).Data.Loadout, look, side);
     }
 
     /// <summary>A bot's kit, dealt from the round's seed and its id (the same on every copy), worn in its side's colour.</summary>

@@ -71,9 +71,13 @@ public sealed class SimFilesDef : IValidatable
     /// <summary>The gear locker's brands and items (Phase 5): looks only.</summary>
     public string Gear { get; set; } = "";
 
+    /// <summary>The gear locker's room: a level of its own, built when the locker opens, never played in.</summary>
+    public string LockerRoom { get; set; } = "";
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Gear), Gear);
+        v.NotEmpty(nameof(LockerRoom), LockerRoom);
         v.NotEmpty(nameof(Kit), Kit);
         v.NotEmpty(nameof(Areas), Areas);
         v.NotEmpty(nameof(Navigation), Navigation);
