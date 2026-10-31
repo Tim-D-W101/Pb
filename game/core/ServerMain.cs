@@ -61,6 +61,7 @@ public partial class ServerMain : Node3D, ISimEventListener
     private CastRound? _cast;
     private DoorBodies? _doors;
     private int[] _calloutsSent = Array.Empty<int>();
+    private int _contactsSent;
     private double _readySince = -1;
     private double _waited;
     private double _briefing = -1;
@@ -226,12 +227,17 @@ public partial class ServerMain : Node3D, ISimEventListener
         sim.LoadLevel(level);
         sim.Collision.SkipDynamic = true;
         BotSquad squad = BotSquad.ForLevel(sim, _data.Bots, level);
+        // Once a run: every sim and network method compiled before the first round's first tick, not mid-round.
+        Pb.Sim.Core.JitWarmup.PrepareSim();
+        Pb.Sim.Core.JitWarmup.Prepare(typeof(Pb.Net.Server.NetServer).Assembly);
         int largest = Math.Max(people.Count(p => p.Side == 0), people.Count(p => p.Side == 1));
         int size = RoundCasting.FitSize(chosen.Mode, chosen.Size, people.Count, _data.Config.Rules.MaxPlayers, largest);
         float? limit = float.TryParse(Args.Value("--time-limit"), NumberStyles.Float, CultureInfo.InvariantCulture, out float seconds) ? seconds : null;
         CastRound cast = RoundCasting.Cast(level, squad.Cover, sim.Collision, _data.Config, _data.Bots, chosen.Mode, size, chosen.Objective, chosen.Tier,
             people, seed, _session.RoundsPlayed + 1, _view.Hud.Callsigns, chosen.Entry.Id, chosen.Place.Whole ? null : chosen.Place.Id, limit,
-            fillWithBots: _config.Bots);
+            fillWithBots: _config.Bots, last: SpawnHistory.For(level.Id, chosen.Place.Id));
+        // The next round here starts somewhere else.
+        SpawnHistory.Remember(level.Id, chosen.Place.Id, cast.Memory);
         RoundSetupMessage setup = cast.Setup;
         foreach (RosterEntry e in setup.Roster)
         {
@@ -272,6 +278,7 @@ public partial class ServerMain : Node3D, ISimEventListener
         }
 
         _calloutsSent = Enumerable.Repeat(-1, _bots.Count).ToArray();
+        _contactsSent = 0;
         _botTier = chosen.Tier.Bots;
         MatchState match = sim.StartMatch(RoundWorld.MatchSetupOf(_data.Config, setup));
         _match = match;
@@ -448,6 +455,11 @@ public partial class ServerMain : Node3D, ISimEventListener
     /// <summary>The bots' new callouts go to everyone with the step's events (the lines the game would play).</summary>
     private void SendCallouts()
     {
+        if (_squad is not null)
+        {
+            _contactsSent = ContactRelay.Send(_squad, _bots, _contactsSent, _server, _sim!.Tick - 1);
+        }
+
         for (int i = 0; i < _bots.Count; i++)
         {
             BotBrain bot = _bots[i];

@@ -48,9 +48,9 @@ public partial class ObjectiveViews : Node3D
                 ShadowEnabled = false, Position = new Vector3(0f, 0.35f, 0f),
             };
             AddChild(_light);
-            foreach (ExitSpec exit in _objective.Level.Exits)
+            foreach (int i in _objective.CountingExits)
             {
-                AddChild(Beam(exit, colour, view));
+                AddChild(Beam(_objective.Level.Exits[i], colour, view));
             }
         }
         else if (_objective.Room is { } room)

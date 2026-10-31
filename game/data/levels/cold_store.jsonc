@@ -34,7 +34,9 @@
     { "position_m": [57, 0, 28], "yaw_deg": 90 },
     { "position_m": [-57, 0, -18], "yaw_deg": -90 }
   ],
-  "spawnArea": "the lorry park",
+  // Opponents start anywhere inside the fence, the store and its chambers as well as the yard (the lorry park alone,
+  // as it was, never had anyone start inside).
+  "spawnArea": "the depot",
   "deadZone_m": [-14, 0, 47],
   "scenery": {
     "powerLines": [ { "points_m": [[-480, 160], [-90, 150], [480, 175]], "spacing_m": 240, "height_m": 28, "material": "steel_galvanised", "wire": "steel_painted" } ],
@@ -145,6 +147,7 @@
   ],
   "areas": [
     { "name": "outside the fence", "rect_m": [-62, -52, 62, 52] },
+    { "name": "the depot", "rect_m": [-50, -40, 50, 40] },
     { "name": "the lorry park", "rect_m": [-50, 0, 50, 40] },
     { "name": "the docks", "rect_m": [-40, 0, 16, 17] },
     { "name": "behind the cold store", "rect_m": [-50, -40, 22, -36] },

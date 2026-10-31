@@ -1,3 +1,4 @@
+using System.Numerics;
 using Pb.Net.Protocol;
 using Pb.Sim;
 using Pb.Sim.AI;
@@ -22,6 +23,12 @@ public sealed class CastRound
 
     /// <summary>The roster entry each person plays, in the order they were given.</summary>
     public required IReadOnlyList<int> PersonIds { get; init; }
+
+    /// <summary>The entry the side coming in used (the host's, in co-op), which the next round's entry avoids.</summary>
+    public required Vector3 Entry { get; init; }
+
+    /// <summary>Where everyone started and the entry used, for the next round on this area and place to start elsewhere.</summary>
+    public SpawnMemory Memory => SpawnMemory.Of(Setup.Roster.Select(e => e.Position), Entry);
 }
 
 /// <summary>
@@ -39,7 +46,7 @@ public static class RoundCasting
     /// </param>
     public static CastRound Cast(LevelLayout level, CoverSet cover, CollisionWorld world, SimConfig config, BotConfig bots, GameMode mode, int size,
         ObjectiveChoice objective, TierDef tier, IReadOnlyList<Person> people, ulong seed, int round, IReadOnlyList<string> callsigns,
-        string levelId, string? placeId, float? timeLimit = null, bool fillWithBots = true)
+        string levelId, string? placeId, float? timeLimit = null, bool fillWithBots = true, SpawnMemory? last = null)
     {
         if (people.Count == 0)
         {
@@ -61,7 +68,7 @@ public static class RoundCasting
 
         ObjectiveFocus? focus = ObjectiveFocus.For(kind, level.Objectives, config.Rules.Objectives, seed);
         RoundShape shape = mode.Kind == MatchModeKind.Solo ? RoundShape.Of(mode, size, people.Count, focus) : RoundShape.Of(mode, size, focus);
-        SpawnPlan plan = SpawnPlanner.Plan(level, cover, world, config.Rules.Spawning, bots, shape, config.Movement.StandEyeHeight, seed);
+        SpawnPlan plan = SpawnPlanner.Plan(level, cover, world, config.Rules.Spawning, bots, shape, config.Movement.StandEyeHeight, seed, last);
 
         // Where each person starts: the entering side's first at your start, the rest of it among the teammates; the
         // other side's people among the opponents (first, so near the objective when they defend it).
@@ -151,7 +158,7 @@ public static class RoundCasting
             AddBot(setup, starts, plan.Opponents[o], team, names, ref bot);
         }
 
-        return new CastRound { Setup = setup, BotStarts = starts, PersonIds = ids };
+        return new CastRound { Setup = setup, BotStarts = starts, PersonIds = ids, Entry = plan.You.Position };
     }
 
     /// <summary>

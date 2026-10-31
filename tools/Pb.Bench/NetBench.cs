@@ -126,10 +126,10 @@ internal static class NetBench
             }
 
             sim.Step(commands);
-            foreach (PlayerState p in sim.Players)
+            for (int i = 0; i < sim.Players.Count; i++)
             {
-                p.Alive = true;
-                p.Present = true;
+                sim.Players[i].Alive = true;
+                sim.Players[i].Present = true;
             }
         }
 
@@ -182,6 +182,9 @@ internal static class NetBench
         var packs = new double[ticks];
         long bytesFrom = server.BytesSent;
         int liveSum = 0;
+        GC.Collect(); // the garbage of setting up, collected now rather than in a measured tick
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
         for (int i = 0; i < ticks; i++)
         {
             now += dt;

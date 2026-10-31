@@ -87,7 +87,8 @@ public enum Sfx
     HoldContested,
     HoldTheirs,
 
-    // The round: the breakout horn, the referee's whistle.
+    // The round: the soft start cue, the breakout horn, the referee's whistle.
+    StartCue,
     Horn,
     WhistleLong,
     WhistleTriple,
@@ -362,6 +363,7 @@ public sealed class SoundBank
         Sfx.HoldContested => new(0.75f, 1, (s, _) => Buzz(s, 180f, 2, 0.24f, 0.1f), Peak: 0.3f),
         Sfx.HoldTheirs => new(0.9f, 1, (s, _) => Chime(s, [587.33f, 349.23f], 0.16f, 0.4f)),
 
+        Sfx.StartCue => new(0.9f, 1, (s, _) => StartCue(s), Peak: 0.35f),
         Sfx.Horn => new(1.7f, 1, (s, _) => Horn(s), Peak: 0.5f),
         Sfx.WhistleLong => new(1.05f, 1, (s, _) => Whistle(s, [(0f, 0.95f)]), Peak: 0.6f),
         Sfx.WhistleTriple => new(1.4f, 1, (s, _) => Whistle(s, [(0f, 0.2f), (0.32f, 0.2f), (0.64f, 0.7f)]), Peak: 0.6f),
@@ -984,6 +986,22 @@ public sealed class SoundBank
     }
 
     // ---- The round ------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The round's start, quietly: two soft, low wooden knocks a fifth apart (a muted marimba), with a breath of air under
+    /// the first. Something to start on, not a horn or a whistle.
+    /// </summary>
+    private static void StartCue(Synth s)
+    {
+        foreach ((float at, float note, float gain) in new[] { (0f, 293.66f, 0.55f), (0.17f, 440f, 0.42f) })
+        {
+            s.Mode(at, note, 0.16f, gain);
+            s.Mode(at, note * 3.93f, 0.025f, gain * 0.18f); // the knock of the bar
+            s.Mode(at, note * 0.5f, 0.22f, gain * 0.25f); // its body
+        }
+
+        s.NoiseBurst(0f, 900f, 0.8f, 0.004f, 0.05f, 0.05f);
+    }
 
     /// <summary>The breakout horn: two reeds a minor third apart, blasting and drooping a little.</summary>
     private static void Horn(Synth s)

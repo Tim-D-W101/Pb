@@ -10,6 +10,7 @@ using Pb.Sim.Players;
 namespace Pb.Sim.Tests;
 
 /// <summary>Phase 4 (M4.1): rounds with several people, results told from each side, lag compensation and a joining copy's step.</summary>
+[Collection(BotArenaCollection.Name)]
 public class SeveralPlayersTests
 {
     private const int Second = 120;
@@ -322,7 +323,7 @@ public class SeveralPlayersTests
         carrier.Position = objective.CasePosition;
         Run(sim, 2);
         Assert.Equal(0, objective.Carrier);
-        carrier.Position = objective.Level.Exits[0].Position;
+        carrier.Position = objective.Level.Exits[objective.CountingExits[0]].Position;
         Run(sim, 2);
         Assert.Equal(new MatchResult(RoundEnd.Extracted, 0), match.Result);
         Assert.Equal(RoundOutcome.Extracted, match.OutcomeFor(0));

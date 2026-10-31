@@ -185,6 +185,15 @@ public sealed class SpawnRules
     public required float ObjectiveClearance { get; init; }
 
     /// <summary>These rules with every distance scaled by <paramref name="scale"/> (for a smaller place to play).</summary>
+    /// <summary>A start within this of one from the last round is taken only when nothing else fits (m).</summary>
+    public float RepeatRadius { get; init; }
+
+    /// <summary>A bot at one of the level's named spawns plays one of its own roles this often, else one from <see cref="CoverRoles"/>.</summary>
+    public float SpawnOwnRoleChance { get; init; } = 1f;
+
+    /// <summary>Opponents start out of sight of your entry and of the spot this far in from it, the way you face (m).</summary>
+    public float EntryLookAhead { get; init; }
+
     public SpawnRules Scaled(float scale) => scale == 1f ? this : new SpawnRules
     {
         MinDistanceFromYou = MinDistanceFromYou * scale,
@@ -197,6 +206,9 @@ public sealed class SpawnRules
         TeammateSpacing = TeammateSpacing,
         TeamSpread = TeamSpread * scale,
         ObjectiveClearance = ObjectiveClearance * scale,
+        RepeatRadius = RepeatRadius * scale,
+        SpawnOwnRoleChance = SpawnOwnRoleChance,
+        EntryLookAhead = EntryLookAhead * scale,
     };
 }
 

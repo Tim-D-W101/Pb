@@ -21,6 +21,10 @@ int measureTicks = quick ? 600 : 2400;
 
 GameData data = GameData.Load(FileSystemDataSource.FindRepoData());
 SimConfig config = data.Config;
+// As the game does while a level loads: every sim and network method compiled before the first tick, so a method's
+// first call never lands in a measured tick.
+(int warmed, double warmMs) = JitWarmup.PrepareSim();
+(int warmedNet, double warmNetMs) = JitWarmup.Prepare(typeof(Pb.Net.Server.NetServer).Assembly);
 
 Console.WriteLine("## Phase 1 ballistics report");
 Console.WriteLine();
@@ -40,13 +44,18 @@ Console.WriteLine();
 
 Console.WriteLine($"## Sim tick cost ({measureTicks} ticks per row, {RuntimeLabel()})");
 Console.WriteLine();
+Console.WriteLine($"{warmed + warmedNet} sim and network methods compiled up front in {warmMs + warmNetMs:0} ms, as the game does while a level " +
+                  "loads. Each measurement starts after a full collection, and nothing in the measured ticks allocates, so no collection " +
+                  "lands in them. \"Max CPU\" is the slowest tick by the thread's own CPU time: where the wall-clock maximum is far above " +
+                  "it, the system gave the core to something else for a moment; the sim wasn't doing more.");
+Console.WriteLine();
 Measure(data, 1000, 600); // untimed warm-up so JIT tiering doesn't skew the first row
-Console.WriteLine("| Live balls | Mean ms/tick | p95 ms/tick | Max ms/tick | ms per 60 fps frame (2 ticks) |");
-Console.WriteLine("|---|---|---|---|---|");
+Console.WriteLine($"| Live balls | Mean ms/tick | p95 ms/tick | Max ms/tick | {CpuHeader()} | ms per 60 fps frame (2 ticks) |");
+Console.WriteLine("|---|---|---|---|---|---|");
 foreach (int balls in ballCounts)
 {
-    (double mean, double p95, double max, int live) = Measure(data, balls, measureTicks);
-    Console.WriteLine($"| {live} | {mean:0.000} | {p95:0.000} | {max:0.000} | {mean * 2:0.000} |");
+    (double mean, double p95, double max, int live, double maxCpu) = Measure(data, balls, measureTicks);
+    Console.WriteLine($"| {live} | {mean:0.000} | {p95:0.000} | {max:0.000} | {Cpu(maxCpu)} | {mean * 2:0.000} |");
 }
 
 Console.WriteLine();
@@ -54,20 +63,21 @@ foreach ((string id, LevelLayout level) in data.Levels)
 {
     Console.WriteLine($"Compound level **{level.DisplayName}** ({level.Primitives.Count} primitives, balls fired from its opponent spawns in all directions):");
     Console.WriteLine();
-    Console.WriteLine("| Live balls | Mean ms/tick | p95 ms/tick | Max ms/tick | ms per 60 fps frame (2 ticks) |");
-    Console.WriteLine("|---|---|---|---|---|");
+    Console.WriteLine($"| Live balls | Mean ms/tick | p95 ms/tick | Max ms/tick | {CpuHeader()} | ms per 60 fps frame (2 ticks) |");
+    Console.WriteLine("|---|---|---|---|---|---|");
     MeasureLevel(data, level, 1000, 300); // warm-up
     foreach (int balls in ballCounts)
     {
-        (double mean, double p95, double max, int live) = MeasureLevel(data, level, balls, measureTicks);
-        Console.WriteLine($"| {live} | {mean:0.000} | {p95:0.000} | {max:0.000} | {mean * 2:0.000} |");
+        (double mean, double p95, double max, int live, double maxCpu) = MeasureLevel(data, level, balls, measureTicks);
+        Console.WriteLine($"| {live} | {mean:0.000} | {p95:0.000} | {max:0.000} | {Cpu(maxCpu)} | {mean * 2:0.000} |");
     }
 
     Console.WriteLine();
     // Phase 2 budget: a tick with ten players (hitboxes posed and recorded, balls tested against them) and 1,000 balls.
-    (double m10, double p10, double x10, int l10) = MeasureLevel(data, level, 1000, measureTicks, players: 10);
-    Console.WriteLine($"With 10 players in the round and {l10} live balls: mean {m10:0.000} ms/tick, p95 {p10:0.000}, max {x10:0.000} " +
-                      $"(budget 0.5 ms: {(m10 <= 0.5 ? "within" : "OVER")}).");
+    (double m10, double p10, double x10, int l10, double c10) = MeasureLevel(data, level, 1000, measureTicks, players: 10);
+    Console.WriteLine($"With 10 players in the round and {l10} live balls: mean {m10:0.000} ms/tick, p95 {p10:0.000}, max {x10:0.000}" +
+                      (ThreadClock.Available ? $" (the costliest tick's own CPU time {c10:0.000})" : "") +
+                      $" (budget 0.5 ms: {(m10 <= 0.5 ? "within" : "OVER")}).");
     Console.WriteLine();
 }
 
@@ -84,8 +94,8 @@ foreach ((string id, LevelLayout level) in data.Levels)
     double buildMs = watch.Elapsed.TotalMilliseconds;
     Console.WriteLine($"**{level.DisplayName}**: navigation grid of {built.Grid.SpanCount:N0} places and {built.Cover.Points.Count} cover points, built at load in {buildMs:0} ms.");
     Console.WriteLine();
-    Console.WriteLine("| Bots (hard), with you in the yard | Mean ms/tick (brains) | p95 ms/tick | Max ms/tick | Path searches |");
-    Console.WriteLine("|---|---|---|---|---|");
+    Console.WriteLine($"| Bots (hard), with you in the yard | Mean ms/tick (brains) | p95 ms/tick | Max ms/tick | {CpuHeader()} | Path searches | Most places searched in a tick |");
+    Console.WriteLine("|---|---|---|---|---|---|---|");
     AreaEntryDef entry = data.Areas.Areas.First(l => l.Id == id);
     string[] roster = (entry.Roster ?? Array.Empty<string>()).Take(data.Config.Rules.MaxPlayers - 1).ToArray();
     if (roster.Length > 0 && entry.Tiers is { Length: > 0 } tiers)
@@ -93,9 +103,9 @@ foreach ((string id, LevelLayout level) in data.Levels)
         string hard = tiers[^1].Bots;
         foreach (bool freeForAll in new[] { false, true })
         {
-            (double mean, double p95, double max, int searches) = MeasureBots(data, level, roster, hard, freeForAll, quick ? 1200 : 3600);
+            (double mean, double p95, double max, double maxCpu, int searches, long most) = MeasureBots(data, level, roster, hard, freeForAll, quick ? 1200 : 3600);
             string who = freeForAll ? "free-for-all: everyone against everyone" : "solo: one squad against you";
-            Console.WriteLine($"| {roster.Length}, {who} | {mean:0.000} | {p95:0.000} | {max:0.000} | {searches} |");
+            Console.WriteLine($"| {roster.Length}, {who} | {mean:0.000} | {p95:0.000} | {max:0.000} | {maxCpu:0.000} | {searches} | {most:N0} |");
         }
     }
 
@@ -209,7 +219,7 @@ static (float Range, float Angle) MaxRange(SimConfig config)
     return (best, bestAngle);
 }
 
-static (double Mean, double P95, double Max, int Live) Measure(GameData data, int balls, int ticks)
+static (double Mean, double P95, double Max, int Live, double MaxCpu) Measure(GameData data, int balls, int ticks)
 {
     SimConfig c = data.Config;
     var config = new SimConfig
@@ -245,21 +255,25 @@ static (double Mean, double P95, double Max, int Live) Measure(GameData data, in
 
     var samples = new double[ticks];
     int liveSum = 0;
+    double maxCpu = 0.0;
+    Settle();
     for (int i = 0; i < ticks; i++)
     {
+        double cpu = ThreadClock.NowMs();
         long start = Stopwatch.GetTimestamp();
         Step(t++);
         samples[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        maxCpu = Math.Max(maxCpu, ThreadClock.NowMs() - cpu);
         liveSum += sim.Ballistics.Pool.Count;
     }
 
     Array.Sort(samples);
-    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], liveSum / ticks);
+    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], liveSum / ticks, maxCpu);
 }
 
 // Keeps about `balls` paintballs in flight across a compound level, fired from its opponent spawns
 // at random headings and elevations, and times SimWorld.Step (topping up happens between ticks).
-static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData data, LevelLayout level, int balls, int ticks, int players = 1)
+static (double Mean, double P95, double Max, int Live, double MaxCpu) MeasureLevel(GameData data, LevelLayout level, int balls, int ticks, int players = 1)
 {
     SimConfig c = data.Config;
     var config = new SimConfig
@@ -305,11 +319,13 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
 
         sim.Step(commands);
         sim.Events.Clear();
-        foreach (PlayerState p in sim.Players)
+        IReadOnlyList<PlayerState> everyone = sim.Players;
+        for (int p = 0; p < everyone.Count; p++)
         {
-            // Everyone stays in, so every tick pays for all ten sets of hitboxes.
-            p.Alive = true;
-            p.Present = true;
+            // Everyone stays in, so every tick pays for all ten sets of hitboxes. (By index: a foreach over the list
+            // allocated its enumerator every tick, and the collections that piled up landed in measured ticks.)
+            everyone[p].Alive = true;
+            everyone[p].Present = true;
         }
     }
 
@@ -322,24 +338,28 @@ static (double Mean, double P95, double Max, int Live) MeasureLevel(GameData dat
 
     var samples = new double[ticks];
     int liveSum = 0;
+    double maxCpu = 0.0;
+    Settle();
     for (int i = 0; i < ticks; i++)
     {
         TopUp(t);
         sim.Events.Clear();
+        double cpu = ThreadClock.NowMs();
         long start = Stopwatch.GetTimestamp();
         Step(t++);
         samples[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        maxCpu = Math.Max(maxCpu, ThreadClock.NowMs() - cpu);
         liveSum += sim.Ballistics.Pool.Count;
     }
 
     Array.Sort(samples);
-    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], liveSum / ticks);
+    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], liveSum / ticks, maxCpu);
 }
 
 // A round with the hardest tier's bots at the roster's spawns and you standing in the open (hitboxes off so
 // it goes on): the time all the bots' brains take per tick, moved over the navigation grid as in the sim
 // tests. In free-for-all every bot is a team of its own, so each watches and fights all the others.
-static (double Mean, double P95, double Max, int Searches) MeasureBots(GameData data, LevelLayout level, string[] roster, string difficulty,
+static (double Mean, double P95, double Max, double MaxCpu, int Searches, long MostNodes) MeasureBots(GameData data, LevelLayout level, string[] roster, string difficulty,
     bool freeForAll, int ticks)
 {
     var sim = new SimWorld(data.Config);
@@ -366,9 +386,18 @@ static (double Mean, double P95, double Max, int Searches) MeasureBots(GameData 
     var commands = new InputCommand[sim.Players.Count];
     var samples = new double[ticks];
     int searchesBefore = 0;
+    long mostNodes = 0;
+    double maxCpu = 0;
     for (int t = 0; t < ticks + 600; t++)
     {
+        if (t == 600)
+        {
+            Settle();
+        }
+
         int tick = sim.Tick;
+        long nodes = squad.NodesSearched;
+        double cpu = ThreadClock.NowMs();
         long start = Stopwatch.GetTimestamp();
         for (int i = 0; i < brains.Count; i++)
         {
@@ -376,6 +405,7 @@ static (double Mean, double P95, double Max, int Searches) MeasureBots(GameData 
         }
 
         double ms = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        cpu = ThreadClock.NowMs() - cpu;
         commands[0] = YouFire(sim, you, tick);
         for (int i = 0; i < commands.Length; i++)
         {
@@ -396,11 +426,21 @@ static (double Mean, double P95, double Max, int Searches) MeasureBots(GameData 
         if (t >= 600)
         {
             samples[t - 600] = ms;
+            maxCpu = Math.Max(maxCpu, cpu);
+            mostNodes = Math.Max(mostNodes, squad.NodesSearched - nodes);
         }
     }
 
     Array.Sort(samples);
-    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], squad.SearchesDone - searchesBefore);
+    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], maxCpu, squad.SearchesDone - searchesBefore, mostNodes);
+}
+
+// A full collection now, so the garbage of building the last measurement isn't collected in the middle of this one.
+static void Settle()
+{
+    GC.Collect();
+    GC.WaitForPendingFinalizers();
+    GC.Collect();
 }
 
 static Vector3 ClearSpot(SimWorld sim, NavGrid grid, OpponentSpawn from, float distance)
@@ -422,8 +462,9 @@ static InputCommand YouFire(SimWorld sim, PlayerState you, int tick)
 {
     PlayerState? target = null;
     float best = float.MaxValue;
-    foreach (PlayerState p in sim.Players)
+    for (int i = 0; i < sim.Players.Count; i++)
     {
+        PlayerState p = sim.Players[i];
         Vector3 chest = p.Position + new Vector3(0f, p.EyeHeight * 0.72f, 0f);
         float d = Vector3.Distance(you.Position, p.Position);
         if (p.Team != you.Team && p.Present && d < best && !sim.Collision.SweepSphere(you.EyePosition, chest, 0f, out _))
@@ -444,5 +485,11 @@ static InputCommand YouFire(SimWorld sim, PlayerState you, int tick)
     return new InputCommand { Tick = tick, Yaw = yaw, Pitch = pitch, Buttons = tick % 60 == 0 ? InputButtons.Fire : InputButtons.None };
 }
 
+// The slowest tick by the thread's own CPU time: a wall-clock maximum far above it was the machine (another program,
+// the system), not the sim.
+static string CpuHeader() => ThreadClock.Available ? "Max CPU ms/tick" : "Max CPU ms/tick (n/a here)";
+
+static string Cpu(double ms) => ThreadClock.Available ? ms.ToString("0.000") : "–";
+
 static string RuntimeLabel() =>
-    $".NET {Environment.Version}, {Environment.ProcessorCount} cores, {(Debugger.IsAttached ? "debugger" : "no debugger")}";
+    $".NET {Environment.Version}, {Environment.ProcessorCount} cores, {(Debugger.IsAttached ? "debugger" : "no debugger")}, the game's JIT settings";

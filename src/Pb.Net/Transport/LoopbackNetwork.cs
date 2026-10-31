@@ -1,5 +1,3 @@
-using System.Buffers;
-
 namespace Pb.Net.Transport;
 
 /// <summary>
@@ -39,6 +37,7 @@ public sealed class LoopbackNetwork
         private readonly LoopbackNetwork _network;
         private readonly bool _isServer;
         private readonly Queue<(TransportEventKind Kind, int Peer, NetChannel Channel, byte[]? Buffer, int Length)> _inbox = new();
+        private readonly PacketBuffers _buffers = new();
         private byte[]? _lent;
         private bool _closed;
 
@@ -61,7 +60,7 @@ public sealed class LoopbackNetwork
             byte[]? buffer = null;
             if (data.Length > 0)
             {
-                buffer = ArrayPool<byte>.Shared.Rent(data.Length);
+                buffer = _buffers.Rent(data.Length);
                 data.CopyTo(buffer);
             }
 
@@ -148,7 +147,7 @@ public sealed class LoopbackNetwork
         {
             if (_lent is not null)
             {
-                ArrayPool<byte>.Shared.Return(_lent);
+                _buffers.Return(_lent);
                 _lent = null;
             }
         }

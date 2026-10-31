@@ -48,6 +48,15 @@ public partial class CharacterVisual : Node3D
     private Color _paint = Colors.White;
     private Node3D? _pod;
     private float _crouchEye;
+    private bool _captured;
+    private float _shoulderShown;
+    private float _shoulderSpeed;
+    private float _eyeShown = float.NaN;
+    private float _eyeSpeed;
+    private float _eyeLag;
+    private float _leanShown;
+    private float _leanSpeed;
+    private readonly PosedBox[] _drawnBoxes = new PosedBox[HitboxRig.PartCount];
     private Vector3 _lastFeet;
     private bool _shadowOnly;
     private Node3D? _marker;
@@ -56,6 +65,9 @@ public partial class CharacterVisual : Node3D
     private StepGait.GroundQuery _ground = null!;
 
     public bool HasModel => _model is not null;
+
+    /// <summary>How far the drawn body is from the sim's eye height this frame (m; the crouch's ease, above).</summary>
+    public float EyeLag => _eyeLag;
 
     /// <summary>The drawn model, if the character has one (null: hitbox boxes).</summary>
     public CharacterModel? Model => _model;
@@ -176,6 +188,14 @@ public partial class CharacterVisual : Node3D
         _sim.PlayerHits.PoseNow(_state, _current);
         _poseBefore = _poseNow;
         _poseNow = HitboxPose.Of(_state);
+        if (!_captured)
+        {
+            // The first: nothing to come from (drawn from the default, the gear came in from the world's origin).
+            System.Array.Copy(_current, _previous, _current.Length);
+            _poseBefore = _poseNow;
+            _captured = true;
+        }
+
         if (_poseNow.Alive)
         {
             _outAge = -1f;
@@ -205,24 +225,72 @@ public partial class CharacterVisual : Node3D
 
     private void ApplyPose(float alpha)
     {
+        // Crouching and standing up, the sim moves the eye at one speed from the first tick to the last; drawn that way the
+        // body dropped and rose like a lift (the hands 8 cm in a frame from a standstill, 14 cm at 30 fps). The drawn body
+        // follows it at a capped acceleration instead (Follow), easing in and out alike at any frame rate, a little behind
+        // the hitboxes for the moment it takes; the lean and the shoulder swap likewise.
+        float eyeSim = Mathf.Lerp(_poseBefore.EyeHeight, _poseNow.EyeHeight, alpha);
+        float leanSim = Mathf.Lerp(_poseBefore.LeanRoll, _poseNow.LeanRoll, alpha);
+        float shoulderSim = Mathf.Lerp(_poseBefore.Shoulder, _poseNow.Shoulder, alpha);
+        float dt = (float)GetProcessDeltaTime();
+        if (float.IsNaN(_eyeShown) || !_poseNow.Alive || _state.OnLadder || dt <= 0f || dt > 0.25f)
+        {
+            _eyeShown = eyeSim;
+            _eyeSpeed = 0f;
+            _leanShown = leanSim;
+            _leanSpeed = 0f;
+            _shoulderShown = shoulderSim;
+            _shoulderSpeed = 0f;
+        }
+        else
+        {
+            // Each as fast as it can go without its pace changing faster than the data's (characters.crouchAccel_mps2...).
+            Follow.Toward(ref _eyeShown, ref _eyeSpeed, eyeSim, _look?.CrouchAccel_mps2 ?? 20f, dt);
+            Follow.Toward(ref _leanShown, ref _leanSpeed, leanSim, _look?.LeanAccel_radps2 ?? 20f, dt);
+            Follow.Toward(ref _shoulderShown, ref _shoulderSpeed, shoulderSim, _look?.ShoulderAccel_ps2 ?? 80f, dt);
+            _shoulderShown = Mathf.Clamp(_shoulderShown, -1f, 1f);
+        }
+
+        // Never held to a distance behind (clamped, a bot ducking and standing straight back up was pulled up 5 cm in a
+        // frame): the follow always catches up on its own. Only something no crouch can do (a jump of more than this, a
+        // respawn) puts it straight where the sim has it.
+        if (Mathf.Abs(_eyeShown - eyeSim) > (_look?.CrouchResetBeyond_m ?? 1f))
+        {
+            _eyeShown = eyeSim;
+            _eyeSpeed = 0f;
+        }
+
+        _eyeLag = _eyeShown - eyeSim;
+        // The body and gear drawn from the pose between the last two ticks, with the eye height and the lean as drawn
+        // (above): posed by the sim's own rig, so they're where the hitboxes would be for it.
+        var drawn = new HitboxPose(System.Numerics.Vector3.Lerp(_poseBefore.Position, _poseNow.Position, alpha), LerpAngle(_poseBefore.Yaw, _poseNow.Yaw, alpha),
+            Mathf.Lerp(_poseBefore.Pitch, _poseNow.Pitch, alpha), _eyeShown, _leanShown, _shoulderShown,
+            _poseNow.Alive, _poseNow.Present, Mathf.Lerp(_poseBefore.Tuck, _poseNow.Tuck, alpha), LerpAngle(_poseBefore.HeadYaw, _poseNow.HeadYaw, alpha),
+            _poseNow.Climbing);
+        HitboxRig.Pose(drawn, _sim.Config.Hitboxes, _sim.Config.Movement.LeanPivotBelowEye, _drawnBoxes);
         // Just out, the gear comes up over the head over a moment (the sim has it up at once; nothing counts on it now).
         float raise = Raise();
         bool raising = _outAge >= 0f && raise < 1f;
         for (int i = 0; i < _parts.Length; i++)
         {
-            ref PosedBox a = ref _previous[i];
-            ref PosedBox b = ref _current[i];
-            float t = alpha;
-            if (raising && IsGearOrArms(b.Part))
+            Quaternion q;
+            Vector3 centre;
+            if (raising && IsGearOrArms(_current[i].Part))
             {
-                a = ref _lastIn[i];
-                t = raise;
+                ref PosedBox a = ref _lastIn[i];
+                ref PosedBox b = ref _current[i];
+                q = Quat(a).Slerp(Quat(b), raise);
+                centre = a.Center.ToGodot().Lerp(b.Center.ToGodot(), raise);
+                _half[i] = a.HalfExtents.ToGodot().Lerp(b.HalfExtents.ToGodot(), alpha);
+            }
+            else
+            {
+                q = Quat(_drawnBoxes[i]);
+                centre = _drawnBoxes[i].Center.ToGodot();
+                _half[i] = _drawnBoxes[i].HalfExtents.ToGodot();
             }
 
-            Quaternion q = Quat(a).Slerp(Quat(b), t);
-            Vector3 centre = a.Center.ToGodot().Lerp(b.Center.ToGodot(), t);
             _parts[i].GlobalTransform = new Transform3D(new Basis(q), centre);
-            _half[i] = a.HalfExtents.ToGodot().Lerp(b.HalfExtents.ToGodot(), alpha);
             if (_meshes[i] is { } mesh)
             {
                 mesh.Scale = _half[i] * 2f;
@@ -235,44 +303,55 @@ public partial class CharacterVisual : Node3D
         }
     }
 
+    private static float LerpAngle(float from, float to, float t) => Mathf.LerpAngle(from, to, t);
+
     /// <summary>Stands the model where the player stands and hands the poser this frame's pose.</summary>
     private void PoseModel(float alpha)
     {
         Vector3 feet = _poseBefore.Position.ToGodot().Lerp(_poseNow.Position.ToGodot(), alpha);
         float yaw = Mathf.LerpAngle(_poseBefore.Yaw, _poseNow.Yaw, alpha);
-        float eye = Mathf.Lerp(_poseBefore.EyeHeight, _poseNow.EyeHeight, alpha);
+        float eye = _eyeShown;
         _model!.GlobalTransform = new Transform3D(new Basis(Vector3.Up, yaw), feet);
 
         CharacterPoser poser = _model.Poser;
         poser.Forward = new Vector3(-Mathf.Sin(yaw), 0f, -Mathf.Cos(yaw));
         poser.Right = new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw));
         poser.HipDrop = Mathf.Max(0f, _standEye - eye) * _look!.HipDropPerEyeDrop;
-        poser.LeanRoll = Mathf.Lerp(_poseBefore.LeanRoll, _poseNow.LeanRoll, alpha);
+        poser.LeanRoll = _leanShown;
         poser.Pitch = _poseNow.Alive ? Mathf.Lerp(_poseBefore.Pitch, _poseNow.Pitch, alpha) : 0f;
         // A flinch snaps the upper body away from the hit and eases it back.
         _flinchAge += (float)GetProcessDeltaTime();
         float flinch = _flinchAge < 0.04f ? _flinchAge / 0.04f : Mathf.Exp(-(_flinchAge - 0.04f) / 0.15f);
         poser.Flinch = flinch > 0.01f ? Vector3.Up.Cross(_flinchPush) * (_flinchStrength * flinch) : Vector3.Zero;
-        poser.RightHanded = Mathf.Lerp(_poseBefore.Shoulder, _poseNow.Shoulder, alpha) >= 0f;
+        poser.RightHanded = _shoulderShown >= 0f;
         poser.HeadYaw = _poseNow.Alive ? Mathf.LerpAngle(_poseBefore.HeadYaw, _poseNow.HeadYaw, alpha) : 0f;
         poser.Breath = Breathe((float)GetProcessDeltaTime());
         poser.SupportRaise = _shadowOnly ? 0f : Raise();
 
-        // Wrists on the marker: the trigger hand at the pistol grip, the other under the front.
+        // Wrists on the marker (in its own frame): the trigger hand at the pistol grip, the other under the front. Swapping
+        // shoulders, each hand slides along the marker from its old grip to its new one as the marker crosses the face (the
+        // drawn shoulder, on its spring), so they trade grips smoothly and stay on the marker the whole way.
         int marker = _indexOfPart[(int)HitboxPart.Marker];
         Transform3D frame = _parts[marker].GlobalTransform;
+        Vector3 triggerGrip, supportGrip;
         if (_marker is not null && _markerDef is not null)
         {
-            poser.TriggerHand = frame * MarkerModel.Point(_marker, _markerDef.TriggerWrist_m);
-            poser.SupportHand = Refill(frame * MarkerModel.Point(_marker, _markerDef.SupportWrist_m), feet, eye, poser);
+            triggerGrip = MarkerModel.Point(_marker, _markerDef.TriggerWrist_m);
+            supportGrip = MarkerModel.Point(_marker, _markerDef.SupportWrist_m);
         }
         else
         {
             Vector3 half = _half[marker];
-            Vector3 Grip(float along) => frame * new Vector3(0f, -half.Y - _look.GripDrop_m, half.Z * (1f - 2f * along));
-            poser.TriggerHand = Grip(_look.TriggerGrip);
-            poser.SupportHand = Refill(Grip(_look.SupportGrip), feet, eye, poser);
+            Vector3 Grip(float along) => new(0f, -half.Y - _look.GripDrop_m, half.Z * (1f - 2f * along));
+            triggerGrip = Grip(_look.TriggerGrip);
+            supportGrip = Grip(_look.SupportGrip);
         }
+
+        float rightHanded = Mathf.SmoothStep(-1f, 1f, _shoulderShown);
+        Vector3 rightHand = frame * supportGrip.Lerp(triggerGrip, rightHanded);
+        Vector3 leftHand = frame * triggerGrip.Lerp(supportGrip, rightHanded);
+        poser.TriggerHand = poser.RightHanded ? rightHand : leftHand;
+        poser.SupportHand = Refill(poser.RightHanded ? leftHand : rightHand, feet, eye, poser);
 
         // Out: the support hand leaves the marker and goes up, open, over the head on its own side.
         if (poser.SupportRaise > 0f)
@@ -317,7 +396,7 @@ public partial class CharacterVisual : Node3D
         if (_model.Steps is { } steps)
         {
             steps.KneesOut = _kneesOut;
-            steps.Update(feet, yaw, crouch, poser.HipDrop, Mathf.Lerp(_poseBefore.Shoulder, _poseNow.Shoulder, alpha), _state.Stance == Stance.Sliding,
+            steps.Update(feet, yaw, crouch, poser.HipDrop, _shoulderShown, _state.Stance == Stance.Sliding,
                 _state.Grounded, delta, _ground);
         }
         else

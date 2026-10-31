@@ -4,6 +4,19 @@ using Pb.Sim.Level;
 
 namespace Pb.Sim.AI;
 
+/// <summary>Where a path search spread over several ticks has got to (<see cref="NavSearch.Begin"/>).</summary>
+public enum PathStatus : byte
+{
+    /// <summary>Still searching: carry on next tick.</summary>
+    Running,
+
+    /// <summary>Found: the path is filled in.</summary>
+    Found,
+
+    /// <summary>No way there (or it gave up, or another search took the grid over).</summary>
+    Failed,
+}
+
 /// <summary>Path queries for bots. The game and the tests both use <see cref="NavGrid"/>.</summary>
 public interface IBotNavigation
 {
@@ -66,17 +79,13 @@ public sealed class NavGrid : IBotNavigation
     private readonly int _landmarkCount;
     private readonly int _landmarkComponent = None;
     private readonly float[] _landmarkDistance;
-    private readonly float[] _goalLandmark;
-    private bool _landmarksOn;
 
-    // Search scratch, reused by every query.
-    private readonly float[] _g;
-    private readonly int[] _parent;
-    private readonly int[] _seen;
-    private readonly int[] _closed;
-    private readonly SpanHeap _open;
-    private readonly List<int> _spans;
-    private int _generation;
+    // The grid's own searches (FindPath on the grid, and the landmarks' distances at load). Bots search with their
+    // squad's own (NavSearch), so rounds sharing a grid never share a search's working memory.
+    private readonly NavSearch _own;
+
+    // Places a door leaf can swing over (null: anywhere, so every place asks a search's Blocked).
+    private bool[]? _mayBlock;
 
     private NavGrid(NavParams p, float minX, float minZ, int cols, int rows, int[] columnStart, float[] spanY, IReadOnlyList<LadderSpec> ladders)
     {
@@ -101,14 +110,6 @@ public sealed class NavGrid : IBotNavigation
         }
 
         _links = new int[spanY.Length * 8];
-        _g = new float[spanY.Length];
-        _parent = new int[spanY.Length];
-        _seen = new int[spanY.Length];
-        _closed = new int[spanY.Length];
-        _open = new SpanHeap(Math.Min(spanY.Length, 65536) + 16);
-
-        // Room for a path many times longer than any level's (4 km of cells), so a search never grows it.
-        _spans = new List<int>(Math.Min(spanY.Length, 16384));
         Link();
         _ladderOf = new int[spanY.Length];
         LinkLadders(ladders);
@@ -116,7 +117,7 @@ public sealed class NavGrid : IBotNavigation
         int biggest = LabelComponents();
         _landmarkCount = biggest == None ? 0 : p.Landmarks;
         _landmarkDistance = new float[spanY.Length * _landmarkCount];
-        _goalLandmark = new float[_landmarkCount];
+        _own = new NavSearch(this);
         if (_landmarkCount > 0)
         {
             _landmarkComponent = _component[biggest];
@@ -132,11 +133,24 @@ public sealed class NavGrid : IBotNavigation
 
     public int Rows => _rows;
 
+    /// <summary>Whether a walk (and climb) from <paramref name="a"/> can reach <paramref name="b"/> at all: both on the grid, in one piece.</summary>
+    public bool Connected(Vector3 a, Vector3 b)
+    {
+        int sa = NearestSpan(a);
+        int sb = NearestSpan(b);
+        return sa != None && sb != None && _component[sa] == _component[sb];
+    }
+
     /// <summary>Places joined to at least one neighbour (for stats and tests).</summary>
     public int LinkedSpanCount { get; private set; }
 
-    /// <summary>Spans expanded by the last search (for tests and the benchmark).</summary>
-    public int LastSearchExpanded { get; private set; }
+    /// <summary>Spans expanded by the grid's own last search (for tests and the benchmark).</summary>
+    public int LastSearchExpanded => _own.LastExpanded;
+
+    /// <summary>Places that can be blocked (for tests).</summary>
+    internal bool[]? MayBlock => _mayBlock;
+
+    internal int LandmarkCount => _landmarkCount;
 
     /// <summary>Builds the grid for <paramref name="level"/>: every surface flagged for walking, plus the ground.</summary>
     public static NavGrid Build(LevelLayout level, NavParams p)
@@ -318,23 +332,224 @@ public sealed class NavGrid : IBotNavigation
     /// Where something that moves stands in the way (a door standing open): spans at whose floor point it says yes are
     /// walked round, by searches and by the straightening of their paths. Null: nothing moves.
     /// </summary>
-    public Func<Vector3, bool>? Blocked { get; set; }
-
-    public bool FindPath(Vector3 from, Vector3 to, List<Vector3> path)
+    public Func<Vector3, bool>? Blocked
     {
-        path.Clear();
-        int start = NearestSpan(from);
-        int goal = NearestSpan(to);
-        if (start == None || goal == None || _component[start] != _component[goal] || !Search(start, goal))
+        get => _own.Blocked;
+        set => _own.Blocked = value;
+    }
+
+    /// <summary>
+    /// Only places inside these boxes can be <see cref="Blocked"/> (the swing of every door leaf, say): the rest are never
+    /// asked, which keeps a search from testing every door at every place it looks at. Null asks everywhere again.
+    /// </summary>
+    public void LimitBlockedTo(IReadOnlyList<Aabb>? zones)
+    {
+        if (zones is null)
+        {
+            _mayBlock = null;
+            return;
+        }
+
+        var mayBlock = new bool[_spanY.Length];
+        foreach (Aabb zone in zones)
+        {
+            int c0 = Math.Max(0, (int)MathF.Floor((zone.Min.X - _minX) / _p.CellSize));
+            int c1 = Math.Min(_cols - 1, (int)MathF.Floor((zone.Max.X - _minX) / _p.CellSize));
+            int r0 = Math.Max(0, (int)MathF.Floor((zone.Min.Z - _minZ) / _p.CellSize));
+            int r1 = Math.Min(_rows - 1, (int)MathF.Floor((zone.Max.Z - _minZ) / _p.CellSize));
+            for (int r = r0; r <= r1; r++)
+            {
+                for (int c = c0; c <= c1; c++)
+                {
+                    int col = r * _cols + c;
+                    for (int span = _columnStart[col]; span < _columnStart[col + 1]; span++)
+                    {
+                        float y = _spanY[span];
+                        if (y >= zone.Min.Y && y <= zone.Max.Y)
+                        {
+                            mayBlock[span] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Filled first, then put in place: a search on another thread sharing the grid (the tests' rounds) sees the old
+        // mask or the new one, both right for the same level.
+        _mayBlock = mayBlock;
+    }
+
+    /// <summary>Places that can be blocked (for tests).</summary>
+    public int MayBlockCount => _mayBlock is null ? _spanY.Length : _mayBlock.Count(b => b);
+
+    /// <summary>
+    /// Whether something that moves (an open leaf) stands at <paramref name="span"/>, for this search. Never within a metre
+    /// of where the search starts: a bot standing in the lee of a leaf standing open (between it and the wall) had every
+    /// place round it blocked and no way out, though a body slips past a leaf easily.
+    /// </summary>
+    private bool IsBlocked(NavSearch search, int span)
+    {
+        if (search.Blocked is not { } blocked || (_mayBlock is not null && !_mayBlock[span]))
         {
             return false;
         }
 
-        // _spans holds the span path goal → start; walk it start → goal, keeping only the corners a
-        // straight walk can't cut. From each corner, look ahead in doubling strides for a span still in a
-        // straight line, then narrow down between the last that was and the first that wasn't: a few
-        // straight-line checks per corner, not one per span (which made long straight runs cost milliseconds).
-        int anchor = _spans.Count - 1;
+        Vector3 at = PositionOf(span);
+        if (MathF.Abs(at.X - search.StartAt.X) + MathF.Abs(at.Z - search.StartAt.Z) < 1f && MathF.Abs(at.Y - search.StartAt.Y) < 1f)
+        {
+            return false;
+        }
+
+        return blocked(at);
+    }
+
+    /// <summary>A path with the grid's own search (tests, tools): <see cref="NavSearch.FindPath"/>.</summary>
+    public bool FindPath(Vector3 from, Vector3 to, List<Vector3> path) => _own.FindPath(from, to, path);
+
+    /// <summary>The grid's own search's <see cref="NavSearch.Begin"/>.</summary>
+    public PathStatus BeginPath(Vector3 from, Vector3 to, List<Vector3> path) => _own.Begin(from, to, path);
+
+    /// <summary>The grid's own search's <see cref="NavSearch.Continue"/>.</summary>
+    public PathStatus ContinuePath(ref int budget, List<Vector3> path) => _own.Continue(ref budget, path);
+
+    internal PathStatus Begin(NavSearch q, Vector3 from, Vector3 to, List<Vector3> path)
+    {
+        path.Clear();
+        q.Active = false;
+        q.Serial++;
+        q.LastExpanded = 0;
+        int start = NearestSpan(from);
+        int goal = NearestSpan(to);
+        if (start == None || goal == None || _component[start] != _component[goal])
+        {
+            return PathStatus.Failed;
+        }
+
+        q.Spans.Clear();
+        if (start == goal)
+        {
+            q.Spans.Add(goal);
+            q.Spans.Add(start);
+            Straighten(q, goal, path);
+            return PathStatus.Found;
+        }
+
+        int generation = ++q.Generation;
+        q.StartAt = PositionOf(start);
+        q.Open.Clear();
+        q.G[start] = 0f;
+        q.Parent[start] = None;
+        q.Seen[start] = generation;
+        q.Goal = goal;
+        q.GoalAt = PositionOf(goal);
+        q.Expanded = 0;
+        q.LandmarksOn = _landmarkCount > 0 && _component[goal] == _landmarkComponent;
+        if (q.LandmarksOn)
+        {
+            Array.Copy(_landmarkDistance, goal * _landmarkCount, q.GoalLandmark, 0, _landmarkCount);
+        }
+
+        q.Open.Push(start, Heuristic(q, start, q.GoalAt));
+        q.Active = true;
+        return PathStatus.Running;
+    }
+
+    internal PathStatus Continue(NavSearch q, ref int budget, List<Vector3> path)
+    {
+        if (!q.Active)
+        {
+            return PathStatus.Failed;
+        }
+
+        int generation = q.Generation;
+        int goal = q.Goal;
+        Vector3 goalAt = q.GoalAt;
+        float[] g0 = q.G;
+        int[] parent = q.Parent, seen = q.Seen, closed = q.Closed;
+        SpanHeap open = q.Open;
+        while (open.Count > 0)
+        {
+            if (budget <= 0)
+            {
+                q.LastExpanded = q.Expanded;
+                return PathStatus.Running;
+            }
+
+            int s = open.Pop();
+            if (closed[s] == generation)
+            {
+                continue; // a stale duplicate
+            }
+
+            closed[s] = generation;
+            if (s == goal)
+            {
+                q.Active = false;
+                q.LastExpanded = q.Expanded;
+                for (int k = goal; k != None; k = parent[k])
+                {
+                    q.Spans.Add(k);
+                }
+
+                Straighten(q, goal, path);
+                return PathStatus.Found;
+            }
+
+            budget--;
+            if (++q.Expanded > _p.MaxSearchNodes)
+            {
+                break;
+            }
+
+            float gs = g0[s];
+            for (int d = 0; d < 8; d++)
+            {
+                int n = _links[s * 8 + d];
+                if (n == None || closed[n] == generation || (n != goal && IsBlocked(q, n)))
+                {
+                    continue;
+                }
+
+                float g = gs + StepCost(s, n, d);
+                if (seen[n] != generation || g < g0[n])
+                {
+                    seen[n] = generation;
+                    g0[n] = g;
+                    parent[n] = s;
+                    open.Push(n, g + Heuristic(q, n, goalAt));
+                }
+            }
+
+            if (_ladderOf[s] != None)
+            {
+                (int foot, int top, _, float cost) = _ladderLinks[_ladderOf[s]];
+                int n = s == foot ? top : foot;
+                float g = gs + cost;
+                if (closed[n] != generation && (seen[n] != generation || g < g0[n]) && (n == goal || !IsBlocked(q, n)))
+                {
+                    seen[n] = generation;
+                    g0[n] = g;
+                    parent[n] = s;
+                    open.Push(n, g + Heuristic(q, n, goalAt));
+                }
+            }
+        }
+
+        q.Active = false;
+        q.LastExpanded = q.Expanded;
+        return PathStatus.Failed;
+    }
+
+    /// <summary>
+    /// The search's spans hold the span path goal → start; walks it start → goal into <paramref name="path"/>, keeping
+    /// only the corners a straight walk can't cut. From each corner, look ahead in doubling strides for a span still in a
+    /// straight line, then narrow down between the last that was and the first that wasn't: a few straight-line checks
+    /// per corner, not one per span (which made long straight runs cost milliseconds).
+    /// </summary>
+    private void Straighten(NavSearch q, int goal, List<Vector3> path)
+    {
+        List<int> spans = q.Spans;
+        int anchor = spans.Count - 1;
         while (anchor > 0)
         {
             int good = anchor - 1;
@@ -342,7 +557,7 @@ public sealed class NavGrid : IBotNavigation
             for (int stride = 1; good > 0; stride *= 2)
             {
                 int probe = Math.Max(good - stride, 0);
-                if (!StraightBetween(_spans[anchor], _spans[probe]))
+                if (!StraightBetween(q, spans[anchor], spans[probe]))
                 {
                     bad = probe;
                     break;
@@ -354,7 +569,7 @@ public sealed class NavGrid : IBotNavigation
             while (bad != None && good - bad > 1)
             {
                 int middle = (good + bad) / 2;
-                if (StraightBetween(_spans[anchor], _spans[middle]))
+                if (StraightBetween(q, spans[anchor], spans[middle]))
                 {
                     good = middle;
                 }
@@ -364,7 +579,7 @@ public sealed class NavGrid : IBotNavigation
                 }
             }
 
-            path.Add(PositionOf(_spans[good]));
+            path.Add(PositionOf(spans[good]));
             anchor = good;
         }
 
@@ -372,110 +587,15 @@ public sealed class NavGrid : IBotNavigation
         {
             path.Add(PositionOf(goal));
         }
-
-        return true;
     }
 
-    public bool CanWalkStraight(Vector3 from, Vector3 to)
+    public bool CanWalkStraight(Vector3 from, Vector3 to) => CanWalkStraight(_own, from, to);
+
+    internal bool CanWalkStraight(NavSearch q, Vector3 from, Vector3 to)
     {
         int a = NearestSpan(from, 0.5f);
         int b = NearestSpan(to, 0.5f);
-        return a != None && b != None && StraightBetween(a, b);
-    }
-
-    /// <summary>A* from <paramref name="start"/> to <paramref name="goal"/>; on success <see cref="_spans"/> holds the path backwards.</summary>
-    private bool Search(int start, int goal)
-    {
-        _spans.Clear();
-        if (start == goal)
-        {
-            _spans.Add(goal);
-            _spans.Add(start);
-            return true;
-        }
-
-        int generation = ++_generation;
-        _open.Clear();
-        _g[start] = 0f;
-        _parent[start] = None;
-        _seen[start] = generation;
-        Vector3 goalAt = PositionOf(goal);
-        _landmarksOn = _landmarkCount > 0 && _component[goal] == _landmarkComponent;
-        if (_landmarksOn)
-        {
-            Array.Copy(_landmarkDistance, goal * _landmarkCount, _goalLandmark, 0, _landmarkCount);
-        }
-
-        _open.Push(start, Heuristic(start, goalAt));
-        int expanded = 0;
-        bool found = false;
-        while (_open.Count > 0)
-        {
-            int s = _open.Pop();
-            if (_closed[s] == generation)
-            {
-                continue; // a stale duplicate
-            }
-
-            _closed[s] = generation;
-            if (s == goal)
-            {
-                found = true;
-                break;
-            }
-
-            if (++expanded > _p.MaxSearchNodes)
-            {
-                break;
-            }
-
-            float gs = _g[s];
-            for (int d = 0; d < 8; d++)
-            {
-                int n = _links[s * 8 + d];
-                if (n == None || _closed[n] == generation || (n != goal && Blocked is { } blocked && blocked(PositionOf(n))))
-                {
-                    continue;
-                }
-
-                float g = gs + StepCost(s, n, d);
-                if (_seen[n] != generation || g < _g[n])
-                {
-                    _seen[n] = generation;
-                    _g[n] = g;
-                    _parent[n] = s;
-                    _open.Push(n, g + Heuristic(n, goalAt));
-                }
-            }
-
-            if (_ladderOf[s] != None)
-            {
-                (int foot, int top, _, float cost) = _ladderLinks[_ladderOf[s]];
-                int n = s == foot ? top : foot;
-                float g = gs + cost;
-                if (_closed[n] != generation && (_seen[n] != generation || g < _g[n]) &&
-                    (n == goal || Blocked is not { } blocked || !blocked(PositionOf(n))))
-                {
-                    _seen[n] = generation;
-                    _g[n] = g;
-                    _parent[n] = s;
-                    _open.Push(n, g + Heuristic(n, goalAt));
-                }
-            }
-        }
-
-        LastSearchExpanded = expanded;
-        if (!found)
-        {
-            return false;
-        }
-
-        for (int s = goal; s != None; s = _parent[s])
-        {
-            _spans.Add(s);
-        }
-
-        return true;
+        return a != None && b != None && StraightBetween(q, a, b);
     }
 
     /// <summary>
@@ -484,17 +604,18 @@ public sealed class NavGrid : IBotNavigation
     /// (navigation.jsonc): above 1 the search heads for the goal much more eagerly, at the price of paths slightly
     /// longer than the shortest (straightening hides most of it).
     /// </summary>
-    private float Heuristic(int span, Vector3 goal)
+    private float Heuristic(NavSearch q, int span, Vector3 goal)
     {
         float dx = MathF.Abs(_spanX[span] - goal.X);
         float dz = MathF.Abs(_spanZ[span] - goal.Z);
         float h = MathF.Max(dx, dz) + (Diagonal - 1f) * MathF.Min(dx, dz) + MathF.Abs(_spanY[span] - goal.Y);
-        if (_landmarksOn)
+        if (q.LandmarksOn)
         {
+            float[] goalLandmark = q.GoalLandmark;
             int row = span * _landmarkCount;
             for (int k = 0; k < _landmarkCount; k++)
             {
-                h = MathF.Max(h, MathF.Abs(_goalLandmark[k] - _landmarkDistance[row + k]));
+                h = MathF.Max(h, MathF.Abs(goalLandmark[k] - _landmarkDistance[row + k]));
             }
         }
 
@@ -613,24 +734,26 @@ public sealed class NavGrid : IBotNavigation
     private void Distances(int source, float[] distance, bool ladders)
     {
         Array.Fill(distance, float.PositiveInfinity);
-        int generation = ++_generation;
-        _open.Clear();
+        SpanHeap open = _own.Open;
+        int[] closed = _own.Closed;
+        int generation = ++_own.Generation;
+        open.Clear();
         distance[source] = 0f;
-        _open.Push(source, 0f);
-        while (_open.Count > 0)
+        open.Push(source, 0f);
+        while (open.Count > 0)
         {
-            int s = _open.Pop();
-            if (_closed[s] == generation)
+            int s = open.Pop();
+            if (closed[s] == generation)
             {
                 continue; // a stale duplicate
             }
 
-            _closed[s] = generation;
+            closed[s] = generation;
             float ds = distance[s];
             for (int d = 0; d < 8; d++)
             {
                 int n = _links[s * 8 + d];
-                if (n == None || _closed[n] == generation)
+                if (n == None || closed[n] == generation)
                 {
                     continue;
                 }
@@ -639,7 +762,7 @@ public sealed class NavGrid : IBotNavigation
                 if (g < distance[n])
                 {
                     distance[n] = g;
-                    _open.Push(n, g);
+                    open.Push(n, g);
                 }
             }
 
@@ -647,10 +770,10 @@ public sealed class NavGrid : IBotNavigation
             {
                 (int foot, int top, _, float cost) = _ladderLinks[_ladderOf[s]];
                 int n = s == foot ? top : foot;
-                if (_closed[n] != generation && ds + cost < distance[n])
+                if (closed[n] != generation && ds + cost < distance[n])
                 {
                     distance[n] = ds + cost;
-                    _open.Push(n, ds + cost);
+                    open.Push(n, ds + cost);
                 }
             }
         }
@@ -660,7 +783,7 @@ public sealed class NavGrid : IBotNavigation
     /// Whether a straight walk from span <paramref name="a"/> to span <paramref name="b"/> stays on the grid:
     /// sampled every half cell, each sample must have a span within a step of the previous one.
     /// </summary>
-    private bool StraightBetween(int a, int b)
+    private bool StraightBetween(NavSearch q, int a, int b)
     {
         Vector3 pa = PositionOf(a);
         Vector3 pb = PositionOf(b);
@@ -704,7 +827,7 @@ public sealed class NavGrid : IBotNavigation
                 }
             }
 
-            if (next == None || (next != b && Blocked is { } blocked && blocked(PositionOf(next))))
+            if (next == None || (next != b && IsBlocked(q, next)))
             {
                 return false;
             }
@@ -933,6 +1056,89 @@ public sealed class NavGrid : IBotNavigation
 }
 
 /// <summary>A binary min-heap of span indices keyed by priority, with duplicates allowed (lazy deletion).</summary>
+/// <summary>
+/// The working memory of path searches on one grid, and what stands in their way (<see cref="Blocked"/>): each squad has
+/// its own, so rounds sharing a grid (the tests run many at once) never share a search. One search at a time: beginning
+/// another drops the one under way. Searches don't allocate.
+/// </summary>
+public sealed class NavSearch
+{
+    internal readonly float[] G;
+    internal readonly int[] Parent;
+    internal readonly int[] Seen;
+    internal readonly int[] Closed;
+    internal readonly SpanHeap Open;
+    internal readonly List<int> Spans;
+    internal readonly float[] GoalLandmark;
+    internal int Generation;
+    internal bool LandmarksOn;
+    internal bool Active;
+    internal Vector3 StartAt = new(float.MaxValue);
+    internal int Goal;
+    internal Vector3 GoalAt;
+    internal int Expanded;
+
+    public NavSearch(NavGrid grid)
+    {
+        Grid = grid;
+        int spans = grid.SpanCount;
+        G = new float[spans];
+        Parent = new int[spans];
+        Seen = new int[spans];
+        Closed = new int[spans];
+        Open = new SpanHeap(Math.Min(spans, 65536) + 16);
+        // Room for a path many times longer than any level's (4 km of cells), so a search never grows it.
+        Spans = new List<int>(Math.Min(spans, 16384));
+        GoalLandmark = new float[grid.LandmarkCount];
+    }
+
+    public NavGrid Grid { get; }
+
+    /// <summary>
+    /// Where something that moves stands in the way (a door standing open): spans at whose floor point it says yes are
+    /// walked round, by searches and by the straightening of their paths (only where the grid says something can be:
+    /// <see cref="NavGrid.LimitBlockedTo"/>). Null: nothing moves.
+    /// </summary>
+    public Func<Vector3, bool>? Blocked { get; set; }
+
+    /// <summary>A search is under way (<see cref="Begin"/>), to be carried on by <see cref="Continue"/>.</summary>
+    public bool Searching => Active;
+
+    /// <summary>Counts every search begun: whoever began one can tell whether another has taken this search over since.</summary>
+    public int Serial { get; internal set; }
+
+    /// <summary>Spans expanded by the last search, so far.</summary>
+    public int LastExpanded { get; internal set; }
+
+    /// <summary>
+    /// A walkable path from <paramref name="from"/> to <paramref name="to"/>, searched to the end at once: waypoints after
+    /// the start, the goal last. False (and an empty path) when there's none.
+    /// </summary>
+    public bool FindPath(Vector3 from, Vector3 to, List<Vector3> path)
+    {
+        PathStatus status = Begin(from, to, path);
+        int budget = int.MaxValue;
+        return status == PathStatus.Found || (status == PathStatus.Running && Continue(ref budget, path) == PathStatus.Found);
+    }
+
+    /// <summary>
+    /// Starts a search for a path from <paramref name="from"/> to <paramref name="to"/>: <see cref="PathStatus.Found"/>
+    /// (and the path filled in) or <see cref="PathStatus.Failed"/> when that's clear at once, else
+    /// <see cref="PathStatus.Running"/>, to be carried on by <see cref="Continue"/> as many places at a time as the
+    /// caller can afford.
+    /// </summary>
+    public PathStatus Begin(Vector3 from, Vector3 to, List<Vector3> path) => Grid.Begin(this, from, to, path);
+
+    /// <summary>
+    /// Carries the search on, expanding at most <paramref name="budget"/> places (what it used comes off): Found, with
+    /// <paramref name="path"/> filled in, Failed, or Running when the budget ran out first.
+    /// </summary>
+    public PathStatus Continue(ref int budget, List<Vector3> path) => Grid.Continue(this, ref budget, path);
+
+    /// <summary>True when a bot can walk in a straight line from one point to the other, round what's <see cref="Blocked"/>.</summary>
+    public bool CanWalkStraight(Vector3 from, Vector3 to) => Grid.CanWalkStraight(this, from, to);
+}
+
 internal sealed class SpanHeap
 {
     private int[] _items;

@@ -105,6 +105,36 @@ public class CastingTests
         Assert.Equal(3, roster.Count(e => e.Person));
     }
 
+    [Theory]
+    [InlineData("solo", 6)]
+    [InlineData("teams", 3)]
+    [InlineData("ffa", 6)]
+    public void Each_hosted_round_comes_in_at_another_entry_than_the_last(string modeId, int size)
+    {
+        // The play-test: in a hosted game of four rounds the host came in at the same entry in rounds 2 and 3 (the
+        // round's memory kept everyone's starts but not the entry). Each round has a new seed, as the game deals them.
+        (LevelLayout level, CoverSet cover, CollisionWorld world) = Oxbarrow.Value;
+        GameMode mode = TestData.Config.Rules.FindMode(modeId)!;
+        ObjectiveChoice choice = TestData.Config.Rules.Objectives.Find(ObjectiveKind.Eliminate)!;
+        TierDef tier = TestData.Data.Areas.Areas[0].Tiers[1];
+        Person[] people = { new("Ada", Side: 0), new("Bo", Side: 0) };
+        SpawnMemory? last = null;
+        Vector3? before = null;
+        for (int round = 1; round <= 8; round++)
+        {
+            CastRound cast = RoundCasting.Cast(level, cover, world, TestData.Config, TestData.Data.Bots, mode, size, choice, tier, people,
+                (ulong)(round * 7919 + 13), round, Callsigns, level.Id, null, last: last);
+            Assert.Equal(cast.Entry, cast.Setup.Roster[0].Position); // the host comes in at the round's entry
+            if (before is { } entry)
+            {
+                Assert.True(Vector3.Distance(entry, cast.Entry) > 1f, $"round {round} came in at {cast.Entry}, as round {round - 1} did");
+            }
+
+            before = cast.Entry;
+            last = cast.Memory;
+        }
+    }
+
     [Fact]
     public void The_same_seed_casts_the_same_round_everywhere()
     {

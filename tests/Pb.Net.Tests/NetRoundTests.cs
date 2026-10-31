@@ -473,6 +473,67 @@ public class NetRoundTests
     [Fact]
     public void Network_ticks_allocate_nothing()
     {
+        NetRig rig = BusyRig();
+        long bytes = Allocations.During(() => rig.Run(Second));
+        _out.WriteLine($"{bytes} bytes allocated in a second of network ticks");
+        Assert.Equal(0, bytes);
+    }
+
+    /// <summary>
+    /// The shared array pool frees what it holds when a full collection runs under memory pressure (as the measurement's
+    /// own collections did on a busy machine), so packets held in it made the next second allocate 536 bytes and more,
+    /// at random. The transports keep their own buffers now: a shared pool with nothing in it changes nothing. (Renting
+    /// out everything the shared pool holds empties it as such a collection would, every time.)
+    /// </summary>
+    [Fact]
+    public void Network_ticks_allocate_nothing_when_the_shared_pool_is_empty()
+    {
+        NetRig rig = BusyRig();
+        var emptied = new List<byte[]>();
+        for (int size = 16; size <= 1 << 16; size *= 2)
+        {
+            for (int i = 0; i < Environment.ProcessorCount * 8 + 8; i++)
+            {
+                emptied.Add(System.Buffers.ArrayPool<byte>.Shared.Rent(size));
+            }
+        }
+
+        long bytes = Allocations.During(() => rig.Run(Second));
+        GC.KeepAlive(emptied);
+        _out.WriteLine($"{bytes} bytes allocated in a second of network ticks with the shared pool empty");
+        Assert.Equal(0, bytes);
+    }
+
+    [Fact]
+    public void Packet_buffers_are_reused_once_traffic_is_steady()
+    {
+        var buffers = new PacketBuffers();
+        for (int round = 0; round < 3; round++)
+        {
+            byte[][] held = Enumerable.Range(0, 8).Select(i => buffers.Rent(40 + i * 150)).ToArray();
+            Assert.All(held.Select((b, i) => (b, i)), x => Assert.True(x.b.Length >= 40 + x.i * 150));
+            foreach (byte[] b in held)
+            {
+                buffers.Return(b);
+            }
+        }
+
+        int made = buffers.Made;
+        for (int round = 0; round < 10; round++)
+        {
+            byte[][] held = Enumerable.Range(0, 8).Select(i => buffers.Rent(40 + i * 150)).ToArray();
+            foreach (byte[] b in held)
+            {
+                buffers.Return(b);
+            }
+        }
+
+        Assert.Equal(made, buffers.Made);
+    }
+
+    /// <summary>A server, a lagged copy and a clean one, everyone moving and firing, run in for four seconds.</summary>
+    private static NetRig BusyRig()
+    {
         var rig = new NetRig { KeepEvents = false };
         RigClient a = rig.Join("A", new LagSettings { RoundTrip_ms = 100f, Jitter_ms = 10f, Loss_pct = 1f });
         RigClient b = rig.Join("B");
@@ -484,8 +545,6 @@ public class NetRoundTests
         b.Script = Busy;
         rig.BotScript = (t, p) => new InputCommand { Tick = t, Move = new Vector2(0f, 1f), Yaw = t * 0.01f, Buttons = t % 20 < 10 ? InputButtons.Fire : 0 };
         rig.Run(4 * Second);
-        long bytes = Allocations.During(() => rig.Run(Second));
-        _out.WriteLine($"{bytes} bytes allocated in a second of network ticks");
-        Assert.Equal(0, bytes);
+        return rig;
     }
 }

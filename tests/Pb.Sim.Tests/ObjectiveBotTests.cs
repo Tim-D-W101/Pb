@@ -81,7 +81,7 @@ public class ObjectiveBotTests
         Assert.Equal(arena.Hero.Id, objective.Carrier);
 
         Vector3 at = objective.CasePosition;
-        ExitSpec exit = objective.Level.Exits.MinBy(e => Flat(e.Position - at));
+        ExitSpec exit = objective.NearestExit(at); // of those it can leave by
         BotBrain[] byDistance = holders.OrderBy(b => Flat(b.Self.Position - at)).ToArray();
         int chasers = TestData.Config.Rules.Objectives.Retrieve.Chasers;
         foreach (BotBrain bot in byDistance)

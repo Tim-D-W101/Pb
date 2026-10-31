@@ -50,6 +50,8 @@ public partial class GaitDemo : Node, ICommandSource
     private SVector3 _start;
     private SVector3 _side;
     private float _yaw;
+    private float _facing = float.NaN;
+    private static readonly float TurnRate = Mathf.DegToRad(240f);
     private int _first = -1;
     private int _current = -1;
 
@@ -132,6 +134,17 @@ public partial class GaitDemo : Node, ICommandSource
     private float _downTime;
     private float _time;
     private float _hipsLow = float.MaxValue, _hipsHigh = float.MinValue;
+
+    // Jitter: each frame, the head, both hands and the hips relative to the body's root; the biggest jump from one frame
+    // to the next (cm) and the biggest jerk (the change in that jump, cm), which is what a pop shows as.
+    private static readonly string[] Watched = { "Head", "LeftHand", "RightHand", "Hips" };
+    private readonly Vector3[] _was = new Vector3[Watched.Length];
+    private readonly Vector3[] _wasStep = new Vector3[Watched.Length];
+    private int _samples;
+    private int _posedSeen;
+    private float _jump, _jerk, _changeJerk;
+    private string _changeAt = "";
+    private string _jerkBone = "";
     private int _measured = -1;
     private float _settledAt;
 
@@ -150,9 +163,13 @@ public partial class GaitDemo : Node, ICommandSource
             if (_measured >= 0 && _time > 0f)
             {
                 CharacterPoser poser = model.Poser;
-                GD.Print($"GAIT DEMO   {_moves[_measured].Name}: {_steps / Mathf.Max(_time - _settledAt, 0.01f):0.0} steps/s, feet slide {(poser.CheckDown > 0f ? poser.CheckSlide / poser.CheckDown : 0f):0.000} m/s while down, " +
-                         $"hips {_hipsLow:0.00}–{_hipsHigh:0.00} m up, ankles up to {poser.CheckMiss * 100f:0.0} cm off their marks");
-                poser.CheckSlide = poser.CheckDown = poser.CheckMiss = 0f;
+                float slide = poser.CheckDown > 0f ? poser.CheckSlide / poser.CheckDown : 0f;
+                Check(_moves[_measured].Name, slide, _jerk, _changeJerk, poser.CheckHandMiss, poser.CheckMiss);
+                GD.Print($"GAIT DEMO   {_moves[_measured].Name}: {_steps / Mathf.Max(_time - _settledAt, 0.01f):0.0} steps/s, feet slide {slide:0.000} m/s while down, " +
+                         $"hips {_hipsLow:0.00}–{_hipsHigh:0.00} m up, ankles up to {poser.CheckMiss * 100f:0.0} cm off their marks, " +
+                         $"head/hands/hips jump up to {_jump * 100f:0.0} cm a frame, jerk up to {_jerk * 100f:0.0} cm ({_jerkBone}), " +
+                         $"{_changeJerk * 100f:0.0} cm going into it ({_changeAt}), wrists up to {poser.CheckHandMiss * 100f:0.0} cm off the marker");
+                poser.CheckSlide = poser.CheckDown = poser.CheckMiss = poser.CheckHandMiss = 0f;
             }
 
             _measured = _current;
@@ -161,14 +178,16 @@ public partial class GaitDemo : Node, ICommandSource
             _slide = _downTime = _time = 0f;
             _hipsLow = float.MaxValue;
             _hipsHigh = float.MinValue;
+            _jump = _jerk = _changeJerk = 0f;
         }
 
         float floor = _walker.State.Position.Y;
         _time += delta;
+        _frameTime = delta;
         if (_time - delta < Settle && _time >= Settle)
         {
             // Measured once the move has settled in (not the start, the turn or the stop).
-            model.Poser.CheckSlide = model.Poser.CheckDown = model.Poser.CheckMiss = 0f;
+            model.Poser.CheckSlide = model.Poser.CheckDown = model.Poser.CheckMiss = model.Poser.CheckHandMiss = 0f;
             _steps = 0;
             _settledAt = _time;
         }
@@ -192,9 +211,50 @@ public partial class GaitDemo : Node, ICommandSource
         }
 
         float hips = model.Attachment("Hips").GlobalPosition.Y - floor;
-
         _hipsLow = Mathf.Min(_hipsLow, hips);
         _hipsHigh = Mathf.Max(_hipsHigh, hips);
+
+        // The head, hands and hips as drawn, in the body's own frame: the poser's last pass of each frame (read here, a
+        // bone's attachment can still hold the clip's pose from before the frame's IK). Each frame counts once, and the
+        // moves follow on from each other, the first from the first frame drawn.
+        CharacterPoser posed = model.Poser;
+        if (posed.PosedFrames == _posedSeen)
+        {
+            return;
+        }
+
+        _posedSeen = posed.PosedFrames;
+        for (int b = 0; b < Watched.Length; b++)
+        {
+            Vector3 at = posed.Posed[b];
+            Vector3 step = at - _was[b];
+            if (_samples >= 2 && _time < Settle)
+            {
+                // Going into the move from the last: starting, stopping, turning, crouching.
+                float change = (step - _wasStep[b]).Length();
+                if (change > _changeJerk)
+                {
+                    _changeJerk = change;
+                    _changeAt = $"{Watched[b]} {_time:0.00} s in, step {step * 100f:0.0} cm after {_wasStep[b] * 100f:0.0} cm";
+                }
+            }
+
+            if (_samples >= 2 && _time >= Settle)
+            {
+                _jump = Mathf.Max(_jump, step.Length());
+                float jerk = (step - _wasStep[b]).Length();
+                if (jerk > _jerk)
+                {
+                    _jerk = jerk;
+                    _jerkBone = Watched[b];
+                }
+            }
+
+            _wasStep[b] = step;
+            _was[b] = at;
+        }
+
+        _samples++;
     }
 
     public InputCommand Next(int tick, PlayerState me)
@@ -227,6 +287,17 @@ public partial class GaitDemo : Node, ICommandSource
         if (index == _moves.Length - 1 && seconds >= Total())
         {
             GD.Print("GAIT DEMO done");
+            if (Args.Has("--gait-check"))
+            {
+                // CI: the steps as measured above, against what the play-test's fixes brought them to (with room to spare).
+                bool ok = _failures.Count == 0 && _checked > 0;
+                float jerkLimit = Look?.FrameLimit(MaxJerk, _frameTime) ?? MaxJerk, changeLimit = Look?.FrameLimit(MaxChange, _frameTime) ?? MaxChange;
+                GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: gait check over {_checked} moves at {1f / Mathf.Max(_frameTime, 1e-4f):0} fps (jerk up to " +
+                         $"{jerkLimit * 100f:0.0} cm, going into a move {changeLimit * 100f:0.0} cm){(ok ? "" : ": " + string.Join("; ", _failures))}");
+                GetTree().Quit(ok ? 0 : 1);
+                return new InputCommand { Tick = tick, Yaw = _facing };
+            }
+
             GetTree().Quit();
         }
 
@@ -242,10 +313,44 @@ public partial class GaitDemo : Node, ICommandSource
         }
 
         _head = Mathf.MoveToward(_head, Mathf.DegToRad(look), Mathf.DegToRad(300f) * _sim.Config.Dt);
+        // Turning round at a normal bot's pace (difficulty.jsonc "turnSpeed_degps"), not in one tick: the steps round it
+        // are part of what's shown, and an instant flip is nothing a bot does.
+        _facing = float.IsNaN(_facing) ? yaw : _facing + Mathf.Clamp(Mathf.AngleDifference(_facing, yaw), -TurnRate * _sim.Config.Dt, TurnRate * _sim.Config.Dt);
         return new InputCommand
         {
-            Tick = tick, Yaw = yaw, Pitch = 0f, HeadYaw = _head, Buttons = move.Buttons, Move = new System.Numerics.Vector2(move.Right, move.Forward),
+            Tick = tick, Yaw = _facing, Pitch = 0f, HeadYaw = _head, Buttons = move.Buttons, Move = new System.Numerics.Vector2(move.Right, move.Forward),
         };
+    }
+
+    // The gait check's limits (--gait-check): a planted foot's slide (m/s), the head's and hands' jerk in a move and going
+    // into it from the last (m, a frame: at 30 fps and above; below that, plus what the body's own smooth motion changes
+    // a frame by, CharactersDef.FrameLimit), how far a wrist is from its grip and an ankle from its mark (m).
+    private const float MaxSlide = 0.3f, MaxJerk = 0.025f, MaxChange = 0.04f, MaxWristMiss = 0.01f, MaxAnkleMiss = 0.03f;
+
+    /// <summary>The characters' look (for the check's limits at low frame rates).</summary>
+    public CharactersDef? Look { get; set; }
+
+    private float _frameTime;
+    private readonly List<string> _failures = new();
+    private int _checked;
+
+    private void Check(string move, float slide, float jerk, float change, float wrist, float ankle)
+    {
+        _checked++;
+        Fail(slide > MaxSlide, $"{move}: feet slide {slide:0.000} m/s");
+        float maxJerk = Look?.FrameLimit(MaxJerk, _frameTime) ?? MaxJerk, maxChange = Look?.FrameLimit(MaxChange, _frameTime) ?? MaxChange;
+        Fail(jerk > maxJerk, $"{move}: jerk {jerk * 100f:0.0} cm (limit {maxJerk * 100f:0.0})");
+        Fail(change > maxChange, $"{move}: {change * 100f:0.0} cm going into it (limit {maxChange * 100f:0.0})");
+        Fail(wrist > MaxWristMiss, $"{move}: a wrist {wrist * 100f:0.0} cm off its grip");
+        Fail(ankle > MaxAnkleMiss, $"{move}: an ankle {ankle * 100f:0.0} cm off its mark");
+    }
+
+    private void Fail(bool failed, string what)
+    {
+        if (failed)
+        {
+            _failures.Add(what);
+        }
     }
 
     private float Total()

@@ -25,6 +25,11 @@
 //   holdFireWhileFlanking  it doesn't shoot on the way to a flanking spot unless the enemy turns its way, comes within
 //                   closeRange_m or shoots at it
 //   stealthWithin_m it crouch-walks the last this-many metres to a flanking spot
+// Optional (after the play-test, so they don't park at one post all round):
+//   shiftAfter_s    holding a post (or a marksman's vantage) with nothing going on, it moves on to another after about
+//                   this long, give or take 40% (0 = never)
+//   shiftWithin_m   ... to a free cover point within this of where it started (a marksman: another vantage within its
+//                   overwatch reach, at least brain.jsonc relocateDistance_m from the last)
 {
   "archetypes": [
     {
@@ -32,7 +37,8 @@
       "idle": "post", "leash_m": 12, "useCover": true,
       "peekTime_s": 1.4, "hideTime_s": 1.2,
       "flankChance": 0.1, "pushChance": 0.05,
-      "fireOnMove": false, "engageRange_m": 25, "searchTime_s": 10, "moveGait": "run"
+      "fireOnMove": false, "engageRange_m": 25, "searchTime_s": 10, "moveGait": "run",
+      "shiftAfter_s": 35, "shiftWithin_m": 16
     },
     {
       "id": "patroller",
@@ -57,7 +63,8 @@
       "flankChance": 0.0, "pushChance": 0.0,
       "fireOnMove": false, "engageRange_m": 40, "searchTime_s": 6, "moveGait": "run",
       "overwatchReach_m": 35, "vantage": 1.0, "steadyShots": true, "closeRange_m": 12, "pullScale": 1.8,
-      "relocateAfterShots": 6, "relocateWhenShotAt": true
+      "relocateAfterShots": 6, "relocateWhenShotAt": true,
+      "shiftAfter_s": 60, "shiftWithin_m": 35
     },
     {
       // Works round out of sight to come at you from the side once a teammate has called you out.
@@ -73,7 +80,8 @@
       "idle": "post", "leash_m": 60, "useCover": false,
       "peekTime_s": 0.8, "hideTime_s": 0.5,
       "flankChance": 0.2, "pushChance": 0.85,
-      "fireOnMove": true, "engageRange_m": 10, "searchTime_s": 22, "moveGait": "run"
+      "fireOnMove": true, "engageRange_m": 10, "searchTime_s": 22, "moveGait": "run",
+      "shiftAfter_s": 22, "shiftWithin_m": 28
     }
   ]
 }

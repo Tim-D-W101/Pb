@@ -185,7 +185,8 @@ public static class RoundScreens
             : "";
         if (objective.Kind == ObjectiveKind.Retrieve)
         {
-            string ways = string.Join(", ", objective.Level.Exits.Select(e => e.Name).Distinct());
+            // Only the ways out far enough from where the case lies count (rules.jsonc retrieve "minExitDistance_m").
+            string ways = string.Join(" or ", objective.CountingExits.Select(i => objective.Level.Exits[i].Name).Distinct());
             return new[]
             {
                 $"The case is somewhere in {ModeText.The(objective.Spot.Area)} (marked on your screen). Walk over it to pick it up and carry it out: {ways}.",

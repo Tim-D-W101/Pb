@@ -35,9 +35,11 @@ public sealed class StepGait
     private bool _started;
     private bool _moving;
     private float _phase;
+    private float _bobPhase;
     private float _cadence = 1f;
     private float _swing = 0.4f;
     private float _reachDrop;
+    private float _stride;
     private float _run;
     private float _legYaw;
     private float _facing;
@@ -126,6 +128,23 @@ public sealed class StepGait
             return;
         }
 
+        // The steps think at a fixed rate whatever the frame rate: a slow frame is several of their ticks, along a straight
+        // path from where the body was drawn last frame (at 30 fps feet lifted and landed a frame late, and were dragged
+        // further, than at 120). A first frame, or a jump, is one tick from where the body is now.
+        int ticks = !_started || root.DistanceTo(_root) > Teleport ? 1 : Mathf.Clamp(Mathf.CeilToInt(delta * _def.Tick_hz - 1e-3f), 1, 32);
+        Vector3 fromRoot = _root;
+        float fromFacing = _facing, fromCrouch = _crouch;
+        for (int i = 1; i <= ticks; i++)
+        {
+            float t = (float)i / ticks;
+            Tick(ticks == 1 ? root : fromRoot.Lerp(root, t), ticks == 1 ? facing : Mathf.LerpAngle(fromFacing, facing, t),
+                ticks == 1 ? crouch : Mathf.Lerp(fromCrouch, crouch, t), hipDrop, shoulder, sliding, grounded, delta / ticks, ground);
+        }
+    }
+
+    private void Tick(Vector3 root, float facing, float crouch, float hipDrop, float shoulder, bool sliding, bool grounded, float delta,
+        GroundQuery ground)
+    {
         _facing = facing;
         _crouch = Mathf.Clamp(crouch, 0f, 1f);
         _hipDrop = hipDrop;
@@ -183,8 +202,13 @@ public sealed class StepGait
         if (moving)
         {
             _legYaw = ApproachAngle(_legYaw, _facing + TravelTwist(), turn);
+            float hurry = StepIfDragged(delta);
             float before = _phase;
-            _phase = Mathf.PosMod(_phase + _cadence * delta, 1f);
+            _phase = Mathf.PosMod(_phase + _cadence * hurry * delta, 1f);
+            // The bob's own cycle: on at the stride's pace, and drawn after the steps' (which jumps when a foot left behind
+            // steps at once, and hurries while it's dragged) on a spring, so the head and hands don't jump with it.
+            float behind = Mathf.PosMod(_phase - _bobPhase + 0.5f, 1f) - 0.5f;
+            _bobPhase = Mathf.PosMod(_bobPhase + _cadence * delta + behind * (1f - Mathf.Exp(-delta / _def.BobFollow_s)), 1f);
             foreach (FootState foot in _feet)
             {
                 StepPhased(foot, before, gait, ground);
@@ -280,6 +304,39 @@ public sealed class StepGait
         float rightBehind = -(_right.Planted - _root).Dot(ahead);
         // Just before that foot's lift-off, so it lifts this frame.
         _phase = Mathf.PosMod((leftBehind >= rightBehind ? _left.Offset : _right.Offset) - 1e-4f, 1f);
+        if (_stride < 0.05f)
+        {
+            _bobPhase = _phase; // (from a standstill: no bob yet to jump)
+        }
+    }
+
+    /// <summary>
+    /// A planted foot the body dragged along last frame faster than the steps allow (setting off briskly, or a reversal,
+    /// leaves the foot that's down out of reach behind) doesn't skate after the body until its turn comes round: with the
+    /// other foot down it lifts now (the cycle moves on to its lift-off), and with the other in the air the cycle hurries
+    /// (the factor returned), so that foot lands short and quick and this one can follow.
+    /// </summary>
+    private float StepIfDragged(float delta)
+    {
+        foreach (FootState foot in _feet)
+        {
+            FootState other = foot == _left ? _right : _left;
+            if (foot.Swinging || foot.Airborne || foot.Dragged <= _def.StepWhenDragged_mps * delta)
+            {
+                continue;
+            }
+
+            foot.Dragged = 0f;
+            if (!other.Swinging)
+            {
+                _phase = Mathf.PosMod(foot.Offset - 1e-4f, 1f);
+                return 1f;
+            }
+
+            return _def.DraggedHurry;
+        }
+
+        return 1f;
     }
 
     /// <summary>
@@ -467,21 +524,18 @@ public sealed class StepGait
     /// </summary>
     private void Hips(float bob, float delta)
     {
-        float up = 0f, sway = 0f;
-        foreach (FootState foot in _feet)
-        {
-            if (_moving && !foot.Swinging && !foot.Airborne)
-            {
-                float p = Mathf.PosMod(_phase - foot.Offset, 1f);
-                float u = Mathf.Clamp((p - _swing) / Mathf.Max(1f - _swing, 0.05f), 0f, 1f);
-                float over = Mathf.Sin(Mathf.Pi * u);
-                up = Mathf.Max(up, over);
-                sway += foot.Side * over;
-            }
-        }
-
+        // The bob and sway follow the stride as smooth waves: once a step up and down, highest (walking) or lowest
+        // (running) as each foot passes under the hip at mid-stance; once a stride from side to side, over the foot
+        // that's down. (Shaped from each foot's time down, they turned a corner as a running foot landed after its
+        // flight, dropping the hips 2–3 cm in one frame, the head and hands with them; and snapped to nothing on a stop.)
+        float midStance = (1f + _swing) * 0.5f; // the left foot's (offset 0); the right's is half a stride on
+        float up = 0.5f * (1f + Mathf.Cos(4f * Mathf.Pi * (_bobPhase - midStance)));
+        float sway = -Mathf.Cos(2f * Mathf.Pi * (_bobPhase - midStance));
         // Walking vaults over the foot (highest mid-stance); running sinks onto it (lowest mid-stance).
-        float vertical = _moving ? Mathf.Lerp((up - 0.5f) * bob, (0.35f - up) * bob, _run) : 0f;
+        float wave = Mathf.Lerp((up - 0.5f) * bob, (0.35f - up) * bob, _run);
+        _stride = Mathf.Lerp(_stride, _moving ? 1f : 0f, 1f - Mathf.Exp(-delta / 0.08f));
+        float vertical = wave * _stride;
+        sway *= _stride;
         // Knees a little soft, never locked straight; and down into them for a moment when pulling up.
         _soft = Mathf.Lerp(_soft, _def.SoftKnees_m + _def.RunSink_m * _run, 1f - Mathf.Exp(-delta / 0.3f));
         vertical -= _soft + _def.StopDip_m * Settling();
@@ -499,13 +553,14 @@ public sealed class StepGait
             need = Mathf.Max(need, Need(foot, right, vertical, reach));
         }
 
-        // Down at once (a leg mustn't fall short), back up eased.
-        float rate = need > _reachDrop ? 0.004f : 0.12f;
+        // Down quickly but eased (a snap down in one frame took the head and hands with it: a visible pop), back up slower.
+        float rate = need > _reachDrop ? 0.02f : 0.12f;
         _reachDrop = Mathf.Lerp(_reachDrop, Mathf.Clamp(need, 0f, _def.MaxReachDrop_m), 1f - Mathf.Exp(-delta / rate));
         // The poser lowers the hips exactly as far as the legs need (up to the same most); this is for the push-off below.
         HipsOffset = offset;
         foreach (FootState foot in _feet)
         {
+            foot.Dragged = 0f;
             if (!foot.Swinging && !foot.Airborne)
             {
                 Vector3 hip = Hip(foot, right, vertical - _reachDrop);
@@ -518,6 +573,7 @@ public sealed class StepGait
                     Vector2 pull = across.Normalized() * (across.Length() - most);
                     foot.Drag(new Vector3(-pull.X, 0f, -pull.Y));
                     foot.Ankle -= new Vector3(pull.X, 0f, pull.Y);
+                    foot.Dragged = pull.Length();
                 }
             }
         }
@@ -695,6 +751,9 @@ public sealed class StepGait
         public bool Swinging { get; private set; }
 
         public bool Airborne { get; private set; }
+
+        /// <summary>How far the body pulled this foot along the ground last frame while it was down (out of reach).</summary>
+        public float Dragged { get; set; }
 
         /// <summary>How far through its swing (0–1).</summary>
         public float Progress { get; private set; }

@@ -1,4 +1,3 @@
-using System.Buffers;
 using Pb.Sim.Core;
 
 namespace Pb.Net.Transport;
@@ -36,6 +35,7 @@ public sealed class LaggedTransport : ITransport
     private readonly List<Held> _incoming = new();
     private readonly Dictionary<int, double> _lastReliableOut = new();
     private readonly Dictionary<int, double> _lastReliableIn = new();
+    private readonly PacketBuffers _buffers = new();
     private Pcg32 _rng;
     private byte[]? _lent;
 
@@ -62,7 +62,7 @@ public sealed class LaggedTransport : ITransport
     {
         if (_lent is not null)
         {
-            ArrayPool<byte>.Shared.Return(_lent);
+            _buffers.Return(_lent);
             _lent = null;
         }
 
@@ -98,7 +98,7 @@ public sealed class LaggedTransport : ITransport
         {
             if (h.Buffer is not null)
             {
-                ArrayPool<byte>.Shared.Return(h.Buffer);
+                _buffers.Return(h.Buffer);
             }
         }
 
@@ -118,7 +118,7 @@ public sealed class LaggedTransport : ITransport
             _inner.Send(next.Peer, next.Channel, next.Buffer is null ? ReadOnlySpan<byte>.Empty : next.Buffer.AsSpan(0, next.Length));
             if (next.Buffer is not null)
             {
-                ArrayPool<byte>.Shared.Return(next.Buffer);
+                _buffers.Return(next.Buffer);
             }
         }
     }
@@ -151,7 +151,7 @@ public sealed class LaggedTransport : ITransport
             byte[]? buffer = null;
             if (data.Length > 0)
             {
-                buffer = ArrayPool<byte>.Shared.Rent(data.Length);
+                buffer = _buffers.Rent(data.Length);
                 data.CopyTo(buffer);
             }
 

@@ -134,6 +134,7 @@ public sealed class BotBrain
     private Vector3 _goal;
     private bool _hasGoal;
     private bool _needPath;
+    private int _searchAgainAt;
     private bool _arrived;
     private int _waypoint;
     private BotGait _gait;
@@ -187,9 +188,16 @@ public sealed class BotBrain
     private float _lookAround;
     private float _outFor;
     private float _sinceCallout = float.MaxValue;
+    private readonly int[] _shoutedAt = NewShoutTicks();
     private bool[] _huntVisited = Array.Empty<bool>();
     private bool _hunting;
     private float _quietFor;
+
+    // Roaming: the post it holds now (it starts at the spawn and moves on now and then) and when it moves on; its own random numbers, so roaming never changes what else the bot decides.
+    private Pcg32 _roamRng;
+    private Vector3 _post;
+    private float _postYaw;
+    private float _shiftIn;
 
     // Teamwork, vantage and flanking.
     private float _sinceShare = float.MaxValue;
@@ -207,7 +215,11 @@ public sealed class BotBrain
     private Vector3 _roomGoal;
     private int _roomFor = -1;
 
-    // Doors on the way.
+    // Doors on the way: giving way to one opening (which, for how long), and stepping off a leaf it's stuck against.
+    private int _giveWayLeaf = -1;
+    private float _giveWayTime;
+    private float _unstickFor;
+    private Vector3 _unstickTo;
     private int _doorLeaf = -1;
     private float _doorTime;
     private int _doorTaps;
@@ -243,9 +255,15 @@ public sealed class BotBrain
         _sweepHold = Between(_b.ScanHoldMin, _b.ScanHoldMax);
         _nextPull = tier.PullInterval;
         _sincePull = tier.PullInterval;
+        _roamRng = new Pcg32(SeedHash.Combine(_sim.MatchSeed, (ulong)(0x80A3 + self.Id * 15485863)));
+        _post = Home;
+        _postYaw = HomeYaw;
+        _shiftIn = NextShift();
         if (Route is not null)
         {
             _patrolIndex = NearestRoutePoint(Route, self.Position);
+            // Which way round it walks, and so where it's to be found when, differs from round to round.
+            _patrolStep = _roamRng.NextFloat() < 0.5f ? 1 : -1;
         }
     }
 
@@ -257,8 +275,11 @@ public sealed class BotBrain
 
     public BotSenses Senses { get; }
 
-    /// <summary>The spawn: where a post-holder stands, and where everyone returns to.</summary>
+    /// <summary>The spawn: where a post-holder starts, and what it doesn't stray far from (its leash).</summary>
     public Vector3 Home { get; }
+
+    /// <summary>The post it holds now: the spawn at first, then (for those that roam) another nearby now and then.</summary>
+    public Vector3 Post => _post;
 
     public float HomeYaw { get; }
 
@@ -289,6 +310,27 @@ public sealed class BotBrain
     private bool OnTask => _sim.Match?.Objective is { Done: false } objective && Self.Team == objective.Attackers &&
                            (objective.Carrier == Self.Id ||
                             (objective.Room is { } room && room.Contains(Self.Position + new Vector3(0f, 0.1f, 0f))));
+
+    /// <summary>In a held room gone stale (contested, unseen), a fresh call about where one of theirs is.</summary>
+    private bool StalemateLead(Awareness? f) =>
+        f is { HasLead: true, FromContact: true } && _sim.Match?.Objective is { Kind: ObjectiveKind.Hold, Status: HoldStatus.Contested } objective &&
+        objective.ContestedFor >= objective.HoldRules.StalemateAfter && objective.HoldRules.StalemateAfter > 0f;
+
+    /// <summary>Defending the objective (on the other side while it's still to do), and where it is.</summary>
+    private bool Defending(out Vector3 at)
+    {
+        at = default;
+        if (_sim.Match?.Objective is not { Done: false } objective || Self.Team == objective.Attackers)
+        {
+            return false;
+        }
+
+        at = objective.Kind == ObjectiveKind.Hold && objective.Room is { } room ? room.Centre : objective.CasePosition;
+        return objective.Kind != ObjectiveKind.Eliminate;
+    }
+
+    /// <summary>A bot's call that it's been told where a defender is (the hold's stalemate): a lead, no shout.</summary>
+    internal void Told(PlayerState enemy) => Senses.Alarm(enemy.Id, enemy.Position);
 
     /// <summary>The objective post this defender has been sent to guard, if any.</summary>
     public Vector3? DutyPost => _dutyPost;
@@ -500,6 +542,19 @@ public sealed class BotBrain
 
         if (OnTask)
         {
+            // Holding the room while it's contested and neither side sees the other: go for the one it's been told about
+            // (they're in the room too), so it gets settled instead of standing there till the clock runs out.
+            if (StalemateLead(f))
+            {
+                if (Mode != BotMode.Push || _arrived || !_hasGoal || FlatDistance(_goal, f!.LastKnown) > 2f)
+                {
+                    SetMode(BotMode.Push);
+                    GoTo(f!.LastKnown, Archetype.MoveGait);
+                }
+
+                return;
+            }
+
             // Carrying the case or holding the room: back to it as soon as nobody's in sight.
             if (Mode is not (BotMode.Idle or BotMode.Resupply))
             {
@@ -739,6 +794,14 @@ public sealed class BotBrain
             return;
         }
 
+        // Defending an objective: those who'd hunt (or have gone restless) roam the ground round it instead of the whole
+        // area, so it's never left unguarded.
+        if (Hunts && _sim.Match?.Rules.Objectives.DefendWithin > 0f && Defending(out Vector3 objectiveAt))
+        {
+            ActRoamNear(objectiveAt, _sim.Match.Rules.Objectives.DefendWithin, dt);
+            return;
+        }
+
         if (Hunts && _sim.Level is { OpponentSpawns.Count: > 0 } level)
         {
             ActHunt(level, dt);
@@ -763,7 +826,7 @@ public sealed class BotBrain
             LookAlongPath();
             if (_arrived)
             {
-                _pauseLeft = route.Pause;
+                _pauseLeft = route.Pause * (0.5f + _roamRng.NextFloat());
                 AdvancePatrol(route);
                 _hasGoal = false;
             }
@@ -771,11 +834,14 @@ public sealed class BotBrain
             return;
         }
 
-        HoldPost(Home, HomeYaw, dt);
+        if (HoldPost(_post, _postYaw, dt) && Archetype.ShiftAfter > 0f && (_shiftIn -= dt) <= 0f)
+        {
+            ShiftPost();
+        }
     }
 
-    /// <summary>A post: get there, then stand sweeping the view around its facing.</summary>
-    private void HoldPost(Vector3 post, float yaw, float dt)
+    /// <summary>A post: get there, then stand sweeping the view around its facing. True while standing at it.</summary>
+    private bool HoldPost(Vector3 post, float yaw, float dt)
     {
         if (FlatDistance(Self.Position, post) > 1.0f)
         {
@@ -786,12 +852,56 @@ public sealed class BotBrain
 
             FollowPath(dt);
             LookAlongPath();
-            return;
+            return false;
         }
 
         Stop();
         _wantYaw = Sweep(yaw, dt);
         _wantPitch = 0f;
+        return true;
+    }
+
+    /// <summary>How long it holds the next post: about the archetype's shift time, give or take 40%.</summary>
+    private float NextShift() => Archetype.ShiftAfter * (0.6f + 0.8f * _roamRng.NextFloat());
+
+    /// <summary>
+    /// Moves on to another post: a free cover point (claimed while it's held) within the archetype's reach of the spawn,
+    /// at least a few metres from the one it leaves, picked at random among the nearer half, facing the way the cover
+    /// protects from. Nothing free: it stays put a while longer.
+    /// </summary>
+    private void ShiftPost()
+    {
+        _shiftIn = NextShift();
+        CoverSet cover = _squad.Cover;
+        cover.Near(Home, MathF.Max(Archetype.ShiftWithin, 4f), _near);
+        int chosen = -1;
+        int seen = 0;
+        for (int k = 0; k < _near.Count; k++)
+        {
+            int i = _near[k];
+            CoverPoint p = cover.Points[i];
+            int holder = cover.ClaimedBy(i);
+            if ((holder != -1 && holder != Self.Id) || FlatDistance(p.Position, _post) < 4f || MathF.Abs(p.Position.Y - Home.Y) > 4.5f)
+            {
+                continue;
+            }
+
+            // Reservoir sampling: each candidate equally likely, without a list.
+            if (_roamRng.NextUInt() % (uint)++seen == 0)
+            {
+                chosen = i;
+            }
+        }
+
+        if (chosen < 0 || !cover.Claim(chosen, Self.Id)) // (a claim gives up the bot's last one)
+        {
+            return;
+        }
+
+        CoverPoint post = cover.Points[chosen];
+        _post = post.Position;
+        _postYaw = MathF.Atan2(post.Normal.X, post.Normal.Z);
+        GoTo(_post, BotGait.Stroll);
     }
 
     /// <summary>
@@ -879,9 +989,10 @@ public sealed class BotBrain
             int i = _near[k];
             CoverPoint p = cover.Points[i];
             int holder = cover.ClaimedBy(i);
-            if ((holder != -1 && holder != Self.Id) || !room.Contains(p.Position + new Vector3(0f, 0.1f, 0f)))
+            if ((holder != -1 && holder != Self.Id) || !room.Contains(p.Position + new Vector3(0f, 0.1f, 0f)) ||
+                !_squad.Grid.Connected(Self.Position, p.Position))
             {
-                continue;
+                continue; // taken, outside, or somewhere it can't get to (a spot off a gantry: it stood outside for ever)
             }
 
             float score = _rng.NextFloat() - FlatDistance(p.Position, room.Centre) * 0.05f;
@@ -905,20 +1016,8 @@ public sealed class BotBrain
         return _roomGoal;
     }
 
-    private static Vector3 NearestExit(ObjectiveState objective, Vector3 from)
-    {
-        IReadOnlyList<ExitSpec> exits = objective.Level.Exits;
-        Vector3 best = exits[0].Position;
-        for (int i = 1; i < exits.Count; i++)
-        {
-            if (FlatDistance(exits[i].Position, from) < FlatDistance(best, from))
-            {
-                best = exits[i].Position;
-            }
-        }
-
-        return best;
-    }
+    /// <summary>The way out the case can leave by (one far enough from where it lay) nearest <paramref name="from"/>.</summary>
+    private static Vector3 NearestExit(ObjectiveState objective, Vector3 from) => objective.NearestExit(from).Position;
 
     /// <summary>The objective's alarm (the case on the move, the room taken): where <paramref name="enemy"/> is, to go after.</summary>
     internal void Alarm(PlayerState enemy)
@@ -1011,6 +1110,63 @@ public sealed class BotBrain
         }
     }
 
+    /// <summary>
+    /// Roaming round <paramref name="centre"/>: walk to a free cover point within <paramref name="within"/> of it, picked at
+    /// random (a few metres from the last), look round there a while, move on.
+    /// </summary>
+    private void ActRoamNear(Vector3 centre, float within, float dt)
+    {
+        if (_pauseLeft > 0f)
+        {
+            _pauseLeft -= dt;
+            Stop();
+            _wantYaw = Sweep(YawTo(Self.Position, centre) + MathF.PI, dt); // looking out from the objective
+            _wantPitch = 0f;
+            return;
+        }
+
+        if (!_hasGoal || !_hunting)
+        {
+            CoverSet cover = _squad.Cover;
+            cover.Near(centre, within, _near);
+            int chosen = -1, seen = 0;
+            for (int k = 0; k < _near.Count; k++)
+            {
+                int i = _near[k];
+                Vector3 p = cover.Points[i].Position;
+                int holder = cover.ClaimedBy(i);
+                if ((holder != -1 && holder != Self.Id) || FlatDistance(p, Self.Position) < 5f || !_squad.Grid.Connected(Self.Position, p))
+                {
+                    continue;
+                }
+
+                if (_roamRng.NextUInt() % (uint)++seen == 0)
+                {
+                    chosen = i;
+                }
+            }
+
+            if (chosen < 0)
+            {
+                Stop();
+                _pauseLeft = _b.HuntLookAround;
+                return;
+            }
+
+            _hunting = true;
+            GoTo(cover.Points[chosen].Position, BotGait.Walk);
+        }
+
+        FollowPath(dt);
+        LookAlongPath();
+        if (_arrived)
+        {
+            _pauseLeft = _b.HuntLookAround * (1f + 2f * _roamRng.NextFloat());
+            _hunting = false;
+            _hasGoal = false;
+        }
+    }
+
     /// <summary>One of the <see cref="BrainParams.HuntChoices"/> nearest unvisited spawns at random, or −1 when all are visited.</summary>
     private int PickHuntSpot(LevelLayout level)
     {
@@ -1070,7 +1226,8 @@ public sealed class BotBrain
     {
         if (route.Loop)
         {
-            _patrolIndex = (_patrolIndex + 1) % route.Points.Count;
+            // Round the loop either way (which way is dealt at the start of the round).
+            _patrolIndex = (_patrolIndex + _patrolStep + route.Points.Count) % route.Points.Count;
             return;
         }
 
@@ -1125,6 +1282,19 @@ public sealed class BotBrain
             FollowPath(dt);
             LookAlongPath();
             return true;
+        }
+
+        // A while on one vantage with nothing going on: on to another, well away from it (so it isn't always where it was).
+        if (Archetype.ShiftAfter > 0f && (_shiftIn -= dt) <= 0f)
+        {
+            _shiftIn = NextShift();
+            int next = _squad.Vantage.Best(cover, Home, MathF.Max(Archetype.OverwatchReach, Archetype.ShiftWithin), Self.Id, _near,
+                avoid: p.Position, awayFrom: _b.RelocateDistance);
+            if (next >= 0 && cover.Claim(next, Self.Id))
+            {
+                _vantage = next;
+                return true; // walks there from the next tick
+            }
         }
 
         // On the spot: eyes over low cover, or stepped out past the edge and leaning, watching its most open view and
@@ -1231,7 +1401,7 @@ public sealed class BotBrain
                 LookToward(f.LastKnown, slow: false);
                 if (ShouldRelocate(f))
                 {
-                    Shout(CalloutKind.Moving, force: true); // once a spot, and worth hearing even straight after "under fire"
+                    Shout(CalloutKind.Moving);
                     _relocating = true;
                     ChooseCover(f);
                     _relocating = false;
@@ -1385,16 +1555,10 @@ public sealed class BotBrain
                 continue; // too close, or the threat's on the open side
             }
 
-            float head = p.Height == CoverHeight.Full ? move.StandEyeHeight : move.CrouchEyeHeight;
-            if (Clear(threatEye, p.Position + new Vector3(0f, head + 0.05f, 0f)))
-            {
-                continue; // doesn't hide you from them
-            }
-
-            bool canShoot = p.CanShoot && Clear(ShootingEye(p, threatEye), threatChest);
-
+            // The score without the shot first: a point that couldn't win even with a shot from it isn't worth the
+            // sight lines (two sweeps each, for every point in reach: this was the costliest part of a decision).
             float travel = FlatDistance(Self.Position, p.Position);
-            float score = -travel * 1.2f - MathF.Abs(toThreat - Archetype.EngageRange) * 0.4f + (canShoot ? 12f : 0f) + (p.Height == CoverHeight.Full ? 1.5f : 0f);
+            float score = -travel * 1.2f - MathF.Abs(toThreat - Archetype.EngageRange) * 0.4f + (p.Height == CoverHeight.Full ? 1.5f : 0f);
             if (Archetype.Vantage > 0f)
             {
                 score += Archetype.Vantage * _squad.Vantage[i] * 10f;
@@ -1404,6 +1568,19 @@ public sealed class BotBrain
                 score -= 6f; // running at them to get there
             }
 
+            if (score + (p.CanShoot ? 12f : 0f) <= bestScore)
+            {
+                continue;
+            }
+
+            float head = p.Height == CoverHeight.Full ? move.StandEyeHeight : move.CrouchEyeHeight;
+            if (Clear(threatEye, p.Position + new Vector3(0f, head + 0.05f, 0f)))
+            {
+                continue; // doesn't hide you from them
+            }
+
+            bool canShoot = p.CanShoot && Clear(ShootingEye(p, threatEye), threatChest);
+            score += canShoot ? 12f : 0f;
             if (score > bestScore)
             {
                 bestScore = score;
@@ -1481,6 +1658,11 @@ public sealed class BotBrain
             }
 
             float score = angle * 4f - FlatDistance(Self.Position, p.Position) * 0.3f + _rng.NextFloat();
+            if (score <= bestScore)
+            {
+                continue; // exposure only takes away: it can't win (and its sight lines needn't be checked)
+            }
+
             if (Archetype.FlankOnContact)
             {
                 score -= Exposure(Self.Position, p.Position, f.LastKnown) * 8f;
@@ -1568,14 +1750,21 @@ public sealed class BotBrain
                 continue; // not off to the side
             }
 
+            // The cheap part of the score first (the tie-break comes from a hash, not the brain's random numbers, so
+            // skipping a point draws none): only a point that can still win is worth its eight sight lines.
+            float score = -MathF.Abs(angle - MathF.PI * 0.5f) * 3f - FlatDistance(Self.Position, p.Position) * 0.15f -
+                          MathF.Abs(distance - Archetype.EngageRange) * 0.2f + (jitter ? TieBreak(i) * 0.5f : 0f);
+            if (score <= bestScore)
+            {
+                continue;
+            }
+
             if (Clear(threatEye, p.Position + new Vector3(0f, head + 0.05f, 0f)) || !Clear(ShootingEye(p, lastChest), lastChest))
             {
                 continue; // they'd see it coming, or there's no shot from it
             }
 
-            float score = -MathF.Abs(angle - MathF.PI * 0.5f) * 3f - FlatDistance(Self.Position, p.Position) * 0.15f -
-                          MathF.Abs(distance - Archetype.EngageRange) * 0.2f - Exposure(Self.Position, p.Position, enemy) * 8f +
-                          (jitter ? _rng.NextFloat() * 0.5f : 0f);
+            score -= Exposure(Self.Position, p.Position, enemy) * 8f;
             if (score > bestScore)
             {
                 bestScore = score;
@@ -1601,6 +1790,10 @@ public sealed class BotBrain
             StartSearch(f.LastKnown);
         }
     }
+
+    /// <summary>A number in [0, 1) for cover point <paramref name="i"/>, different for each bot and each decision, from the match seed.</summary>
+    private float TieBreak(int i) =>
+        (SeedHash.Combine(SeedHash.Combine(_sim.MatchSeed, (ulong)(Self.Id * 7919 + _tick)), (ulong)i) >> 40) / (float)(1UL << 24);
 
     /// <summary>Share of a walk from <paramref name="from"/> to <paramref name="to"/> in sight of someone at <paramref name="threat"/> (0..1).</summary>
     private float Exposure(Vector3 from, Vector3 to, Vector3 threat)
@@ -1934,7 +2127,7 @@ public sealed class BotBrain
 
     private void GoHome()
     {
-        Vector3 home = _dutyPost ?? (Route is { Points.Count: > 0 } route ? route.Points[_patrolIndex = NearestRoutePoint(route, Self.Position)] : Home);
+        Vector3 home = _dutyPost ?? (Route is { Points.Count: > 0 } route ? route.Points[_patrolIndex = NearestRoutePoint(route, Self.Position)] : _post);
         GoTo(home, _dutyPost is null ? BotGait.Stroll : BotGait.Walk);
     }
 
@@ -1997,11 +2190,16 @@ public sealed class BotBrain
         bool towardUs = !s.Sliding && !s.BothWays && side > 0f;
         Vector3 stand = towardUs ? ClearOfSwing(s, c, side) : c + s.Side * (side * 0.55f);
         stand.Y = Self.Position.Y;
-        // Look at the leaf about chest high: its nearest point is then in reach and in the middle of the view.
-        _doorFace = c + new Vector3(0f, MathF.Min(1.2f, s.Height * 0.6f), 0f);
+        // Look at the leaf where it is now (an ajar leaf isn't where the shut one would be), at eye height: its nearest
+        // point is then in reach and in the middle of the view. (LookToward looks 1.3 m above the point it's given: the
+        // face used to add its own height on top, so a bot close to a door looked over it, outside interact's cone, and
+        // tapped at nothing until it gave up.)
+        doors.Shape(leaf).DistanceTo(Self.EyePosition, out Vector3 nearest);
+        _doorFace = nearest - new Vector3(0f, 1.3f, 0f);
         _stuckFor = 0f;
         _bestDistance = float.MaxValue;
-        if (FlatDistance(Self.Position, stand) > 0.3f)
+        bool heading = doors.Target(leaf) >= pass;
+        if (FlatDistance(Self.Position, stand) > 0.3f && _doorTime < 1.5f)
         {
             // The leaf in the way (a door standing ajar this way): step straight out from the doorway first, clear of it.
             Vector3 via = stand;
@@ -2012,27 +2210,109 @@ public sealed class BotBrain
             }
 
             MoveTowards(via, BotGait.Walk, 0f);
-            return true;
         }
-
-        _cmd.Move = Vector2.Zero;
-        bool heading = doors.Target(leaf) >= pass;
-        if (!heading && _doorTaps < 3 && _doorTime >= _doorTaps * 1.5f &&
-            doors.FindTarget(Self.EyePosition, ViewAngles.Forward(_yaw, _pitch)) == leaf)
+        else
         {
-            _cmd.Buttons |= InputButtons.Interact; // a one-tick press: let go next tick, so it swings all the way
-            _doorTaps++;
+            // At its spot (or it couldn't get there, a wall in the way: it works the door from where it is).
+            _cmd.Move = Vector2.Zero;
+            if (!heading && _doorTaps < 3 && _doorTime >= _doorTaps * 1.5f &&
+                doors.FindTarget(Self.EyePosition, ViewAngles.Forward(_yaw, _pitch)) == leaf)
+            {
+                _cmd.Buttons |= InputButtons.Interact; // a one-tick press: let go next tick, so it swings all the way
+                _doorTaps++;
+            }
         }
 
         if (_doorTime > 6f)
         {
-            // Won't open (someone's holding it, or in its way): give this goal up.
+            // Won't open (someone's holding it, or in its way): give this goal up. (Whatever it was doing meanwhile: a bot
+            // that couldn't reach its spot by the door used to wait there for the rest of the round.)
             _doorLeaf = -1;
             _hasGoal = false;
             _arrived = true;
         }
 
         return true;
+    }
+
+    /// <summary>A door leaf within a step of this bot's body, and the point a step straight off it.</summary>
+    private bool StuckOnLeaf(out Vector3 off)
+    {
+        off = default;
+        Level.DoorSet doors = _sim.Doors;
+        Vector3 body = Self.Position + new Vector3(0f, 1f, 0f);
+        float near = _squad.Config.Navigation.AgentRadius + 0.35f;
+        for (int i = 0; i < doors.Count; i++)
+        {
+            if (doors.Shape(i).DistanceTo(body, out Vector3 nearest) < near)
+            {
+                Vector3 away = (body - nearest) with { Y = 0f };
+                if (away.LengthSquared() < 1e-6f)
+                {
+                    continue;
+                }
+
+                off = Self.Position + Vector3.Normalize(away) * 0.6f;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// A leaf on its way open but stopped short (by bodies in its swing: three bots crowding a stairwell door held it a
+    /// quarter open all round) with this bot inside its swing, on the side it opens to: step out of its way, away from the
+    /// hinge, wait just clear of it, and walk on once it's open. True while giving way.
+    /// </summary>
+    private bool GiveWayToDoor()
+    {
+        Level.DoorSet doors = _sim.Doors;
+        float pass = _sim.Config.Rules.Doors.BotPassOpen;
+        float radius = _squad.Config.Navigation.AgentRadius;
+        for (int i = 0; i < doors.Count; i++)
+        {
+            // On its way open (passable or not) and not there yet: its leaf still sweeps the ground.
+            if (doors.Target(i) < pass || doors.Open(i) >= 0.98f || (i == _giveWayLeaf && _giveWayTime > 4f))
+            {
+                continue;
+            }
+
+            Level.DoorSpec s = doors[i];
+            float reach = s.Width + radius + 0.15f;
+            float fromHinge = FlatDistance(Self.Position, s.Hinge);
+            if (s.Sliding || fromHinge > reach + 0.8f || MathF.Abs(Self.Position.Y - s.Hinge.Y) > 1.2f)
+            {
+                continue;
+            }
+
+            Vector3 leafNow = doors.Shape(i).Center;
+            float opens = Vector3.Dot(leafNow - s.ShutCenter, s.Side);
+            float mine = Vector3.Dot(Self.Position - s.ShutCenter, s.Side);
+            if (opens * mine <= 0f)
+            {
+                continue; // on the other side: not in its way
+            }
+
+            // Given way long enough (something else holds it): on with the walk regardless.
+            _giveWayTime = i == _giveWayLeaf ? _giveWayTime + _sim.Dt : 0f;
+            _giveWayLeaf = i;
+            if (fromHinge > reach)
+            {
+                // Just clear of its swing: wait here till it's open (walking on would stop it again).
+                _cmd.Move = Vector2.Zero;
+                _stuckFor = 0f;
+                return true;
+            }
+
+            Vector3 out_ = (Self.Position - s.Hinge) with { Y = 0f };
+            out_ = out_.LengthSquared() > 1e-4f ? Vector3.Normalize(out_) : s.Side * MathF.Sign(mine);
+            MoveTowards(Self.Position + out_ * (reach - fromHinge + 0.4f), BotGait.Walk, 0f);
+            _stuckFor = 0f;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -2120,14 +2400,25 @@ public sealed class BotBrain
 
         if (_needPath)
         {
-            if (!_squad.TryReserveSearch(_tick))
+            if (_tick < _searchAgainAt)
             {
-                return; // wait for a search slot
+                _cmd.Move = Vector2.Zero;
+                return; // just searched: give the others a turn
+            }
+
+            PathStatus search = _squad.SearchPath(this, Self.Position, _goal, _path, _tick);
+            if (search == PathStatus.Running)
+            {
+                _cmd.Move = Vector2.Zero;
+                return; // still searching (or waiting for the searching to be free): stand a tick
             }
 
             _needPath = false;
             _waypoint = 0;
-            if (!_squad.Grid.FindPath(Self.Position, _goal, _path))
+            // A pause before its next search: a tenth of a second after a path, a second after none (a bot asking again
+            // every tick for somewhere it can't get to used up every search there was, and the others never moved).
+            _searchAgainAt = _tick + (int)((search == PathStatus.Failed ? 1f : 0.1f) / _sim.Dt);
+            if (search == PathStatus.Failed)
             {
                 _hasGoal = false; // unreachable: give up on it
                 _arrived = true;
@@ -2161,7 +2452,15 @@ public sealed class BotBrain
             distance = FlatDistance(Self.Position, next);
         }
 
-        if (AtLadder(next, dt) || AtShutDoor(next, dt))
+        if (_unstickFor > 0f)
+        {
+            // Stepping off a door leaf it got stuck against (in a corner between the leaf and the doorway's side).
+            _unstickFor -= dt;
+            MoveTowards(_unstickTo, BotGait.Walk, 0f);
+            return;
+        }
+
+        if (GiveWayToDoor() || AtLadder(next, dt) || AtShutDoor(next, dt))
         {
             return;
         }
@@ -2176,6 +2475,13 @@ public sealed class BotBrain
         {
             _stuckFor = 0f;
             _bestDistance = float.MaxValue;
+            if (StuckOnLeaf(out Vector3 off))
+            {
+                // Pressed against a door leaf: off it first, then plan again from there.
+                _unstickTo = off;
+                _unstickFor = 0.5f;
+            }
+
             if (++_repaths > 3)
             {
                 _hasGoal = false;
@@ -2275,9 +2581,31 @@ public sealed class BotBrain
         _modeTime = 0f;
     }
 
+    /// <summary>
+    /// Something worth shouting. An everyday shout waits out this bot's cooldown and its own repeat of the same thing, and
+    /// is said aloud only by chance; past those (and for <paramref name="force"/>d calls, "Hit!" and the case's, at once)
+    /// the squad says whether there's room for it (<see cref="BotSquad.TakeShout"/>). A shout let go silently still counts
+    /// for this bot's cooldown, so the same moment isn't tried again tick after tick.
+    /// </summary>
     private void Shout(CalloutKind kind, bool force = false)
     {
-        if (!force && _sinceCallout < _b.CalloutCooldown)
+        int k = (int)kind;
+        if (!force)
+        {
+            if (_sinceCallout < _b.CalloutCooldown || (_tick - _shoutedAt[k]) * _sim.Dt < _b.CalloutRepeat)
+            {
+                return;
+            }
+
+            _sinceCallout = 0f;
+            _shoutedAt[k] = _tick;
+            if (ShoutRoll(kind) >= _b.CalloutChance)
+            {
+                return; // thought, not said
+            }
+        }
+
+        if (!_squad.TakeShout(Self.Team, kind, force, _tick))
         {
             return;
         }
@@ -2285,6 +2613,18 @@ public sealed class BotBrain
         Callout = kind;
         CalloutTick = _tick;
         _sinceCallout = 0f;
+        _shoutedAt[k] = _tick;
+    }
+
+    /// <summary>A number in [0, 1) for this shout, from the match seed (the brain's own random numbers are left alone).</summary>
+    private float ShoutRoll(CalloutKind kind) =>
+        (SeedHash.Combine(SeedHash.Combine(_sim.MatchSeed, (ulong)(Self.Id * 104729 + (int)kind)), (ulong)_tick) >> 40) / (float)(1UL << 24);
+
+    private static int[] NewShoutTicks()
+    {
+        var ticks = new int[Enum.GetValues<CalloutKind>().Length];
+        Array.Fill(ticks, int.MinValue / 4);
+        return ticks;
     }
 
     private void SetPhase(CoverPhase phase, float length)
