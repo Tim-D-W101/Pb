@@ -19,9 +19,11 @@
 #          Hospital Wing goes round on a teammate's call and looks out from its spot
 #   gait   (--gait-demo --gait-check): a modelled opponent stands, walks, runs, sprints, pulls up, strafes both ways,
 #          backs off and walks crouched; fails if a planted foot slides, an ankle or a wrist misses its mark, or the head
-#          or hands jerk, past the limits in game/core/GaitDemo.cs
-#   art-match (--bot-match --max-pop): a 3 v 3 round with the art on; fails if any character's head or hands pop
-#          further than --max-pop cm in a frame
+#          or hands jerk, past the limits in game/core/GaitDemo.cs; at 120, 30 and 15 fps (below 30 fps the jerk limits
+#          allow for what the body's own smooth motion changes a frame by: CharactersDef.FrameLimit)
+#   art-match (--bot-match --max-pop --min-contact-marks): a 5 v 5 round with the art on (a fixed seed); fails if any
+#          character's head or hands pop further than --max-pop cm in a frame (likewise allowed for below 30 fps), or bot
+#          teammates' contacts don't reach your HUD; at 120 and at 15 fps
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -37,7 +39,7 @@ run() {
   local log
   log="$(mktemp)"
   echo "=== $name smoke test ==="
-  "$godot" --headless --path "$root/game" --fixed-fps 120 "$@" 2>&1 | tee "$log"
+  "$godot" --headless --path "$root/game" --fixed-fps "${fps:-120}" "$@" 2>&1 | tee "$log"
   local status=${PIPESTATUS[0]}
 
   if grep -qE "^(SCRIPT )?ERROR|Unhandled exception" "$log"; then
@@ -76,6 +78,9 @@ run match-place-rail-yard res://scenes/Level.tscn -- --bot-match --time-limit=12
 run match-place-cold-store res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=hold --level=cold_store --place=store
 run match-place-hospital-wing res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=retrieve --level=hospital_wing --place=wings
 run gait res://scenes/Level.tscn -- --gait-demo --gait-check
-run art-match res://scenes/Level.tscn -- --bot-match --time-limit=120 --mode=teams --size=3 --max-pop=15
+fps=30 run gait-30fps res://scenes/Level.tscn -- --gait-demo --gait-check
+fps=15 run gait-15fps res://scenes/Level.tscn -- --gait-demo --gait-check
+run art-match res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15 --min-contact-marks=1
+fps=15 run art-match-15fps res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15
 run art res://tools/ArtImport.tscn -- --selftest
 exit "$failed"

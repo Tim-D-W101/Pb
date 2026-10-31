@@ -87,6 +87,14 @@ public partial class CharacterPoser : SkeletonModifier3D
     /// <summary>With steps, the most the hips come down so the legs reach their feet (m).</summary>
     public float MaxReachDrop { get; set; } = 0.08f;
 
+    /// <summary>How hard the hips' drop further than the crouch's, for the legs' reach, speeds up and slows down (m/s²: <see cref="Follow"/>).</summary>
+    public float ReachDropAccel { get; set; } = 20f;
+
+    /// <summary>... and back up where it's the legs' reach that held them down (m/s²).</summary>
+    public float ReachDropUpAccel { get; set; } = 12f;
+
+    private float _reachDropSpeed;
+
     private float _reachDrop;
 
     /// <summary>The movement clips and how they play (when the legs follow clips rather than steps).</summary>
@@ -163,8 +171,7 @@ public partial class CharacterPoser : SkeletonModifier3D
         if (Ladder is { } grip)
         {
             LadderBody(skeleton, toSkeleton, grip, up, forward, right);
-            _popFrames = 0; // (a pop is measured from frames in a row)
-            _popAfter = "after a ladder";
+            Record(skeleton, up.Length(), "after a ladder");
             return;
         }
 
@@ -179,6 +186,7 @@ public partial class CharacterPoser : SkeletonModifier3D
             SolveTwoBone(skeleton, _leftLeg, leftFoot, forward.Normalized().Lerp(leftKnee.Normalized(), clips), keepEnd: true);
             SolveTwoBone(skeleton, _rightLeg, rightFoot, forward.Normalized().Lerp(rightKnee.Normalized(), clips), keepEnd: true);
             Hands(skeleton, toSkeleton, up, right);
+            Record(skeleton, up.Length(), SupportRaise <= 0f ? null : "after going out");
             return;
         }
 
@@ -188,15 +196,52 @@ public partial class CharacterPoser : SkeletonModifier3D
         Hands(skeleton, toSkeleton, up, right);
         Check(skeleton, 0, _leftLeg[2], _leftToe, steps.LeftAnkle, steps.LeftPlanted, (float)delta);
         Check(skeleton, 1, _rightLeg[2], _rightToe, steps.RightAnkle, steps.RightPlanted, (float)delta);
-        if (TrackPops && SupportRaise <= 0f)
+        Record(skeleton, up.Length(), SupportRaise <= 0f ? null : "after going out"); // (once out, the hand going up is meant to be quick)
+    }
+
+    /// <summary>
+    /// The head, the left and right hands and the hips as drawn in the last frame done (the body's own frame, metres):
+    /// the gait demo's measure, and the pops'. A frame's last pass is what's drawn: the skeleton can be posed more than
+    /// once in a frame (the first time before the character's grips are known, its hands where the idle clip has them).
+    /// </summary>
+    public Vector3[] Posed { get; } = new Vector3[4];
+
+    /// <summary>How many frames <see cref="Posed"/> has had (the latest is a frame or two behind: it's taken as the next begins).</summary>
+    public int PosedFrames { get; private set; }
+
+    private readonly Vector3[] _pass = new Vector3[4];
+    private ulong _passFrame = ulong.MaxValue;
+    private string? _passBreak;
+
+    /// <summary>
+    /// This pass's head, hands and hips; a new frame's first pass takes the last frame's as drawn. <paramref name="breaks"/>
+    /// says why this frame doesn't follow on for the pops (on a ladder, out), or null.
+    /// </summary>
+    private void Record(Skeleton3D skeleton, float unit, string? breaks)
+    {
+        ulong frame = Engine.GetProcessFrames();
+        if (frame != _passFrame && _passFrame != ulong.MaxValue)
         {
-            Pops(skeleton, up.Length()); // (not once out: the hand going up is meant to be quick)
+            System.Array.Copy(_pass, Posed, _pass.Length);
+            PosedFrames++;
+            if (TrackPops && _passBreak is null)
+            {
+                Pops();
+            }
+            else
+            {
+                _popFrames = 0; // (a pop is measured from frames in a row)
+                _popAfter = _passBreak ?? _popAfter;
+            }
         }
-        else
-        {
-            _popFrames = 0;
-            _popAfter = "after going out";
-        }
+
+        _passFrame = frame;
+        _passBreak = breaks;
+        float scale = 1f / Mathf.Max(unit, 1e-4f);
+        _pass[0] = skeleton.GetBoneGlobalPose(_head).Origin * scale;
+        _pass[1] = skeleton.GetBoneGlobalPose(_leftArm[2]).Origin * scale;
+        _pass[2] = skeleton.GetBoneGlobalPose(_rightArm[2]).Origin * scale;
+        _pass[3] = skeleton.GetBoneGlobalPose(_hips).Origin * scale;
     }
 
     /// <summary>Measure pops (headless bot matches): every character keeps <see cref="WorstPop"/> and <see cref="Pops"/> up to date.</summary>
@@ -213,21 +258,23 @@ public partial class CharacterPoser : SkeletonModifier3D
 
     private bool _popRightHanded = true;
     private string _worstBone = "";
-    private string _popAfter = "from the start";
+    private string _popAfter = "from the first frame drawn";
     private readonly Vector3[] _popAt = new Vector3[3];
     private readonly Vector3[] _popStep = new Vector3[3];
     private int _popFrames;
 
-    /// <summary>The head's and the hands' jerk against the body (skeleton space: the body's own frame) this frame.</summary>
-    private void Pops(Skeleton3D skeleton, float unit)
+    /// <summary>
+    /// The head's and the hands' jerk against the body (the body's own frame) in the frame just drawn: from the very first
+    /// frame a character's drawn (a hand drawn anywhere but on the marker there counts).
+    /// </summary>
+    private void Pops()
     {
         float worst = 0f;
         for (int i = 0; i < 3; i++)
         {
-            int bone = i == 0 ? _head : i == 1 ? _leftArm[2] : _rightArm[2];
-            Vector3 at = skeleton.GetBoneGlobalPose(bone).Origin / Mathf.Max(unit, 1e-4f);
+            Vector3 at = Posed[i];
             Vector3 step = at - _popAt[i];
-            if (_popFrames >= (_popAfter == "from the start" ? 10 : 2) && (step - _popStep[i]).Length() > worst)
+            if (_popFrames >= 2 && (step - _popStep[i]).Length() > worst)
             {
                 worst = (step - _popStep[i]).Length();
                 _worstBone = i == 0 ? "head" : i == 1 ? "left hand" : "right hand";
@@ -291,24 +338,25 @@ public partial class CharacterPoser : SkeletonModifier3D
         float hipsIdle = YawFromRest(skeleton, _hips, axis);
         float chestIdle = YawFromRest(skeleton, _spineTop, axis);
 
-        // The hips from their rest pose: the steps' offset, the crouch, the legs' heading and the stride's roll.
+        // The hips from their rest pose: the steps' offset, the legs' heading and the stride's roll.
         Transform3D rest = skeleton.GetBoneGlobalRest(_hips);
         Vector3 along = forward.Normalized();
         var hips = new Transform3D(new Basis(along, steps.HipsRoll) * new Basis(axis, steps.HipsTwist) * rest.Basis,
-            rest.Origin + toSkeleton.Basis * steps.HipsOffset - up * HipDrop);
+            rest.Origin + toSkeleton.Basis * steps.HipsOffset);
         skeleton.SetBoneGlobalPose(_hips, hips);
 
-        // Then down as far as both legs need to reach their ankles, at most so far: quickly but eased (snapped down in
-        // one frame, the head and hands popped with it), eased back up so it doesn't bounce.
-        float need = Mathf.Max(Need(skeleton, toSkeleton, _leftLeg, steps.LeftAnkle, axis), Need(skeleton, toSkeleton, _rightLeg, steps.RightAnkle, axis));
+        // Then down: as far as the crouch puts them (exactly: the crouch is already eased, and the upper body and the
+        // marker go with it), and further where both legs need it to reach their ankles, by at most so much. That much
+        // further is followed at a set acceleration (down quickly, back up gently: it comes and goes with the steps), so it
+        // eases in and out at any frame rate; worked out from the hips before any drop, so standing up out of a crouched
+        // stance it takes over from the crouch as that eases off (a first-order ease over 20 ms was a snap at 30 fps, the
+        // hips 7 cm in a frame as a strafe turned round; a 60 ms spring one at 15 fps).
         float unit = up.Length();
-        need = Mathf.Min(need / unit, MaxReachDrop);
-        _reachDrop = Mathf.Lerp(_reachDrop, need, 1f - Mathf.Exp(-(float)GetProcessDeltaTimeSafe() / (need > _reachDrop ? 0.02f : 0.1f)));
-        if (_reachDrop > 1e-4f)
-        {
-            hips.Origin -= up * _reachDrop;
-            skeleton.SetBoneGlobalPose(_hips, hips);
-        }
+        float need = Mathf.Max(Need(skeleton, toSkeleton, _leftLeg, steps.LeftAnkle, axis), Need(skeleton, toSkeleton, _rightLeg, steps.RightAnkle, axis)) / unit;
+        float further = Mathf.Clamp(need - HipDrop, 0f, MaxReachDrop);
+        Follow.Toward(ref _reachDrop, ref _reachDropSpeed, further, further > _reachDrop ? ReachDropAccel : ReachDropUpAccel, (float)GetProcessDeltaTime());
+        hips.Origin -= up * (HipDrop + Mathf.Max(_reachDrop, 0f));
+        skeleton.SetBoneGlobalPose(_hips, hips);
 
         // The idle's hips were turned by hipsIdle and its chest by chestIdle; replacing the hips' turn with the
         // legs' leaves the chest that far round, so the spine turns it back onto the aim.
@@ -374,7 +422,6 @@ public partial class CharacterPoser : SkeletonModifier3D
         return across < reach ? Mathf.Max(0f, below - Mathf.Sqrt(reach * reach - across * across)) : below;
     }
 
-    private float GetProcessDeltaTimeSafe() => Mathf.Max((float)GetProcessDeltaTime(), 1e-3f);
 
     /// <summary>How far <paramref name="bone"/> is turned from its rest pose about <paramref name="axis"/> (rad, skeleton space).</summary>
     private static float YawFromRest(Skeleton3D skeleton, int bone, Vector3 axis)

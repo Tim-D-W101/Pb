@@ -502,13 +502,14 @@ public sealed class LevelSmokeTest
         Pb.Game.Audio.AudioDirector audio = _host.Audio;
         Pb.Game.Audio.SoundBank? bank = audio.Bank;
         bool audioOk = bank is { Problems.Count: 0 } && audio.Shots > 0 && audio.Breaks > 0 && audio.Steps > 0 &&
-                       (_sim.Doors.Count == 0 || audio.Doors > 0) && _host.Referee.Called.Count > 0;
+                       (_sim.Doors.Count == 0 || audio.Doors > 0) && _host.Referee.Called.Count > 0 &&
+                       audio.RoundCues > 0 && audio.RoundCuesDropped == 0;
         GD.Print($"SMOKE audio: {(audioOk ? "ok" : "FAILED")} (" +
                  (bank is null ? "no sound bank" : $"{bank.SoundCount} sounds in {bank.VariationCount} variations, rendered in {bank.RenderMilliseconds:0} ms") +
                  $"; shots {audio.Shots}, breaks {audio.Breaks}, bounces {audio.Bounces}, steps {audio.Steps}, doors {audio.Doors}, cues {audio.Cues}: " +
                  $"{audio.Played} played from where they happened ({audio.Muffled} through walls), {audio.Skipped} out of earshot or over the budget; " +
                  $"callouts {audio.Spoken} voiced, {audio.Unvoiced} subtitles only; ambience {audio.Ambience?.Where} (tone '{audio.Ambience?.Tone}', " +
-                 $"{audio.Ambience?.Crows} crows); referee: {string.Join(" / ", _host.Referee.Called)})");
+                 $"{audio.Ambience?.Crows} crows); referee: {string.Join(" / ", _host.Referee.Called)}; {audio.RoundCueLine})");
 
         bool ok = _travelled > 15f && _lowestY > -0.5f && _shots > 0 && _breaks > 0 && _climbsFailed == 0 && _laddersFailed == 0 && slideOk && jumpOk &&
                   doorOk && shootOk && shotOk && audioOk && _driver.ErrorCount == 0 && _world.MeshCount > 0 && _world.ColliderCount > 0;

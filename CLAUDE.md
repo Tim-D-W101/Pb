@@ -135,7 +135,7 @@ fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent s
 sprinting, pulling up, strafing, backing off, walking crouched and looking round, seen from the side (the planted steps,
 or the movement clips with `characters.legs` = `"clips"`), printing how far the planted feet slid (`--gait-only=NAME`
 plays only the moves starting with NAME; `--gait-check` fails it, headless too, past the slide, jerk and miss limits in
-`GaitDemo.cs`, as CI's smoke test does). `-- --cover-demo` tucks an opponent in behind low cover, stands it up to shoot
+`GaitDemo.cs`, as CI's smoke test does at 120, 30 and 15 fps). `-- --cover-demo` tucks an opponent in behind low cover, stands it up to shoot
 over and tucks it in again, printing how far its knees and elbows got into the cover (`--cover-at=X,Z` picks the cover
 nearest that point); it runs headless too, for the numbers alone. `-- --ladder-demo` has an opponent climb the level's
 tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
@@ -143,8 +143,13 @@ Oxbarrow Works and `--level=rail_yard` have ladders).
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
-the round ends (`--max-pop=CM`, with the art on, fails it if any character's head or hands jump further than that in a
-frame; `--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
+the round ends, on a new seed each run, starting away from the last round's starts (`user://spawn_history.json`;
+`--seed=N` replays one exactly). It fails if a round cue (the start cue, the whistle) was dropped; `--max-pop=CM`, with
+the art on, fails it if any character's head or hands jump further than that in a frame (at 30 fps and above: below,
+the checks allow for the body's own motion, `CharactersDef.FrameLimit`), and `--min-contact-marks=N` if fewer of your bot
+teammates' contacts reached your HUD; `--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a
+second of the round a frame. `--mode=solo|ffa|teams`, `--size=N` (opponents in solo, everyone in free-for-all, a side
+in teams), `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
 objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`), e.g.
 `-- --round-tour --mode=ffa --size=6 --place=warehouse`; `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
 runs quicker; and

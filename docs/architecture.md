@@ -1190,8 +1190,9 @@ The fixes are in [the report](reports/play-test-fixes.md), with before and after
   - candidates within `spawning.repeatRadius_m` of a last start (on the same floor) are used only once the fresh ones
     have been tried over the whole placement;
   - your entry is a different one whenever the level has more than one.
-- **Memory is kept by the host.** `SpawnHistory` (game) keeps it per area and place for rounds alone, hosted rounds
-  and the dedicated server. `RoundCasting` takes it, and `CastRound.Memory` hands back the new one.
+- **Memory is kept by the host.** `SpawnHistory` (game) keeps it per area and place for rounds alone, bot matches, hosted
+  rounds and the dedicated server, saved between runs (§17.7). `RoundCasting` takes it, and `CastRound.Memory` hands
+  back the new one.
 - **Roles and sight.**
   - A named spawn plays its own role only `spawnOwnRoleChance` of the time.
   - Opponents start out of sight of your entry and of the spot `entryLookAhead_m` in from it.
@@ -1234,3 +1235,34 @@ The fixes are in [the report](reports/play-test-fixes.md), with before and after
 `PacketBuffers` (`Pb.Net/Transport`) keeps each transport's packet arrays for reuse, in power-of-two buckets from
 64 B. The loopback network and the lagged connection used `ArrayPool<byte>.Shared`, which frees its arrays on a full
 collection under memory pressure. That made the allocation test fail at random on a busy machine.
+
+### 17.7 Second round (Tim's check of the running game)
+
+- **Round cues wait for the sounds.** `AudioDirector.Round` queues a cue asked for before the sound bank is ready and
+  plays it once it is, up to `audio.lateRoundCue_s` late. It counts cues asked for, played and dropped
+  (`RoundCues`, `RoundCuesPlayed`, `RoundCuesDropped`). The level starts rendering the bank (`SoundBank.Warm`) before
+  building anything else.
+- **Drawn motion at any frame rate.**
+  - **The steps' fixed tick.** `StepGait.Update` runs its logic in ticks of `steps.tick_hz`, along a straight path
+    through the frame. The bob and sway follow the steps' cycle on a spring.
+  - **Capped followers.** `Follow.Toward` (game/player) moves a value towards its target as fast as it can, without its
+    speed changing faster than a set acceleration. It works in 1/240 s steps, so a frame's change of pace is at most
+    accel × dt². `CharacterVisual` uses it for the drawn eye height, lean and shoulder, and poses the drawn gear with
+    `HitboxRig.Pose` at that drawn pose. `CharacterPoser` uses it for the hips' extra drop for the legs' reach. The
+    crouch's own drop is applied exactly.
+  - **Hands along the marker.** The grips are blended in the marker's own frame by the drawn shoulder, so in a swap the
+    hands slide along the marker.
+- **What's measured is what's drawn.** `CharacterPoser.Posed` holds the head, hands and hips from each frame's last
+  pass, committed as the next frame begins. The pop tracker and the gait demo both use it, from the first frame drawn.
+  Below 30 fps both checks add `CharactersDef.FrameLimit`'s allowance: the body's capped acceleration × (dt² − (1/30 s)²).
+- **Contacts on the HUD.**
+  - **The ring.** `BotSquad` keeps its latest `RecentContacts` contacts, numbered by `ContactsShared`.
+  - **Marking.** The game marks your bot teammates' contacts (said aloud or not) where `BotSquad.CallCarries` says the
+    call reaches you, using the same rule as the bots' hearing. `CalloutMarks` keeps one mark per enemy.
+  - **Joined copies.** Hosting, `ContactRelay` (Pb.Net/Server) sends each bot contact as a `NetEventTypes.Contact`
+    event, so joined copies mark them as well.
+- **Spawn memory across runs and hosts.**
+  - **Persisted.** `SpawnHistory` is saved to `user://spawn_history.json`.
+  - **Hosted entries.** `CastRound.Memory` carries the entry used (`CastRound.Entry`).
+  - **Bot matches.** A bot match takes a new seed and the memory like a round of yours, and `--seed=N` replays one
+    exactly, ignoring the memory.

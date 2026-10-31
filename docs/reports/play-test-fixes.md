@@ -212,14 +212,176 @@ a loaded Linux machine, and the next second of ticks rented fresh arrays (536 by
 **Now:** a new test empties the shared pool before measuring. It measured 4,392 bytes without the fix and 0 with it.
 Both allocation tests pass every run.
 
+## Second round: Tim's check of the running game
+
+Tim ran the PR in the game (rendered, at 30 and 15 fps, hosted) and found seven things more. Each is fixed below, with
+how it was checked.
+
+### R1. The start cue was never heard
+
+**What was wrong:**
+- **Dropped before the sounds existed.** The sounds are synthesised on a worker thread when a level starts, and
+  `AudioDirector.Round` dropped any cue asked for before they were ready.
+- **Every command-line run hit it.** Bot matches, demos and hosted rounds started from the command line go live in a
+  level's first frames, so the soft start cue was dropped every time. The end whistle came long after and played.
+
+**What changed:**
+- **Late cues wait.** A round cue asked for early waits for the sounds and plays as soon as they're ready, up to
+  `audio.lateRoundCue_s` (3 s) late.
+- **Earlier sounds.** The level starts the sounds before it builds anything else, so they're usually ready in time.
+- **Counted and checked.** The audio counts round cues asked for, played and dropped. The bot match and the level smoke
+  test fail if any cue is dropped.
+
+**Checked:**
+- **Now:** a bot match logs "2 of 2 round cues played (one 0.01 s late, waiting for the sounds)".
+- **The check bites:** with `lateRoundCue_s` set to 0, the same match fails with "1 of 2 round cues played, 1 dropped".
+
+### R2. Characters glitched at low frame rates
+
+**What was wrong:** the earlier fixes held at 120 fps, and several came apart at 30 and 15 fps.
+- **Eases shorter than a frame.** The hips' drop for the legs' reach eased over 20 ms, and the crouch followed the sim's
+  eye on a 30 ms spring. At 30 fps both snapped:
+  - the hips dropped 7 cm in a frame when a strafe turned round;
+  - the hands dropped 14 cm in a frame starting a crouch.
+- **The lean and the swap were drawn exactly as the sim does them.** The sim leans out in 0.16 s and swaps shoulders in
+  0.3 s, and the hands are a metre from the lean's pivot.
+- **Hands eased toward a fixed point.** In a swap, each hand eased toward a grip fixed in the world where the swap began.
+  A bot swapping and leaning out from cover moved its hands 15 cm one frame and back the next.
+- **The steps decided once a frame.** At 15 fps feet lifted and landed late.
+- **The bob jumped with the steps.** My step-when-dragged fix jumps the steps' cycle, and the bob followed it.
+
+**What changed:**
+- **Steps on a fixed tick.** The steps think 120 times a second (`steps.tick_hz`). A slow frame is several of their ticks.
+- **A smooth bob.** The bob and sway follow the steps' cycle on a spring (`steps.bobFollow_s`).
+- **Capped acceleration.** The drawn body follows the sim's crouch, lean and shoulder swap as fast as it can, without
+  its pace changing faster than a set acceleration:
+  - `characters.crouchAccel_mps2` 20, `leanAccel_radps2` 20, `shoulderAccel_ps2` 80;
+  - so a frame's change of pace is at most that × the frame time², at any frame rate (the `Follow` helper);
+  - the gear is posed by the sim's own hitbox rig at the drawn pose;
+  - the drawn body is never clamped to a set distance behind: clamped at 45 cm, it was pulled up 5 cm in a frame when a
+    bot ducked and stood straight back up.
+- **Hands slide along the marker.** In a swap, each hand moves along the marker in the marker's own frame, from its old
+  grip to its new one, as the drawn shoulder crosses.
+- **The hips' drop.** The crouch's part is exact, and the extra the legs need for reach is followed at a capped
+  acceleration (`steps.reachDropAccel_mps2` 20 down, `reachDropUpAccel_mps2` 12 up). Worked out from the hips before
+  any drop, so it takes over from the crouch as a stand-up eases off.
+
+**Checked:**
+
+| Check | Before | After |
+|---|---|---|
+| Gait check, 30 fps (2.5 cm jerk, 4 cm going into a move) | fails: run 6.1, strafe left 6.4, back off 4.4/4.5, crouched walk and stand 9.5 cm | passes, worst 3.7 cm (into the crouch) |
+| 5 v 5, art on, seed 5, worst pop, 120 fps | not measured | 2.7 cm |
+| ... 30 fps | 15.6 cm | 8.4 cm |
+| ... 15 fps | 28.8 cm | 18.0 cm |
+
+**The checks below 30 fps.** At 15 fps the limits can't stay the same in centimetres.
+- **Smooth motion grows per frame.** A frame-to-frame change grows with the square of the frame time even when nothing
+  glitches. At 15 fps:
+  - a stride's bob (3-5 steps a second, sampled 3-5 times a step) changes 4-6.5 cm a frame;
+  - a crouch drawn over a third of a second changes up to 9 cm.
+- **Meeting the 30 fps limits at 15 fps** would take crouches, leans and swaps drawn over half a second or more, well
+  behind the hitboxes.
+- **So both checks add an allowance below 30 fps.** The allowance is the body's own capped acceleration (crouch plus
+  hips, 40 m/s²) × (frame time² − (1/30 s)²) (`CharactersDef.FrameLimit`). At 30 fps and above the limits are exactly
+  as before. At 15 fps they are:
+  - the gait check's 15.8 cm jerk and 17.3 cm going into a move;
+  - the pop check's 28.3 cm.
+- **A real pop still fails.** A hand left off the marker is 60 cm or more.
+
+CI's smoke test now runs the gait check at 120, 30 and 15 fps, and the art-on 5 v 5 at 120 and 15 fps.
+
+### R3. The left hand "from the world origin" on 'stand'
+
+**What was wrong:** the drawn frames were right. The rendered first frame shows the walker with both hands on the
+marker (below). The check was wrong:
+- **It read the hand too early.** It read the hands' bone attachments before that frame's IK had run, so the first
+  frame showed the idle clip's hanging arm.
+- **It compared against nothing.** It compared the first step with no step at all (the "after (0, 0, 0)" Tim saw).
+- **It skipped the start.** It didn't check the first move's start at all.
+- **The pop tracker did the same.** It skipped each character's first 10 frames.
+
+**What changed:**
+- **The final pose.** The poser keeps each frame's final pose of the head, hands and hips, taken from its last pass that
+  frame (the skeleton can be posed twice in one frame).
+- **Both checks use it**, from the very first frame drawn. The gait check now checks the first move's start too.
+
+**Checked:**
+- 'stand' going in measures 0.0-0.3 cm.
+- With a first-frame bug injected (hands left off the marker on the first frame), the gait check fails on 'stand' at
+  59.9 cm, and the bot match fails with a 65.8 cm left-hand pop.
+
+![The gait demo's first rendered frame: hands on the marker](play-test-fixes/r2-first-frame.jpg)
+
+### R4. Your entry repeated in a hosted game
+
+**What was wrong:** a hosted round's spawn memory kept everyone's starts but not the entry you came in at. With three
+entries, a third of rounds repeated the last one: rounds 1-3 of a test game all came in at the same one.
+
+**What changed:** `CastRound.Entry` is kept in the memory, so the next round avoids it, as rounds alone do. The
+dedicated server uses the same memory.
+
+**Checked:** `CastingTests.Each_hosted_round_comes_in_at_another_entry_than_the_last` (co-op, teams and free-for-all,
+eight rounds each). It fails without the fix.
+
+### R5. `--bot-match` replayed the same round
+
+**What was wrong:** bot matches counted as scripted runs, so they always took the data's seed and ignored the spawn
+memory.
+
+**What changed:**
+- **A new seed each run.** A bot match deals a new seed every run (printed as `Starts (seed N, ...)`). It starts away
+  from the last round's starts and entry, like your own rounds.
+- **`--seed=N` replays exactly.** It replays seed N's starts, not moved off the last round's.
+- **Remembered across runs.** The spawn memory is kept in `user://spawn_history.json`, so a new run, or a new game,
+  remembers the last round too.
+
+**Checked:** three bot matches in a row had three seeds and came in at (-60, 0, -20), (8, 0, 45), then (-60, 0, -20),
+each away from the run before. `--seed=42` gave the same starts every time. CI's bot matches now vary from run to run,
+and each prints its seed.
+
+### R6. "Teams can't be played at size 10 (at most 10 people in a round)"
+
+**What was wrong:** a Teams size counts players a side, so size 10 is 20 people. The check was right; the message
+didn't say what a size counts.
+
+**What changed:** it now says: "Teams can't be played at size 10: its size counts players a side, so that's 20 people,
+and a round holds at most 10. The largest Teams round is size 5." Solo says opponents, and free-for-all says players,
+you included.
+
+### R7. The teammate "Contact!" mark never showed
+
+**What was wrong:** the mark was made only when a bot teammate said "Contact!" aloud. Since round 1 rations shouting,
+all ten bots say about 6 lines in 90 s, so it hardly ever fired.
+
+**What changed:**
+- **Every contact counts.** The mark is made from the contacts your bot teammates share, said aloud or not
+  (`BotSquad.RecentContact`).
+- **Heard as the bots hear.** A contact counts when the call carries to you as it would to a bot: the callout range, less
+  through walls (`BotSquad.CallCarries`).
+- **One mark an enemy.** Each enemy has one mark, moved to the newest call.
+- **Joined copies too.** The host and the dedicated server send each bot contact to joined copies (a new `Contact` net
+  event), so joined players get their teammates' marks too.
+- **Counted.** The bot match prints how many contacts were marked on your HUD, and `--min-contact-marks=N` fails it with
+  fewer.
+
+**Checked:**
+- **Counts.** In a 5 v 5 with seed 5, 15 contacts were marked on your HUD in 60 s, the first after 26 s.
+- **On screen.** The rendered frame shows the mark ("Wren: Sparrow · 8 m") over the enemy with the subtitle (below).
+- **In CI.** CI's art-on 5 v 5 requires at least one mark.
+- **Tests.** `CalloutTests` cover the squad's latest contacts and how far a call carries.
+
+![A bot teammate's contact marked on your HUD in a rendered 5 v 5](play-test-fixes/r2-contact-mark.jpg)
+
 ## Acceptance checks
 
 | Check | Result |
 |---|---|
-| `dotnet test tests/Pb.Sim.Tests -c Release` | 458 passed (418 before these changes) |
-| `dotnet test tests/Pb.Net.Tests -c Release` | 66 passed (two new tests) |
-| `tools/ci/smoke-test.sh` | every run passes, including the new gait check and the art-on match |
-| `--gait-demo --gait-check` at 60 and 120 fps | passes at both |
+| `dotnet test tests/Pb.Sim.Tests -c Release` | 459 passed (418 before these changes) |
+| `dotnet test tests/Pb.Net.Tests -c Release` | 69 passed (five new tests) |
+| `tools/ci/smoke-test.sh` | the full run is in the PR; the new runs (gait check at 120, 30 and 15 fps; art-on 5 v 5 at 120 and 15 fps) pass |
+| `--gait-demo --gait-check` | passes at 120, 30 and 15 fps |
+| Art-on 5 v 5, `--max-pop=15` | passes at 120, 30 and 15 fps |
 | `tools/Pb.Bench` | see Performance |
 
 ## Performance
@@ -247,7 +409,8 @@ dotnet test                                                    # sim and network
 dotnet run -c Release --project tools/Pb.Bench                 # the bench, with the CPU column
 tools/ci/smoke-test.sh godot                                   # the smoke tests, gait check and art-on match included
 godot --headless --path game res://scenes/Level.tscn -- --gait-demo --gait-check          # the characters' numbers
-godot --headless --path game res://scenes/Level.tscn -- --bot-match --mode=teams --size=3 # callout, contact and pop counts
+godot --headless --path game res://scenes/Level.tscn -- --bot-match --mode=teams --size=3 # callout, contact, cue and pop counts
+godot --headless --path game --fixed-fps 15 res://scenes/Level.tscn -- --gait-demo --gait-check   # the same at 15 fps
 ```
 
 ## Known issues and limitations
@@ -258,6 +421,13 @@ godot --headless --path game res://scenes/Level.tscn -- --bot-match --mode=teams
   confirm the 60 fps target, and the hitches are best judged there too.
 - **Contacts in free-for-all.** Bots still "share" contacts with nobody in free-for-all, so the log reports contacts
   shared and heard 0 times. That's expected, and costs nothing.
+- **Low frame rates.** At 15 fps a fast but smooth motion (a bot standing up from a crouch in a third of a second)
+  still moves the head or a hand up to ~18 cm from one frame to the next, as any motion that quick must when sampled 15
+  times a second. The checks allow for it below 30 fps (see R2).
+- **The drawn body trails its hitboxes for a moment.** A crouch is drawn over about a third of a second, so the drawn
+  body is up to ~0.4 m behind the hitboxes for ~0.2 s (the sim crouches in 0.1 s). That's about as far behind as a
+  remote player is drawn anyway.
+- **CI's bot matches vary.** Each run deals a new seed and prints it; `--seed=N` replays a failing one.
 - **The old shouting is a data change away.** The callout limits are data. Setting them back to 0 brings the old
   behaviour back, which is how the test compares the two.
 

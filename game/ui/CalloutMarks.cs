@@ -9,7 +9,7 @@ namespace Pb.Game.Ui;
 /// </summary>
 public partial class CalloutMarks : Control
 {
-    private readonly List<(Vector3 At, Color Colour, string Text, double Left)> _marks = new();
+    private readonly List<(Vector3 At, Color Colour, string Text, double Left, int Key)> _marks = new();
     private readonly List<Label> _labels = new();
 
     /// <summary>How long a mark stays up (s).</summary>
@@ -21,9 +21,16 @@ public partial class CalloutMarks : Control
         SetAnchorsPreset(LayoutPreset.FullRect);
     }
 
-    public void Add(Vector3 at, Color colour, string text)
+    /// <param name="key">Whom the mark is about (−1: nobody in particular): a newer call about them moves their mark rather than adding one.</param>
+    public void Add(Vector3 at, Color colour, string text, int key = -1)
     {
-        _marks.Add((at, colour, text, Show_s));
+        if (key >= 0 && _marks.FindIndex(m => m.Key == key) is var i and >= 0)
+        {
+            _marks[i] = (at, colour, text, Show_s, key);
+            return;
+        }
+
+        _marks.Add((at, colour, text, Show_s, key));
         if (_marks.Count > 6)
         {
             _marks.RemoveAt(0);
@@ -34,7 +41,7 @@ public partial class CalloutMarks : Control
     {
         for (int i = _marks.Count - 1; i >= 0; i--)
         {
-            (Vector3 at, Color colour, string text, double left) = _marks[i];
+            (Vector3 at, Color colour, string text, double left, int key) = _marks[i];
             left -= delta;
             if (left <= 0)
             {
@@ -42,7 +49,7 @@ public partial class CalloutMarks : Control
                 continue;
             }
 
-            _marks[i] = (at, colour, text, left);
+            _marks[i] = (at, colour, text, left, key);
         }
 
         while (_labels.Count < _marks.Count)
@@ -65,7 +72,7 @@ public partial class CalloutMarks : Control
                 continue;
             }
 
-            (Vector3 at, Color colour, string text, double left) = _marks[i];
+            (Vector3 at, Color colour, string text, double left, _) = _marks[i];
             Vector3 head = at + Vector3.Up * 1.4f;
             float distance = camera.GlobalPosition.DistanceTo(at);
             label.Text = $"◆\n{text} · {distance:0} m";

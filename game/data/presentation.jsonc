@@ -1018,6 +1018,18 @@
       "maxStretch": 0.995,
       "maxStep": 0.9,
       "maxReachDrop_m": 0.1,
+      // The hips drop exactly as far as the (eased) crouch puts them, and further where the legs need it to reach: that
+      // much further is followed no harder than reachDropAccel_mps2 going down and reachDropUpAccel_mps2 coming back up
+      // (it comes and goes with the steps), so it eases in and out at any frame rate (eased over 20 ms it was a snap at
+      // 30 fps, the hips 7 cm in a frame as a strafe turned round; on a 60 ms spring, one at 15 fps).
+      "reachDropAccel_mps2": 20,
+      "reachDropUpAccel_mps2": 12,
+      // The steps think tick_hz times a second whatever the frame rate (a slow frame is several of their ticks, the body's
+      // path through it taken as straight), so feet lift, land and keep up the same at 15 fps as at 120.
+      "tick_hz": 120,
+      // The stride's bob and sway follow the steps' cycle on a spring bobFollow_s slow: the cycle jumps when a foot left
+      // behind steps at once, and the head and hands jumped with it.
+      "bobFollow_s": 0.12,
       // A planted foot the body drags along faster than stepWhenDragged_mps (left out of reach behind by setting off
       // briskly or a reversal) doesn't skate after the body until its turn comes round: with the other foot down it lifts
       // there and then; with the other in the air the gait cycle runs draggedHurry times as fast, so that one lands short
@@ -1047,6 +1059,18 @@
     "maxLegYaw_deg": 65,
     // How far the hips drop for each metre the eye drops when crouching.
     "hipDropPerEyeDrop": 0.85,
+    // The drawn body follows the sim's crouch, lean and shoulder swap as fast as it can without its speed changing faster
+    // than crouchAccel_mps2 (m/s², the eye height), leanAccel_radps2 (rad/s²) and shoulderAccel_ps2 (per s², the
+    // shoulder going from -1 to 1), so a frame's change of pace is at most that × the frame time², at any frame rate.
+    // The sim crouches and stands in 0.1 s, leans out in 0.16 s and swaps shoulders in 0.3 s; followed exactly, the
+    // hands jumped up to 15 cm in a frame at 30 fps (a bot ducking, or swapping and leaning out from cover). Drawn so,
+    // the body is behind its hitboxes for a moment (a crouch: up to ~0.4 m for ~0.2 s), about as far behind as a remote
+    // player is drawn anyway; never held to a distance (that jerked it), only put straight where the sim has it if it's
+    // further off than crouchResetBeyond_m, which no crouch is.
+    "crouchAccel_mps2": 20,
+    "crouchResetBeyond_m": 1.0,
+    "leanAccel_radps2": 20,
+    "shoulderAccel_ps2": 80,
     // Shares of the aim pitch the chest and the head take.
     "chestPitch": 0.3,
     "headPitch": 0.6,
@@ -1174,6 +1198,10 @@
     "voices": 32,
     "maxSoundsPerFrame": 10,
     "variations": 4,
+    // The sounds are synthesised on a worker thread as the level loads. A round cue (the start cue, the horn, a
+    // whistle) asked for before they're ready waits and plays once they are, up to lateRoundCue_s late; any later
+    // and it's dropped, which the bot match and the level smoke test count as a failure.
+    "lateRoundCue_s": 3,
     "volume_db": -6,
     // The shot sound's pitch follows tank pressure (spec §8): empty tank → low, full → high; its body thins as the
     // pressure drops (three synthesised reports, full, half and low).

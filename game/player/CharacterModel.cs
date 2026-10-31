@@ -77,6 +77,8 @@ public partial class CharacterModel : Node3D
         {
             model.Steps = poser.Steps = new StepGait(def.Steps) { Build = poser.Measure(skeleton, SkeletonInModel(instance, skeleton)) };
             poser.MaxReachDrop = def.Steps.MaxReachDrop_m;
+            poser.ReachDropAccel = def.Steps.ReachDropAccel_mps2;
+            poser.ReachDropUpAccel = def.Steps.ReachDropUpAccel_mps2;
             GD.Print($"Steps on {path.GetFile()}: legs {model.Steps.Build.Length:0.00} m, hips {model.Steps.Build.HipHeight:0.00} m up and " +
                      $"{model.Steps.Build.HipHalfWidth * 2f:0.00} m apart, ankles {model.Steps.Build.AnkleHeight:0.00} m up, ball of the foot {model.Steps.Build.BallAhead:0.00} m ahead");
         }

@@ -13,6 +13,13 @@ public static class NetEventTypes
     /// the callout, <see cref="SimEvent.TargetId"/> which of its lines, <see cref="SimEvent.Position"/> where it was called.
     /// </summary>
     public const SimEventType Callout = (SimEventType)200;
+
+    /// <summary>
+    /// A bot telling its side where an enemy is, shouted aloud or not: <see cref="SimEvent.PlayerId"/> the caller,
+    /// <see cref="SimEvent.Team"/> its side, <see cref="SimEvent.TargetId"/> whom it saw, <see cref="SimEvent.Position"/>
+    /// where. A copy marks it for you if the call carries from the caller to you.
+    /// </summary>
+    public const SimEventType Contact = (SimEventType)201;
 }
 
 /// <summary>
@@ -62,6 +69,7 @@ public static class EventCodec
         SimEventType.CaseExtracted => Field.Player | Field.Team | Field.Position | Field.Extra,
         SimEventType.HoldChanged => Field.Team | Field.Position | Field.Value | Field.Extra,
         NetEventTypes.Callout => Field.Player | Field.Target | Field.Position | Field.Extra,
+        NetEventTypes.Contact => Field.Player | Field.Target | Field.Team | Field.Position,
         SimEventType.CalledOut => Field.Player | Field.Target | Field.Team | Field.Position,
         _ => Field.None,
     };

@@ -57,10 +57,14 @@ namespace Pb.Game.Core;
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
 ///   --preset=NAME         uses that graphics preset instead of the saved one (for comparing their cost)
 ///   --render-scale=S      draws the 3D view at this share of the screen's resolution instead of the saved one
-///   --seed=N              deals round N's starts and randomness (rounds normally get a new random seed; scripted
-///                         runs use the data's seed and, in solo, the level's roster, so they play out the same every time)
+///   --seed=N              replays the round seed N deals, exactly: its starts and randomness, not moved off the last
+///                         round's (rounds and bot matches normally get a new random seed and start away from the last
+///                         round's starts, printed as "Starts (seed N, ...)"; other scripted runs use the data's seed and,
+///                         in solo, the level's roster, so they play out the same every time)
 ///   --random-spawns       deals random starts in a scripted solo run too (CI's bot match; other modes always do)
 ///   --record              the bot match goes in your records as a round of yours (CI, to exercise the profile)
+///   --max-pop=CM          the bot match fails if any character's head or hands jump further than this in a frame
+///   --min-contact-marks=N the bot match fails with fewer than N bot teammates' contacts marked on your HUD
 ///   --fast                no cap on sim ticks a frame, so a low --fixed-fps runs the round in few frames (to film a
 ///                         whole bot match with --write-movie: --fixed-fps 1 is a second of the round a frame)
 ///   --show-summary        the bot match ends on its summary, up for three seconds (for a screenshot)
@@ -98,6 +102,8 @@ public partial class LevelMain : Node3D, ISimEventListener
     private readonly List<OpponentPawn> _pawns = new();
     private readonly List<BotBrain> _bots = new();
     private int[] _calloutsSeen = Array.Empty<int>();
+    private int _contactsMarked;
+    private int _contactsSent;
     private BotSquad _squad = null!;
     private BotDebugOverlay _botDebug = null!;
     private LevelSmokeTest? _smoke;
@@ -207,6 +213,9 @@ public partial class LevelMain : Node3D, ISimEventListener
             var source = new GodotDataSource();
             _data = GameData.Load(source);
             _view = Jsonc.Load<PresentationDef>(source, PresentationDef.File);
+            // The sounds are synthesised on a worker thread: start now, so they're ready by the time the level is built and
+            // the round goes live (its start cue would otherwise wait for them).
+            Pb.Game.Audio.SoundBank.Warm(_view.Audio.Variations);
             InputSetup.Apply(Jsonc.Load<InputDef>(source, InputDef.File));
             // Joined to a host, the round is the one it sent; otherwise the menus' choice (or the command line's).
             _net = NetSession.Current;
@@ -277,11 +286,15 @@ public partial class LevelMain : Node3D, ISimEventListener
         // Rounds played with others don't go in your records: they stay your bests alone.
         _counts = !_scripted && !roundTour && _net is null;
 
-        // Every round deals a new seed and random starts, so you can't learn where everyone is. Scripted
-        // runs keep the data's seed and, in solo, the level's roster, so they play out the same every time.
-        bool repeatable = _scripted || roundTour;
+        // Every round deals a new seed and random starts away from the last round's, so you can't learn where everyone
+        // is; so does a bot match, which plays like one of your rounds. Other scripted runs keep the data's seed and, in
+        // solo, the level's roster, so they play out the same every time. --seed=N replays a round exactly (its starts
+        // dealt from the seed alone, not moved off the last round's).
+        bool repeatable = (_scripted && !_botMatch) || roundTour;
+        bool seeded = ulong.TryParse(Args.Value("--seed"), out ulong given);
+        bool remember = !repeatable && !seeded;
         ulong seed = _netSetup is { } joined ? joined.Seed
-            : ulong.TryParse(Args.Value("--seed"), out ulong given) ? given
+            : seeded ? given
             : repeatable && _net is null ? _data.Config.MatchSeed
             : (ulong)System.Random.Shared.NextInt64();
         _sim = new SimWorld(_data.Config, seed);
@@ -307,9 +320,9 @@ public partial class LevelMain : Node3D, ISimEventListener
             ? SpawnPlanner.Plan(_level, _squad.Cover, _sim.Collision, _data.Config.Rules.Spawning, _data.Bots,
                 RoundShape.Of(_mode, _size, focus), _data.Config.Movement.StandEyeHeight, seed,
                 // Scripted runs play out the same every time; your own rounds start away from where the last one did.
-                repeatable ? null : SpawnHistory.For(_level.Id, _level.Place?.Id))
+                remember ? SpawnHistory.For(_level.Id, _level.Place?.Id) : null)
             : null;
-        if (_starts is not null && !repeatable)
+        if (_starts is not null && remember)
         {
             SpawnHistory.Remember(_level.Id, _level.Place?.Id, SpawnMemory.Of(_starts));
         }
@@ -617,7 +630,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (gaitDemo)
         {
-            var demo = new GaitDemo { Name = "GaitDemo" };
+            var demo = new GaitDemo { Name = "GaitDemo", Look = _view.Characters };
             AddChild(demo);
             float azimuth = Mathf.DegToRad(_view.Lighting.SunAzimuth_deg);
             demo.Start(_sim, _pawns, _hud, _view.Camera.FarClip_m, new System.Numerics.Vector3(Mathf.Sin(azimuth), 0f, -Mathf.Cos(azimuth)));
@@ -690,6 +703,17 @@ public partial class LevelMain : Node3D, ISimEventListener
         if (e.Type == NetEventTypes.Callout)
         {
             HearCallout(e);
+            return;
+        }
+
+        if (e.Type == NetEventTypes.Contact)
+        {
+            // Joined: a bot's contact the host passed on (hosting, or alone, they're marked straight from the squad).
+            if (_net?.Client is not null && _sim.FindPlayer(e.PlayerId) is { } caller)
+            {
+                MarkContact(e.PlayerId, e.Team, caller.EyePosition, e.TargetId, e.Position);
+            }
+
             return;
         }
 
@@ -1160,9 +1184,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         return new BotPilot(brain);
     }
 
-    /// <summary>Hosting: the bots' new callouts go to everyone with the step's events.</summary>
+    /// <summary>Hosting: the bots' new callouts and contacts go to everyone with the step's events.</summary>
     private void SendCallouts(NetServer server)
     {
+        _contactsSent = Pb.Net.Server.ContactRelay.Send(_squad, _bots, _contactsSent, server, _sim.Tick - 1);
         for (int i = 0; i < _bots.Count; i++)
         {
             BotBrain bot = _bots[i];
@@ -1718,18 +1743,30 @@ public partial class LevelMain : Node3D, ISimEventListener
         PlayerStats you = _match.StatsFor(_player.State.Id)!;
         int errors = _driver.ErrorCount;
         bool ok = errors == 0 && _match.Outcome != RoundOutcome.None && (_net?.Client is null || _netOver);
-        // CI with the art on: no character's head or hands may pop further than this in a frame (cm).
+        // CI with the art on: no character's head or hands may pop further than this in a frame (cm, at 30 fps and above;
+        // below that, plus what the body's own smooth motion changes a frame by: CharactersDef.FrameLimit).
         if (float.TryParse(Args.Value("--max-pop"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float maxPop))
         {
             float worst = _pawns.Where(p => p.Visual.Model is not null).Select(p => p.Visual.Model!.Poser.WorstPop).DefaultIfEmpty(float.MaxValue).Max();
-            ok &= worst <= maxPop;
+            float limit = _view.Characters.FrameLimit(maxPop / 100f, (float)GetProcessDeltaTime()) * 100f;
+            ok &= worst <= limit;
+            GD.Print($"BOT MATCH poses: worst pop {worst:0.0} cm against {limit:0.0} cm at {1.0 / GetProcessDeltaTime():0} fps");
+        }
+
+        // The round's cues (the start cue, the end whistle) were asked for and none was dropped (one asked for before the
+        // sounds were ready waits for them).
+        ok &= _audio.RoundCues > 0 && _audio.RoundCuesDropped == 0;
+        // CI's teams round: bot teammates' contacts marked on your HUD, at least this many.
+        if (int.TryParse(Args.Value("--min-contact-marks"), out int minMarks))
+        {
+            ok &= ContactMarks >= minMarks;
         }
         int botOnBot = _sim.Players.Count(p => !p.Alive && p != _player.State && p.EliminatedBy > 0);
         string objective = ObjectiveLine() is { } line ? $" ({line})" : "";
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +
                  $"{you.Eliminations} of {_sim.Players.Count(p => p.Team != _player.State.Team)}, {you.Shots} shots, {you.Hits} hits, " +
                  $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; callouts: {_squad.Shouts} shouted aloud, {_squad.ContactsShared} contacts " +
-                 $"shared and heard {_squad.ContactsHeard} times by teammates, {_callouts} callout-key presses; collections {CollectionsLine()}; {PopsLine()}" +
+                 $"shared and heard {_squad.ContactsHeard} times by teammates, {ContactMarks} marked on your HUD, {_callouts} callout-key presses; {_audio.RoundCueLine}; collections {CollectionsLine()}; {PopsLine()}" +
                  $"simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
         if (_net is { } session)
         {
@@ -1973,25 +2010,58 @@ public partial class LevelMain : Node3D, ISimEventListener
             {
                 _hud.Subtitle(bot.Self.Name, bot.Self.Team, line);
             }
-
-            MarkTeammatesContact(bot, distance);
         }
+
+        // The bots' contacts, said aloud or not (most aren't: shouting is rationed), reach you as they reach the bots on
+        // your side. Joined, they come from the host (OnSimEvent).
+        for (int n = Math.Max(_contactsMarked, _squad.ContactsShared - BotSquad.RecentContacts); n < _squad.ContactsShared; n++)
+        {
+            if (_squad.RecentContact(n, out BotSquad.Contact c) && IsBot(c.From))
+            {
+                MarkContact(c.From, c.Team, c.FromEye, c.TargetId, c.At);
+            }
+        }
+
+        _contactsMarked = _squad.ContactsShared;
     }
 
+    /// <summary>Whether <paramref name="id"/> is one of the bots this copy runs (a person's callout key is marked by <see cref="OnCalledOut"/>).</summary>
+    private bool IsBot(int id)
+    {
+        foreach (BotBrain bot in _bots)
+        {
+            if (bot.Self.Id == id)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Teammate contacts marked on your HUD this round (the bot match prints it).</summary>
+    public int ContactMarks { get; private set; }
+
     /// <summary>
-    /// A bot on your side shouting "Contact!" within earshot (the bots' callout range) marks the one it's seen for you, as
-    /// a person's callout key does for the bots: its call reaches you as it reaches its bot teammates.
+    /// A bot on your side telling its side where an enemy is, from where the call carries to you (as it would to a bot
+    /// there: the callout range, less through walls): a mark over where it saw them, as a person's callout key makes.
+    /// One mark an enemy, moved to the newest call.
     /// </summary>
-    private void MarkTeammatesContact(BotBrain bot, float distance)
+    private void MarkContact(int from, byte team, System.Numerics.Vector3 fromEye, int targetId, System.Numerics.Vector3 at)
     {
         PlayerState you = _player.State;
-        if (bot.Callout != CalloutKind.Spotted || bot.Self == you || _mode.Kind == MatchModeKind.FreeForAll || bot.Self.Team != you.Team ||
-            distance > _data.Bots.Brain.CalloutRange || bot.Senses.Focus is not { } seen || _sim.FindPlayer(seen.TargetId) is not { Alive: true } target)
+        if (_mode.Kind == MatchModeKind.FreeForAll || team != you.Team || from == you.Id || !you.Alive ||
+            _sim.FindPlayer(targetId) is not { Alive: true } target || _sim.FindPlayer(from) is not { } caller ||
+            !_squad.CallCarries(fromEye, you.EyePosition))
         {
             return;
         }
 
-        _marks.Add(target.Position.ToGodot(), TeamColor(bot.Self.Team), $"{bot.Self.Name}: {target.Name}");
+        _marks.Add(at.ToGodot(), TeamColor(team), $"{caller.Name}: {target.Name}", targetId);
+        if (ContactMarks++ == 0 && _botMatch)
+        {
+            GD.Print($"BOT MATCH {_match.Elapsed:0.0} s (frame {Engine.GetFramesDrawn()}): the first teammate contact on your HUD, {caller.Name}: {target.Name}");
+        }
     }
 
     /// <summary>The characters' worst pop (the head or a hand jerking against the body in one frame) and how often, with models drawn.</summary>
@@ -2226,7 +2296,18 @@ public partial class LevelMain : Node3D, ISimEventListener
         int smallest = mode.Kind == MatchModeKind.FreeForAll ? 2 : 1;
         if (size < smallest || mode.PlayersFor(size) > rules.MaxPlayers)
         {
-            throw new InvalidOperationException($"{mode.DisplayName} can't be played at size {size} (at most {rules.MaxPlayers} people in a round)");
+            // A mode's size counts different people (opponents, everyone, or a side), so say which, and what fits.
+            string counts = mode.Kind switch
+            {
+                MatchModeKind.Solo => "opponents",
+                MatchModeKind.FreeForAll => "players, you included",
+                _ => "players a side",
+            };
+            int largest = Enumerable.Range(smallest, rules.MaxPlayers).LastOrDefault(s => mode.PlayersFor(s) <= rules.MaxPlayers, smallest);
+            throw new InvalidOperationException(size < smallest
+                ? $"{mode.DisplayName} needs a size of at least {smallest} (its size counts {counts})"
+                : $"{mode.DisplayName} can't be played at size {size}: its size counts {counts}, so that's {mode.PlayersFor(size)} people, " +
+                  $"and a round holds at most {rules.MaxPlayers}. The largest {mode.DisplayName} round is size {largest}.");
         }
 
         // The objective: the menu's, or --objective; free-for-all is always eliminate.

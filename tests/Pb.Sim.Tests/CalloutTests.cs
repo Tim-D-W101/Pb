@@ -107,10 +107,46 @@ public class CalloutTests
         Assert.Equal(0, stranger.Senses.ContactsHeard);
         Assert.False(stranger.Senses.For(0)?.FromContact ?? false, "the other side took the call as its own");
         Assert.Equal(arena.Squad.ContactsHeard, mateA.Senses.ContactsHeard + mateB.Senses.ContactsHeard + caller.Senses.ContactsHeard);
+
+        // The game marks a teammate's contact on your HUD from the squad's latest contacts, said aloud or not, if the call
+        // carries to you as it does to the bots: the caller's first is kept, and carries to its teammate behind it.
+        Assert.True(arena.Squad.RecentContact(0, out BotSquad.Contact first), "the first contact isn't kept");
+        Assert.Equal(caller.Self.Id, first.From);
+        Assert.Equal(0, first.TargetId);
+        Assert.True(arena.Squad.CallCarries(first.FromEye, mateA.Self.EyePosition), "the call doesn't carry to the teammate behind");
+        Assert.False(arena.Squad.RecentContact(arena.Squad.ContactsShared, out _), "a contact not yet made");
+    }
+
+    [Fact]
+    public void The_squad_keeps_its_latest_contacts_for_the_hud_and_a_call_carries_no_further_than_the_bots_hear()
+    {
+        TeamRound(TestData.Data.Bots, 120, out BotArena arena);
+        BotBrain caller = arena.Bots.First();
+        int shared = arena.Squad.ContactsShared;
+        _out.WriteLine($"{shared} contacts shared");
+        Assert.True(shared >= 10, $"only {shared} contacts in a 5 v 5");
+        var ids = arena.Bots.Select(b => b.Self.Id).ToHashSet();
+        for (int n = Math.Max(0, shared - BotSquad.RecentContacts); n < shared; n++)
+        {
+            Assert.True(arena.Squad.RecentContact(n, out BotSquad.Contact c), $"contact {n} of {shared} isn't kept");
+            Assert.Contains(c.From, ids);
+            Assert.NotEqual(c.From, c.TargetId);
+        }
+
+        Assert.False(arena.Squad.RecentContact(shared, out _), "a contact not yet made");
+        Assert.False(arena.Squad.RecentContact(-1, out _));
+        Assert.True(shared <= BotSquad.RecentContacts || !arena.Squad.RecentContact(shared - BotSquad.RecentContacts - 1, out _),
+            "an old contact is still kept");
+
+        float range = arena.BotConfig.Brain.CalloutRange;
+        Vector3 eye = caller.Self.EyePosition;
+        Assert.False(arena.Squad.CallCarries(eye, eye + new Vector3(range + 1f, 0f, 0f)), "a call carries beyond the callout range");
     }
 
     /// <summary>A 5 v 5 played by bots alone for <paramref name="seconds"/>, and every shout made aloud in it.</summary>
-    private static List<Shout> TeamRound(BotConfig bots, int seconds)
+    private static List<Shout> TeamRound(BotConfig bots, int seconds) => TeamRound(bots, seconds, out _);
+
+    private static List<Shout> TeamRound(BotConfig bots, int seconds, out BotArena played)
     {
         const ulong seed = 21;
         BotArena arena = BotArena.Create("normal", seed, bots: bots);
@@ -146,6 +182,7 @@ public class CalloutTests
             return arena.Sim.Match!.Phase == MatchPhase.Ended;
         });
         Assert.Equal(arena.Squad.Shouts, shouts.Count);
+        played = arena;
         return shouts;
     }
 

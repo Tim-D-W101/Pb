@@ -529,6 +529,9 @@ public sealed class AudioDef : IValidatable
     /// <summary>How many variations of each one-shot effect are synthesised.</summary>
     public int Variations { get; set; }
 
+    /// <summary>A round cue (the start cue, the horn, a whistle) asked for before the sounds were ready plays once they are, up to this late; later than that it's dropped (and counted).</summary>
+    public float LateRoundCue_s { get; set; } = 3f;
+
     public float Volume_db { get; set; }
 
     /// <summary>Shot pitch scale at an empty and a full tank (the sound tracks tank pressure).</summary>
@@ -575,6 +578,7 @@ public sealed class AudioDef : IValidatable
         v.InRange(nameof(Voices), Voices, 1, 128);
         v.InRange(nameof(MaxSoundsPerFrame), MaxSoundsPerFrame, 1, 128);
         v.InRange(nameof(Variations), Variations, 1, 16);
+        v.InRange(nameof(LateRoundCue_s), LateRoundCue_s, 0, 30);
         v.InRange(nameof(Volume_db), Volume_db, -60, 12);
         v.InRange(nameof(ShotPitchEmpty), ShotPitchEmpty, 0.25, 4);
         v.InRange(nameof(ShotPitchFull), ShotPitchFull, 0.25, 4);
@@ -1357,6 +1361,31 @@ public sealed class CharactersDef : IValidatable
     /// <summary>How far the hips drop for each metre the eye drops (crouching).</summary>
     public float HipDropPerEyeDrop { get; set; }
 
+    /// <summary>
+    /// The drawn body follows the sim's eye height (crouching, standing) as fast as it can without speeding up or slowing
+    /// down harder than this (m/s²); further behind than <see cref="CrouchResetBeyond_m"/> (no crouch: a respawn), it's put where the sim has it.
+    /// </summary>
+    public float CrouchAccel_mps2 { get; set; } = 20f;
+
+    public float CrouchResetBeyond_m { get; set; } = 1f;
+
+    /// <summary>... the sim's lean likewise (rad/s²) ...</summary>
+    public float LeanAccel_radps2 { get; set; } = 20f;
+
+    /// <summary>... and the shoulder swap (−1 to 1: the marker crossing the face, the hands trading grips on it), per s².</summary>
+    public float ShoulderAccel_ps2 { get; set; } = 80f;
+
+    /// <summary>
+    /// The checks' allowance below 30 fps (the gait check, the bot match's pops): the hardest the drawn body's head and
+    /// hands smoothly speed up or slow down (m/s²: the crouch and the hips' reach drop together). At a frame time of dt
+    /// their pace can change by that × dt² from one frame to the next with no glitch in it, which at 30 fps is within the
+    /// checks' own limits and at 15 fps is 4 × what it is at 30.
+    /// </summary>
+    public float CheckAccel_mps2 => CrouchAccel_mps2 + Steps.ReachDropAccel_mps2;
+
+    /// <summary>A check's per-frame limit (m) at a frame time of <paramref name="dt"/>: as given at 30 fps and above, and below that the body's own smooth motion added.</summary>
+    public float FrameLimit(float limit, float dt) => limit + CheckAccel_mps2 * Math.Max(0f, dt * dt - 1f / 900f);
+
     /// <summary>Shares of the aim pitch the chest and the head take.</summary>
     public float ChestPitch { get; set; }
 
@@ -1416,6 +1445,10 @@ public sealed class CharactersDef : IValidatable
 
         Steps.Validate(v.Scope(nameof(Steps)));
         v.InRange(nameof(HipDropPerEyeDrop), HipDropPerEyeDrop, 0, 1.5);
+        v.InRange(nameof(CrouchAccel_mps2), CrouchAccel_mps2, 1, 1000);
+        v.InRange(nameof(CrouchResetBeyond_m), CrouchResetBeyond_m, 0.3, 5);
+        v.InRange(nameof(LeanAccel_radps2), LeanAccel_radps2, 1, 1000);
+        v.InRange(nameof(ShoulderAccel_ps2), ShoulderAccel_ps2, 1, 5000);
         v.InRange(nameof(ChestPitch), ChestPitch, 0, 1);
         v.InRange(nameof(HeadPitch), HeadPitch, 0, 1);
         v.InRange(nameof(TriggerGrip), TriggerGrip, 0, 1);
@@ -1568,6 +1601,18 @@ public sealed class StepsDef : IValidatable
 
     public float MaxReachDrop_m { get; set; }
 
+    /// <summary>The hips' drop further than the crouch's, for the legs' reach, speeds up and slows down no harder than this (m/s²).</summary>
+    public float ReachDropAccel_mps2 { get; set; } = 20f;
+
+    /// <summary>... back up no harder than this where it's the legs' reach that held them down (m/s²).</summary>
+    public float ReachDropUpAccel_mps2 { get; set; } = 12f;
+
+    /// <summary>The steps think at this rate (Hz), whatever the frame rate: a slow frame is several of their ticks.</summary>
+    public float Tick_hz { get; set; } = 120f;
+
+    /// <summary>The stride's bob and sway follow the steps' cycle on a spring this slow (s): it jumps when a dragged foot steps at once.</summary>
+    public float BobFollow_s { get; set; } = 0.12f;
+
     /// <summary>A planted foot the body pulls along faster than this (out of reach: a reversal, a sharp change of pace) steps at once instead of skating.</summary>
     public float StepWhenDragged_mps { get; set; } = 0.4f;
 
@@ -1657,6 +1702,10 @@ public sealed class StepsDef : IValidatable
         v.InRange(nameof(MaxStretch), MaxStretch, 0.8, 1.0);
         v.InRange(nameof(MaxStep), MaxStep, 0.2, 2);
         v.InRange(nameof(MaxReachDrop_m), MaxReachDrop_m, 0, 0.6);
+        v.InRange(nameof(ReachDropAccel_mps2), ReachDropAccel_mps2, 1, 1000);
+        v.InRange(nameof(ReachDropUpAccel_mps2), ReachDropUpAccel_mps2, 1, 1000);
+        v.InRange(nameof(Tick_hz), Tick_hz, 30, 480);
+        v.InRange(nameof(BobFollow_s), BobFollow_s, 0.01, 0.5);
         v.InRange(nameof(StepWhenDragged_mps), StepWhenDragged_mps, 0.05, 5);
         v.InRange(nameof(DraggedHurry), DraggedHurry, 1, 6);
         v.InRange(nameof(StepUp_m), StepUp_m, 0, 0.6);

@@ -1,3 +1,4 @@
+using System.Numerics;
 using Pb.Net.Protocol;
 using Pb.Sim;
 using Pb.Sim.AI;
@@ -23,8 +24,11 @@ public sealed class CastRound
     /// <summary>The roster entry each person plays, in the order they were given.</summary>
     public required IReadOnlyList<int> PersonIds { get; init; }
 
-    /// <summary>Where everyone started, for the next round on this area and place to start elsewhere.</summary>
-    public SpawnMemory Memory => SpawnMemory.Of(Setup.Roster.Select(e => e.Position));
+    /// <summary>The entry the side coming in used (the host's, in co-op), which the next round's entry avoids.</summary>
+    public required Vector3 Entry { get; init; }
+
+    /// <summary>Where everyone started and the entry used, for the next round on this area and place to start elsewhere.</summary>
+    public SpawnMemory Memory => SpawnMemory.Of(Setup.Roster.Select(e => e.Position), Entry);
 }
 
 /// <summary>
@@ -154,7 +158,7 @@ public static class RoundCasting
             AddBot(setup, starts, plan.Opponents[o], team, names, ref bot);
         }
 
-        return new CastRound { Setup = setup, BotStarts = starts, PersonIds = ids };
+        return new CastRound { Setup = setup, BotStarts = starts, PersonIds = ids, Entry = plan.You.Position };
     }
 
     /// <summary>

@@ -62,8 +62,9 @@ distant traffic and trains outside, and each room's own sound inside (dripping w
 rafters, a draught through broken windows, the dead quiet of a cold store). The bots shout their callouts in six
 voices, two for each of the three opponents, now and then rather than all the time (each bot waits between calls and
 doesn't repeat itself, a side calls only every few seconds, and lines never overlap), and a referee calls what matters
-in the round (going live, a minute left, the room changing hands once it's settled, the end), all subtitled too. A
-bot teammate's "Contact!" marks that enemy on your HUD.
+in the round (going live, a minute left, the room changing hands once it's settled, the end), all subtitled too. When
+a bot teammate within earshot spots an enemy, shouted aloud or not, a mark over that enemy shows on your HUD (playing
+with others too).
 
 The settings (in the main menu and the pause menu) come in five tabs: Controls, where every action can be bound to
 two keys or mouse buttons and a pad button or stick, with clashes shown and swappable, and crouch and walk can be
@@ -184,7 +185,8 @@ the west breach or the north-east collapse), and the opponents start anywhere in
 well as out (on every floor), out of your sight and out of sight of the first few metres in from your entry, none of
 them where anyone started the round before, each with a role that isn't tied to the place. Nor do they stay put:
 sentries move between posts near their start, Marksmen change vantage, patrols go either way round, and in solo a squad
-that hasn't found you in a minute and a half comes looking. The game remembers each area's and place's last round to do this.
+that hasn't found you in a minute and a half comes looking. The game remembers each area's and place's last round to do
+this, between games too, and so does a host or a dedicated server for everyone in its rounds.
 
 In an objective round the bots play for it: attackers make for the case or the room (opening doors on the way),
 defenders keep near it, and a room both sides are in but neither can see the other in doesn't stay contested for long.
@@ -234,9 +236,9 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 458 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts…) and 66 network tests — no Godot needed
+dotnet test                                          # 459 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts…) and 69 network tests — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost (each slowest tick's own CPU time beside its wall-clock time)
-tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches, the characters' gait check, a match with the art on and the art import (Linux/macOS)
+tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches (a new seed each run, printed), the characters' gait check and a match with the art on (at 120, 30 and 15 fps), and the art import (Linux/macOS)
 ```
 
 CI (GitHub Actions) runs all three on every pull request.

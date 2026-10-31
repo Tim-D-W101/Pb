@@ -89,6 +89,8 @@ public sealed class BotSquad
     /// <summary>Times a bot (or a person's callout key) has told its side where an enemy is.</summary>
     public int ContactsShared { get; private set; }
 
+    private readonly Contact[] _recentContacts = new Contact[RecentContacts];
+
     /// <summary>Times a teammate in earshot took one of those as a lead (each teammate who heard it counts).</summary>
     public int ContactsHeard
     {
@@ -126,8 +128,39 @@ public sealed class BotSquad
     /// <summary><paramref name="from"/> calls out that <paramref name="target"/> is at <paramref name="at"/>; teammates hear it next tick.</summary>
     internal void Share(PlayerState from, int target, Vector3 at)
     {
-        _incomingContacts.Add(new Contact(from.Id, from.Team, from.EyePosition, target, at));
+        var contact = new Contact(from.Id, from.Team, from.EyePosition, target, at);
+        _incomingContacts.Add(contact);
+        _recentContacts[ContactsShared % RecentContacts] = contact;
         ContactsShared++;
+    }
+
+    /// <summary>How many of the latest contacts <see cref="RecentContact"/> keeps.</summary>
+    public const int RecentContacts = 64;
+
+    /// <summary>
+    /// Contact number <paramref name="number"/> (0 is the round's first; <see cref="ContactsShared"/> are numbered so far),
+    /// if it's among the last <see cref="RecentContacts"/>: for the game, which marks a teammate's call on your HUD whether
+    /// or not it was shouted aloud, and passes it on to joined copies.
+    /// </summary>
+    public bool RecentContact(int number, out Contact contact)
+    {
+        bool kept = number >= 0 && number < ContactsShared && number >= ContactsShared - RecentContacts;
+        contact = kept ? _recentContacts[number % RecentContacts] : default;
+        return kept;
+    }
+
+    /// <summary>Whether a call made at <paramref name="fromEye"/> carries to <paramref name="ear"/>: as the bots hear each other (muffled by walls).</summary>
+    public bool CallCarries(Vector3 fromEye, Vector3 ear)
+    {
+        float range = Config.Brain.CalloutRange;
+        float d2 = Vector3.DistanceSquared(fromEye, ear);
+        if (d2 > range * range)
+        {
+            return false;
+        }
+
+        float muffled = range * Config.Senses.WallMuffle;
+        return d2 <= muffled * muffled || !Sim.Collision.SweepSphere(fromEye, ear, 0f, out _);
     }
 
     /// <summary>

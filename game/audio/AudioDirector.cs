@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using Pb.Game.Core;
 using Pb.Game.World;
@@ -42,6 +43,9 @@ public partial class AudioDirector : Node, ISimEventListener
     private AudioStreamPlayer _local = null!;
     private AudioStreamPlayer _steps = null!;
     private AudioStreamPlayer _round = null!;
+    private readonly List<(Sfx Sfx, double At)> _lateCues = new();
+    private int _droppedCues;
+    private double _clock;
     private AudioStreamPlayer _referee = null!;
     private AudioStreamPlayer3D[] _pool = Array.Empty<AudioStreamPlayer3D>();
     private AudioStreamPlayer3D[] _speakers = Array.Empty<AudioStreamPlayer3D>();
@@ -165,6 +169,7 @@ public partial class AudioDirector : Node, ISimEventListener
         }
 
         float dt = (float)delta;
+        _clock += delta;
         _budget = _def.MaxSoundsPerFrame;
         _ear = GetViewport()?.GetCamera3D()?.GlobalPosition ?? _player.EyePosition.ToGodot();
         if (_set is null)
@@ -185,6 +190,8 @@ public partial class AudioDirector : Node, ISimEventListener
             {
                 GD.PushError($"Sound bank: {problem}");
             }
+
+            PlayLateCues();
         }
 
         if (_feedIn >= 0f && (_feedIn -= dt) < 0f)
@@ -340,13 +347,64 @@ public partial class AudioDirector : Node, ISimEventListener
         }
     }
 
-    /// <summary>The round's start cue, the breakout horn or the referee's whistle (<see cref="Core.RefereeCalls"/>).</summary>
+    /// <summary>
+    /// The round's start cue, the breakout horn or the referee's whistle (<see cref="Core.RefereeCalls"/>). Asked for
+    /// before the sounds are ready (the start of a round that began as the level loaded), it waits for them, up to
+    /// <see cref="AudioDef.LateRoundCue_s"/>.
+    /// </summary>
     public void Round(Sfx sfx)
     {
-        if (_set is not null)
+        RoundCues++;
+        if (_set is null)
         {
-            Play2D(_round, sfx, sfx switch { Sfx.Horn => _mix.Horn, Sfx.StartCue => _mix.RoundStart, _ => _mix.Whistle });
+            _lateCues.Add((sfx, _clock));
+            return;
         }
+
+        PlayRound(sfx);
+    }
+
+    /// <summary>Round cues asked for, played (late ones included) and dropped (asked for too long before the sounds were ready).</summary>
+    public int RoundCues { get; private set; }
+
+    public int RoundCuesPlayed { get; private set; }
+
+    /// <summary>Dropped, and still waiting for the sounds (which count as dropped when a check asks).</summary>
+    public int RoundCuesDropped => _droppedCues + _lateCues.Count;
+
+    /// <summary>The latest a waiting round cue played after it was asked for (s).</summary>
+    public double LatestRoundCue { get; private set; }
+
+    /// <summary>The round cues asked for so far, in order, with whether each played (for the smoke tests' logs).</summary>
+    public string RoundCueLine => $"{RoundCuesPlayed} of {RoundCues} round cues played" +
+                                  (LatestRoundCue > 0 ? $" (one {LatestRoundCue:0.00} s late, waiting for the sounds)" : "") +
+                                  (RoundCuesDropped > 0 ? $", {RoundCuesDropped} dropped" : "");
+
+    private void PlayRound(Sfx sfx)
+    {
+        RoundCuesPlayed++;
+        Play2D(_round, sfx, sfx switch { Sfx.Horn => _mix.Horn, Sfx.StartCue => _mix.RoundStart, _ => _mix.Whistle });
+    }
+
+    /// <summary>The sounds are ready: round cues that waited for them play now, unless they're too late to mean anything.</summary>
+    private void PlayLateCues()
+    {
+        foreach ((Sfx sfx, double at) in _lateCues)
+        {
+            double late = _clock - at;
+            if (late <= _def.LateRoundCue_s)
+            {
+                LatestRoundCue = Math.Max(LatestRoundCue, late);
+                PlayRound(sfx);
+            }
+            else
+            {
+                _droppedCues++;
+                GD.PushWarning($"The {sfx} cue was asked for {late:0.0} s before the sounds were ready, too late to play.");
+            }
+        }
+
+        _lateCues.Clear();
     }
 
     /// <summary>

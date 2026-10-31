@@ -61,6 +61,7 @@ public partial class ServerMain : Node3D, ISimEventListener
     private CastRound? _cast;
     private DoorBodies? _doors;
     private int[] _calloutsSent = Array.Empty<int>();
+    private int _contactsSent;
     private double _readySince = -1;
     private double _waited;
     private double _briefing = -1;
@@ -277,6 +278,7 @@ public partial class ServerMain : Node3D, ISimEventListener
         }
 
         _calloutsSent = Enumerable.Repeat(-1, _bots.Count).ToArray();
+        _contactsSent = 0;
         _botTier = chosen.Tier.Bots;
         MatchState match = sim.StartMatch(RoundWorld.MatchSetupOf(_data.Config, setup));
         _match = match;
@@ -453,6 +455,11 @@ public partial class ServerMain : Node3D, ISimEventListener
     /// <summary>The bots' new callouts go to everyone with the step's events (the lines the game would play).</summary>
     private void SendCallouts()
     {
+        if (_squad is not null)
+        {
+            _contactsSent = ContactRelay.Send(_squad, _bots, _contactsSent, _server, _sim!.Tick - 1);
+        }
+
         for (int i = 0; i < _bots.Count; i++)
         {
             BotBrain bot = _bots[i];
