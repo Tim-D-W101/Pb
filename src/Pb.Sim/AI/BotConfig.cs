@@ -22,6 +22,12 @@ public sealed class NavParams
 
     public required int MaxSearchNodes { get; init; }
 
+    /// <summary>
+    /// Places all the bots' path searches together may look at in one tick: a long search carries on over the next
+    /// ticks instead of stalling one.
+    /// </summary>
+    public required int SearchNodesPerTick { get; init; }
+
     public required float HeuristicWeight { get; init; }
 
     public required int Landmarks { get; init; }
@@ -96,6 +102,21 @@ public sealed class BrainParams
     public required float StrollPace { get; init; }
 
     public required float CalloutCooldown { get; init; }
+
+    /// <summary>The same bot doesn't shout the same thing again within this (s).</summary>
+    public required float CalloutRepeat { get; init; }
+
+    /// <summary>Share of everyday shouts said aloud (0..1).</summary>
+    public required float CalloutChance { get; init; }
+
+    /// <summary>On one side, at most one shout this often (s).</summary>
+    public required float SideCalloutGap { get; init; }
+
+    /// <summary>On one side, the same thing isn't shouted again within this (s).</summary>
+    public required float SideCalloutRepeat { get; init; }
+
+    /// <summary>Across every bot, at most one shout this often (s).</summary>
+    public required float SquadCalloutGap { get; init; }
 
     /// <summary>Hunting, the next spot is picked at random from this many nearest unvisited ones.</summary>
     public required int HuntChoices { get; init; }
@@ -317,6 +338,11 @@ public sealed class BotConfig
             WalkOffTime = brain.WalkOffTime_s,
             StrollPace = brain.StrollPace,
             CalloutCooldown = brain.CalloutCooldown_s,
+            CalloutRepeat = brain.CalloutRepeat_s,
+            CalloutChance = brain.CalloutChance,
+            SideCalloutGap = brain.SideCalloutGap_s,
+            SideCalloutRepeat = brain.SideCalloutRepeat_s,
+            SquadCalloutGap = brain.SquadCalloutGap_s,
             HuntChoices = brain.HuntChoices,
             HuntLookAround = brain.HuntLookAround_s,
             CalloutRange = brain.CalloutRange_m,
@@ -345,6 +371,7 @@ public sealed class BotConfig
             StuckTime = nav.StuckTime_s,
             SearchesPerTick = nav.SearchesPerTick,
             MaxSearchNodes = nav.MaxSearchNodes,
+            SearchNodesPerTick = nav.SearchNodesPerTick,
             HeuristicWeight = nav.HeuristicWeight,
             Landmarks = nav.Landmarks,
             LadderCostPerMetre = nav.LadderCostPerMetre,

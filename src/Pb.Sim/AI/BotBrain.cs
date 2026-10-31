@@ -187,6 +187,7 @@ public sealed class BotBrain
     private float _lookAround;
     private float _outFor;
     private float _sinceCallout = float.MaxValue;
+    private readonly int[] _shoutedAt = NewShoutTicks();
     private bool[] _huntVisited = Array.Empty<bool>();
     private bool _hunting;
     private float _quietFor;
@@ -1231,7 +1232,7 @@ public sealed class BotBrain
                 LookToward(f.LastKnown, slow: false);
                 if (ShouldRelocate(f))
                 {
-                    Shout(CalloutKind.Moving, force: true); // once a spot, and worth hearing even straight after "under fire"
+                    Shout(CalloutKind.Moving);
                     _relocating = true;
                     ChooseCover(f);
                     _relocating = false;
@@ -1385,16 +1386,10 @@ public sealed class BotBrain
                 continue; // too close, or the threat's on the open side
             }
 
-            float head = p.Height == CoverHeight.Full ? move.StandEyeHeight : move.CrouchEyeHeight;
-            if (Clear(threatEye, p.Position + new Vector3(0f, head + 0.05f, 0f)))
-            {
-                continue; // doesn't hide you from them
-            }
-
-            bool canShoot = p.CanShoot && Clear(ShootingEye(p, threatEye), threatChest);
-
+            // The score without the shot first: a point that couldn't win even with a shot from it isn't worth the
+            // sight lines (two sweeps each, for every point in reach: this was the costliest part of a decision).
             float travel = FlatDistance(Self.Position, p.Position);
-            float score = -travel * 1.2f - MathF.Abs(toThreat - Archetype.EngageRange) * 0.4f + (canShoot ? 12f : 0f) + (p.Height == CoverHeight.Full ? 1.5f : 0f);
+            float score = -travel * 1.2f - MathF.Abs(toThreat - Archetype.EngageRange) * 0.4f + (p.Height == CoverHeight.Full ? 1.5f : 0f);
             if (Archetype.Vantage > 0f)
             {
                 score += Archetype.Vantage * _squad.Vantage[i] * 10f;
@@ -1404,6 +1399,19 @@ public sealed class BotBrain
                 score -= 6f; // running at them to get there
             }
 
+            if (score + (p.CanShoot ? 12f : 0f) <= bestScore)
+            {
+                continue;
+            }
+
+            float head = p.Height == CoverHeight.Full ? move.StandEyeHeight : move.CrouchEyeHeight;
+            if (Clear(threatEye, p.Position + new Vector3(0f, head + 0.05f, 0f)))
+            {
+                continue; // doesn't hide you from them
+            }
+
+            bool canShoot = p.CanShoot && Clear(ShootingEye(p, threatEye), threatChest);
+            score += canShoot ? 12f : 0f;
             if (score > bestScore)
             {
                 bestScore = score;
@@ -1481,6 +1489,11 @@ public sealed class BotBrain
             }
 
             float score = angle * 4f - FlatDistance(Self.Position, p.Position) * 0.3f + _rng.NextFloat();
+            if (score <= bestScore)
+            {
+                continue; // exposure only takes away: it can't win (and its sight lines needn't be checked)
+            }
+
             if (Archetype.FlankOnContact)
             {
                 score -= Exposure(Self.Position, p.Position, f.LastKnown) * 8f;
@@ -1568,14 +1581,21 @@ public sealed class BotBrain
                 continue; // not off to the side
             }
 
+            // The cheap part of the score first (the tie-break comes from a hash, not the brain's random numbers, so
+            // skipping a point draws none): only a point that can still win is worth its eight sight lines.
+            float score = -MathF.Abs(angle - MathF.PI * 0.5f) * 3f - FlatDistance(Self.Position, p.Position) * 0.15f -
+                          MathF.Abs(distance - Archetype.EngageRange) * 0.2f + (jitter ? TieBreak(i) * 0.5f : 0f);
+            if (score <= bestScore)
+            {
+                continue;
+            }
+
             if (Clear(threatEye, p.Position + new Vector3(0f, head + 0.05f, 0f)) || !Clear(ShootingEye(p, lastChest), lastChest))
             {
                 continue; // they'd see it coming, or there's no shot from it
             }
 
-            float score = -MathF.Abs(angle - MathF.PI * 0.5f) * 3f - FlatDistance(Self.Position, p.Position) * 0.15f -
-                          MathF.Abs(distance - Archetype.EngageRange) * 0.2f - Exposure(Self.Position, p.Position, enemy) * 8f +
-                          (jitter ? _rng.NextFloat() * 0.5f : 0f);
+            score -= Exposure(Self.Position, p.Position, enemy) * 8f;
             if (score > bestScore)
             {
                 bestScore = score;
@@ -1601,6 +1621,10 @@ public sealed class BotBrain
             StartSearch(f.LastKnown);
         }
     }
+
+    /// <summary>A number in [0, 1) for cover point <paramref name="i"/>, different for each bot and each decision, from the match seed.</summary>
+    private float TieBreak(int i) =>
+        (SeedHash.Combine(SeedHash.Combine(_sim.MatchSeed, (ulong)(Self.Id * 7919 + _tick)), (ulong)i) >> 40) / (float)(1UL << 24);
 
     /// <summary>Share of a walk from <paramref name="from"/> to <paramref name="to"/> in sight of someone at <paramref name="threat"/> (0..1).</summary>
     private float Exposure(Vector3 from, Vector3 to, Vector3 threat)
@@ -2120,14 +2144,16 @@ public sealed class BotBrain
 
         if (_needPath)
         {
-            if (!_squad.TryReserveSearch(_tick))
+            PathStatus search = _squad.SearchPath(this, Self.Position, _goal, _path, _tick);
+            if (search == PathStatus.Running)
             {
-                return; // wait for a search slot
+                _cmd.Move = Vector2.Zero;
+                return; // still searching (or waiting for the searching to be free): stand a tick
             }
 
             _needPath = false;
             _waypoint = 0;
-            if (!_squad.Grid.FindPath(Self.Position, _goal, _path))
+            if (search == PathStatus.Failed)
             {
                 _hasGoal = false; // unreachable: give up on it
                 _arrived = true;
@@ -2275,9 +2301,31 @@ public sealed class BotBrain
         _modeTime = 0f;
     }
 
+    /// <summary>
+    /// Something worth shouting. An everyday shout waits out this bot's cooldown and its own repeat of the same thing, and
+    /// is said aloud only by chance; past those (and for <paramref name="force"/>d calls, "Hit!" and the case's, at once)
+    /// the squad says whether there's room for it (<see cref="BotSquad.TakeShout"/>). A shout let go silently still counts
+    /// for this bot's cooldown, so the same moment isn't tried again tick after tick.
+    /// </summary>
     private void Shout(CalloutKind kind, bool force = false)
     {
-        if (!force && _sinceCallout < _b.CalloutCooldown)
+        int k = (int)kind;
+        if (!force)
+        {
+            if (_sinceCallout < _b.CalloutCooldown || (_tick - _shoutedAt[k]) * _sim.Dt < _b.CalloutRepeat)
+            {
+                return;
+            }
+
+            _sinceCallout = 0f;
+            _shoutedAt[k] = _tick;
+            if (ShoutRoll(kind) >= _b.CalloutChance)
+            {
+                return; // thought, not said
+            }
+        }
+
+        if (!_squad.TakeShout(Self.Team, kind, force, _tick))
         {
             return;
         }
@@ -2285,6 +2333,18 @@ public sealed class BotBrain
         Callout = kind;
         CalloutTick = _tick;
         _sinceCallout = 0f;
+        _shoutedAt[k] = _tick;
+    }
+
+    /// <summary>A number in [0, 1) for this shout, from the match seed (the brain's own random numbers are left alone).</summary>
+    private float ShoutRoll(CalloutKind kind) =>
+        (SeedHash.Combine(SeedHash.Combine(_sim.MatchSeed, (ulong)(Self.Id * 104729 + (int)kind)), (ulong)_tick) >> 40) / (float)(1UL << 24);
+
+    private static int[] NewShoutTicks()
+    {
+        var ticks = new int[Enum.GetValues<CalloutKind>().Length];
+        Array.Fill(ticks, int.MinValue / 4);
+        return ticks;
     }
 
     private void SetPhase(CoverPhase phase, float length)

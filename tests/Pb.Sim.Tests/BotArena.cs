@@ -34,8 +34,9 @@ internal sealed class BotArena
     private readonly List<BotBrain?> _brains = new();
     private InputCommand[] _commands = Array.Empty<InputCommand>();
 
-    private BotArena(string tier, ulong seed, string levelId)
+    private BotArena(string tier, ulong seed, string levelId, BotConfig? bots = null)
     {
+        BotConfig = bots ?? TestData.Data.Bots;
         (LevelLayout level, NavGrid grid, CoverSet cover) = SharedFor(levelId);
         cover.ReleaseAll();
         Level = level;
@@ -52,15 +53,18 @@ internal sealed class BotArena
 
         Sim = new SimWorld(config);
         Sim.LoadLevel(level);
-        Squad = new BotSquad(Sim, TestData.Data.Bots, grid, cover);
+        Squad = new BotSquad(Sim, BotConfig, grid, cover);
         Mover = new NavGridMover(Sim, grid);
-        Tier = TestData.Data.Bots.Difficulty[tier];
+        Tier = BotConfig.Difficulty[tier];
         Hero = Sim.AddPlayer(0, 0, level.PlayerSpawn, level.PlayerSpawnYaw);
         Hero.Name = "You";
         _brains.Add(null);
     }
 
     public LevelLayout Level { get; }
+
+    /// <summary>How the bots think (the data's, unless the test gave its own).</summary>
+    public BotConfig BotConfig { get; }
 
     public SimWorld Sim { get; }
 
@@ -80,7 +84,8 @@ internal sealed class BotArena
 
     public IEnumerable<BotBrain> Bots => _brains.Where(b => b is not null)!;
 
-    public static BotArena Create(string tier = "normal", ulong seed = 0, string level = "oxbarrow_works") => new(tier, seed, level);
+    public static BotArena Create(string tier = "normal", ulong seed = 0, string level = "oxbarrow_works", BotConfig? bots = null) =>
+        new(tier, seed, level, bots);
 
     /// <summary>A level with its navigation grid and cover set, built once and shared by every arena on it.</summary>
     public static (LevelLayout Level, NavGrid Grid, CoverSet Cover) SharedFor(string levelId) =>
@@ -101,7 +106,7 @@ internal sealed class BotArena
     {
         PlayerState state = Sim.AddPlayer(_brains.Count, team, spawn.Position, spawn.Yaw);
         state.Name = spawn.Id;
-        ArchetypeParams behaviour = archetype is null ? TestData.Data.Bots.ArchetypeFor(spawn.Roles)! : TestData.Data.Bots.Archetypes[archetype];
+        ArchetypeParams behaviour = archetype is null ? BotConfig.ArchetypeFor(spawn.Roles)! : BotConfig.Archetypes[archetype];
         BotBrain brain = Squad.Add(state, behaviour, Tier, spawn);
         _brains.Add(brain);
         return brain;
@@ -111,7 +116,7 @@ internal sealed class BotArena
     public BotBrain HeroBot(string archetype = "hunter")
     {
         var spawn = new OpponentSpawn { Id = "you", Position = Hero.Position, Yaw = Hero.Yaw, Roles = new[] { archetype } };
-        BotBrain brain = Squad.Add(Hero, TestData.Data.Bots.Archetypes[archetype], Tier, spawn);
+        BotBrain brain = Squad.Add(Hero, BotConfig.Archetypes[archetype], Tier, spawn);
         _brains[0] = brain;
         return brain;
     }

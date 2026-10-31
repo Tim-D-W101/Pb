@@ -72,9 +72,22 @@
   // searching and hunting stay at the brisk walking speed.
   "strollPace": 0.55,
 
-  // They shout (spotted you, lost you, under fire, refilling, hit) at most this often; you see it
-  // as a subtitle when you're close enough to hear (presentation.jsonc "hud").
-  "calloutCooldown_s": 4,
+  // What they shout aloud (spotted you, lost you, under fire, refilling, hit...), heard in their voice and read as a
+  // subtitle when you're close enough (presentation.jsonc "hud"). The shouting is only what you hear: telling teammates
+  // where you are (calloutRange_m below) happens whether or not a line is said. So that shouts stay occasional:
+  //   calloutCooldown_s     one bot shouts at most this often;
+  //   calloutRepeat_s       and doesn't shout the same thing again within this;
+  //   calloutChance         says this share of its everyday shouts aloud ("Hit!" and the case calls always);
+  //   sideCalloutGap_s      on one side, at most one shout this often;
+  //   sideCalloutRepeat_s   on one side, nobody repeats what a teammate shouted within this (five bots spotting you
+  //                         make one "Contact!");
+  //   squadCalloutGap_s     across every bot in the round, at most one shout this often, so lines never overlap.
+  "calloutCooldown_s": 10,
+  "calloutRepeat_s": 30,
+  "calloutChance": 0.55,
+  "sideCalloutGap_s": 5,
+  "sideCalloutRepeat_s": 20,
+  "squadCalloutGap_s": 1.5,
 
   // Hunting (hunters, and bots gone restless in free-for-all and teams): they walk the level's opponent
   // spawns one by one, picking the next at random from the huntChoices nearest they haven't visited

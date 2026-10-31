@@ -287,7 +287,7 @@ public class DoorTests
         arena.Sim.Doors.SetOpen(leaf, 1f);
         float radius = TestData.Data.Bots.Navigation.AgentRadius;
         var path = new List<Vector3>();
-        Assert.True(arena.Squad.Grid.FindPath(new Vector3(-20f, 0f, -36.6f), new Vector3(10f, 0f, -36.6f), path));
+        Assert.True(arena.Squad.Paths.FindPath(new Vector3(-20f, 0f, -36.6f), new Vector3(10f, 0f, -36.6f), path));
         var points = new List<Vector3> { new(-20f, 0f, -36.6f) };
         points.AddRange(path);
         for (int i = 1; i < points.Count; i++)
@@ -301,7 +301,7 @@ public class DoorTests
 
         // Shut, the way along the alley is straight again.
         arena.Sim.Doors.SetOpen(leaf, 0f);
-        Assert.True(arena.Squad.Grid.FindPath(new Vector3(-20f, 0f, -36.6f), new Vector3(10f, 0f, -36.6f), path));
+        Assert.True(arena.Squad.Paths.FindPath(new Vector3(-20f, 0f, -36.6f), new Vector3(10f, 0f, -36.6f), path));
         Assert.True(path.Count <= 2, $"a {path.Count}-corner path along an empty alley");
     }
 

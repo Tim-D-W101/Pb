@@ -24,6 +24,21 @@ public sealed class BotSquad
     private VantageSet? _vantage;
     private int _syncedTick = int.MinValue;
     private int _searchesLeft;
+    private int _nodesLeft;
+
+    // The path search under way, carried on over ticks: whose it is, where to, the grid's serial when it began, and the
+    // last tick its bot asked (a bot that stops asking, having changed its mind, frees the grid for the others).
+    // Who last shouted, and when (ticks): across everyone, on each side, and each thing on each side.
+    private const int Kinds = 16;
+    private const int Never = int.MinValue / 4;
+    private readonly int[] _sideShout = NewTicks(256);
+    private readonly int[] _sideKindShout = NewTicks(256 * Kinds);
+    private int _squadShout = Never;
+
+    private BotBrain? _searcher;
+    private Vector3 _searchGoal;
+    private int _searchSerial;
+    private int _searcherAsked;
     private float _alarmLeft;
 
     public BotSquad(SimWorld sim, BotConfig config, NavGrid grid, CoverSet cover)
@@ -34,7 +49,19 @@ public sealed class BotSquad
         Cover = cover;
         // Paths go round doors standing open out beside their doorways (and through shut ones, which bots open).
         float radius = config.Navigation.AgentRadius;
-        grid.Blocked = feet => sim.Doors.OpenLeafAt(feet, radius, sim.Config.Rules.Doors.BotRouteRound);
+        Paths = new NavSearch(grid) { Blocked = feet => sim.Doors.OpenLeafAt(feet, radius, sim.Config.Rules.Doors.BotRouteRound) };
+        // Only where a leaf can swing (and on its floor) is it worth asking: the rest of the grid never is, which made a
+        // search test every door at every place it looked at, three to four times the cost of the search itself.
+        var zones = new List<Collision.Aabb>(sim.Doors.Count);
+        for (int i = 0; i < sim.Doors.Count; i++)
+        {
+            Collision.Aabb swing = sim.Doors.Shape(i).Bounds;
+            float pad = radius + 0.05f;
+            zones.Add(new Collision.Aabb(new Vector3(swing.Min.X - pad, swing.Min.Y - 0.55f, swing.Min.Z - pad),
+                new Vector3(swing.Max.X + pad, swing.Min.Y + 1.25f, swing.Max.Z + pad)));
+        }
+
+        grid.LimitBlockedTo(zones);
     }
 
     public SimWorld Sim { get; }
@@ -45,11 +72,37 @@ public sealed class BotSquad
 
     public CoverSet Cover { get; }
 
+    /// <summary>The bots' path searches: this round's own (the grid may be shared), walking round this round's open doors.</summary>
+    public NavSearch Paths { get; }
+
     public IReadOnlyList<BotBrain> Bots => _bots;
 
-    /// <summary>Path searches run so far (for the benchmark).</summary>
+    /// <summary>Path searches begun so far (for the benchmark).</summary>
     public int SearchesDone { get; private set; }
 
+    /// <summary>Places the path searches have looked at so far (for the benchmark and tests).</summary>
+    public long NodesSearched { get; private set; }
+
+    /// <summary>Lines the bots have shouted aloud so far.</summary>
+    public int Shouts { get; private set; }
+
+    /// <summary>Times a bot (or a person's callout key) has told its side where an enemy is.</summary>
+    public int ContactsShared { get; private set; }
+
+    /// <summary>Times a teammate in earshot took one of those as a lead (each teammate who heard it counts).</summary>
+    public int ContactsHeard
+    {
+        get
+        {
+            int heard = 0;
+            foreach (BotBrain bot in _bots)
+            {
+                heard += bot.Senses.ContactsHeard;
+            }
+
+            return heard;
+        }
+    }
     /// <summary>How good each cover point is to watch from (built when first wanted, or by <see cref="ForLevel"/>).</summary>
     public VantageSet Vantage => _vantage ??=
         VantageSet.Build(Cover, Sim.Collision, Sim.Level?.Bounds, Sim.Config.Movement.StandEyeHeight, Config.Brain);
@@ -71,8 +124,41 @@ public sealed class BotSquad
     public void UseVantage(VantageSet vantage) => _vantage = vantage;
 
     /// <summary><paramref name="from"/> calls out that <paramref name="target"/> is at <paramref name="at"/>; teammates hear it next tick.</summary>
-    internal void Share(PlayerState from, int target, Vector3 at) =>
+    internal void Share(PlayerState from, int target, Vector3 at)
+    {
         _incomingContacts.Add(new Contact(from.Id, from.Team, from.EyePosition, target, at));
+        ContactsShared++;
+    }
+
+    /// <summary>
+    /// Whether a bot on <paramref name="side"/> may shout <paramref name="kind"/> aloud now: not within the squad's gap
+    /// of anyone's last shout, nor (unless it's a call that always goes, <paramref name="always"/>) within the side's gap
+    /// of its last, or of a teammate shouting the same. Yes takes the slot.
+    /// </summary>
+    internal bool TakeShout(byte side, CalloutKind kind, bool always, int tick)
+    {
+        BrainParams b = Config.Brain;
+        float dt = Sim.Dt;
+        int k = side * Kinds + Math.Min((int)kind, Kinds - 1);
+        if ((tick - _squadShout) * dt < b.SquadCalloutGap ||
+            (!always && ((tick - _sideShout[side]) * dt < b.SideCalloutGap || (tick - _sideKindShout[k]) * dt < b.SideCalloutRepeat)))
+        {
+            return false;
+        }
+
+        _squadShout = tick;
+        _sideShout[side] = tick;
+        _sideKindShout[k] = tick;
+        Shouts++;
+        return true;
+    }
+
+    private static int[] NewTicks(int count)
+    {
+        var ticks = new int[count];
+        Array.Fill(ticks, Never);
+        return ticks;
+    }
 
     /// <summary>The contacts called in the last completed step, as of <paramref name="tick"/>.</summary>
     internal ReadOnlySpan<Contact> ContactsFor(int tick)
@@ -124,18 +210,61 @@ public sealed class BotSquad
         return _current.Items;
     }
 
-    /// <summary>Takes one of this tick's path searches; false when they're used up (try next tick).</summary>
-    internal bool TryReserveSearch(int tick)
+    /// <summary>
+    /// <paramref name="bot"/>'s path from <paramref name="from"/> to <paramref name="goal"/>, searched within this tick's
+    /// share: <see cref="PathStatus.Found"/> (and <paramref name="path"/> filled in) or <see cref="PathStatus.Failed"/>,
+    /// or <see cref="PathStatus.Running"/> while it (or another bot's search before it) is still going: ask again next
+    /// tick. One search runs at a time, a few places a tick, so no tick ever pays for a whole long search.
+    /// </summary>
+    internal PathStatus SearchPath(BotBrain bot, Vector3 from, Vector3 goal, List<Vector3> path, int tick)
     {
         Sync(tick);
-        if (_searchesLeft <= 0)
+        NavSearch paths = Paths;
+        if (_searcher is not null && _searcher != bot && (_searcherAsked < tick - 1 || paths.Serial != _searchSerial || !paths.Searching))
         {
-            return false;
+            _searcher = null; // its bot moved on (or something else searched meanwhile)
         }
 
-        _searchesLeft--;
-        SearchesDone++;
-        return true;
+        if (_searcher == bot && (Vector3.DistanceSquared(_searchGoal, goal) > 0.01f || paths.Serial != _searchSerial || !paths.Searching))
+        {
+            _searcher = null; // somewhere else now: start again
+        }
+
+        if (_searcher is null)
+        {
+            if (_searchesLeft <= 0 || _nodesLeft <= 0)
+            {
+                return PathStatus.Running; // this tick's searching is used up
+            }
+
+            _searchesLeft--;
+            SearchesDone++;
+            PathStatus begun = paths.Begin(from, goal, path);
+            if (begun != PathStatus.Running)
+            {
+                return begun;
+            }
+
+            _searcher = bot;
+            _searchGoal = goal;
+            _searchSerial = paths.Serial;
+        }
+        else if (_searcher != bot)
+        {
+            return PathStatus.Running; // someone else's search first
+        }
+
+        _searcherAsked = tick;
+        int budget = _nodesLeft;
+        PathStatus status = paths.Continue(ref budget, path);
+        NodesSearched += _nodesLeft - budget;
+        _nodesLeft = budget;
+        if (status != PathStatus.Running)
+        {
+            _searcher = null;
+        }
+
+        return status;
     }
 
     /// <summary>On the first call of a new tick, last step's sounds become current and the search budget refills.</summary>
@@ -159,6 +288,7 @@ public sealed class BotSquad
         _currentContacts.AddRange(_incomingContacts);
         _incomingContacts.Clear();
         _searchesLeft = Config.Navigation.SearchesPerTick;
+        _nodesLeft = Config.Navigation.SearchNodesPerTick;
         UpdateObjective();
     }
 

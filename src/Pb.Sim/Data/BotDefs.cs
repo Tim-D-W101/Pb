@@ -19,6 +19,8 @@ public sealed class NavigationDef : IValidatable
 
     public int MaxSearchNodes { get; set; }
 
+    public int SearchNodesPerTick { get; set; }
+
     public float HeuristicWeight { get; set; }
 
     public int Landmarks { get; set; }
@@ -36,6 +38,7 @@ public sealed class NavigationDef : IValidatable
         v.InRange(nameof(StuckTime_s), StuckTime_s, 0.1, 10);
         v.InRange(nameof(SearchesPerTick), SearchesPerTick, 1, 64);
         v.InRange(nameof(MaxSearchNodes), MaxSearchNodes, 1000, 10_000_000);
+        v.InRange(nameof(SearchNodesPerTick), SearchNodesPerTick, 100, 10_000_000);
         v.InRange(nameof(HeuristicWeight), HeuristicWeight, 1, 5);
         v.InRange(nameof(Landmarks), Landmarks, 0, 32);
     }
@@ -104,6 +107,21 @@ public sealed class BrainDef : IValidatable
 
     public float CalloutCooldown_s { get; set; }
 
+    /// <summary>The same bot doesn't shout the same thing again within this.</summary>
+    public float CalloutRepeat_s { get; set; }
+
+    /// <summary>Share of a bot's everyday shouts it says aloud (0..1); "Hit!" and the case calls always are.</summary>
+    public float CalloutChance { get; set; }
+
+    /// <summary>On one side, at most one shout this often.</summary>
+    public float SideCalloutGap_s { get; set; }
+
+    /// <summary>On one side, the same thing isn't shouted again within this (by anyone on it).</summary>
+    public float SideCalloutRepeat_s { get; set; }
+
+    /// <summary>Across every bot in the round, at most one shout this often, so lines never pile on top of each other.</summary>
+    public float SquadCalloutGap_s { get; set; }
+
     public int HuntChoices { get; set; }
 
     public float HuntLookAround_s { get; set; }
@@ -171,6 +189,11 @@ public sealed class BrainDef : IValidatable
         v.InRange(nameof(HuntLookAround_s), HuntLookAround_s, 0, 30);
         v.InRange(nameof(SuspiciousTime_s), SuspiciousTime_s, 0, 30);
         v.InRange(nameof(CalloutCooldown_s), CalloutCooldown_s, 0, 120);
+        v.InRange(nameof(CalloutRepeat_s), CalloutRepeat_s, 0, 600);
+        v.InRange(nameof(CalloutChance), CalloutChance, 0, 1);
+        v.InRange(nameof(SideCalloutGap_s), SideCalloutGap_s, 0, 120);
+        v.InRange(nameof(SideCalloutRepeat_s), SideCalloutRepeat_s, 0, 600);
+        v.InRange(nameof(SquadCalloutGap_s), SquadCalloutGap_s, 0, 60);
         v.InRange(nameof(CrouchNearLead_m), CrouchNearLead_m, 0, 100);
         v.InRange(nameof(OpenFireTime_s), OpenFireTime_s, 0, 30);
         v.InRange(nameof(OpenFireMinDistance_m), OpenFireMinDistance_m, 0, 100);

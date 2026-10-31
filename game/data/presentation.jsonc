@@ -1119,6 +1119,22 @@
       "roomHeld": ["Room held! Round over."],
       "roomTaken": ["Room taken. Hold it!"],
       "roomContested": ["The room is contested!"]
+    },
+    // How much the referee says (after the play-test, less): the sound the round starts on ("soft": two quiet low
+    // knocks; "horn": the old breakout horn; "none"), whether it says a start line, which time calls it makes (a minute
+    // left; thirty seconds, with two pips of the whistle), the whistle at the end, and how far apart its lines come:
+    // other than "you're out" and how the round went, a line due within gap_s of the last isn't said. In a hold, the
+    // room changing hands is called once it has stayed so for roomSettle_s, and the same call not again within
+    // roomRepeat_s (a doorway fought over made it call every few seconds).
+    "refereePacing": {
+      "startCue": "soft",
+      "sayStart": true,
+      "oneMinute": true,
+      "thirtySeconds": false,
+      "endWhistle": true,
+      "gap_s": 8,
+      "roomSettle_s": 2,
+      "roomRepeat_s": 30
     }
   },
 
@@ -1166,11 +1182,12 @@
     // How loud each kind of sound plays (dB, on top of volume_db): your shots and others', your loader feeding, gear
     // (dry fire, fire mode, refills), balls breaking and bouncing, footsteps (others', yours), slides and landings,
     // doors, pickups, being hit, the hit marker, the objectives' cues, the case's beep while it lies about, the
-    // breakout horn and the referee's whistle, callouts, the referee's voice and the menus' clicks.
+    // breakout horn and the referee's whistle, the soft cue a round starts on, callouts, the referee's voice and the menus'
+    // clicks.
     "mix": {
       "shot": -2, "remoteShot": -3, "loader": -20, "gear": -10, "break": -3, "bounce": -12, "footstep": -9,
       "ownFootstep": -19, "slide": -8, "land": -8, "door": -4, "pickup": -8, "hitTaken": -1, "hitMarker": -8,
-      "objective": -6, "caseBeep": -18, "horn": -6, "whistle": -8, "callout": 0, "referee": -2, "menu": -14
+      "objective": -6, "caseBeep": -18, "horn": -6, "whistle": -8, "roundStart": -16, "callout": 0, "referee": -2, "menu": -14
     },
     // A footstep heard out to this radius (movement.jsonc: the pace's radius times the floor's loudness) plays at the
     // mix's footstep level; 20 dB louder for each tenfold further it carries.

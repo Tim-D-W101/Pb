@@ -101,6 +101,9 @@ public sealed class BotSenses
     /// <summary>The highest meter among enemies (for the debug overlay and suspicion).</summary>
     public float HighestMeter { get; private set; }
 
+    /// <summary>Teammates' calls taken as a lead so far (a call heard while already watching that enemy doesn't count).</summary>
+    public int ContactsHeard { get; private set; }
+
     public Awareness? For(int targetId)
     {
         foreach (Awareness a in _known)
@@ -384,6 +387,7 @@ public sealed class BotSenses
             }
 
             a.LastKnown = c.At + new Vector3(_rng.Symmetric(error), 0f, _rng.Symmetric(error));
+            ContactsHeard++;
             a.LastKnownSeen = false;
             a.SinceLead = 0f;
             a.HasLead = true;

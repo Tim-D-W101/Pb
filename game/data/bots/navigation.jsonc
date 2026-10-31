@@ -22,12 +22,18 @@
   // No progress toward the next waypoint for this long means stuck: the bot plans again.
   "stuckTime_s": 1.2,
 
-  // Path searches allowed per tick across all bots, so a crowd replanning at once doesn't stall a
+  // Path searches started per tick across all bots, so a crowd replanning at once doesn't stall a
   // frame. The rest wait a tick or two.
-  "searchesPerTick": 1,
+  "searchesPerTick": 2,
 
   // A search gives up after expanding this many places (no path, or one absurdly long).
   "maxSearchNodes": 120000,
+
+  // Places all the bots' searches together may look at in one tick (about half a microsecond each, so 1000 is about half a millisecond). A long search
+  // (across the whole yard, up and down floors) carries on over the next ticks instead of stalling one: most
+  // searches need a few hundred to a few thousand and finish in the tick they start; one crossing the whole yard
+  // takes a few ticks, during which its bot keeps standing where it is.
+  "searchNodesPerTick": 1000,
 
   // How eagerly a search heads for the goal. 1 finds the shortest path but explores widely; higher
   // values search far less, for paths a little longer (straightening hides most of the difference).

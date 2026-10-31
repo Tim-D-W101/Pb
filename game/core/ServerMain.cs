@@ -226,6 +226,9 @@ public partial class ServerMain : Node3D, ISimEventListener
         sim.LoadLevel(level);
         sim.Collision.SkipDynamic = true;
         BotSquad squad = BotSquad.ForLevel(sim, _data.Bots, level);
+        // Once a run: every sim and network method compiled before the first round's first tick, not mid-round.
+        Pb.Sim.Core.JitWarmup.PrepareSim();
+        Pb.Sim.Core.JitWarmup.Prepare(typeof(Pb.Net.Server.NetServer).Assembly);
         int largest = Math.Max(people.Count(p => p.Side == 0), people.Count(p => p.Side == 1));
         int size = RoundCasting.FitSize(chosen.Mode, chosen.Size, people.Count, _data.Config.Rules.MaxPlayers, largest);
         float? limit = float.TryParse(Args.Value("--time-limit"), NumberStyles.Float, CultureInfo.InvariantCulture, out float seconds) ? seconds : null;

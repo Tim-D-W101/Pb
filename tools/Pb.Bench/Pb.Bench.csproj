@@ -5,7 +5,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <TieredPGO>true</TieredPGO>
+    <!-- The game's JIT settings (game/Pb.csproj), so the numbers are the game's. -->
+    <TieredPGO>false</TieredPGO>
+    <TieredCompilationQuickJitForLoops>false</TieredCompilationQuickJitForLoops>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Pb.Sim\Pb.Sim.csproj" />

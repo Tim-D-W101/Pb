@@ -584,7 +584,7 @@ public class BotTests
                 Vector3 at = bot.Self.Position + new Vector3(MathF.Sin(angle), 0f, MathF.Cos(angle)) * d;
                 if (arena.Squad.Grid.TrySnap(at, out Vector3 spot) && MathF.Abs(spot.Y - bot.Self.Position.Y) < 0.3f &&
                     arena.Sim.Collision.SweepSphere(spot + new Vector3(0f, 1.6f, 0f), eye, 0f, out _) &&
-                    arena.Squad.Grid.FindPath(bot.Self.Position, spot, new List<Vector3>()))
+                    arena.Squad.Paths.FindPath(bot.Self.Position, spot, new List<Vector3>()))
                 {
                     return spot;
                 }

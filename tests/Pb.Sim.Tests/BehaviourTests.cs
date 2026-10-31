@@ -117,8 +117,8 @@ public class BehaviourTests
             return !arena.Hero.Alive || !bot.Self.Alive;
         });
         float furthest = spots.Count < 2 ? 0f : spots.Skip(1).Max(s => Vector3.Distance(s with { Y = 0f }, spots[0] with { Y = 0f }));
+        // (It may call that it's moving, or not: since the play-test shouts are occasional, CalloutTests.)
         _out.WriteLine($"spots {string.Join(" → ", spots.Select(s => $"({s.X:0},{s.Z:0})"))}; called moving={moving}");
-        Assert.True(moving, "it never called that it was moving");
         Assert.True(furthest >= 7.5f, $"it only shuffled {furthest:0.0} m");
     }
 
@@ -214,7 +214,7 @@ public class BehaviourTests
         float angle = MathF.Acos(Math.Clamp(Vector3.Dot(line, side), -1f, 1f)) * 180f / MathF.PI;
         // ... and the way there is less in your sight than walking straight at you.
         var direct = new List<Vector3>();
-        Assert.True(arena.Squad.Grid.FindPath(start, spot, direct));
+        Assert.True(arena.Squad.Paths.FindPath(start, spot, direct));
         float flankSeen = PathExposure(arena, Prepend(start, flanker.Path), spot);
         float directSeen = PathExposure(arena, Prepend(start, direct), spot);
         _out.WriteLine($"flank spot {goal} at {angle:0}° off the caller's line; in your sight {flankSeen:P0} of the way vs {directSeen:P0} straight at you");

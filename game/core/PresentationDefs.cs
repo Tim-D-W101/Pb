@@ -710,6 +710,9 @@ public sealed class MixDef : IValidatable
 
     public float Whistle { get; set; }
 
+    /// <summary>The soft cue the round starts on (hud.refereePacing "startCue": "soft").</summary>
+    public float RoundStart { get; set; }
+
     public float Callout { get; set; }
 
     public float Referee { get; set; }
@@ -2172,8 +2175,11 @@ public sealed class HudDef : IValidatable
 
     public RefereeDef Referee { get; set; } = new();
 
+    public RefereePacingDef RefereePacing { get; set; } = new();
+
     public void Validate(Validator v)
     {
+        RefereePacing.Validate(v.Scope(nameof(RefereePacing)));
         v.InRange(nameof(IconSize_px), IconSize_px, 6, 64);
         v.InRange(nameof(KillFeedLines), KillFeedLines, 1, 20);
         v.InRange(nameof(KillFeedTime_s), KillFeedTime_s, 0.5, 60);
@@ -2209,6 +2215,52 @@ public sealed class HudDef : IValidatable
         {
             v.Error(nameof(Callouts), $"'{line}' has no words to name its voice file by");
         }
+    }
+}
+
+/// <summary>
+/// How much the referee says (hud.refereePacing): the cue the round starts on, which calls it makes, and how far apart.
+/// After the play-test the referee says less: one line to start on, a minute's warning, and the room only once it's
+/// settled.
+/// </summary>
+public sealed class RefereePacingDef : IValidatable
+{
+    private static readonly string[] Cues = { "soft", "horn", "none" };
+
+    /// <summary>The sound the round starts on: "soft" (a quiet two-note knock), "horn" (the old breakout horn) or "none".</summary>
+    public string StartCue { get; set; } = "soft";
+
+    /// <summary>Say a start line ("Game on!") when the round goes live.</summary>
+    public bool SayStart { get; set; } = true;
+
+    /// <summary>Call "one minute left" (rounds over a minute and a half long).</summary>
+    public bool OneMinute { get; set; } = true;
+
+    /// <summary>Call "thirty seconds" (with two pips of the whistle).</summary>
+    public bool ThirtySeconds { get; set; }
+
+    /// <summary>The whistle when the round ends.</summary>
+    public bool EndWhistle { get; set; } = true;
+
+    /// <summary>Lines other than "you're out" and how the round went come at least this far apart (s); one that would come sooner isn't said.</summary>
+    public float Gap_s { get; set; }
+
+    /// <summary>A hold's room changing hands is called only once it has stayed so this long (s).</summary>
+    public float RoomSettle_s { get; set; }
+
+    /// <summary>... and the same call about the room not again within this (s).</summary>
+    public float RoomRepeat_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        if (!Cues.Contains(StartCue))
+        {
+            v.Error(nameof(StartCue), $"'{StartCue}' is not one of {string.Join(", ", Cues)}");
+        }
+
+        v.InRange(nameof(Gap_s), Gap_s, 0, 120);
+        v.InRange(nameof(RoomSettle_s), RoomSettle_s, 0, 30);
+        v.InRange(nameof(RoomRepeat_s), RoomRepeat_s, 0, 600);
     }
 }
 

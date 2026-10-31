@@ -112,6 +112,8 @@ public partial class LevelMain : Node3D, ISimEventListener
     private Birds _birds = null!;
     private AudioDirector _audio = null!;
     private RefereeCalls _referee = null!;
+    private System.Runtime.GCLatencyMode _latencyBefore = System.Runtime.GCSettings.LatencyMode;
+    private readonly int[] _collectionsAtLoad = new int[3];
 
     /// <summary>The sound (for the smoke test's report).</summary>
     public AudioDirector Audio => _audio;
@@ -288,6 +290,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         var navWatch = Stopwatch.StartNew();
         _squad = BotSquad.ForLevel(_sim, _data.Bots, _level);
         double navMs = navWatch.Elapsed.TotalMilliseconds;
+        // The sim's, the network's and the game's own methods compiled now, while the level loads, rather than on
+        // their first call mid-round (a bot's first flank, the first elimination): each was a stall of a few ms.
+        (int warmed, double warmMs) = WarmUp();
         // With an objective the opponents gather round it, so the starts are always dealt; so they are in part of an area.
         ObjectiveFocus? focus = ObjectiveFocus.For(_objective.Kind, _level.Objectives, _data.Config.Rules.Objectives, seed);
         if (_net is { Hosting: true })
@@ -522,7 +527,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.AddListener(_audio);
         _referee = new RefereeCalls { Name = "Referee" };
         AddChild(_referee);
-        _referee.Initialize(_sim, state, _view.Hud.Referee, _hud, _audio);
+        _referee.Initialize(_sim, state, _view.Hud.Referee, _hud, _audio, _view.Hud.RefereePacing);
         _driver.AddListener(_referee);
         _driver.AddListener(_hud);
         _driver.AddListener(this);
@@ -662,7 +667,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
                  $"{_world.MeshCount} meshes ({_world.ShapeCount} props built in code, {_world.FramedOpenings} framed openings and {_world.DressedBuildings} buildings with gutters or trusses, {_world.DressedWalls} dressed walls, {_world.SkirtedFaces} skirted wall faces, {_world.SceneryCount} pylons and poles beyond, {_world.ShapeTriangles} triangles), " +
                  $"{_world.ColliderCount} walking colliders, {_sim.Collision.Colliders.Count} paint colliders, {_doors.Count} door leaves, " +
-                 $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, preset {preset.Name}, " +
+                 $"{_squad.Grid.SpanCount} nav spans and {_squad.Cover.Points.Count} cover points in {navMs:0} ms, {warmed} methods compiled up front in {warmMs:0} ms, preset {preset.Name}, " +
                  $"art {(ArtFiles.Disabled ? "off" : "on")} ({_pawns.Count(o => o.Visual.HasModel)} bots drawn as models)");
         _ready = true;
         if (_net is { } session)
@@ -1476,7 +1481,30 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
     }
 
-    public override void _ExitTree() => StopNetwork();
+    public override void _ExitTree()
+    {
+        StopNetwork();
+        System.Runtime.GCSettings.LatencyMode = _latencyBefore;
+    }
+
+    /// <summary>
+    /// Compiles the sim's, the network's and the game's methods up front (once a run) and, for as long as the level is
+    /// up, has the garbage collector avoid full blocking collections (it collects the old generation in the background
+    /// instead): the hitches of a first call or a full collection mid-round.
+    /// </summary>
+    private (int Methods, double Milliseconds) WarmUp()
+    {
+        _latencyBefore = System.Runtime.GCSettings.LatencyMode;
+        System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
+        for (int g = 0; g < 3; g++)
+        {
+            _collectionsAtLoad[g] = GC.CollectionCount(g);
+        }
+        (int sim, double simMs) = Pb.Sim.Core.JitWarmup.PrepareSim();
+        (int net, double netMs) = Pb.Sim.Core.JitWarmup.Prepare(typeof(Pb.Net.Server.NetServer).Assembly);
+        (int game, double gameMs) = Pb.Sim.Core.JitWarmup.Prepare(typeof(LevelMain).Assembly);
+        return (sim + net + game, simMs + netMs + gameMs);
+    }
 
     private Color TeamColor(int team) => Color.FromHtml(_view.TeamColors[team % _view.TeamColors.Length]);
 
@@ -1685,7 +1713,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         string objective = ObjectiveLine() is { } line ? $" ({line})" : "";
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +
                  $"{you.Eliminations} of {_sim.Players.Count(p => p.Team != _player.State.Team)}, {you.Shots} shots, {you.Hits} hits, " +
-                 $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; callouts heard {_callouts}; simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
+                 $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; callouts: {_squad.Shouts} shouted aloud, {_squad.ContactsShared} contacts " +
+                 $"shared and heard {_squad.ContactsHeard} times by teammates, {_callouts} callout-key presses; collections {CollectionsLine()}; " +
+                 $"simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
         if (_net is { } session)
         {
             // Every copy prints the round as it ended there: the host's and each joiner's lines must match (CI compares them).
@@ -1928,8 +1958,30 @@ public partial class LevelMain : Node3D, ISimEventListener
             {
                 _hud.Subtitle(bot.Self.Name, bot.Self.Team, line);
             }
+
+            MarkTeammatesContact(bot, distance);
         }
     }
+
+    /// <summary>
+    /// A bot on your side shouting "Contact!" within earshot (the bots' callout range) marks the one it's seen for you, as
+    /// a person's callout key does for the bots: its call reaches you as it reaches its bot teammates.
+    /// </summary>
+    private void MarkTeammatesContact(BotBrain bot, float distance)
+    {
+        PlayerState you = _player.State;
+        if (bot.Callout != CalloutKind.Spotted || bot.Self == you || _mode.Kind == MatchModeKind.FreeForAll || bot.Self.Team != you.Team ||
+            distance > _data.Bots.Brain.CalloutRange || bot.Senses.Focus is not { } seen || _sim.FindPlayer(seen.TargetId) is not { Alive: true } target)
+        {
+            return;
+        }
+
+        _marks.Add(target.Position.ToGodot(), TeamColor(bot.Self.Team), $"{bot.Self.Name}: {target.Name}");
+    }
+
+    /// <summary>Garbage collections since the level loaded, by generation (the bot match's line, to catch the game collecting often).</summary>
+    private string CollectionsLine() =>
+        $"{GC.CollectionCount(0) - _collectionsAtLoad[0]}/{GC.CollectionCount(1) - _collectionsAtLoad[1]}/{GC.CollectionCount(2) - _collectionsAtLoad[2]}";
 
     /// <summary>No input: what an eliminated local player sends while spectating.</summary>
     private sealed class IdlePilot : ICommandSource
