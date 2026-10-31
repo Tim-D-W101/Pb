@@ -1018,6 +1018,12 @@
       "maxStretch": 0.995,
       "maxStep": 0.9,
       "maxReachDrop_m": 0.1,
+      // A planted foot the body drags along faster than stepWhenDragged_mps (left out of reach behind by setting off
+      // briskly or a reversal) doesn't skate after the body until its turn comes round: with the other foot down it lifts
+      // there and then; with the other in the air the gait cycle runs draggedHurry times as fast, so that one lands short
+      // and quick and this one follows.
+      "stepWhenDragged_mps": 0.4,
+      "draggedHurry": 2.5,
       // A foot lands on the ground under it (a stair tread, a kerb) up to stepUp_m above or stepDown_m
       // below the body's own floor; anything else, on the body's floor.
       "stepUp_m": 0.3,

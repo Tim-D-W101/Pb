@@ -1568,6 +1568,12 @@ public sealed class StepsDef : IValidatable
 
     public float MaxReachDrop_m { get; set; }
 
+    /// <summary>A planted foot the body pulls along faster than this (out of reach: a reversal, a sharp change of pace) steps at once instead of skating.</summary>
+    public float StepWhenDragged_mps { get; set; } = 0.4f;
+
+    /// <summary>Meanwhile, with the other foot in the air, the gait cycle runs this many times as fast (that foot lands sooner).</summary>
+    public float DraggedHurry { get; set; } = 2.5f;
+
     /// <summary>A foot lands on ground at most this far above or below the body's own floor (a stair tread, a kerb), else on the body's floor.</summary>
     public float StepUp_m { get; set; }
 
@@ -1651,6 +1657,8 @@ public sealed class StepsDef : IValidatable
         v.InRange(nameof(MaxStretch), MaxStretch, 0.8, 1.0);
         v.InRange(nameof(MaxStep), MaxStep, 0.2, 2);
         v.InRange(nameof(MaxReachDrop_m), MaxReachDrop_m, 0, 0.6);
+        v.InRange(nameof(StepWhenDragged_mps), StepWhenDragged_mps, 0.05, 5);
+        v.InRange(nameof(DraggedHurry), DraggedHurry, 1, 6);
         v.InRange(nameof(StepUp_m), StepUp_m, 0, 0.6);
         v.InRange(nameof(StepDown_m), StepDown_m, 0, 0.8);
         v.InRange(nameof(TuckLift_m), TuckLift_m, 0, 0.6);

@@ -184,8 +184,9 @@ public sealed class StepGait
         if (moving)
         {
             _legYaw = ApproachAngle(_legYaw, _facing + TravelTwist(), turn);
+            float hurry = StepIfDragged(delta);
             float before = _phase;
-            _phase = Mathf.PosMod(_phase + _cadence * delta, 1f);
+            _phase = Mathf.PosMod(_phase + _cadence * hurry * delta, 1f);
             foreach (FootState foot in _feet)
             {
                 StepPhased(foot, before, gait, ground);
@@ -281,6 +282,35 @@ public sealed class StepGait
         float rightBehind = -(_right.Planted - _root).Dot(ahead);
         // Just before that foot's lift-off, so it lifts this frame.
         _phase = Mathf.PosMod((leftBehind >= rightBehind ? _left.Offset : _right.Offset) - 1e-4f, 1f);
+    }
+
+    /// <summary>
+    /// A planted foot the body dragged along last frame faster than the steps allow (setting off briskly, or a reversal,
+    /// leaves the foot that's down out of reach behind) doesn't skate after the body until its turn comes round: with the
+    /// other foot down it lifts now (the cycle moves on to its lift-off), and with the other in the air the cycle hurries
+    /// (the factor returned), so that foot lands short and quick and this one can follow.
+    /// </summary>
+    private float StepIfDragged(float delta)
+    {
+        foreach (FootState foot in _feet)
+        {
+            FootState other = foot == _left ? _right : _left;
+            if (foot.Swinging || foot.Airborne || foot.Dragged <= _def.StepWhenDragged_mps * delta)
+            {
+                continue;
+            }
+
+            foot.Dragged = 0f;
+            if (!other.Swinging)
+            {
+                _phase = Mathf.PosMod(foot.Offset - 1e-4f, 1f);
+                return 1f;
+            }
+
+            return _def.DraggedHurry;
+        }
+
+        return 1f;
     }
 
     /// <summary>
@@ -504,6 +534,7 @@ public sealed class StepGait
         HipsOffset = offset;
         foreach (FootState foot in _feet)
         {
+            foot.Dragged = 0f;
             if (!foot.Swinging && !foot.Airborne)
             {
                 Vector3 hip = Hip(foot, right, vertical - _reachDrop);
@@ -516,6 +547,7 @@ public sealed class StepGait
                     Vector2 pull = across.Normalized() * (across.Length() - most);
                     foot.Drag(new Vector3(-pull.X, 0f, -pull.Y));
                     foot.Ankle -= new Vector3(pull.X, 0f, pull.Y);
+                    foot.Dragged = pull.Length();
                 }
             }
         }
@@ -693,6 +725,9 @@ public sealed class StepGait
         public bool Swinging { get; private set; }
 
         public bool Airborne { get; private set; }
+
+        /// <summary>How far the body pulled this foot along the ground last frame while it was down (out of reach).</summary>
+        public float Dragged { get; set; }
 
         /// <summary>How far through its swing (0–1).</summary>
         public float Progress { get; private set; }

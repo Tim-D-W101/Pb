@@ -13,6 +13,7 @@ namespace Pb.Sim.Tests;
 /// differ from the last's, roles aren't tied to places, the opponents can start anywhere in an area (inside the hospital
 /// and the cold store too), and bots with nothing to do move between posts instead of standing at one all round.
 /// </summary>
+[Collection(BotArenaCollection.Name)]
 public class SpawnVarietyTests
 {
     private const int Second = 120;

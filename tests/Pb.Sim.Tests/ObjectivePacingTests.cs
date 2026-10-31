@@ -15,6 +15,7 @@ namespace Pb.Sim.Tests;
 /// other, a carrier and its escort stuck at a door, bots that couldn't get to their spot in the room, three bots holding
 /// a door shut by standing in its swing, a bot pressed against an open leaf) now end; and a stale hold gets settled.
 /// </summary>
+[Collection(BotArenaCollection.Name)]
 public class ObjectivePacingTests
 {
     private const int Second = 120;

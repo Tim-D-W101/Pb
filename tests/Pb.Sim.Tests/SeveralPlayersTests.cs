@@ -10,6 +10,7 @@ using Pb.Sim.Players;
 namespace Pb.Sim.Tests;
 
 /// <summary>Phase 4 (M4.1): rounds with several people, results told from each side, lag compensation and a joining copy's step.</summary>
+[Collection(BotArenaCollection.Name)]
 public class SeveralPlayersTests
 {
     private const int Second = 120;

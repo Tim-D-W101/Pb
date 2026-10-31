@@ -162,7 +162,9 @@ public partial class GaitDemo : Node, ICommandSource
             if (_measured >= 0 && _time > 0f)
             {
                 CharacterPoser poser = model.Poser;
-                GD.Print($"GAIT DEMO   {_moves[_measured].Name}: {_steps / Mathf.Max(_time - _settledAt, 0.01f):0.0} steps/s, feet slide {(poser.CheckDown > 0f ? poser.CheckSlide / poser.CheckDown : 0f):0.000} m/s while down, " +
+                float slide = poser.CheckDown > 0f ? poser.CheckSlide / poser.CheckDown : 0f;
+                Check(_moves[_measured].Name, slide, _jerk, _measured > 0 ? _changeJerk : 0f, poser.CheckHandMiss, poser.CheckMiss);
+                GD.Print($"GAIT DEMO   {_moves[_measured].Name}: {_steps / Mathf.Max(_time - _settledAt, 0.01f):0.0} steps/s, feet slide {slide:0.000} m/s while down, " +
                          $"hips {_hipsLow:0.00}–{_hipsHigh:0.00} m up, ankles up to {poser.CheckMiss * 100f:0.0} cm off their marks, " +
                          $"head/hands/hips jump up to {_jump * 100f:0.0} cm a frame, jerk up to {_jerk * 100f:0.0} cm ({_jerkBone}), " +
                          $"{_changeJerk * 100f:0.0} cm going into it ({_changeAt}), wrists up to {poser.CheckHandMiss * 100f:0.0} cm off the marker");
@@ -275,6 +277,15 @@ public partial class GaitDemo : Node, ICommandSource
         if (index == _moves.Length - 1 && seconds >= Total())
         {
             GD.Print("GAIT DEMO done");
+            if (Args.Has("--gait-check"))
+            {
+                // CI: the steps as measured above, against what the play-test's fixes brought them to (with room to spare).
+                bool ok = _failures.Count == 0 && _checked > 0;
+                GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: gait check over {_checked} moves{(ok ? "" : ": " + string.Join("; ", _failures))}");
+                GetTree().Quit(ok ? 0 : 1);
+                return new InputCommand { Tick = tick, Yaw = _facing };
+            }
+
             GetTree().Quit();
         }
 
@@ -297,6 +308,30 @@ public partial class GaitDemo : Node, ICommandSource
         {
             Tick = tick, Yaw = _facing, Pitch = 0f, HeadYaw = _head, Buttons = move.Buttons, Move = new System.Numerics.Vector2(move.Right, move.Forward),
         };
+    }
+
+    // The gait check's limits (--gait-check): a planted foot's slide (m/s), the head's and hands' jerk in a move and going
+    // into it from the last (m, a frame), how far a wrist is from its grip and an ankle from its mark (m).
+    private const float MaxSlide = 0.3f, MaxJerk = 0.025f, MaxChange = 0.04f, MaxWristMiss = 0.01f, MaxAnkleMiss = 0.03f;
+    private readonly List<string> _failures = new();
+    private int _checked;
+
+    private void Check(string move, float slide, float jerk, float change, float wrist, float ankle)
+    {
+        _checked++;
+        Fail(slide > MaxSlide, $"{move}: feet slide {slide:0.000} m/s");
+        Fail(jerk > MaxJerk, $"{move}: jerk {jerk * 100f:0.0} cm");
+        Fail(change > MaxChange, $"{move}: {change * 100f:0.0} cm going into it");
+        Fail(wrist > MaxWristMiss, $"{move}: a wrist {wrist * 100f:0.0} cm off its grip");
+        Fail(ankle > MaxAnkleMiss, $"{move}: an ankle {ankle * 100f:0.0} cm off its mark");
+    }
+
+    private void Fail(bool failed, string what)
+    {
+        if (failed)
+        {
+            _failures.Add(what);
+        }
     }
 
     private float Total()

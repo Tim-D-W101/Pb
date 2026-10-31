@@ -1718,6 +1718,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         PlayerStats you = _match.StatsFor(_player.State.Id)!;
         int errors = _driver.ErrorCount;
         bool ok = errors == 0 && _match.Outcome != RoundOutcome.None && (_net?.Client is null || _netOver);
+        // CI with the art on: no character's head or hands may pop further than this in a frame (cm).
+        if (float.TryParse(Args.Value("--max-pop"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float maxPop))
+        {
+            float worst = _pawns.Where(p => p.Visual.Model is not null).Select(p => p.Visual.Model!.Poser.WorstPop).DefaultIfEmpty(float.MaxValue).Max();
+            ok &= worst <= maxPop;
+        }
         int botOnBot = _sim.Players.Count(p => !p.Alive && p != _player.State && p.EliminatedBy > 0);
         string objective = ObjectiveLine() is { } line ? $" ({line})" : "";
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +

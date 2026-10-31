@@ -17,6 +17,11 @@
 #          a 3 v 3 hold inside the Cold Store and a 3 v 3 retrieve in the Hospital Wing's wings
 #   roles  (--role-demo): a Marksman on the Rail Yard spots you far down its view and opens up, and a Flanker on the
 #          Hospital Wing goes round on a teammate's call and looks out from its spot
+#   gait   (--gait-demo --gait-check): a modelled opponent stands, walks, runs, sprints, pulls up, strafes both ways,
+#          backs off and walks crouched; fails if a planted foot slides, an ankle or a wrist misses its mark, or the head
+#          or hands jerk, past the limits in game/core/GaitDemo.cs
+#   art-match (--bot-match --max-pop): a 3 v 3 round with the art on; fails if any character's head or hands pop
+#          further than --max-pop cm in a frame
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -70,5 +75,7 @@ run match-place res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art
 run match-place-rail-yard res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --random-spawns --level=rail_yard --place=engine_shed
 run match-place-cold-store res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=hold --level=cold_store --place=store
 run match-place-hospital-wing res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=retrieve --level=hospital_wing --place=wings
+run gait res://scenes/Level.tscn -- --gait-demo --gait-check
+run art-match res://scenes/Level.tscn -- --bot-match --time-limit=120 --mode=teams --size=3 --max-pop=15
 run art res://tools/ArtImport.tscn -- --selftest
 exit "$failed"

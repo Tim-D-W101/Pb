@@ -15,6 +15,7 @@ namespace Pb.Sim.Tests;
 /// The bots' shouts after the play-test (they were overdone): occasional, never piling on one another, nobody echoing
 /// a teammate; and the calls that tell teammates where you are reach every teammate in earshot and nobody else.
 /// </summary>
+[Collection(BotArenaCollection.Name)]
 public class CalloutTests
 {
     private const int Second = 120;

@@ -13,6 +13,7 @@ namespace Pb.Sim.Tests;
 /// carried on over several ticks within a budget of places a tick, and only places a door can swing over ask whether a
 /// door stands open there. Neither changes a path.
 /// </summary>
+[Collection(BotArenaCollection.Name)]
 public class PathBudgetTests
 {
     private const int Second = 120;
