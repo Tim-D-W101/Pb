@@ -50,6 +50,8 @@ public partial class GaitDemo : Node, ICommandSource
     private SVector3 _start;
     private SVector3 _side;
     private float _yaw;
+    private float _facing = float.NaN;
+    private static readonly float TurnRate = Mathf.DegToRad(240f);
     private int _first = -1;
     private int _current = -1;
 
@@ -132,6 +134,16 @@ public partial class GaitDemo : Node, ICommandSource
     private float _downTime;
     private float _time;
     private float _hipsLow = float.MaxValue, _hipsHigh = float.MinValue;
+
+    // Jitter: each frame, the head, both hands and the hips relative to the body's root; the biggest jump from one frame
+    // to the next (cm) and the biggest jerk (the change in that jump, cm), which is what a pop shows as.
+    private static readonly string[] Watched = { "Head", "LeftHand", "RightHand", "Hips" };
+    private readonly Vector3[] _was = new Vector3[Watched.Length];
+    private readonly Vector3[] _wasStep = new Vector3[Watched.Length];
+    private bool _haveWas;
+    private float _jump, _jerk, _changeJerk;
+    private string _changeAt = "";
+    private string _jerkBone = "";
     private int _measured = -1;
     private float _settledAt;
 
@@ -151,8 +163,10 @@ public partial class GaitDemo : Node, ICommandSource
             {
                 CharacterPoser poser = model.Poser;
                 GD.Print($"GAIT DEMO   {_moves[_measured].Name}: {_steps / Mathf.Max(_time - _settledAt, 0.01f):0.0} steps/s, feet slide {(poser.CheckDown > 0f ? poser.CheckSlide / poser.CheckDown : 0f):0.000} m/s while down, " +
-                         $"hips {_hipsLow:0.00}–{_hipsHigh:0.00} m up, ankles up to {poser.CheckMiss * 100f:0.0} cm off their marks");
-                poser.CheckSlide = poser.CheckDown = poser.CheckMiss = 0f;
+                         $"hips {_hipsLow:0.00}–{_hipsHigh:0.00} m up, ankles up to {poser.CheckMiss * 100f:0.0} cm off their marks, " +
+                         $"head/hands/hips jump up to {_jump * 100f:0.0} cm a frame, jerk up to {_jerk * 100f:0.0} cm ({_jerkBone}), " +
+                         $"{_changeJerk * 100f:0.0} cm going into it ({_changeAt}), wrists up to {poser.CheckHandMiss * 100f:0.0} cm off the marker");
+                poser.CheckSlide = poser.CheckDown = poser.CheckMiss = poser.CheckHandMiss = 0f;
             }
 
             _measured = _current;
@@ -161,6 +175,8 @@ public partial class GaitDemo : Node, ICommandSource
             _slide = _downTime = _time = 0f;
             _hipsLow = float.MaxValue;
             _hipsHigh = float.MinValue;
+            _jump = _jerk = _changeJerk = 0f;
+            _haveWas = false;
         }
 
         float floor = _walker.State.Position.Y;
@@ -168,7 +184,7 @@ public partial class GaitDemo : Node, ICommandSource
         if (_time - delta < Settle && _time >= Settle)
         {
             // Measured once the move has settled in (not the start, the turn or the stop).
-            model.Poser.CheckSlide = model.Poser.CheckDown = model.Poser.CheckMiss = 0f;
+            model.Poser.CheckSlide = model.Poser.CheckDown = model.Poser.CheckMiss = model.Poser.CheckHandMiss = 0f;
             _steps = 0;
             _settledAt = _time;
         }
@@ -192,6 +208,38 @@ public partial class GaitDemo : Node, ICommandSource
         }
 
         float hips = model.Attachment("Hips").GlobalPosition.Y - floor;
+        Transform3D root = model.GlobalTransform.AffineInverse();
+        for (int b = 0; b < Watched.Length; b++)
+        {
+            Vector3 at = root * model.Attachment(Watched[b]).GlobalPosition;
+            Vector3 step = at - _was[b];
+            if (_haveWas && _time < Settle)
+            {
+                // Going into the move from the last: starting, stopping, turning, crouching.
+                float change = (step - _wasStep[b]).Length();
+                if (change > _changeJerk)
+                {
+                    _changeJerk = change;
+                    _changeAt = $"{Watched[b]} {_time:0.00} s in, step {step * 100f:0.0} cm after {_wasStep[b] * 100f:0.0} cm";
+                }
+            }
+
+            if (_haveWas && _time >= Settle)
+            {
+                _jump = Mathf.Max(_jump, step.Length());
+                float jerk = (step - _wasStep[b]).Length();
+                if (jerk > _jerk)
+                {
+                    _jerk = jerk;
+                    _jerkBone = Watched[b];
+                }
+            }
+
+            _wasStep[b] = _haveWas ? step : Vector3.Zero;
+            _was[b] = at;
+        }
+
+        _haveWas = true;
 
         _hipsLow = Mathf.Min(_hipsLow, hips);
         _hipsHigh = Mathf.Max(_hipsHigh, hips);
@@ -242,9 +290,12 @@ public partial class GaitDemo : Node, ICommandSource
         }
 
         _head = Mathf.MoveToward(_head, Mathf.DegToRad(look), Mathf.DegToRad(300f) * _sim.Config.Dt);
+        // Turning round at a normal bot's pace (difficulty.jsonc "turnSpeed_degps"), not in one tick: the steps round it
+        // are part of what's shown, and an instant flip is nothing a bot does.
+        _facing = float.IsNaN(_facing) ? yaw : _facing + Mathf.Clamp(Mathf.AngleDifference(_facing, yaw), -TurnRate * _sim.Config.Dt, TurnRate * _sim.Config.Dt);
         return new InputCommand
         {
-            Tick = tick, Yaw = yaw, Pitch = 0f, HeadYaw = _head, Buttons = move.Buttons, Move = new System.Numerics.Vector2(move.Right, move.Forward),
+            Tick = tick, Yaw = _facing, Pitch = 0f, HeadYaw = _head, Buttons = move.Buttons, Move = new System.Numerics.Vector2(move.Right, move.Forward),
         };
     }
 

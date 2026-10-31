@@ -926,12 +926,15 @@
         { "speed_mps": 1.0, "cadence_hz": 0.98, "swing": 0.43, "lift_m": 0.07, "landAhead": 0.43, "bob_m": 0.020 },
         { "speed_mps": 1.7, "cadence_hz": 1.12, "swing": 0.45, "lift_m": 0.09, "landAhead": 0.42, "bob_m": 0.025 },
         { "speed_mps": 2.3, "cadence_hz": 1.25, "swing": 0.47, "lift_m": 0.11, "landAhead": 0.41, "bob_m": 0.030 },
-        { "speed_mps": 2.7, "cadence_hz": 1.36, "swing": 0.62, "lift_m": 0.17, "landAhead": 0.40, "bob_m": 0.040 },
-        { "speed_mps": 3.0, "cadence_hz": 1.40, "swing": 0.66, "lift_m": 0.20, "landAhead": 0.40, "bob_m": 0.045 },
-        { "speed_mps": 4.2, "cadence_hz": 1.46, "swing": 0.72, "lift_m": 0.26, "landAhead": 0.40, "bob_m": 0.055 },
-        { "speed_mps": 5.5, "cadence_hz": 1.52, "swing": 0.76, "lift_m": 0.30, "landAhead": 0.40, "bob_m": 0.060 },
-        { "speed_mps": 7.0, "cadence_hz": 1.60, "swing": 0.80, "lift_m": 0.34, "landAhead": 0.40, "bob_m": 0.065 }
+        { "speed_mps": 2.7, "cadence_hz": 1.40, "swing": 0.64, "lift_m": 0.17, "landAhead": 0.47, "bob_m": 0.040 },
+        { "speed_mps": 3.0, "cadence_hz": 1.46, "swing": 0.68, "lift_m": 0.20, "landAhead": 0.47, "bob_m": 0.045 },
+        { "speed_mps": 4.2, "cadence_hz": 1.62, "swing": 0.76, "lift_m": 0.24, "landAhead": 0.48, "bob_m": 0.050 },
+        { "speed_mps": 5.5, "cadence_hz": 1.75, "swing": 0.80, "lift_m": 0.27, "landAhead": 0.48, "bob_m": 0.055 },
+        { "speed_mps": 7.0, "cadence_hz": 2.00, "swing": 0.82, "lift_m": 0.30, "landAhead": 0.48, "bob_m": 0.060 }
       ],
+      // (After the play-test: running, a foot is down for so short a while that the body passes over it no further
+      // than the legs reach, about 0.65 m, as a runner's does: quicker strides, more of each in the air. Slower
+      // strides had the body outrun a foot still down, which then slid along behind it.)
       // Crouched, quicker steps that lift less.
       "crouchCadence": 1.4,
       "crouchLift": 0.7,

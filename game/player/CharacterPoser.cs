@@ -163,6 +163,8 @@ public partial class CharacterPoser : SkeletonModifier3D
         if (Ladder is { } grip)
         {
             LadderBody(skeleton, toSkeleton, grip, up, forward, right);
+            _popFrames = 0; // (a pop is measured from frames in a row)
+            _popAfter = "after a ladder";
             return;
         }
 
@@ -186,6 +188,64 @@ public partial class CharacterPoser : SkeletonModifier3D
         Hands(skeleton, toSkeleton, up, right);
         Check(skeleton, 0, _leftLeg[2], _leftToe, steps.LeftAnkle, steps.LeftPlanted, (float)delta);
         Check(skeleton, 1, _rightLeg[2], _rightToe, steps.RightAnkle, steps.RightPlanted, (float)delta);
+        if (TrackPops && SupportRaise <= 0f)
+        {
+            Pops(skeleton, up.Length()); // (not once out: the hand going up is meant to be quick)
+        }
+        else
+        {
+            _popFrames = 0;
+            _popAfter = "after going out";
+        }
+    }
+
+    /// <summary>Measure pops (headless bot matches): every character keeps <see cref="WorstPop"/> and <see cref="Pops"/> up to date.</summary>
+    public static bool TrackPops { get; set; }
+
+    /// <summary>The biggest jerk (cm) of the head or a hand against the body from one frame to the next, since it was set up.</summary>
+    public float WorstPop { get; private set; }
+
+    /// <summary>Frames in which the head or a hand jerked over 3 cm against the body.</summary>
+    public int PopFrames { get; private set; }
+
+    /// <summary>What the worst pop was (for finding where they come from).</summary>
+    public string WorstPopWhat { get; private set; } = "";
+
+    private bool _popRightHanded = true;
+    private string _worstBone = "";
+    private string _popAfter = "from the start";
+    private readonly Vector3[] _popAt = new Vector3[3];
+    private readonly Vector3[] _popStep = new Vector3[3];
+    private int _popFrames;
+
+    /// <summary>The head's and the hands' jerk against the body (skeleton space: the body's own frame) this frame.</summary>
+    private void Pops(Skeleton3D skeleton, float unit)
+    {
+        float worst = 0f;
+        for (int i = 0; i < 3; i++)
+        {
+            int bone = i == 0 ? _head : i == 1 ? _leftArm[2] : _rightArm[2];
+            Vector3 at = skeleton.GetBoneGlobalPose(bone).Origin / Mathf.Max(unit, 1e-4f);
+            Vector3 step = at - _popAt[i];
+            if (_popFrames >= (_popAfter == "from the start" ? 10 : 2) && (step - _popStep[i]).Length() > worst)
+            {
+                worst = (step - _popStep[i]).Length();
+                _worstBone = i == 0 ? "head" : i == 1 ? "left hand" : "right hand";
+            }
+
+            _popStep[i] = step;
+            _popAt[i] = at;
+        }
+
+        _popFrames++;
+        if (worst * 100f > WorstPop)
+        {
+            WorstPopWhat = $"{(RightHanded != _popRightHanded ? "hands swapped sides" : "same side")}, elbows out {ElbowsOut:0.00}, flinch {Flinch.Length():0.00}, lean {LeanRoll:0.00}, pitch {Pitch:0.00}, frame {_popFrames} {_popAfter}, bone {_worstBone}";
+        }
+
+        _popRightHanded = RightHanded;
+        WorstPop = Mathf.Max(WorstPop, worst * 100f);
+        PopFrames += worst > 0.03f ? 1 : 0;
     }
 
     // Checks on the steps as posed (for the gait demo): how far a planted foot slid while it was down (by
@@ -238,12 +298,12 @@ public partial class CharacterPoser : SkeletonModifier3D
             rest.Origin + toSkeleton.Basis * steps.HipsOffset - up * HipDrop);
         skeleton.SetBoneGlobalPose(_hips, hips);
 
-        // Then down as far as both legs need to reach their ankles, at most so far: at once (the need grows
-        // smoothly as a foot falls behind), eased back up so it doesn't bounce.
+        // Then down as far as both legs need to reach their ankles, at most so far: quickly but eased (snapped down in
+        // one frame, the head and hands popped with it), eased back up so it doesn't bounce.
         float need = Mathf.Max(Need(skeleton, toSkeleton, _leftLeg, steps.LeftAnkle, axis), Need(skeleton, toSkeleton, _rightLeg, steps.RightAnkle, axis));
         float unit = up.Length();
         need = Mathf.Min(need / unit, MaxReachDrop);
-        _reachDrop = Mathf.Lerp(_reachDrop, need, 1f - Mathf.Exp(-(float)GetProcessDeltaTimeSafe() / (need > _reachDrop ? 0.004f : 0.1f)));
+        _reachDrop = Mathf.Lerp(_reachDrop, need, 1f - Mathf.Exp(-(float)GetProcessDeltaTimeSafe() / (need > _reachDrop ? 0.02f : 0.1f)));
         if (_reachDrop > 1e-4f)
         {
             hips.Origin -= up * _reachDrop;
@@ -428,9 +488,9 @@ public partial class CharacterPoser : SkeletonModifier3D
 
     private void Hands(Skeleton3D skeleton, Transform3D toSkeleton, Vector3 up, Vector3 right)
     {
-        if (!HandsOnMarker)
+        if (!HandsOnMarker || (TriggerHand == Vector3.Zero && SupportHand == Vector3.Zero))
         {
-            return;
+            return; // (no grips yet: the first frame can come before the character's drawn, and the hands went to the world's origin)
         }
 
         Vector3 trigger = toSkeleton * TriggerHand;
@@ -461,7 +521,17 @@ public partial class CharacterPoser : SkeletonModifier3D
 
         SolveTwoBone(skeleton, _rightArm, RightHanded ? trigger : support, rightBend, keepEnd: false);
         SolveTwoBone(skeleton, _leftArm, RightHanded ? support : trigger, leftBend, keepEnd: false);
+        if (SupportRaise <= 0f)
+        {
+            // How far each wrist ended up from its grip (an arm too short for it leaves the hand off the marker).
+            float miss = Mathf.Max(skeleton.GetBoneGlobalPose(_rightArm[2]).Origin.DistanceTo(RightHanded ? trigger : support),
+                skeleton.GetBoneGlobalPose(_leftArm[2]).Origin.DistanceTo(RightHanded ? support : trigger));
+            CheckHandMiss = Mathf.Max(CheckHandMiss, miss / Mathf.Max(up.Length(), 1e-4f));
+        }
     }
+
+    /// <summary>The furthest a wrist has been from its grip on the marker since this was last reset (m, for the demos).</summary>
+    public float CheckHandMiss { get; set; }
 
     /// <summary>Sets every bone to the gait's blend of its clips, over the idle as far as the gait moves.</summary>
     private void PlayClips(Skeleton3D skeleton, Gait gait)

@@ -38,6 +38,7 @@ public sealed class StepGait
     private float _cadence = 1f;
     private float _swing = 0.4f;
     private float _reachDrop;
+    private float _stride;
     private float _run;
     private float _legYaw;
     private float _facing;
@@ -467,21 +468,18 @@ public sealed class StepGait
     /// </summary>
     private void Hips(float bob, float delta)
     {
-        float up = 0f, sway = 0f;
-        foreach (FootState foot in _feet)
-        {
-            if (_moving && !foot.Swinging && !foot.Airborne)
-            {
-                float p = Mathf.PosMod(_phase - foot.Offset, 1f);
-                float u = Mathf.Clamp((p - _swing) / Mathf.Max(1f - _swing, 0.05f), 0f, 1f);
-                float over = Mathf.Sin(Mathf.Pi * u);
-                up = Mathf.Max(up, over);
-                sway += foot.Side * over;
-            }
-        }
-
+        // The bob and sway follow the stride as smooth waves: once a step up and down, highest (walking) or lowest
+        // (running) as each foot passes under the hip at mid-stance; once a stride from side to side, over the foot
+        // that's down. (Shaped from each foot's time down, they turned a corner as a running foot landed after its
+        // flight, dropping the hips 2–3 cm in one frame, the head and hands with them; and snapped to nothing on a stop.)
+        float midStance = (1f + _swing) * 0.5f; // the left foot's (offset 0); the right's is half a stride on
+        float up = 0.5f * (1f + Mathf.Cos(4f * Mathf.Pi * (_phase - midStance)));
+        float sway = -Mathf.Cos(2f * Mathf.Pi * (_phase - midStance));
         // Walking vaults over the foot (highest mid-stance); running sinks onto it (lowest mid-stance).
-        float vertical = _moving ? Mathf.Lerp((up - 0.5f) * bob, (0.35f - up) * bob, _run) : 0f;
+        float wave = Mathf.Lerp((up - 0.5f) * bob, (0.35f - up) * bob, _run);
+        _stride = Mathf.Lerp(_stride, _moving ? 1f : 0f, 1f - Mathf.Exp(-delta / 0.08f));
+        float vertical = wave * _stride;
+        sway *= _stride;
         // Knees a little soft, never locked straight; and down into them for a moment when pulling up.
         _soft = Mathf.Lerp(_soft, _def.SoftKnees_m + _def.RunSink_m * _run, 1f - Mathf.Exp(-delta / 0.3f));
         vertical -= _soft + _def.StopDip_m * Settling();
@@ -499,8 +497,8 @@ public sealed class StepGait
             need = Mathf.Max(need, Need(foot, right, vertical, reach));
         }
 
-        // Down at once (a leg mustn't fall short), back up eased.
-        float rate = need > _reachDrop ? 0.004f : 0.12f;
+        // Down quickly but eased (a snap down in one frame took the head and hands with it: a visible pop), back up slower.
+        float rate = need > _reachDrop ? 0.02f : 0.12f;
         _reachDrop = Mathf.Lerp(_reachDrop, Mathf.Clamp(need, 0f, _def.MaxReachDrop_m), 1f - Mathf.Exp(-delta / rate));
         // The poser lowers the hips exactly as far as the legs need (up to the same most); this is for the push-off below.
         HipsOffset = offset;

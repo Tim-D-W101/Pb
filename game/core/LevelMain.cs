@@ -269,6 +269,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool coverDemo = Args.Has("--cover-demo");
         bool ladderDemo = Args.Has("--ladder-demo");
         _botMatch = Args.Has("--bot-match");
+        // Headless bot matches with the art on measure the characters' pops (CharacterPoser), printed with the result.
+        Pb.Game.Player.CharacterPoser.TrackPops = _botMatch;
         _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
                     roleDemo is not null || gaitDemo || coverDemo || ladderDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
@@ -1721,7 +1723,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +
                  $"{you.Eliminations} of {_sim.Players.Count(p => p.Team != _player.State.Team)}, {you.Shots} shots, {you.Hits} hits, " +
                  $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; callouts: {_squad.Shouts} shouted aloud, {_squad.ContactsShared} contacts " +
-                 $"shared and heard {_squad.ContactsHeard} times by teammates, {_callouts} callout-key presses; collections {CollectionsLine()}; " +
+                 $"shared and heard {_squad.ContactsHeard} times by teammates, {_callouts} callout-key presses; collections {CollectionsLine()}; {PopsLine()}" +
                  $"simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
         if (_net is { } session)
         {
@@ -1984,6 +1986,13 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _marks.Add(target.Position.ToGodot(), TeamColor(bot.Self.Team), $"{bot.Self.Name}: {target.Name}");
+    }
+
+    /// <summary>The characters' worst pop (the head or a hand jerking against the body in one frame) and how often, with models drawn.</summary>
+    private string PopsLine()
+    {
+        var posed = _pawns.Where(p => p.Visual.Model is not null).Select(p => p.Visual.Model!.Poser).ToList();
+        return posed.Count == 0 ? "" : $"poses: worst pop {posed.Max(p => p.WorstPop):0.0} cm ({posed.MaxBy(p => p.WorstPop)!.WorstPopWhat}), {posed.Sum(p => p.PopFrames)} frames over 3 cm; ";
     }
 
     /// <summary>Garbage collections since the level loaded, by generation (the bot match's line, to catch the game collecting often).</summary>
