@@ -2060,7 +2060,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _marks.Add(at.ToGodot(), TeamColor(team), $"{caller.Name}: {target.Name}", targetId);
         if (ContactMarks++ == 0 && _botMatch)
         {
-            GD.Print($"BOT MATCH {_match.Elapsed:0.0} s (frame {Engine.GetFramesDrawn()}): the first teammate contact on your HUD, {caller.Name}: {target.Name}");
+            GD.Print($"BOT MATCH {_match.Elapsed:0.0} s (frame {Engine.GetProcessFrames()}): the first teammate contact on your HUD, {caller.Name}: {target.Name}");
         }
     }
 

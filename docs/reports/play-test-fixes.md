@@ -379,7 +379,8 @@ all ten bots say about 6 lines in 90 s, so it hardly ever fired.
 |---|---|
 | `dotnet test tests/Pb.Sim.Tests -c Release` | 459 passed (418 before these changes) |
 | `dotnet test tests/Pb.Net.Tests -c Release` | 69 passed (five new tests) |
-| `tools/ci/smoke-test.sh` | the full run is in the PR; the new runs (gait check at 120, 30 and 15 fps; art-on 5 v 5 at 120 and 15 fps) pass |
+| `tools/ci/smoke-test.sh` | all 32 runs pass, among them the gait check at 120, 30 and 15 fps and the art-on 5 v 5 at 120 and 15 fps |
+| `tools/ci/net-round.sh` | passes: 4 rounds, every copy with the server's result; joined copies marked their bot teammates' contacts sent by the server |
 | `--gait-demo --gait-check` | passes at 120, 30 and 15 fps |
 | Art-on 5 v 5, `--max-pop=15` | passes at 120, 30 and 15 fps |
 | `tools/Pb.Bench` | see Performance |
