@@ -10,7 +10,10 @@ settings; after your play-test (2026-10-06) every area is open with nothing to u
 steps; since then they look round, shift their weight, pull up from a run, keep out of their cover and put a hand up
 when hit (M3.14), and you and they can climb every ladder (M3.15).** **Phase 4 (multiplayer: co-op against the bots and player
 vs player for up to ten, hosted from the game or on a dedicated server) is finished but for your check
-([report](docs/reports/phase-4.md), [plan](docs/phase-4.md), [hosting](docs/hosting.md)).** Phase 2 is built
+([report](docs/reports/phase-4.md), [plan](docs/phase-4.md), [hosting](docs/hosting.md)).** **After your play-test of
+Phase 4 (2026-10-31): fewer callouts, a quiet start to the round, steadier characters, starts and roles that change
+every round, bots that move about, objective rounds that play out, and no hitches from path finding
+([report](docs/reports/play-test-fixes.md)).** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -53,11 +56,14 @@ dummies covered in old paint.
 
 Every sound is synthesised in code: the marker's report thinning as the tank empties, paint breaking and
 bouncing off metal, glass, wood, brick, tarp and bodies, footsteps on each floor (splashing in puddles),
-doors by kind, refills, the hit marker, the breakout horn and the referee's whistle, all heard from where
+doors by kind, refills, the hit marker, a soft cue as the round goes live and the referee's whistle at its end, all heard from where
 they happen, muffled through walls and echoing in the halls; wind that rises with the gusts, crows,
 distant traffic and trains outside, and each room's own sound inside (dripping water, pigeons in the
 rafters, a draught through broken windows, the dead quiet of a cold store). The bots shout their callouts in six
-voices, two for each of the three opponents, and a referee calls the round, all subtitled too.
+voices, two for each of the three opponents, now and then rather than all the time (each bot waits between calls and
+doesn't repeat itself, a side calls only every few seconds, and lines never overlap), and a referee calls what matters
+in the round (going live, a minute left, the room changing hands once it's settled, the end), all subtitled too. A
+bot teammate's "Contact!" marks that enemy on your HUD.
 
 The settings (in the main menu and the pause menu) come in five tabs: Controls, where every action can be bound to
 two keys or mouse buttons and a pad button or stick, with clashes shown and swappable, and crouch and walk can be
@@ -173,9 +179,17 @@ remember where you were. Once they've seen you they shoot, then take cover and p
 refilling when they run low. Lost, they flank, push or search. The tier sets how quickly they
 react, how well they aim and how bold they are.
 
-Where everyone starts changes every round: you come in at the gate, the west breach or the north-east
-collapse, and the opponents start at random places around the compound, out of your sight, each with
-a random role, so you can't learn where they are.
+Where everyone starts changes every round: you come in at another entry than last time (at Oxbarrow Works the gate,
+the west breach or the north-east collapse), and the opponents start anywhere in the area, inside the buildings as
+well as out (on every floor), out of your sight and out of sight of the first few metres in from your entry, none of
+them where anyone started the round before, each with a role that isn't tied to the place. Nor do they stay put:
+sentries move between posts near their start, Marksmen change vantage, patrols go either way round, and in solo a squad
+that hasn't found you in a minute and a half comes looking. The game remembers each area's and place's last round to do this.
+
+In an objective round the bots play for it: attackers make for the case or the room (opening doors on the way),
+defenders keep near it, and a room both sides are in but neither can see the other in doesn't stay contested for long.
+The case goes out only through a way out well away from where it lay, the HUD shows the case once you're inside its
+building, and the marker says which floor an objective is on.
 
 They're drawn by one of three rigged character models, posed every frame to match their hitboxes:
 crouching, leaning, aiming, walking and running with movement clips, both hands on the marker (the
@@ -220,9 +234,9 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 355 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots…) — no Godot needed
-dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost
-tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, a bot match and the art import (Linux/macOS)
+dotnet test                                          # 458 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts…) and 66 network tests — no Godot needed
+dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost (each slowest tick's own CPU time beside its wall-clock time)
+tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches, the characters' gait check, a match with the art on and the art import (Linux/macOS)
 ```
 
 CI (GitHub Actions) runs all three on every pull request.

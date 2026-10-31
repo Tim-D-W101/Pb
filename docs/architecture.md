@@ -1143,3 +1143,94 @@ The Godot project sits in `game/` rather than at the repo root for two reasons: 
 | A cheat predicting the spread | Accepted (§6); server-only seeds can come later. |
 | Faults only Windows shows | The Windows build joins the Linux server under Wine in CI. |
 | Routers in the way | Port forwarding (in the hosting guide), a rented server, or later a platform relay. |
+
+## 17. After the Phase 4 play-test (2026-10-31, as built)
+
+The fixes are in [the report](reports/play-test-fixes.md), with before and after numbers. What they changed in the design:
+
+### 17.1 Callouts and the referee
+
+- **Shouting is decided in the sim, not the game.** `BotBrain.Shout` passes a callout through `BotSquad.TakeShout`, which
+  keeps the gaps in `bots/brain.jsonc`:
+  - one bot's cooldown and its repeat time;
+  - a chance gate for everyday calls;
+  - one shout per side every `sideCalloutGap_s`, and no teammate echoing a call within `sideCalloutRepeat_s`;
+  - a squad-wide `squadCalloutGap_s`, so lines never overlap.
+- **The chance gate keeps the bots' random stream untouched.** `ShoutRoll` is a hash of the tick, the bot and the call,
+  not a draw from the bot's generator, so turning shouting up or down never changes what a bot does.
+- **Telling teammates where you are is separate from saying it aloud.** `BotSquad.Share` passes on every contact
+  whether or not a line is said. `ContactsShared` and `ContactsHeard` count the contacts, and `Shouts` counts the lines.
+  The bot match prints all three, and a bot teammate's contact marks the enemy on your HUD (`LevelMain.MarkTeammatesContact`).
+- **The referee keeps to `hud.refereePacing`.**
+  - The round goes live on a soft cue (`startCue`: `soft`, `horn` or `none`; `Sfx.StartCue` is synthesised like
+    everything else). `AudioDirector.Round` plays it at its own level, `mix.roundStart`.
+  - Room calls wait `roomSettle_s` and don't repeat within `roomRepeat_s`.
+  - Everyday lines are at least `gap_s` apart, and the thirty-second call is off.
+
+### 17.2 Path searches within a budget
+
+- **`NavSearch`** holds one search's working memory: open set, costs, visited marks and where it has got to. Each
+  `BotSquad` owns one (`Squad.Paths`), so rounds sharing a level's `NavGrid` never share a search. The grid keeps its
+  own for callers outside a squad (`BeginPath` and `ContinuePath`).
+- **A search is incremental.** `Begin` starts it, and `Continue(ref budget, path)` runs until the budget of places is
+  spent. It returns a `PathStatus` (`Running`, `Found` or `Failed`). The squad hands out
+  `navigation.jsonc` → `searchNodesPerTick` a tick between its bots (`BotSquad.SearchPath`), and a bot whose search is
+  still going keeps doing what it was doing. A bot that finds no path waits before asking again.
+- **Doors only cost where they can be.** `LimitBlockedTo` builds a mask of the places a door leaf can swing over. Only
+  those places ask the door callback, which made searches three to four times cheaper with the same paths. A search
+  never counts a leaf against the places within a metre of its start, so a bot pressed against a door can walk off it.
+- **`JitWarmup`** (`Pb.Sim/Core`) compiles the sim's, the network's and the game's methods while a level loads
+  (`RuntimeHelpers.PrepareMethod`), and the GC runs in `SustainedLowLatency` while a level is up. The game's JIT
+  settings are the ones §14.7 needs on Windows; `Pb.Bench` uses the same settings and prints each slowest tick's
+  thread CPU time beside its wall-clock time, so a busy machine's spikes aren't taken for the sim's.
+
+### 17.3 Starts that change every round
+
+- **`SpawnMemory`** is where everyone started last round (and your entry). `SpawnPlanner.Plan` takes it as `last`:
+  - candidates within `spawning.repeatRadius_m` of a last start (on the same floor) are used only once the fresh ones
+    have been tried over the whole placement;
+  - your entry is a different one whenever the level has more than one.
+- **Memory is kept by the host.** `SpawnHistory` (game) keeps it per area and place for rounds alone, hosted rounds
+  and the dedicated server. `RoundCasting` takes it, and `CastRound.Memory` hands back the new one.
+- **Roles and sight.**
+  - A named spawn plays its own role only `spawnOwnRoleChance` of the time.
+  - Opponents start out of sight of your entry and of the spot `entryLookAhead_m` in from it.
+  - The Hospital Wing's and the Cold Store's spawn areas now take in the buildings (on every floor).
+- **Bots move about.**
+  - Sentries, rushers and Marksmen move to another post or vantage within `shiftWithin_m` of their start every
+    `shiftAfter_s` (`archetypes.jsonc`).
+  - Patrols set off either way round their loop.
+  - A bot with nothing to go on for its mode's `restlessAfter_s` (`rules.jsonc`; 90 s in solo) goes looking.
+
+### 17.4 Objective rounds
+
+- **Retrieve.** `RetrieveRules.MinExitDistance`: a case goes out only through a way out at least
+  `objectives.minExitDistance_m` from where it lay. `ObjectiveState.CountingExits` lists those exits, and
+  `NearestExit` is the nearest one. The HUD, the beams, the briefing map and its text show only the ways that count.
+- **Hold.** `HoldRules.StalemateAfter`: when a room has been contested that long, the attackers in it are told where
+  the defenders in it are (`BotSquad.BreakStalemate`).
+- **Defenders stay near.** `ObjectiveRules.DefendWithin`: defenders who would otherwise hunt or wander roam round the
+  objective (`BotBrain.ActRoamNear`) instead.
+- **Doors.** Bots aim at a door's leaf, not over it. They give way to a door's swing and step off a leaf they're
+  pressed against.
+- **Room spots** are ones a bot can reach.
+- **The HUD** shows the case once you're inside its building, and says which floor an objective is on.
+
+### 17.5 Characters
+
+- **Planted steps (`StepGait`).**
+  - The reach drop and the stride's bob and sway are smooth: the drop eases over 20 ms, and the bob and sway are waves on the stride.
+  - A planted foot the body drags out of reach steps instead of skating (`steps.stepWhenDragged_mps`). With the other
+    foot down, it lifts at once; with the other in the air, the gait cycle hurries (`steps.draggedHurry`).
+- **Hands (`CharacterPoser`).** They wait for their targets, and a shoulder swap eases the grips across.
+- **The crouch (`CharacterVisual`).** The drawn crouch follows the sim's eye height on a critically damped spring.
+- **Measurement.**
+  - The poser measures the head's and hands' pops (`TrackPops`, `WorstPop`).
+  - The gait demo measures planted-foot slide, jerk and how far the wrists and ankles miss their marks.
+  - CI fails on any of these past its limit: `--gait-check`, and `--max-pop` on a bot match with the art.
+
+### 17.6 Network buffers
+
+`PacketBuffers` (`Pb.Net/Transport`) keeps each transport's packet arrays for reuse, in power-of-two buckets from
+64 B. The loopback network and the lagged connection used `ArrayPool<byte>.Shared`, which frees its arrays on a full
+collection under memory pressure. That made the allocation test fail at random on a busy machine.

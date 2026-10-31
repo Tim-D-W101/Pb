@@ -134,7 +134,8 @@ view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's scree
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
 sprinting, pulling up, strafing, backing off, walking crouched and looking round, seen from the side (the planted steps,
 or the movement clips with `characters.legs` = `"clips"`), printing how far the planted feet slid (`--gait-only=NAME`
-plays only the moves starting with NAME). `-- --cover-demo` tucks an opponent in behind low cover, stands it up to shoot
+plays only the moves starting with NAME; `--gait-check` fails it, headless too, past the slide, jerk and miss limits in
+`GaitDemo.cs`, as CI's smoke test does). `-- --cover-demo` tucks an opponent in behind low cover, stands it up to shoot
 over and tucks it in again, printing how far its knees and elbows got into the cover (`--cover-at=X,Z` picks the cover
 nearest that point); it runs headless too, for the numbers alone. `-- --ladder-demo` has an opponent climb the level's
 tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
@@ -142,7 +143,8 @@ Oxbarrow Works and `--level=rail_yard` have ladders).
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until
-the round ends (`--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
+the round ends (`--max-pop=CM`, with the art on, fails it if any character's head or hands jump further than that in a
+frame; `--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a second of the round a frame). `--mode=solo|ffa|teams`, `--size=N`, `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
 objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`), e.g.
 `-- --round-tour --mode=ffa --size=6 --place=warehouse`; `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
 runs quicker; and
