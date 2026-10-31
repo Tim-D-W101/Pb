@@ -90,16 +90,62 @@ public class ObjectiveTests
         Assert.Equal(hero.Position, objective.CasePosition);
         Assert.Equal(RoundOutcome.None, sim.Match.Outcome);
 
-        // ... and out through a way out.
-        ExitSpec exit = Level.Objectives.Exits[0];
+        // ... and out through a way out (one far enough from where it lay to count).
+        int way = objective.CountingExits[0];
+        ExitSpec exit = Level.Objectives.Exits[way];
         hero.Position = exit.Position + new Vector3(2f, 0f, 1f);
         List<SimEvent> extracted = Step(sim, 2);
-        Assert.Contains(extracted, e => e.Type == SimEventType.CaseExtracted && e.PlayerId == hero.Id && e.Extra == 0);
+        Assert.Contains(extracted, e => e.Type == SimEventType.CaseExtracted && e.PlayerId == hero.Id && e.Extra == way);
         Assert.Equal(MatchPhase.Ended, sim.Match.Phase);
         Assert.Equal(RoundOutcome.Extracted, sim.Match.Outcome);
         Assert.True(sim.Match.Outcome.IsWin());
         Assert.False(hero.SprintBlocked);
     }
+
+    [Fact]
+    public void A_way_out_right_by_where_the_case_lay_doesnt_count()
+    {
+        // The Rail Yard's lamp hut is 20 m from the east breach: carried out there it was a round of seconds.
+        LevelLayout yard = TestData.Data.Levels["rail_yard"];
+        float min = TestData.Config.Rules.Objectives.Retrieve.MinExitDistance;
+        ulong seed = Enumerable.Range(1, 500).Select(s => (ulong)s).First(s =>
+        {
+            var probe = new SimWorld(TestData.Config, s);
+            probe.LoadLevel(yard);
+            probe.AddPlayer(0, 0, yard.PlayerSpawns[0].Position, 0f);
+            probe.StartMatch(new MatchSetup { HeroId = 0, TimeLimit = 900f, StartPods = 2, BotPods = 2, Pickups = false, Objective = ObjectiveKind.Retrieve });
+            Vector3 at = probe.Match!.Objective!.CasePosition;
+            return yard.Objectives.Exits.Any(e => Flat(e.Position - at) < min);
+        });
+        var sim = new SimWorld(TestData.Config, seed);
+        sim.LoadLevel(yard);
+        PlayerState hero = sim.AddPlayer(0, 0, yard.PlayerSpawns[0].Position, 0f);
+        sim.AddPlayer(1, 1, new Vector3(0f, 0f, -30f), 0f);
+        sim.StartMatch(new MatchSetup { HeroId = 0, TimeLimit = 900f, StartPods = 2, BotPods = 2, Pickups = false, Objective = ObjectiveKind.Retrieve });
+        sim.GoLive();
+        ObjectiveState objective = sim.Match!.Objective!;
+        Vector3 lay = objective.CasePosition;
+        int near = Enumerable.Range(0, yard.Objectives.Exits.Count).First(i => Flat(yard.Objectives.Exits[i].Position - lay) < min);
+        _out.WriteLine($"case at {lay}; {yard.Objectives.Exits[near].Name} {Flat(yard.Objectives.Exits[near].Position - lay):0} m off doesn't count; " +
+                       $"these do: {string.Join(", ", objective.CountingExits.Select(i => $"{yard.Objectives.Exits[i].Name} ({Flat(yard.Objectives.Exits[i].Position - lay):0} m)"))}");
+        Assert.False(objective.ExitCounts(near));
+        Assert.All(objective.CountingExits, i => Assert.True(Flat(yard.Objectives.Exits[i].Position - lay) >= min));
+
+        hero.Position = lay;
+        Step(sim, 2);
+        Assert.Equal(hero.Id, objective.Carrier);
+        hero.Position = yard.Objectives.Exits[near].Position;
+        Step(sim, 2);
+        Assert.False(objective.Done, "out through the way out right beside it");
+
+        int far = objective.CountingExits[0];
+        hero.Position = yard.Objectives.Exits[far].Position;
+        List<SimEvent> events = Step(sim, 2);
+        Assert.Contains(events, e => e.Type == SimEventType.CaseExtracted && e.Extra == far);
+        Assert.Equal(RoundOutcome.Extracted, sim.Match.Outcome);
+    }
+
+    private static float Flat(Vector3 v) => MathF.Sqrt(v.X * v.X + v.Z * v.Z);
 
     [Fact]
     public void Their_side_cant_pick_the_case_up()

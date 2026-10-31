@@ -76,14 +76,7 @@ public sealed class ObjectiveDemo : ICommandSource
 
         if (objective.Kind == ObjectiveKind.Retrieve && t == TurnAt)
         {
-            ExitSpec exit = objective.Level.Exits[0];
-            foreach (ExitSpec e in objective.Level.Exits)
-            {
-                if (SVector3.Distance(e.Position, state.Position) < SVector3.Distance(exit.Position, state.Position))
-                {
-                    exit = e;
-                }
-            }
+            ExitSpec exit = objective.NearestExit(state.Position);
 
             _look = exit.Position + new SVector3(0f, 4f, 0f);
             GD.Print($"OBJECTIVE DEMO t={t}: carrier={objective.Carrier}, looking at {exit.Name}");

@@ -133,6 +133,14 @@ public sealed class NavGrid : IBotNavigation
 
     public int Rows => _rows;
 
+    /// <summary>Whether a walk (and climb) from <paramref name="a"/> can reach <paramref name="b"/> at all: both on the grid, in one piece.</summary>
+    public bool Connected(Vector3 a, Vector3 b)
+    {
+        int sa = NearestSpan(a);
+        int sb = NearestSpan(b);
+        return sa != None && sb != None && _component[sa] == _component[sb];
+    }
+
     /// <summary>Places joined to at least one neighbour (for stats and tests).</summary>
     public int LinkedSpanCount { get; private set; }
 
@@ -374,8 +382,26 @@ public sealed class NavGrid : IBotNavigation
     /// <summary>Places that can be blocked (for tests).</summary>
     public int MayBlockCount => _mayBlock is null ? _spanY.Length : _mayBlock.Count(b => b);
 
-    private bool IsBlocked(NavSearch search, int span) =>
-        search.Blocked is { } blocked && (_mayBlock is null || _mayBlock[span]) && blocked(PositionOf(span));
+    /// <summary>
+    /// Whether something that moves (an open leaf) stands at <paramref name="span"/>, for this search. Never within a metre
+    /// of where the search starts: a bot standing in the lee of a leaf standing open (between it and the wall) had every
+    /// place round it blocked and no way out, though a body slips past a leaf easily.
+    /// </summary>
+    private bool IsBlocked(NavSearch search, int span)
+    {
+        if (search.Blocked is not { } blocked || (_mayBlock is not null && !_mayBlock[span]))
+        {
+            return false;
+        }
+
+        Vector3 at = PositionOf(span);
+        if (MathF.Abs(at.X - search.StartAt.X) + MathF.Abs(at.Z - search.StartAt.Z) < 1f && MathF.Abs(at.Y - search.StartAt.Y) < 1f)
+        {
+            return false;
+        }
+
+        return blocked(at);
+    }
 
     /// <summary>A path with the grid's own search (tests, tools): <see cref="NavSearch.FindPath"/>.</summary>
     public bool FindPath(Vector3 from, Vector3 to, List<Vector3> path) => _own.FindPath(from, to, path);
@@ -409,6 +435,7 @@ public sealed class NavGrid : IBotNavigation
         }
 
         int generation = ++q.Generation;
+        q.StartAt = PositionOf(start);
         q.Open.Clear();
         q.G[start] = 0f;
         q.Parent[start] = None;
@@ -1046,6 +1073,7 @@ public sealed class NavSearch
     internal int Generation;
     internal bool LandmarksOn;
     internal bool Active;
+    internal Vector3 StartAt = new(float.MaxValue);
     internal int Goal;
     internal Vector3 GoalAt;
     internal int Expanded;

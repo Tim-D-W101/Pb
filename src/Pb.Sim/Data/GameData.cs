@@ -139,6 +139,7 @@ public sealed class GameData
                 {
                     Kinds = rules.Objectives.Kinds.Select(k => new ObjectiveChoice(k.Id, k.DisplayName, k.Description)).ToArray(),
                     GuardRole = rules.Objectives.GuardRole,
+                    DefendWithin = rules.Objectives.DefendWithin_m,
                     Retrieve = new RetrieveRules
                     {
                         PickupRadius = rules.Objectives.Retrieve.PickupRadius_m,
@@ -149,6 +150,7 @@ public sealed class GameData
                         Near = rules.Objectives.Retrieve.Near_m,
                         AlarmInterval = rules.Objectives.Retrieve.AlarmInterval_s,
                         Chasers = rules.Objectives.Retrieve.Chasers,
+                        MinExitDistance = rules.Objectives.Retrieve.MinExitDistance_m,
                     },
                     Hold = new HoldRules
                     {
@@ -157,6 +159,7 @@ public sealed class GameData
                         NearShare = rules.Objectives.Hold.NearShare,
                         Near = rules.Objectives.Hold.Near_m,
                         AlarmInterval = rules.Objectives.Hold.AlarmInterval_s,
+                        StalemateAfter = rules.Objectives.Hold.StalemateAfter_s,
                     },
                 },
             },

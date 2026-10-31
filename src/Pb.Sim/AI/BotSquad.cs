@@ -328,6 +328,44 @@ public sealed class BotSquad
         {
             _alarmLeft = objective.HoldRules.AlarmInterval;
             AlarmRoom(objective);
+            if (objective.Status == HoldStatus.Contested && objective.HoldRules.StalemateAfter > 0f &&
+                objective.ContestedFor >= objective.HoldRules.StalemateAfter)
+            {
+                BreakStalemate(objective);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The room contested too long without a break: each of the attacking side's bots in it (or at its door) is told where
+    /// the nearest of the defenders in it is, and goes for them (<see cref="BotBrain"/>, holding the room).
+    /// </summary>
+    private void BreakStalemate(ObjectiveState objective)
+    {
+        HoldRoom room = objective.Room!;
+        IReadOnlyList<PlayerState> players = Sim.Players;
+        foreach (BotBrain bot in _bots)
+        {
+            if (!bot.Self.Alive || bot.Self.Team != objective.Attackers || !room.Contains(bot.Self.Position + new Vector3(0f, 0.1f, 0f)))
+            {
+                continue;
+            }
+
+            PlayerState? nearest = null;
+            for (int i = 0; i < players.Count; i++)
+            {
+                PlayerState p = players[i];
+                if (p.Alive && p.Team != objective.Attackers && room.Contains(p.Position + new Vector3(0f, 0.1f, 0f)) &&
+                    (nearest is null || Vector3.DistanceSquared(p.Position, bot.Self.Position) < Vector3.DistanceSquared(nearest.Position, bot.Self.Position)))
+                {
+                    nearest = p;
+                }
+            }
+
+            if (nearest is not null)
+            {
+                bot.Told(nearest);
+            }
         }
     }
 
@@ -337,16 +375,8 @@ public sealed class BotSquad
         SortDefenders(objective.Attackers, at);
         PlayerState? carrier = objective.Carrier >= 0 ? Sim.FindPlayer(objective.Carrier) : null;
 
-        // The way out nearest the case, guarded from a little inside it.
-        IReadOnlyList<ExitSpec> exits = objective.Level.Exits;
-        Vector3 exit = exits[0].Position;
-        for (int i = 1; i < exits.Count; i++)
-        {
-            if (Flat(exits[i].Position - at) < Flat(exit - at))
-            {
-                exit = exits[i].Position;
-            }
-        }
+        // The way out nearest the case (of those it can leave by), guarded from a little inside it.
+        Vector3 exit = objective.NearestExit(at).Position;
 
         Vector3 inward = Flat(at - exit) > 1e-3f ? Vector3.Normalize((at - exit) with { Y = 0f }) : Vector3.UnitZ;
         Vector3 across = new(-inward.Z, 0f, inward.X);

@@ -124,8 +124,9 @@ public partial class LevelMap : Control
         if (objective.Kind == ObjectiveKind.Retrieve)
         {
             _objectiveAreas.Add(Plan(objective.Spot.AreaBox));
-            foreach (ExitSpec exit in objective.Level.Exits)
+            foreach (int i in objective.CountingExits)
             {
+                ExitSpec exit = objective.Level.Exits[i];
                 _exits.Add(new Vector2(exit.Position.X, exit.Position.Z));
             }
         }

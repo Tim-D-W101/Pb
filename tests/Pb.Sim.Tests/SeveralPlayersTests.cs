@@ -322,7 +322,7 @@ public class SeveralPlayersTests
         carrier.Position = objective.CasePosition;
         Run(sim, 2);
         Assert.Equal(0, objective.Carrier);
-        carrier.Position = objective.Level.Exits[0].Position;
+        carrier.Position = objective.Level.Exits[objective.CountingExits[0]].Position;
         Run(sim, 2);
         Assert.Equal(new MatchResult(RoundEnd.Extracted, 0), match.Result);
         Assert.Equal(RoundOutcome.Extracted, match.OutcomeFor(0));

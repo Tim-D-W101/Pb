@@ -1108,9 +1108,13 @@ public sealed class ObjectivesDef : IValidatable
     /// <summary>The behaviour (bots/archetypes.jsonc) the guards who start at the objective play.</summary>
     public string GuardRole { get; set; } = "";
 
+    /// <summary>Defenders with nothing better to do (hunting, gone restless, roaming) keep within this of the objective (0 = anywhere).</summary>
+    public float DefendWithin_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(GuardRole), GuardRole);
+        v.InRange(nameof(DefendWithin_m), DefendWithin_m, 0, 500);
         for (int i = 0; i < Kinds.Length; i++)
         {
             Kinds[i].Validate(v.Item(nameof(Kinds), i));
@@ -1172,10 +1176,14 @@ public sealed class RetrieveDef : IValidatable
     /// <summary>On each alarm this many holders nearest the case go after it; the rest make for the way out nearest it.</summary>
     public int Chasers { get; set; }
 
+    /// <summary>A way out nearer than this to where the case lay doesn't count (the farthest does if none is that far).</summary>
+    public float MinExitDistance_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.2, 5);
         v.InRange(nameof(ExitRadius_m), ExitRadius_m, 0.5, 30);
+        v.InRange(nameof(MinExitDistance_m), MinExitDistance_m, 0, 500);
         v.InRange(nameof(Guards), Guards, 0, 10);
         v.InRange(nameof(NearShare), NearShare, 0, 1);
         v.InRange(nameof(Near_m), Near_m, 1, 200);
@@ -1201,8 +1209,12 @@ public sealed class HoldDef : IValidatable
     /// <summary>While your side is in the room, the defenders learn where you are this often.</summary>
     public float AlarmInterval_s { get; set; }
 
+    /// <summary>Contested this long, the attackers in the room learn where the defenders in it are, and go for them.</summary>
+    public float StalemateAfter_s { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(StalemateAfter_s), StalemateAfter_s, 0, 600);
         v.InRange(nameof(HoldTime_s), HoldTime_s, 5, 900);
         v.InRange(nameof(Guards), Guards, 0, 10);
         v.InRange(nameof(NearShare), NearShare, 0, 1);

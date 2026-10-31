@@ -11,10 +11,11 @@ using SVector3 = System.Numerics.Vector3;
 namespace Pb.Game.Ui;
 
 /// <summary>
-/// The objective on the HUD: a marker with its distance (Retrieve: the case's building until you've seen the case from
-/// close enough, then the case itself; the nearest way out while you carry it; whoever of yours carries it. Hold: the
-/// room), held to the screen's edge when it's behind you or off to the side; and a line under the top bar saying how it
-/// stands, with the hold clock as a bar. Display only.
+/// The objective on the HUD: a marker with its distance, and which floor when it's above or below you (Retrieve: the
+/// case's building until you're in it or have seen the case from close enough, then the case itself; the nearest way out
+/// it can leave by while you carry it; whoever of yours carries it. Hold: the room), held to the screen's edge when it's
+/// behind you or off to the side; and a line under the top bar saying how it stands, with the hold clock as a bar.
+/// Display only.
 /// </summary>
 public partial class ObjectiveHud : Control
 {
@@ -105,7 +106,7 @@ public partial class ObjectiveHud : Control
         DrawColoredPolygon(diamond, _colour with { A = 0.85f });
         DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0f, 0f, 0f, 0.7f), 1.5f, antialiased: true);
         float metres = (_target - _you.EyePosition.ToGodot()).Length();
-        string text = $"{_label} · {metres:0} m";
+        string text = $"{_label} · {metres:0} m{Floors(_target.Y - 1.2f - _you.Position.Y)}";
         Font font = ThemeDB.FallbackFont;
         const int FontSize = 16;
         Vector2 extent = font.GetStringSize(text, HorizontalAlignment.Left, -1, FontSize);
@@ -178,14 +179,7 @@ public partial class ObjectiveHud : Control
 
         if (_objective.Carrier == _you.Id)
         {
-            ExitSpec nearest = _objective.Level.Exits[0];
-            foreach (ExitSpec exit in _objective.Level.Exits)
-            {
-                if (SVector3.Distance(exit.Position, _you.Position) < SVector3.Distance(nearest.Position, _you.Position))
-                {
-                    nearest = exit;
-                }
-            }
+            ExitSpec nearest = _objective.NearestExit(_you.Position);
 
             at = nearest.Position.ToGodot() + new Vector3(0f, 1.5f, 0f);
             label = nearest.Name.ToUpperInvariant();
@@ -200,8 +194,9 @@ public partial class ObjectiveHud : Control
         }
 
         // Lying: its building until you've seen it close enough (or it's been moved, and your side knows where it fell).
+        // Inside its building you're shown it too: a three-storey building searched room by room took the whole round.
         Vector3 casePoint = _objective.CasePosition.ToGodot() + new Vector3(0f, 0.3f, 0f);
-        if (!_seen && (_objective.CaseMoved || Sees(casePoint)))
+        if (!_seen && (_objective.CaseMoved || Sees(casePoint) || Inside(_objective.Spot.AreaBox, _you.Position)))
         {
             _seen = true;
         }
@@ -217,6 +212,24 @@ public partial class ObjectiveHud : Control
         at = new Vector3((box.Min.X + box.Max.X) * 0.5f, MathF.Max(box.Min.Y, 0f) + 1.5f, (box.Min.Z + box.Max.Z) * 0.5f);
         label = $"CASE · {_objective.Spot.Area.ToUpperInvariant()}";
         return true;
+    }
+
+    private static bool Inside(Pb.Sim.Collision.Aabb box, SVector3 p) =>
+        p.X >= box.Min.X - 1f && p.X <= box.Max.X + 1f && p.Z >= box.Min.Z - 1f && p.Z <= box.Max.Z + 1f && p.Y >= box.Min.Y - 1f && p.Y <= box.Max.Y + 1f;
+
+    /// <summary>"UPSTAIRS", "2 FLOORS DOWN" and so on, for a target a floor or more above or below you (empty on your floor).</summary>
+    private static string Floors(float rise)
+    {
+        const float Storey = 3.2f;
+        int floors = (int)MathF.Round(rise / Storey);
+        return floors switch
+        {
+            0 => "",
+            1 => " · UPSTAIRS",
+            -1 => " · DOWNSTAIRS",
+            > 1 => $" · {floors} FLOORS UP",
+            _ => $" · {-floors} FLOORS DOWN",
+        };
     }
 
     private bool Sees(Vector3 point)

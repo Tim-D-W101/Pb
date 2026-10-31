@@ -28,6 +28,9 @@ public sealed class RetrieveRules
     public required float AlarmInterval { get; init; }
 
     public required int Chasers { get; init; }
+
+    /// <summary>A way out nearer than this to where the case was found doesn't count (the farthest does if none is that far).</summary>
+    public float MinExitDistance { get; init; }
 }
 
 /// <summary>Hold (SI), from rules.jsonc "objectives.hold".</summary>
@@ -42,6 +45,9 @@ public sealed class HoldRules
     public required float Near { get; init; }
 
     public required float AlarmInterval { get; init; }
+
+    /// <summary>Contested this long (s), the attackers in the room learn where the defenders in it are, and go for them.</summary>
+    public float StalemateAfter { get; init; }
 }
 
 /// <summary>The objectives the menu offers, and how each is played.</summary>
@@ -55,6 +61,9 @@ public sealed class ObjectiveRules
 
     /// <summary>The behaviour the objective's guards play (they hold their post).</summary>
     public required string GuardRole { get; init; }
+
+    /// <summary>Defenders with nothing better to do (hunting, gone restless, roaming) keep within this of the objective (m; 0 = anywhere).</summary>
+    public float DefendWithin { get; init; }
 
     public ObjectiveChoice? Find(ObjectiveKind kind)
     {
@@ -110,11 +119,62 @@ public sealed class ObjectiveState
             case ObjectiveKind.Retrieve:
                 CaseSpotIndex = PickIndex(level.CaseSpots.Count, seed);
                 CasePosition = level.CaseSpots[CaseSpotIndex].Position;
+                CountingExits = ExitsFarFrom(level, CasePosition, rules.Retrieve.MinExitDistance);
                 break;
             case ObjectiveKind.Hold:
                 RoomIndex = PickIndex(level.Rooms.Count, seed);
                 break;
         }
+    }
+
+    /// <summary>
+    /// The ways out at least <paramref name="min"/> from <paramref name="from"/> (a case carried a few steps from where it
+    /// lay to a gap in the fence made a round of seconds); the farthest if none is that far.
+    /// </summary>
+    private static int[] ExitsFarFrom(LevelObjectives level, Vector3 from, float min)
+    {
+        if (level.Exits.Count == 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        int[] far = Enumerable.Range(0, level.Exits.Count).Where(i => Flat(level.Exits[i].Position - from) >= min).ToArray();
+        return far.Length > 0 ? far : new[] { Enumerable.Range(0, level.Exits.Count).MaxBy(i => Flat(level.Exits[i].Position - from)) };
+    }
+
+    private static float Flat(Vector3 v) => MathF.Sqrt(v.X * v.X + v.Z * v.Z);
+
+    /// <summary>Retrieve: the ways out the case can leave by (indices into the level's), those far enough from where it lay.</summary>
+    public IReadOnlyList<int> CountingExits { get; } = Array.Empty<int>();
+
+    /// <summary>Whether the case can leave by way out <paramref name="exit"/>.</summary>
+    public bool ExitCounts(int exit)
+    {
+        for (int i = 0; i < CountingExits.Count; i++)
+        {
+            if (CountingExits[i] == exit)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The way out the case can leave by nearest <paramref name="from"/>.</summary>
+    public ExitSpec NearestExit(Vector3 from)
+    {
+        ExitSpec best = Level.Exits[CountingExits[0]];
+        for (int i = 1; i < CountingExits.Count; i++)
+        {
+            ExitSpec e = Level.Exits[CountingExits[i]];
+            if (Flat(e.Position - from) < Flat(best.Position - from))
+            {
+                best = e;
+            }
+        }
+
+        return best;
     }
 
     /// <summary>Which case spot or room a round plays for, from its seed (the starts are dealt round the same one).</summary>
@@ -164,6 +224,9 @@ public sealed class ObjectiveState
     public float Held { get; private set; }
 
     public HoldStatus Status { get; private set; }
+
+    /// <summary>Hold: how long the room has been contested without a break (s).</summary>
+    public float ContestedFor { get; private set; }
 
     /// <summary>A joining copy: the objective as the server says it stands.</summary>
     internal void ApplyServer(bool done, Vector3 casePosition, int carrier, bool caseMoved, int exitUsed, float held, HoldStatus status)
@@ -219,8 +282,9 @@ public sealed class ObjectiveState
             {
                 CasePosition = carrier.Position;
                 carrier.SprintBlocked = !r.CarrierCanSprint;
-                for (int i = 0; i < Level.Exits.Count; i++)
+                for (int k = 0; k < CountingExits.Count; k++)
                 {
+                    int i = CountingExits[k];
                     Vector3 d = Level.Exits[i].Position - carrier.Position;
                     if (d.X * d.X + d.Z * d.Z <= r.ExitRadius * r.ExitRadius && MathF.Abs(d.Y) < 2f)
                     {
@@ -281,6 +345,7 @@ public sealed class ObjectiveState
         }
 
         HoldStatus now = ours && theirs ? HoldStatus.Contested : ours ? HoldStatus.Ours : theirs ? HoldStatus.Theirs : HoldStatus.Empty;
+        ContestedFor = now == HoldStatus.Contested ? ContestedFor + dt : 0f;
         if (now == HoldStatus.Ours)
         {
             Held = MathF.Min(_rules.Hold.HoldTime, Held + dt);

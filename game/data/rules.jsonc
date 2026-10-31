@@ -162,6 +162,9 @@
     ],
     // The guards who start right at the objective play this behaviour (bots/archetypes.jsonc): they hold their post.
     "guardRole": "sentry",
+    // Defenders with nothing better to do (hunters, those gone restless, roamers) keep within defendWithin_m of the
+    // objective instead of wandering the whole area (which left the case unguarded and rounds over in seconds).
+    "defendWithin_m": 40,
     "retrieve": {
       // Your side picks the case up by walking within pickupRadius_m of it. Whoever carries it can't sprint, and if
       // they're hit it falls where they were, for a teammate to pick up.
@@ -176,7 +179,10 @@
       // Once it's been picked up they learn where it is every alarmInterval_s: the chasers nearest it go after it,
       // the rest make for the way out nearest it and wait there.
       "alarmInterval_s": 5,
-      "chasers": 2
+      "chasers": 2,
+      // A way out nearer than minExitDistance_m to where the case lay doesn't count (the farthest does, if none is that
+      // far): a case a few steps from a gap in the fence was out in seconds. Only the ways out that count are marked.
+      "minExitDistance_m": 45
     },
     "hold": {
       // Held this long in all (only while your side is in the room and theirs isn't), the room is yours: you win.
@@ -186,7 +192,10 @@
       "nearShare": 0.5,
       "near_m": 25,
       // While your side is in the room, the defenders learn where you are every alarmInterval_s and come for it.
-      "alarmInterval_s": 4
+      "alarmInterval_s": 4,
+      // Contested for stalemateAfter_s without a break (both sides in the room, neither seeing the other round a
+      // partition), your side's bots in the room learn where theirs are and go for them, so it gets settled.
+      "stalemateAfter_s": 6
     }
   }
 }
