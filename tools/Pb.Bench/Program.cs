@@ -94,8 +94,8 @@ foreach ((string id, LevelLayout level) in data.Levels)
     double buildMs = watch.Elapsed.TotalMilliseconds;
     Console.WriteLine($"**{level.DisplayName}**: navigation grid of {built.Grid.SpanCount:N0} places and {built.Cover.Points.Count} cover points, built at load in {buildMs:0} ms.");
     Console.WriteLine();
-    Console.WriteLine("| Bots (hard), with you in the yard | Mean ms/tick (brains) | p95 ms/tick | Max ms/tick | Path searches | Most places searched in a tick |");
-    Console.WriteLine("|---|---|---|---|---|---|");
+    Console.WriteLine($"| Bots (hard), with you in the yard | Mean ms/tick (brains) | p95 ms/tick | Max ms/tick | {CpuHeader()} | Path searches | Most places searched in a tick |");
+    Console.WriteLine("|---|---|---|---|---|---|---|");
     AreaEntryDef entry = data.Areas.Areas.First(l => l.Id == id);
     string[] roster = (entry.Roster ?? Array.Empty<string>()).Take(data.Config.Rules.MaxPlayers - 1).ToArray();
     if (roster.Length > 0 && entry.Tiers is { Length: > 0 } tiers)
@@ -103,9 +103,9 @@ foreach ((string id, LevelLayout level) in data.Levels)
         string hard = tiers[^1].Bots;
         foreach (bool freeForAll in new[] { false, true })
         {
-            (double mean, double p95, double max, int searches, long most) = MeasureBots(data, level, roster, hard, freeForAll, quick ? 1200 : 3600);
+            (double mean, double p95, double max, double maxCpu, int searches, long most) = MeasureBots(data, level, roster, hard, freeForAll, quick ? 1200 : 3600);
             string who = freeForAll ? "free-for-all: everyone against everyone" : "solo: one squad against you";
-            Console.WriteLine($"| {roster.Length}, {who} | {mean:0.000} | {p95:0.000} | {max:0.000} | {searches} | {most:N0} |");
+            Console.WriteLine($"| {roster.Length}, {who} | {mean:0.000} | {p95:0.000} | {max:0.000} | {maxCpu:0.000} | {searches} | {most:N0} |");
         }
     }
 
@@ -359,7 +359,7 @@ static (double Mean, double P95, double Max, int Live, double MaxCpu) MeasureLev
 // A round with the hardest tier's bots at the roster's spawns and you standing in the open (hitboxes off so
 // it goes on): the time all the bots' brains take per tick, moved over the navigation grid as in the sim
 // tests. In free-for-all every bot is a team of its own, so each watches and fights all the others.
-static (double Mean, double P95, double Max, int Searches, long MostNodes) MeasureBots(GameData data, LevelLayout level, string[] roster, string difficulty,
+static (double Mean, double P95, double Max, double MaxCpu, int Searches, long MostNodes) MeasureBots(GameData data, LevelLayout level, string[] roster, string difficulty,
     bool freeForAll, int ticks)
 {
     var sim = new SimWorld(data.Config);
@@ -387,6 +387,7 @@ static (double Mean, double P95, double Max, int Searches, long MostNodes) Measu
     var samples = new double[ticks];
     int searchesBefore = 0;
     long mostNodes = 0;
+    double maxCpu = 0;
     for (int t = 0; t < ticks + 600; t++)
     {
         if (t == 600)
@@ -396,6 +397,7 @@ static (double Mean, double P95, double Max, int Searches, long MostNodes) Measu
 
         int tick = sim.Tick;
         long nodes = squad.NodesSearched;
+        double cpu = ThreadClock.NowMs();
         long start = Stopwatch.GetTimestamp();
         for (int i = 0; i < brains.Count; i++)
         {
@@ -403,6 +405,7 @@ static (double Mean, double P95, double Max, int Searches, long MostNodes) Measu
         }
 
         double ms = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        cpu = ThreadClock.NowMs() - cpu;
         commands[0] = YouFire(sim, you, tick);
         for (int i = 0; i < commands.Length; i++)
         {
@@ -423,12 +426,13 @@ static (double Mean, double P95, double Max, int Searches, long MostNodes) Measu
         if (t >= 600)
         {
             samples[t - 600] = ms;
+            maxCpu = Math.Max(maxCpu, cpu);
             mostNodes = Math.Max(mostNodes, squad.NodesSearched - nodes);
         }
     }
 
     Array.Sort(samples);
-    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], squad.SearchesDone - searchesBefore, mostNodes);
+    return (samples.Average(), samples[(int)(ticks * 0.95)], samples[^1], maxCpu, squad.SearchesDone - searchesBefore, mostNodes);
 }
 
 // A full collection now, so the garbage of building the last measurement isn't collected in the middle of this one.

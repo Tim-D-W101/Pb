@@ -134,9 +134,12 @@ A bot match with the art prints the worst pop of any character in the round.
 - **Bot-brain peaks of 4-7 ms.** These were single path searches on the 260,000-place navigation grid. Each was three to
   four times dearer than it needed to be, because every place a search looked at tested every door leaf in the level.
   A bot that couldn't find a path asked again every tick.
-- **The 49 ms sim tick (10 players, ~979 balls).** It wasn't the sim. The bench now prints each slowest tick's own
-  thread CPU time beside its wall-clock time, and the slow ticks used a fraction of their wall time on the CPU. The
-  difference was the machine scheduling other work. Other ticks with the same load took 2-4 ms.
+- **The 49 ms sim tick (10 players, ~979 balls).** Mostly not the sim's own work:
+  - methods were compiled and garbage collected inside the measured ticks;
+  - the bench couldn't tell the machine taking the core away from the sim doing more.
+
+  It now prints each slowest tick's own thread CPU time beside its wall-clock time, and the two differ widely on this
+  machine (an 11 ms wall-clock tick took 0.6 ms of CPU).
 
 **What changed:**
 - **Doors.** Only places a door leaf can swing over ask about doors (same paths).
@@ -149,8 +152,11 @@ A bot match with the art prints the worst pop of any character in the round.
 - **A fairer bench.** `Pb.Bench` runs with the game's JIT settings, settles the GC before each measurement, and no
   longer allocates in measured ticks.
 
-**Now:** free-for-all bot-brain peaks went from **1.3-5.1 ms** to **0.5-0.9 ms** on the same machine. The bench's
-CPU column shows the sim's own worst ticks (see [Performance](#performance)).
+**Now:**
+- the sim tick with 10 players and ~979 balls peaks at 0.6-5.8 ms instead of 49 ms, and averages 0.3 ms;
+- the bots' worst tick is at most 1.7 ms of CPU for all nine brains, against 4.4-6.7 ms in the play-test's bench.
+
+The numbers are in [Performance](#performance).
 
 **Tests:** `PathBudgetTests` check three things:
 - a long search carried on over ticks keeps to its budget and finds the same path;
@@ -218,10 +224,19 @@ Both allocation tests pass every run.
 
 ## Performance
 
-Measured with `tools/Pb.Bench` on the cloud container, before and after the fixes on the same machine:
-- **Free-for-all bot-brain peaks:** 1.3-5.1 ms before, 0.5-0.9 ms after.
-- **The sim's slowest ticks:** the bench now prints each one's thread CPU time beside its wall time. The slow ticks
-  that looked like 49 ms of sim spent most of that time off the CPU, waiting on the machine.
+`tools/Pb.Bench`, three full runs on the cloud container (4 cores). The bot table has a CPU column now too.
+
+| Measurement | Before | Now (three runs) |
+|---|---|---|
+| Sim tick, 10 players and ~979 balls, each area: mean | not compared | 0.29-0.34 ms |
+| ... worst tick, wall clock | 49 ms (the play-test's bench) | 0.56-5.8 ms |
+| ... worst tick, its own CPU time | not measured | 0.48-1.7 ms, and once 5.4 ms |
+| Bot brains, 9 hard bots, free-for-all: worst tick | 4.4-6.7 ms (the play-test's bench); 1.3-5.1 ms on this machine before the fix | 0.49-1.33 ms (CPU 0.49-1.33) |
+| Bot brains, 9 hard bots, solo: worst tick | not reported | 0.18-2.8 ms (CPU at most 1.73) |
+| Places searched in one tick | unbounded (a whole search) | at most 1,000 (the budget) |
+
+The one 5.4 ms CPU tick came once in about 29,000 measured ticks, on the Hospital Wing, and didn't come back in the
+next run. At 60 fps a frame runs two ticks in 16.6 ms, so even that tick fits.
 
 These are a cloud machine's numbers. Tim's PC is the one that counts.
 
