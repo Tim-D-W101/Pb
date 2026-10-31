@@ -15,12 +15,14 @@
   //                 Hunters roam the level looking for a fight, which is what the open modes need; flankers
   //                 work round to your side once a teammate calls you out, marksmen watch from high ground.
   //   restlessAfter_s  a bot that has had nothing to go on for this long starts hunting, so a round
-  //                 doesn't stall with everyone holding a corner (0 = never)
+  //                 doesn't stall with everyone holding a corner (0 = never; in solo the squad comes looking for
+  //                 you after a minute and a half of quiet)
   "modes": [
     {
       "id": "solo", "displayName": "Solo", "kind": "solo",
       "description": "You against a squad holding the compound. They guard posts, walk patrols and rush you, but never fight each other.",
-      "sizes": [3, 4, 6, 9], "defaultSize": 6
+      "sizes": [3, 4, 6, 9], "defaultSize": 6,
+      "restlessAfter_s": 90
     },
     {
       "id": "ffa", "displayName": "Free-for-all", "kind": "freeForAll",
@@ -82,6 +84,9 @@
   // starts everyone inside that part, with the distances scaled by the place's "spawnScale".
   "spawning": {
     "minDistanceFromYou_m": 28,
+    // ... and out of sight of where you come in, and of the spot entryLookAhead_m in from it the way you face, so
+    // nobody has a shot at you the moment you step through.
+    "entryLookAhead_m": 6,
     // Opponents start at least this far apart (relaxed if the level can't fit them).
     "minSpacing_m": 10,
     // Free-for-all: everyone starts at least this far from everyone else, and out of each other's sight
@@ -96,16 +101,24 @@
     // it (the farthest if none is), so its guards can start by it out of your way.
     "objectiveClearance_m": 10,
     // Share of opponents placed at cover points rather than the level's opponent spawns.
-    "coverShare": 0.5,
-    // Behaviour of an opponent placed at a cover point, by chance (opponent spawns pick one of their
-    // own roles). A patroller walks the nearest patrol route within patrolReach_m, or keeps watch
-    // where it stands if there is none.
+    "coverShare": 0.6,
+    // Behaviour of an opponent placed at a cover point, by chance. One at a named opponent spawn plays one of that
+    // spawn's own roles spawnOwnRoleChance of the time (its place suits them: a marksman's window), else one dealt from
+    // these, so the same spot doesn't hold the same behaviour every round. A patroller walks the nearest patrol route
+    // within patrolReach_m, or keeps watch where it stands if there is none.
     "coverRoles": [
-      { "role": "sentry", "weight": 5 },
+      { "role": "sentry", "weight": 4 },
       { "role": "patroller", "weight": 3 },
-      { "role": "rusher", "weight": 2 }
+      { "role": "rusher", "weight": 2 },
+      { "role": "hunter", "weight": 1 },
+      { "role": "flanker", "weight": 1 }
     ],
-    "patrolReach_m": 25
+    "spawnOwnRoleChance": 0.5,
+    "patrolReach_m": 25,
+    // Each round's starts differ from the last's on the same area and place: a start within repeatRadius_m of one from
+    // the last round (anyone's) is taken only when nothing else fits, and you come in at another entry when there is
+    // one. (The game remembers the last round of each area and place while it runs.)
+    "repeatRadius_m": 8
   },
 
   // Doors (kit/doors.jsonc says how each kind of leaf moves and sounds). Interact works the door you're facing:

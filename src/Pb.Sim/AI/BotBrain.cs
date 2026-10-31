@@ -192,6 +192,12 @@ public sealed class BotBrain
     private bool _hunting;
     private float _quietFor;
 
+    // Roaming: the post it holds now (it starts at the spawn and moves on now and then) and when it moves on; its own random numbers, so roaming never changes what else the bot decides.
+    private Pcg32 _roamRng;
+    private Vector3 _post;
+    private float _postYaw;
+    private float _shiftIn;
+
     // Teamwork, vantage and flanking.
     private float _sinceShare = float.MaxValue;
     private int _vantage = -1;
@@ -244,9 +250,15 @@ public sealed class BotBrain
         _sweepHold = Between(_b.ScanHoldMin, _b.ScanHoldMax);
         _nextPull = tier.PullInterval;
         _sincePull = tier.PullInterval;
+        _roamRng = new Pcg32(SeedHash.Combine(_sim.MatchSeed, (ulong)(0x80A3 + self.Id * 15485863)));
+        _post = Home;
+        _postYaw = HomeYaw;
+        _shiftIn = NextShift();
         if (Route is not null)
         {
             _patrolIndex = NearestRoutePoint(Route, self.Position);
+            // Which way round it walks, and so where it's to be found when, differs from round to round.
+            _patrolStep = _roamRng.NextFloat() < 0.5f ? 1 : -1;
         }
     }
 
@@ -258,8 +270,11 @@ public sealed class BotBrain
 
     public BotSenses Senses { get; }
 
-    /// <summary>The spawn: where a post-holder stands, and where everyone returns to.</summary>
+    /// <summary>The spawn: where a post-holder starts, and what it doesn't stray far from (its leash).</summary>
     public Vector3 Home { get; }
+
+    /// <summary>The post it holds now: the spawn at first, then (for those that roam) another nearby now and then.</summary>
+    public Vector3 Post => _post;
 
     public float HomeYaw { get; }
 
@@ -764,7 +779,7 @@ public sealed class BotBrain
             LookAlongPath();
             if (_arrived)
             {
-                _pauseLeft = route.Pause;
+                _pauseLeft = route.Pause * (0.5f + _roamRng.NextFloat());
                 AdvancePatrol(route);
                 _hasGoal = false;
             }
@@ -772,11 +787,14 @@ public sealed class BotBrain
             return;
         }
 
-        HoldPost(Home, HomeYaw, dt);
+        if (HoldPost(_post, _postYaw, dt) && Archetype.ShiftAfter > 0f && (_shiftIn -= dt) <= 0f)
+        {
+            ShiftPost();
+        }
     }
 
-    /// <summary>A post: get there, then stand sweeping the view around its facing.</summary>
-    private void HoldPost(Vector3 post, float yaw, float dt)
+    /// <summary>A post: get there, then stand sweeping the view around its facing. True while standing at it.</summary>
+    private bool HoldPost(Vector3 post, float yaw, float dt)
     {
         if (FlatDistance(Self.Position, post) > 1.0f)
         {
@@ -787,12 +805,56 @@ public sealed class BotBrain
 
             FollowPath(dt);
             LookAlongPath();
-            return;
+            return false;
         }
 
         Stop();
         _wantYaw = Sweep(yaw, dt);
         _wantPitch = 0f;
+        return true;
+    }
+
+    /// <summary>How long it holds the next post: about the archetype's shift time, give or take 40%.</summary>
+    private float NextShift() => Archetype.ShiftAfter * (0.6f + 0.8f * _roamRng.NextFloat());
+
+    /// <summary>
+    /// Moves on to another post: a free cover point (claimed while it's held) within the archetype's reach of the spawn,
+    /// at least a few metres from the one it leaves, picked at random among the nearer half, facing the way the cover
+    /// protects from. Nothing free: it stays put a while longer.
+    /// </summary>
+    private void ShiftPost()
+    {
+        _shiftIn = NextShift();
+        CoverSet cover = _squad.Cover;
+        cover.Near(Home, MathF.Max(Archetype.ShiftWithin, 4f), _near);
+        int chosen = -1;
+        int seen = 0;
+        for (int k = 0; k < _near.Count; k++)
+        {
+            int i = _near[k];
+            CoverPoint p = cover.Points[i];
+            int holder = cover.ClaimedBy(i);
+            if ((holder != -1 && holder != Self.Id) || FlatDistance(p.Position, _post) < 4f || MathF.Abs(p.Position.Y - Home.Y) > 4.5f)
+            {
+                continue;
+            }
+
+            // Reservoir sampling: each candidate equally likely, without a list.
+            if (_roamRng.NextUInt() % (uint)++seen == 0)
+            {
+                chosen = i;
+            }
+        }
+
+        if (chosen < 0 || !cover.Claim(chosen, Self.Id)) // (a claim gives up the bot's last one)
+        {
+            return;
+        }
+
+        CoverPoint post = cover.Points[chosen];
+        _post = post.Position;
+        _postYaw = MathF.Atan2(post.Normal.X, post.Normal.Z);
+        GoTo(_post, BotGait.Stroll);
     }
 
     /// <summary>
@@ -1071,7 +1133,8 @@ public sealed class BotBrain
     {
         if (route.Loop)
         {
-            _patrolIndex = (_patrolIndex + 1) % route.Points.Count;
+            // Round the loop either way (which way is dealt at the start of the round).
+            _patrolIndex = (_patrolIndex + _patrolStep + route.Points.Count) % route.Points.Count;
             return;
         }
 
@@ -1126,6 +1189,19 @@ public sealed class BotBrain
             FollowPath(dt);
             LookAlongPath();
             return true;
+        }
+
+        // A while on one vantage with nothing going on: on to another, well away from it (so it isn't always where it was).
+        if (Archetype.ShiftAfter > 0f && (_shiftIn -= dt) <= 0f)
+        {
+            _shiftIn = NextShift();
+            int next = _squad.Vantage.Best(cover, Home, MathF.Max(Archetype.OverwatchReach, Archetype.ShiftWithin), Self.Id, _near,
+                avoid: p.Position, awayFrom: _b.RelocateDistance);
+            if (next >= 0 && cover.Claim(next, Self.Id))
+            {
+                _vantage = next;
+                return true; // walks there from the next tick
+            }
         }
 
         // On the spot: eyes over low cover, or stepped out past the edge and leaning, watching its most open view and
@@ -1958,7 +2034,7 @@ public sealed class BotBrain
 
     private void GoHome()
     {
-        Vector3 home = _dutyPost ?? (Route is { Points.Count: > 0 } route ? route.Points[_patrolIndex = NearestRoutePoint(route, Self.Position)] : Home);
+        Vector3 home = _dutyPost ?? (Route is { Points.Count: > 0 } route ? route.Points[_patrolIndex = NearestRoutePoint(route, Self.Position)] : _post);
         GoTo(home, _dutyPost is null ? BotGait.Stroll : BotGait.Walk);
     }
 

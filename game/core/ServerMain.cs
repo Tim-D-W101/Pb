@@ -234,7 +234,9 @@ public partial class ServerMain : Node3D, ISimEventListener
         float? limit = float.TryParse(Args.Value("--time-limit"), NumberStyles.Float, CultureInfo.InvariantCulture, out float seconds) ? seconds : null;
         CastRound cast = RoundCasting.Cast(level, squad.Cover, sim.Collision, _data.Config, _data.Bots, chosen.Mode, size, chosen.Objective, chosen.Tier,
             people, seed, _session.RoundsPlayed + 1, _view.Hud.Callsigns, chosen.Entry.Id, chosen.Place.Whole ? null : chosen.Place.Id, limit,
-            fillWithBots: _config.Bots);
+            fillWithBots: _config.Bots, last: SpawnHistory.For(level.Id, chosen.Place.Id));
+        // The next round here starts somewhere else.
+        SpawnHistory.Remember(level.Id, chosen.Place.Id, cast.Memory);
         RoundSetupMessage setup = cast.Setup;
         foreach (RosterEntry e in setup.Roster)
         {

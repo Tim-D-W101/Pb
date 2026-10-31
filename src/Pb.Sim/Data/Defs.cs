@@ -1301,8 +1301,20 @@ public sealed class SpawningDef : IValidatable
     /// <summary>With an objective, you come in at a player spawn at least minDistanceFromYou_m plus this from it.</summary>
     public float ObjectiveClearance_m { get; set; }
 
+    /// <summary>A start within this of one from the last round (same area and place) is taken only when nothing else fits.</summary>
+    public float RepeatRadius_m { get; set; }
+
+    /// <summary>A bot starting at one of the level's named spawns plays one of that spawn's own roles this often, else one dealt from coverRoles.</summary>
+    public float SpawnOwnRoleChance { get; set; }
+
+    /// <summary>Opponents start out of sight of your entry, and of the spot this far in from it the way you face.</summary>
+    public float EntryLookAhead_m { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(EntryLookAhead_m), EntryLookAhead_m, 0, 50);
+        v.InRange(nameof(RepeatRadius_m), RepeatRadius_m, 0, 100);
+        v.InRange(nameof(SpawnOwnRoleChance), SpawnOwnRoleChance, 0, 1);
         v.InRange(nameof(MinDistanceFromYou_m), MinDistanceFromYou_m, 0, 500);
         v.InRange(nameof(MinSpacing_m), MinSpacing_m, 0, 100);
         v.InRange(nameof(CoverShare), CoverShare, 0, 1);

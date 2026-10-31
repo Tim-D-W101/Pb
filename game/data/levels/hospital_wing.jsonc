@@ -35,7 +35,9 @@
     { "position_m": [62, 0, 4], "yaw_deg": 90 },
     { "position_m": [-62, 0, 28], "yaw_deg": -90 }
   ],
-  "spawnArea": "the car park",
+  // Opponents start anywhere in the grounds, inside on every floor as well as out (the car park alone, as it was,
+  // left them a strip beside your entries: the same few spots every round).
+  "spawnArea": "the grounds",
   "deadZone_m": [-2, 0, 47],
   "scenery": {
     "powerLines": [ { "points_m": [[-480, -170], [-80, -160], [480, -185]], "spacing_m": 240, "height_m": 28, "material": "steel_galvanised", "wire": "steel_painted" } ],

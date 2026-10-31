@@ -374,6 +374,17 @@ public sealed class ArchetypeDef : IValidatable
     [Optional]
     public float StealthWithin_m { get; set; }
 
+    /// <summary>
+    /// Holding a post (or a vantage), it moves on to another after about this long (give or take 40%) with nothing
+    /// going on (0: never, it keeps its post all round).
+    /// </summary>
+    [Optional]
+    public float ShiftAfter_s { get; set; }
+
+    /// <summary>... to a free cover point within this of where it started (a vantage: within its overwatch reach).</summary>
+    [Optional]
+    public float ShiftWithin_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
@@ -383,6 +394,8 @@ public sealed class ArchetypeDef : IValidatable
         v.InRange(nameof(PullScale), PullScale, 0.2, 10);
         v.InRange(nameof(RelocateAfterShots), RelocateAfterShots, 0, 1000);
         v.InRange(nameof(StealthWithin_m), StealthWithin_m, 0, 100);
+        v.InRange(nameof(ShiftAfter_s), ShiftAfter_s, 0, 3600);
+        v.InRange(nameof(ShiftWithin_m), ShiftWithin_m, 0, 300);
         v.InRange(nameof(Leash_m), Leash_m, 0, 500);
         v.InRange(nameof(PeekTime_s), PeekTime_s, 0.1, 30);
         v.InRange(nameof(HideTime_s), HideTime_s, 0.1, 30);

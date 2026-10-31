@@ -303,8 +303,14 @@ public partial class LevelMain : Node3D, ISimEventListener
         _starts = _net is not null ? null
             : !repeatable || Args.Has("--random-spawns") || _mode.Kind != MatchModeKind.Solo || focus is not null || _level.Place is { Whole: false }
             ? SpawnPlanner.Plan(_level, _squad.Cover, _sim.Collision, _data.Config.Rules.Spawning, _data.Bots,
-                RoundShape.Of(_mode, _size, focus), _data.Config.Movement.StandEyeHeight, seed)
+                RoundShape.Of(_mode, _size, focus), _data.Config.Movement.StandEyeHeight, seed,
+                // Scripted runs play out the same every time; your own rounds start away from where the last one did.
+                repeatable ? null : SpawnHistory.For(_level.Id, _level.Place?.Id))
             : null;
+        if (_starts is not null && !repeatable)
+        {
+            SpawnHistory.Remember(_level.Id, _level.Place?.Id, SpawnMemory.Of(_starts));
+        }
         SpawnPoint start = _starts?.You ?? _level.PlayerSpawns[0];
         if (_starts is not null)
         {
@@ -850,7 +856,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         float? limit = float.TryParse(Args.Value("--time-limit"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
             out float given) ? given : null;
         _cast = RoundCasting.Cast(_level, _squad.Cover, _sim.Collision, _data.Config, _data.Bots, _mode, _size, _objective, _tier, people, seed,
-            session.RoundsPlayed + 1, _view.Hud.Callsigns, _entry.Id, _level.Place?.Id, limit);
+            session.RoundsPlayed + 1, _view.Hud.Callsigns, _entry.Id, _level.Place?.Id, limit, last: SpawnHistory.For(_level.Id, _level.Place?.Id));
+        SpawnHistory.Remember(_level.Id, _level.Place?.Id, _cast.Memory);
         _netSetup = _cast.Setup;
     }
 

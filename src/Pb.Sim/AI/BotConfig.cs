@@ -249,6 +249,12 @@ public sealed class ArchetypeParams
     public bool HoldFireWhileFlanking { get; init; }
 
     public float StealthWithin { get; init; }
+
+    /// <summary>Holding a post or a vantage, it moves on after about this long with nothing going on (s; 0 = never).</summary>
+    public float ShiftAfter { get; init; }
+
+    /// <summary>... to a free cover point within this of where it started (m).</summary>
+    public float ShiftWithin { get; init; }
 }
 
 /// <summary>One difficulty tier (SI, angles in radians), from bots/difficulty.jsonc.</summary>
@@ -420,6 +426,8 @@ public sealed class BotConfig
             FlankOnContact = a.FlankOnContact,
             HoldFireWhileFlanking = a.HoldFireWhileFlanking,
             StealthWithin = a.StealthWithin_m,
+            ShiftAfter = a.ShiftAfter_s,
+            ShiftWithin = a.ShiftWithin_m,
         }, StringComparer.Ordinal),
         Difficulty = difficulty.Tiers.ToDictionary(t => t.Id, t => new DifficultyParams
         {

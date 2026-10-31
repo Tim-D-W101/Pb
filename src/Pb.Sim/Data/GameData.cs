@@ -120,6 +120,9 @@ public sealed class GameData
                     TeammateSpacing = rules.Spawning.TeammateSpacing_m,
                     TeamSpread = rules.Spawning.TeamSpread_m,
                     ObjectiveClearance = rules.Spawning.ObjectiveClearance_m,
+                    RepeatRadius = rules.Spawning.RepeatRadius_m,
+                    SpawnOwnRoleChance = rules.Spawning.SpawnOwnRoleChance,
+                    EntryLookAhead = rules.Spawning.EntryLookAhead_m,
                 },
                 Doors = new DoorRules
                 {

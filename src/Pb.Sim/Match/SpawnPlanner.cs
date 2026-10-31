@@ -7,6 +7,45 @@ using Pb.Sim.Level;
 
 namespace Pb.Sim.Match;
 
+/// <summary>
+/// Where the last round on an area and place started (everyone but you, and where you came in), so the next round's
+/// starts can be somewhere else: a start near one of these is taken only when nothing else fits, and you come in at
+/// another entry when there is one.
+/// </summary>
+public sealed class SpawnMemory
+{
+    public static readonly SpawnMemory None = new();
+
+    public IReadOnlyList<Vector3> Starts { get; init; } = Array.Empty<Vector3>();
+
+    public Vector3? YourEntry { get; init; }
+
+    /// <summary>What <paramref name="plan"/> dealt, to keep for the next round.</summary>
+    public static SpawnMemory Of(SpawnPlan plan) => new()
+    {
+        Starts = plan.Opponents.Select(o => o.Position).Concat(plan.Teammates.Select(t => t.Position)).ToArray(),
+        YourEntry = plan.You.Position,
+    };
+
+    /// <summary>What a networked round's roster dealt (bots and people alike), to keep for the next round.</summary>
+    public static SpawnMemory Of(IEnumerable<Vector3> starts, Vector3? yourEntry = null) => new() { Starts = starts.ToArray(), YourEntry = yourEntry };
+
+    internal bool Near(Vector3 p, float radius)
+    {
+        float r2 = radius * radius;
+        foreach (Vector3 s in Starts)
+        {
+            float dx = s.X - p.X, dy = s.Y - p.Y, dz = s.Z - p.Z;
+            if (dx * dx + dz * dz <= r2 && MathF.Abs(dy) < 2.5f)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
 /// <summary>Where everyone starts in a round.</summary>
 public sealed class SpawnPlan
 {
@@ -84,33 +123,41 @@ public static class SpawnPlanner
         Plan(level, cover, world, rules, bots, RoundShape.Solo(count), eyeHeight, seed);
 
     public static SpawnPlan Plan(LevelLayout level, CoverSet cover, CollisionWorld world, SpawnRules rules, BotConfig bots,
-        RoundShape shape, float eyeHeight, ulong seed)
+        RoundShape shape, float eyeHeight, ulong seed, SpawnMemory? last = null)
     {
         var rng = new Pcg32(SeedHash.Combine(seed, 0x5DA75));
         // A part of the level (a place) starts everyone closer together, as its data says.
         SpawnRules scaled = rules.Scaled(level.Place?.SpawnScale ?? 1f);
-        SpawnPoint you = YourStart(level, scaled, shape.Objective, ref rng);
-        var planner = new Planner(level, cover, world, scaled, bots, shape, eyeHeight, you, rng);
+        SpawnMemory memory = last ?? SpawnMemory.None;
+        SpawnPoint you = YourStart(level, scaled, shape.Objective, memory, ref rng);
+        var planner = new Planner(level, cover, world, scaled, bots, shape, eyeHeight, you, rng, memory);
         return planner.Run();
     }
 
-    /// <summary>One of the level's player spawns at random; with an objective, one well clear of it (the farthest if none is).</summary>
-    private static SpawnPoint YourStart(LevelLayout level, SpawnRules rules, ObjectiveFocus? objective, ref Pcg32 rng)
+    /// <summary>
+    /// One of the level's player spawns at random (not the one you came in at last round, when there's another); with an
+    /// objective, one well clear of it (the farthest if none is).
+    /// </summary>
+    private static SpawnPoint YourStart(LevelLayout level, SpawnRules rules, ObjectiveFocus? objective, SpawnMemory last, ref Pcg32 rng)
     {
         IReadOnlyList<SpawnPoint> spawns = level.PlayerSpawns;
-        if (objective is null)
+        List<SpawnPoint> choices = spawns.ToList();
+        if (objective is not null)
         {
-            return spawns[(int)(rng.NextUInt() % (uint)spawns.Count)];
+            float clear = rules.MinDistanceFromYou + rules.ObjectiveClearance;
+            choices = spawns.Where(s => Vector3.Distance(s.Position, objective.At) >= clear).ToList();
+            if (choices.Count == 0)
+            {
+                choices.Add(spawns.MaxBy(s => Vector3.Distance(s.Position, objective.At)));
+            }
         }
 
-        float clear = rules.MinDistanceFromYou + rules.ObjectiveClearance;
-        List<SpawnPoint> far = spawns.Where(s => Vector3.Distance(s.Position, objective.At) >= clear).ToList();
-        if (far.Count == 0)
+        if (last.YourEntry is { } before && choices.Count > 1)
         {
-            far.Add(spawns.MaxBy(s => Vector3.Distance(s.Position, objective.At)));
+            choices.RemoveAll(s => Vector3.Distance(s.Position, before) < 1f);
         }
 
-        return far[(int)(rng.NextUInt() % (uint)far.Count)];
+        return choices[(int)(rng.NextUInt() % (uint)choices.Count)];
     }
 
     private sealed class Planner
@@ -123,6 +170,7 @@ public static class SpawnPlanner
         private readonly RoundShape _shape;
         private readonly float _eyeHeight;
         private readonly SpawnPoint _you;
+        private readonly SpawnMemory _last;
         private readonly HashSet<string> _used = new(StringComparer.Ordinal);
         private readonly List<OpponentSpawn> _teammates = new();
         private readonly List<OpponentSpawn> _opponents = new();
@@ -130,9 +178,16 @@ public static class SpawnPlanner
         private int _fromCover;
         private int _guardsLeft;
 
+        // Whether a start near one of the last round's may be taken: not until a placement has tried every other at every
+        // spacing it relaxes to (_allowStale, within a fill), nor until the whole of the mode's placement has tried without
+        // them (_staleThisPass).
+        private bool _allowStale = true;
+        private bool _staleThisPass = true;
+
         public Planner(LevelLayout level, CoverSet cover, CollisionWorld world, SpawnRules rules, BotConfig bots, RoundShape shape,
-            float eyeHeight, SpawnPoint you, Pcg32 rng)
+            float eyeHeight, SpawnPoint you, Pcg32 rng, SpawnMemory last)
         {
+            _last = last;
             _level = level;
             _cover = cover;
             _world = world;
@@ -168,21 +223,33 @@ public static class SpawnPlanner
                 PlaceDefenders(fair, objective);
             }
 
-            switch (_shape.Kind)
+            // The whole placement without the last round's starts first; only if that leaves someone out, again with them.
+            foreach (bool stale in _last.Starts.Count > 0 && _rules.RepeatRadius > 0f ? new[] { false, true } : new[] { true })
             {
-                case MatchModeKind.Teams:
-                    PlaceOtherTeam(fair);
+                _staleThisPass = stale;
+                switch (_shape.Kind)
+                {
+                    case MatchModeKind.Teams:
+                        PlaceOtherTeam(fair);
+                        break;
+                    case MatchModeKind.FreeForAll:
+                        // Out of each other's sight while they can still be kept apart, then just apart.
+                        List<Candidate> pool = Shuffled(fair);
+                        Fill(_opponents, _shape.Opponents, pool, _rules.FreeForAllSpacing, apartFromSight: true, spacingFloor: _rules.MinSpacing);
+                        Fill(_opponents, _shape.Opponents, pool, _rules.FreeForAllSpacing, apartFromSight: false);
+                        break;
+                    default:
+                        PlaceSquad(fair);
+                        break;
+                }
+
+                if (_opponents.Count >= _shape.Opponents)
+                {
                     break;
-                case MatchModeKind.FreeForAll:
-                    // Out of each other's sight while they can still be kept apart, then just apart.
-                    List<Candidate> pool = Shuffled(fair);
-                    Fill(_opponents, _shape.Opponents, pool, _rules.FreeForAllSpacing, apartFromSight: true, spacingFloor: _rules.MinSpacing);
-                    Fill(_opponents, _shape.Opponents, pool, _rules.FreeForAllSpacing, apartFromSight: false);
-                    break;
-                default:
-                    PlaceSquad(fair);
-                    break;
+                }
             }
+
+            _staleThisPass = true;
 
             // A level (or a place in one) too small to start everyone fairly still starts everyone: at the
             // spawns, then at cover inside the spawn area, as far from you as can be.
@@ -224,17 +291,32 @@ public static class SpawnPlanner
             List<Candidate> covers = Shuffled(fair.Where(c => c.Spawn is null));
             int wantCover = (int)MathF.Round(_shape.Opponents * _rules.CoverShare);
             int count = _shape.Opponents;
-            for (float spacing = _rules.MinSpacing; ; spacing = Relax(spacing))
+            foreach (bool stale in StalePasses())
             {
-                Take(_opponents, Math.Min(count, _opponents.Count + wantCover - _fromCover), covers, spacing, apartFromSight: false);
-                Take(_opponents, count, spawns, spacing, apartFromSight: false);
-                Take(_opponents, count, covers, spacing, apartFromSight: false);
-                if (_opponents.Count >= count || spacing <= 0f)
+                _allowStale = stale;
+                for (float spacing = _rules.MinSpacing; ; spacing = Relax(spacing))
+                {
+                    Take(_opponents, Math.Min(count, _opponents.Count + wantCover - _fromCover), covers, spacing, apartFromSight: false);
+                    Take(_opponents, count, spawns, spacing, apartFromSight: false);
+                    Take(_opponents, count, covers, spacing, apartFromSight: false);
+                    if (_opponents.Count >= count || spacing <= 0f)
+                    {
+                        break;
+                    }
+                }
+
+                if (_opponents.Count >= count)
                 {
                     break;
                 }
             }
+
+            _allowStale = true;
         }
+
+        /// <summary>A placement's passes: without the last round's starts first, then (only if it came up short) with them.</summary>
+        private bool[] StalePasses() =>
+            _last.Starts.Count == 0 || _rules.RepeatRadius <= 0f ? new[] { true } : _staleThisPass ? new[] { false, true } : new[] { false };
 
         /// <summary>
         /// The objective's defenders: its guards as near it as fair starts allow (inside the room, for hold, if any fair
@@ -244,7 +326,7 @@ public static class SpawnPlanner
         {
             int guards = Math.Min(objective.Guards, _shape.Opponents);
             List<Candidate> inside = objective.Room is { } room ? fair.Where(c => room.Contains(c.Position + new Vector3(0f, 0.1f, 0f))).ToList() : fair;
-            List<Candidate> nearest = (inside.Count > 0 ? inside : fair).OrderBy(c => Vector3.Distance(c.Position, objective.At)).ToList();
+            List<Candidate> nearest = FreshFirst((inside.Count > 0 ? inside : fair).OrderBy(c => Vector3.Distance(c.Position, objective.At)).ToList());
             _guardsLeft = guards;
             Fill(_opponents, guards, nearest, _rules.TeammateSpacing, apartFromSight: false, spacingFloor: 1f);
             _guardsLeft = 0;
@@ -278,12 +360,19 @@ public static class SpawnPlanner
         private void PlaceTeammates()
         {
             List<Candidate> pool = Shuffled(Candidates().Where(c => Vector3.Distance(c.Position, _you.Position) >= _rules.TeammateSpacing));
-            for (float reach = _rules.TeammatesWithin; _teammates.Count < _shape.Teammates && reach < 1000f; reach *= 1.5f)
+            // Out as far as need be without the last round's starts, before any of them.
+            foreach (bool stale in _last.Starts.Count > 0 && _rules.RepeatRadius > 0f ? new[] { false, true } : new[] { true })
             {
-                float within = reach;
-                Fill(_teammates, _shape.Teammates, pool.Where(c => Vector3.Distance(c.Position, _you.Position) <= within).ToList(),
-                    _rules.TeammateSpacing, apartFromSight: false, spacingFloor: _rules.TeammateSpacing);
+                _staleThisPass = stale;
+                for (float reach = _rules.TeammatesWithin; _teammates.Count < _shape.Teammates && reach < 1000f; reach *= 1.5f)
+                {
+                    float within = reach;
+                    Fill(_teammates, _shape.Teammates, pool.Where(c => Vector3.Distance(c.Position, _you.Position) <= within).ToList(),
+                        _rules.TeammateSpacing, apartFromSight: false, spacingFloor: _rules.TeammateSpacing);
+                }
             }
+
+            _staleThisPass = true;
         }
 
         /// <summary>
@@ -292,14 +381,25 @@ public static class SpawnPlanner
         /// </summary>
         private void Fill(List<OpponentSpawn> into, int count, List<Candidate> pool, float spacing, bool apartFromSight, float spacingFloor = 0f)
         {
-            for (float s = spacing; into.Count < count; s = Relax(s))
+            foreach (bool stale in StalePasses())
             {
-                Take(into, count, pool, MathF.Max(s, spacingFloor), apartFromSight);
-                if (s <= spacingFloor || s <= 0f)
+                _allowStale = stale;
+                for (float s = spacing; into.Count < count; s = Relax(s))
+                {
+                    Take(into, count, pool, MathF.Max(s, spacingFloor), apartFromSight);
+                    if (s <= spacingFloor || s <= 0f)
+                    {
+                        break;
+                    }
+                }
+
+                if (into.Count >= count)
                 {
                     break;
                 }
             }
+
+            _allowStale = true;
         }
 
         private void Take(List<OpponentSpawn> into, int count, List<Candidate> pool, float spacing, bool apartFromSight)
@@ -307,6 +407,11 @@ public static class SpawnPlanner
             for (int k = 0; k < pool.Count && into.Count < count; k++)
             {
                 Candidate c = pool[k];
+                if (!_allowStale && _last.Near(c.Position, _rules.RepeatRadius))
+                {
+                    continue;
+                }
+
                 if (!_used.Contains(c.Key) && Spaced(into, c.Position, spacing) && (!apartFromSight || !SeenByAny(into, c.Position)))
                 {
                     _used.Add(c.Key);
@@ -319,9 +424,11 @@ public static class SpawnPlanner
         /// <summary>A bot's start at <paramref name="c"/>, with the role it plays (and a route, for a patroller).</summary>
         private OpponentSpawn Start(Candidate c, bool teammate)
         {
+            // A named spawn plays one of its own roles only some of the time (its place suits them: a marksman's high
+            // window), else one dealt like anyone's, so the same spot doesn't always hold the same behaviour.
             string role = !teammate && _guardsLeft-- > 0 ? _shape.Objective!.GuardRole
                 : _shape.Roles.Count > 0 ? PickRole(_shape.Roles)
-                : c.Spawn is { } spawn ? spawn.Roles[(int)(_rng.NextUInt() % (uint)spawn.Roles.Count)]
+                : c.Spawn is { } spawn && _rng.NextFloat() < _rules.SpawnOwnRoleChance ? spawn.Roles[(int)(_rng.NextUInt() % (uint)spawn.Roles.Count)]
                 : PickRole(_rules.CoverRoles);
             bool patrols = Patrols(role);
             if (c.Spawn is { } at)
@@ -361,6 +468,10 @@ public static class SpawnPlanner
             }
         }
 
+        /// <summary>
+        /// <paramref name="items"/> in random order, those near a start of the last round after all the others: they're
+        /// taken only when nothing else fits, so the same places don't come up round after round.
+        /// </summary>
         private List<Candidate> Shuffled(IEnumerable<Candidate> items)
         {
             var list = items.ToList();
@@ -370,12 +481,33 @@ public static class SpawnPlanner
                 (list[i], list[j]) = (list[j], list[i]);
             }
 
-            return list;
+            return FreshFirst(list);
+        }
+
+        /// <summary><paramref name="list"/> with the starts near last round's moved to the end, in their order.</summary>
+        private List<Candidate> FreshFirst(List<Candidate> list)
+        {
+            if (_last.Starts.Count == 0 || _rules.RepeatRadius <= 0f)
+            {
+                return list;
+            }
+
+            var fresh = new List<Candidate>(list.Count);
+            var stale = new List<Candidate>();
+            foreach (Candidate c in list)
+            {
+                (_last.Near(c.Position, _rules.RepeatRadius) ? stale : fresh).Add(c);
+            }
+
+            fresh.AddRange(stale);
+            return fresh;
         }
 
         private bool SeenByYourSide(Vector3 feet)
         {
-            if (Seen(_you.Position, feet))
+            // From your entry, and from a few steps in from it: nobody has a shot at you the moment you come through.
+            if (Seen(_you.Position, feet) ||
+                (_rules.EntryLookAhead > 0f && Seen(_you.Position + ViewAngles.FlatForward(_you.Yaw) * _rules.EntryLookAhead, feet)))
             {
                 return true;
             }
