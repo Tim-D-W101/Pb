@@ -85,6 +85,12 @@ public enum CalloutKind : byte
 
     /// <summary>Defending: the other side is in the room.</summary>
     RoomAlarm,
+
+    /// <summary>Capture the flag: the other side has your flag.</summary>
+    FlagAlarm,
+
+    /// <summary>VIP escort, defending: where their VIP is.</summary>
+    VipAlarm,
 }
 
 /// <summary>Where a bot fighting from cover is in its cycle.</summary>
@@ -210,6 +216,17 @@ public sealed class BotBrain
     private int _lastCarrier = -1;
     private Vector3? _dutyPost;
     private float _dutyYaw;
+
+    // Capture the flag: the squad's word on this bot's part (going for theirs, or guarding its own), and whether it's the
+    // one to send its own fallen flag home.
+    private bool _flagAttacker;
+    private bool _flagReturner;
+
+    // VIP escort: the cover point the VIP is hiding behind (−1: none).
+    private int _vipCover = -1;
+
+    // Stepping round someone in the way: for how much longer (s).
+    private float _steppingRound;
     private bool _onAlarm;
     private int _roomSpot = -1;
     private Vector3 _roomGoal;
@@ -300,16 +317,38 @@ public sealed class BotBrain
     /// <summary>Hunts while idle: a hunter, or restless (unless the objective gives it something better to do).</summary>
     private bool Hunts => (Archetype.Idle == BotIdle.Hunt || Restless) && _dutyPost is null && !Attacking;
 
-    /// <summary>On the side playing for the round's objective, while it's still to do.</summary>
-    private bool Attacking => _sim.Match?.Objective is { Done: false } objective && Self.Team == objective.Attackers;
+    /// <summary>
+    /// Playing for the round's objective, while it's still to do: on the attacking side; in capture the flag (where both
+    /// sides attack and defend), going for theirs, carrying it, or sending its own fallen flag home.
+    /// </summary>
+    private bool Attacking => _sim.Match?.Objective is { Done: false } objective &&
+                              (objective.Kind == ObjectiveKind.Flag
+                                  ? _flagAttacker || objective.CarriedBy(Self.Id) is not null || (_flagReturner && objective.FlagOf(Self.Team) is { Down: true })
+                                  : Self.Team == objective.Attackers);
+
+    /// <summary>Capture the flag: the squad's word on this bot's part (an attacker leaves any post it was guarding).</summary>
+    internal void SetFlagDuty(bool attack, bool returner)
+    {
+        if (attack && !_flagAttacker)
+        {
+            _dutyPost = null;
+        }
+
+        _flagAttacker = attack;
+        _flagReturner = returner;
+    }
+
+    /// <summary>Capture the flag: going for theirs (the rest guard their own).</summary>
+    public bool FlagAttacker => _flagAttacker;
 
     /// <summary>
     /// Carrying the case, or in the room it's holding: nothing short of an enemy in sight takes it off the objective
     /// (no investigating sounds, no searching).
     /// </summary>
-    private bool OnTask => _sim.Match?.Objective is { Done: false } objective && Self.Team == objective.Attackers &&
-                           (objective.Carrier == Self.Id ||
-                            (objective.Room is { } room && room.Contains(Self.Position + new Vector3(0f, 0.1f, 0f))));
+    private bool OnTask => _sim.Match?.Objective is { Done: false } objective &&
+                           (objective.CarriedBy(Self.Id) is not null ||
+                            (Self.Team == objective.Attackers &&
+                             (objective.Carrier == Self.Id || (objective.Room is { } room && room.Contains(Self.Position + new Vector3(0f, 0.1f, 0f))))));
 
     /// <summary>In a held room gone stale (contested, unseen), a fresh call about where one of theirs is.</summary>
     private bool StalemateLead(Awareness? f) =>
@@ -320,12 +359,14 @@ public sealed class BotBrain
     private bool Defending(out Vector3 at)
     {
         at = default;
-        if (_sim.Match?.Objective is not { Done: false } objective || Self.Team == objective.Attackers)
+        if (_sim.Match?.Objective is not { Done: false } objective || (Self.Team == objective.Attackers && objective.Kind != ObjectiveKind.Flag))
         {
             return false;
         }
 
-        at = objective.Kind == ObjectiveKind.Hold && objective.Room is { } room ? room.Centre : objective.CasePosition;
+        at = objective.Kind == ObjectiveKind.Hold && objective.Room is { } room ? room.Centre
+            : objective.Kind == ObjectiveKind.Flag ? objective.FlagOf(Self.Team)?.Home ?? Self.Position
+            : objective.CasePosition;
         return objective.Kind != ObjectiveKind.Eliminate;
     }
 
@@ -504,6 +545,18 @@ public sealed class BotBrain
 
     private void Decide()
     {
+        if (Self.Unarmed)
+        {
+            // The VIP: nothing to fight with, so never stops to fight or look for anyone; always on its way out.
+            if (Mode != BotMode.Idle)
+            {
+                SetMode(BotMode.Idle);
+                Stop();
+            }
+
+            return;
+        }
+
         Awareness? f = Senses.Focus;
         bool seen = f is { Spotted: true, Visible: true };
         bool fighting = f is { Spotted: true } && f.SinceSeen < _b.GiveUpTime;
@@ -915,7 +968,101 @@ public sealed class BotBrain
         Vector3 goal;
         float within;
         BotGait gait = Archetype.MoveGait;
-        if (objective.Kind == ObjectiveKind.Retrieve)
+        if (objective.Kind == ObjectiveKind.Flag)
+        {
+            FlagState? own = objective.FlagOf(Self.Team), theirs = objective.TheirFlag(Self.Team);
+            if (own is null || theirs is null)
+            {
+                return false;
+            }
+
+            if (theirs.Carrier == Self.Id)
+            {
+                // Carrying theirs: home with it.
+                goal = own.Home;
+                within = 0.5f;
+            }
+            else if (_flagReturner && own.Down)
+            {
+                // Ours fell: touch it to send it home.
+                goal = own.Position;
+                within = 0.3f;
+            }
+            else if (theirs.Carrier >= 0 && _sim.FindPlayer(theirs.Carrier) is { Alive: true } carrier)
+            {
+                goal = carrier.Position;
+                within = _b.Escort;
+            }
+            else
+            {
+                goal = theirs.Position;
+                within = 0.3f;
+            }
+        }
+        else if (objective.Kind == ObjectiveKind.Escort && objective.Vip >= 0 && _sim.FindPlayer(objective.Vip) is { Alive: true } vip)
+        {
+            EscortRules r = objective.EscortRules;
+            Vector3 exit = NearestExit(objective, vip.Position);
+            if (vip.Id == Self.Id)
+            {
+                // The VIP: on to the way out while an escort's close by; with escorts still in but none near, wait for
+                // them, crouched (alone, it goes anyway).
+                goal = exit;
+                within = 0.5f;
+                bool withEscorts = EscortsIn(out float nearest);
+                if (withEscorts && Senses.Focus is { Spotted: true } threat && threat.SinceSeen < 2f)
+                {
+                    // One of theirs about: into cover from them (crouched behind it) while the escorts deal with them.
+                    if (_vipCover < 0)
+                    {
+                        _vipCover = HideFrom(threat);
+                    }
+
+                    if (_vipCover >= 0 && FlatDistance(Self.Position, _squad.Cover.Points[_vipCover].Position) > 0.4f)
+                    {
+                        goal = _squad.Cover.Points[_vipCover].Position;
+                        within = 0.4f;
+                    }
+                    else
+                    {
+                        Stop();
+                        _cmd.Buttons |= InputButtons.Crouch;
+                        _wantYaw = Sweep(YawTo(threat.LastKnown, Self.Position), dt);
+                        _wantPitch = 0f;
+                        return true;
+                    }
+                }
+                else
+                {
+                    if (_vipCover >= 0)
+                    {
+                        _squad.Cover.Release(Self.Id);
+                        _vipCover = -1;
+                    }
+
+                    if (withEscorts && nearest > r.WaitFor)
+                    {
+                        // Escorts still in but none near: wait for them, crouched (alone, it goes anyway).
+                        Stop();
+                        _cmd.Buttons |= InputButtons.Crouch;
+                        _wantYaw = Sweep(YawTo(exit, Self.Position), dt);
+                        _wantPitch = 0f;
+                        return true;
+                    }
+                }
+            }
+            else
+            {
+                // An escort: a few steps ahead of the VIP on the way out, clearing it (close to that spot: stopping a
+                // whole escort distance short of it, on the far side, left the VIP waiting for it for ever).
+                Vector3 toward = exit - vip.Position;
+                toward.Y = 0f;
+                float length = toward.Length();
+                goal = length > 1e-3f ? vip.Position + toward / length * MathF.Min(r.Lead, length) : vip.Position;
+                within = 1.5f;
+            }
+        }
+        else if (objective.Kind is ObjectiveKind.Retrieve or ObjectiveKind.Escort)
         {
             if (objective.Carrier == Self.Id)
             {
@@ -964,6 +1111,60 @@ public sealed class BotBrain
         _wantYaw = Sweep(facing, dt);
         _wantPitch = 0f;
         return true;
+    }
+
+    /// <summary>
+    /// VIP escort: the nearest cover point that hides the VIP (crouched) from <paramref name="threat"/>, not towards them,
+    /// claimed; −1 if there's none near.
+    /// </summary>
+    private int HideFrom(Awareness threat)
+    {
+        PlayerState? enemy = _sim.FindPlayer(threat.TargetId);
+        Vector3 eye = enemy is { Alive: true } ? enemy.EyePosition : threat.LastKnown + new Vector3(0f, 1.6f, 0f);
+        CoverSet cover = _squad.Cover;
+        cover.Near(Self.Position, _b.CoverSearchRadius, _near);
+        float crouched = _sim.Config.Movement.CrouchEyeHeight;
+        int best = -1;
+        float bestTravel = float.MaxValue;
+        for (int k = 0; k < _near.Count; k++)
+        {
+            int i = _near[k];
+            int holder = cover.ClaimedBy(i);
+            CoverPoint p = cover.Points[i];
+            float travel = FlatDistance(Self.Position, p.Position);
+            if ((holder != -1 && holder != Self.Id) || travel >= bestTravel || Vector3.Dot(eye - p.Position, p.Normal) > 0f ||
+                FlatDistance(p.Position, eye) < FlatDistance(Self.Position, eye) - 2f)
+            {
+                continue; // taken, no nearer, open to them, or towards them
+            }
+
+            if (!Clear(eye, p.Position + new Vector3(0f, crouched + 0.05f, 0f)))
+            {
+                best = i;
+                bestTravel = travel;
+            }
+        }
+
+        return best >= 0 && cover.Claim(best, Self.Id) ? best : -1;
+    }
+
+    /// <summary>VIP escort: whether any of the VIP's escorts are still in, and how far the nearest is.</summary>
+    private bool EscortsIn(out float nearest)
+    {
+        nearest = float.MaxValue;
+        bool any = false;
+        IReadOnlyList<PlayerState> players = _sim.Players;
+        for (int i = 0; i < players.Count; i++)
+        {
+            PlayerState p = players[i];
+            if (p.Id != Self.Id && p.Alive && p.Present && p.Team == Self.Team)
+            {
+                any = true;
+                nearest = MathF.Min(nearest, FlatDistance(p.Position, Self.Position));
+            }
+        }
+
+        return any;
     }
 
     /// <summary>Where this bot holds the room from: a free cover point inside it (claimed), else the walkable middle.</summary>
@@ -1026,7 +1227,13 @@ public sealed class BotBrain
         if (!_onAlarm)
         {
             // The first alarm of a chase gets a shout; the ones that keep it going don't.
-            Shout(_sim.Match?.Objective?.Kind == ObjectiveKind.Hold ? CalloutKind.RoomAlarm : CalloutKind.CaseAlarm);
+            Shout(_sim.Match?.Objective?.Kind switch
+            {
+                ObjectiveKind.Hold => CalloutKind.RoomAlarm,
+                ObjectiveKind.Flag => CalloutKind.FlagAlarm,
+                ObjectiveKind.Escort => CalloutKind.VipAlarm,
+                _ => CalloutKind.CaseAlarm,
+            });
         }
 
         _onAlarm = true;
@@ -1036,14 +1243,14 @@ public sealed class BotBrain
     /// Objective duty: hold <paramref name="post"/>, facing <paramref name="yaw"/>, instead of the usual post, patrol or hunt
     /// (a way out to cut off, or the case where it fell). An idle bot sets off at once; a busy one goes when it's done.
     /// </summary>
-    internal void Guard(Vector3 post, float yaw)
+    internal void Guard(Vector3 post, float yaw, bool shout = true)
     {
         if (_dutyPost is { } current && FlatDistance(current, post) < 1f)
         {
             return;
         }
 
-        if (_dutyPost is null)
+        if (_dutyPost is null && shout)
         {
             Shout(CalloutKind.CaseAlarm);
         }
@@ -2493,11 +2700,69 @@ public sealed class BotBrain
             return;
         }
 
-        MoveTowards(next, _crouchMove ? BotGait.Walk : _gait, 0f);
+        // Someone in the way (it's stopped getting closer): round them for a moment, then straight on again.
+        Vector3 toward = next;
+        if (_stuckFor >= _squad.Config.Navigation.StepRoundAfter || _steppingRound > 0f)
+        {
+            toward = StepRound(next);
+            _steppingRound = toward != next ? (_steppingRound > 0f ? _steppingRound - dt : 0.6f) : 0f;
+        }
+
+        MoveTowards(toward, _crouchMove ? BotGait.Walk : _gait, 0f);
         if (_crouchMove)
         {
             _cmd.Buttons |= InputButtons.Crouch;
         }
+    }
+
+    /// <summary>
+    /// Where to head for <paramref name="next"/> with someone standing in the way: the grid knows nothing of people, and
+    /// walking into a teammate at their post (or a crowd at a door) stalled a bot until it gave its goal up. With someone
+    /// within <see cref="NavigationParams.StepRound"/> ahead and close to the line, it bears off to the side they're less
+    /// in the way of, by as much as they're in the way.
+    /// </summary>
+    private Vector3 StepRound(Vector3 next)
+    {
+        float reach = _squad.Config.Navigation.StepRound;
+        Vector3 d = next - Self.Position;
+        d.Y = 0f;
+        float length = d.Length();
+        if (reach <= 0f || length < 0.3f)
+        {
+            return next;
+        }
+
+        d /= length;
+        var across = new Vector3(-d.Z, 0f, d.X);
+        float push = 0f;
+        IReadOnlyList<PlayerState> players = _sim.Players;
+        for (int i = 0; i < players.Count; i++)
+        {
+            PlayerState p = players[i];
+            if (p.Id == Self.Id || !p.Present || MathF.Abs(p.Position.Y - Self.Position.Y) > 1.5f)
+            {
+                continue;
+            }
+
+            Vector3 to = p.Position - Self.Position;
+            float ahead = to.X * d.X + to.Z * d.Z, side = to.X * across.X + to.Z * across.Z;
+            if (ahead <= 0f || ahead > MathF.Min(reach, length) || MathF.Abs(side) > 0.8f)
+            {
+                continue;
+            }
+
+            // Bear away from their side (straight ahead: to the left), the more the nearer the line.
+            float strength = (0.8f - MathF.Abs(side)) / 0.8f;
+            push += (side > 0f ? -1f : side < 0f ? 1f : 1f) * strength;
+        }
+
+        if (push == 0f)
+        {
+            return next;
+        }
+
+        Vector3 toward = Vector3.Normalize(d + across * Math.Clamp(push, -1.5f, 1.5f));
+        return Self.Position + toward * MathF.Min(length, 1.5f);
     }
 
     /// <summary>Sets the move input toward <paramref name="spot"/> relative to the current facing (so bots strafe while aiming).</summary>

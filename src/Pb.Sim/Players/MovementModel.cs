@@ -297,10 +297,10 @@ public static class MovementModel
             sprinting = alive && cmd.Has(InputButtons.Sprint) && stance == Stance.Standing && move.Y >= p.SprintMinForwardInput &&
                         !state.SprintBlocked;
             float target = !alive ? p.WalkSpeed
-                : stance == Stance.Crouching ? p.CrouchSpeed
+                : (stance == Stance.Crouching ? p.CrouchSpeed
                 : sprinting ? p.SprintSpeed
                 : cmd.Has(InputButtons.Walk) ? p.WalkSpeed
-                : p.RunSpeed;
+                : p.RunSpeed) * state.SpeedScale;
             Vector3 desired = state.Present ? wishDir * (target * amount) : Vector3.Zero;
             float rate = !grounded ? p.AirAcceleration
                 : desired.LengthSquared() >= current.LengthSquared() ? p.GroundAcceleration

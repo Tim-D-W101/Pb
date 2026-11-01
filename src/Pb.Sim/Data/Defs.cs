@@ -957,6 +957,12 @@ public enum ObjectiveKind
 
     /// <summary>Hold the room for the hold time in all.</summary>
     Hold,
+
+    /// <summary>Capture the flag: take theirs from their base to your own (both sides attack and defend).</summary>
+    Flag,
+
+    /// <summary>VIP escort: bring your side's VIP (unarmed) out through a way out; the other side puts the VIP out.</summary>
+    Escort,
 }
 
 /// <summary>Round rules (rules.jsonc).</summary>
@@ -1105,6 +1111,10 @@ public sealed class ObjectivesDef : IValidatable
 
     public HoldDef Hold { get; set; } = new();
 
+    public FlagDef Flag { get; set; } = new();
+
+    public EscortDef Escort { get; set; } = new();
+
     /// <summary>The behaviour (bots/archetypes.jsonc) the guards who start at the objective play.</summary>
     public string GuardRole { get; set; } = "";
 
@@ -1132,6 +1142,8 @@ public sealed class ObjectivesDef : IValidatable
 
         Retrieve.Validate(v.Scope(nameof(Retrieve)));
         Hold.Validate(v.Scope(nameof(Hold)));
+        Flag.Validate(v.Scope(nameof(Flag)));
+        Escort.Validate(v.Scope(nameof(Escort)));
     }
 }
 
@@ -1143,6 +1155,10 @@ public sealed class ObjectiveChoiceDef : IValidatable
 
     /// <summary>What to do, for the menu and the briefing.</summary>
     public string Description { get; set; } = "";
+
+    /// <summary>Only played two teams against each other (the menu offers it in teams only).</summary>
+    [Optional]
+    public bool TeamsOnly { get; set; }
 
     public void Validate(Validator v)
     {
@@ -1220,6 +1236,97 @@ public sealed class HoldDef : IValidatable
         v.InRange(nameof(NearShare), NearShare, 0, 1);
         v.InRange(nameof(Near_m), Near_m, 1, 200);
         v.InRange(nameof(AlarmInterval_s), AlarmInterval_s, 0.5, 60);
+    }
+}
+
+/// <summary>Capture the flag: each side's flag at its base; take theirs home to yours.</summary>
+public sealed class FlagDef : IValidatable
+{
+    /// <summary>A player takes (or, their own, sends home) a flag by walking within this of it.</summary>
+    public float PickupRadius_m { get; set; }
+
+    /// <summary>Carried within this of your own base, their flag is captured: your side wins.</summary>
+    public float CaptureRadius_m { get; set; }
+
+    public bool CarrierCanSprint { get; set; }
+
+    /// <summary>A flag that fell goes home when one of its own side touches it ...</summary>
+    public bool ReturnOnTouch { get; set; }
+
+    /// <summary>... or by itself after lying this long (0: never).</summary>
+    public float ReturnAfter_s { get; set; }
+
+    /// <summary>Your own flag has to be at home for you to capture theirs.</summary>
+    public bool NeedOwnFlagHome { get; set; }
+
+    /// <summary>Bots: this share of each side (at least one) stays to defend its flag; the rest go for theirs.</summary>
+    public float DefendShare { get; set; }
+
+    /// <summary>While a side's flag is carried off, this many of it nearest the carrier go after them ...</summary>
+    public int Chasers { get; set; }
+
+    /// <summary>... learning where they are this often.</summary>
+    public float AlarmInterval_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(PickupRadius_m), PickupRadius_m, 0.2, 5);
+        v.InRange(nameof(CaptureRadius_m), CaptureRadius_m, 0.5, 30);
+        v.InRange(nameof(ReturnAfter_s), ReturnAfter_s, 0, 600);
+        v.InRange(nameof(DefendShare), DefendShare, 0, 1);
+        v.InRange(nameof(Chasers), Chasers, 0, 10);
+        v.InRange(nameof(AlarmInterval_s), AlarmInterval_s, 0.5, 60);
+    }
+}
+
+/// <summary>VIP escort: one of the attacking side is the VIP, unarmed and slower; bring them out through a way out.</summary>
+public sealed class EscortDef : IValidatable
+{
+    /// <summary>The VIP moves at this share of everyone else's speed, and never sprints.</summary>
+    public float SpeedShare { get; set; }
+
+    /// <summary>Within this of a way out that counts, the VIP is out safe: the attackers win.</summary>
+    public float ExitRadius_m { get; set; }
+
+    /// <summary>A way out nearer than this to where the VIP starts doesn't count (the farthest does if none is that far) ...</summary>
+    public float MinExitDistance_m { get; set; }
+
+    /// <summary>... nor one nearer than this share of the farthest way out's distance.</summary>
+    public float FarShare { get; set; }
+
+    /// <summary>This share of the defenders (at least one) make for the ways out that count from the start, to guard them.</summary>
+    public float ExitGuardShare { get; set; }
+
+    /// <summary>Bots: escorts keep this far ahead of the VIP on the way out ...</summary>
+    public float Lead_m { get; set; }
+
+    /// <summary>... and the VIP waits while none of them is within this.</summary>
+    public float WaitFor_m { get; set; }
+
+    /// <summary>The defenders learn where the VIP is from this long into the round ...</summary>
+    public float AlarmAfter_s { get; set; }
+
+    /// <summary>... this often: the chasers nearest go after the VIP, the rest make for the way out nearest them.</summary>
+    public float AlarmInterval_s { get; set; }
+
+    public int Chasers { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(SpeedShare), SpeedShare, 0.3, 1);
+        v.InRange(nameof(ExitRadius_m), ExitRadius_m, 0.5, 30);
+        v.InRange(nameof(MinExitDistance_m), MinExitDistance_m, 0, 500);
+        v.InRange(nameof(FarShare), FarShare, 0, 1);
+        v.InRange(nameof(ExitGuardShare), ExitGuardShare, 0, 1);
+        v.InRange(nameof(Lead_m), Lead_m, 0, 50);
+        v.InRange(nameof(WaitFor_m), WaitFor_m, 1, 100);
+        if (WaitFor_m <= Lead_m + 1.5f)
+        {
+            v.Error(nameof(WaitFor_m), "a VIP waiting for escorts nearer than they keep (lead_m and 1.5) would wait for ever");
+        }
+        v.InRange(nameof(AlarmAfter_s), AlarmAfter_s, 0, 600);
+        v.InRange(nameof(AlarmInterval_s), AlarmInterval_s, 0.5, 60);
+        v.InRange(nameof(Chasers), Chasers, 0, 10);
     }
 }
 

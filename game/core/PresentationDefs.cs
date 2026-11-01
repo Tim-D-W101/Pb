@@ -2342,6 +2342,18 @@ public sealed class ObjectivesViewDef : IValidatable
 
     public float MarkerSize_px { get; set; }
 
+    /// <summary>Capture the flag: the pole's height, the cloth (width, height), the base ring's radius (m).</summary>
+    public float FlagPoleHeight_m { get; set; } = 2.2f;
+
+    public float[] FlagSize_m { get; set; } = { 0.8f, 0.5f };
+
+    public float FlagBaseRadius_m { get; set; } = 1.5f;
+
+    /// <summary>VIP escort: the VIP's marker, its size and how far over their eyes (m).</summary>
+    public float VipMarkerSize_m { get; set; } = 0.14f;
+
+    public float VipMarkerAbove_m { get; set; } = 0.55f;
+
     public void Validate(Validator v)
     {
         foreach ((string key, string value) in new[] { (nameof(Color), Color), (nameof(CaseColor), CaseColor), (nameof(CaseLightColor), CaseLightColor) })
@@ -2361,6 +2373,15 @@ public sealed class ObjectivesViewDef : IValidatable
         v.InRange(nameof(RoomOutlineWidth_m), RoomOutlineWidth_m, 0.01, 1);
         v.InRange(nameof(SeenWithin_m), SeenWithin_m, 1, 200);
         v.InRange(nameof(MarkerSize_px), MarkerSize_px, 4, 64);
+        v.InRange(nameof(FlagPoleHeight_m), FlagPoleHeight_m, 0.5, 6);
+        if (FlagSize_m.Length != 2 || FlagSize_m.Any(x => x <= 0f || x > 3f))
+        {
+            v.Error(nameof(FlagSize_m), "needs a width and a height, each over 0 and at most 3 m");
+        }
+
+        v.InRange(nameof(FlagBaseRadius_m), FlagBaseRadius_m, 0.3, 10);
+        v.InRange(nameof(VipMarkerSize_m), VipMarkerSize_m, 0.02, 1);
+        v.InRange(nameof(VipMarkerAbove_m), VipMarkerAbove_m, 0, 3);
     }
 }
 
@@ -2805,6 +2826,14 @@ public sealed class CalloutsDef : IValidatable
 
     public string[] RoomAlarm { get; set; } = System.Array.Empty<string>();
 
+    /// <summary>
+    /// Capture the flag (your flag taken) and VIP escort (their VIP seen): lines from the ones above, already recorded
+    /// (found by their words), so they're not in <see cref="All"/>.
+    /// </summary>
+    public string[] FlagAlarm { get; set; } = System.Array.Empty<string>();
+
+    public string[] VipAlarm { get; set; } = System.Array.Empty<string>();
+
     /// <summary>Every line, in order (the bots' script).</summary>
     public IEnumerable<string> All => Spotted.Concat(Lost).Concat(UnderFire).Concat(Refill).Concat(Hit).Concat(Flanking).Concat(Pushing)
         .Concat(Moving).Concat(ManDown).Concat(CaseTaken).Concat(CaseDown).Concat(CaseAlarm).Concat(RoomAlarm);
@@ -2824,6 +2853,8 @@ public sealed class CalloutsDef : IValidatable
         Pb.Sim.AI.CalloutKind.CaseDown => CaseDown,
         Pb.Sim.AI.CalloutKind.CaseAlarm => CaseAlarm,
         Pb.Sim.AI.CalloutKind.RoomAlarm => RoomAlarm,
+        Pb.Sim.AI.CalloutKind.FlagAlarm => FlagAlarm,
+        Pb.Sim.AI.CalloutKind.VipAlarm => VipAlarm,
         _ => System.Array.Empty<string>(),
     };
 
@@ -2831,11 +2862,22 @@ public sealed class CalloutsDef : IValidatable
     {
         foreach ((string name, string[] lines) in new[] { (nameof(Spotted), Spotted), (nameof(Lost), Lost), (nameof(UnderFire), UnderFire), (nameof(Refill), Refill), (nameof(Hit), Hit),
                      (nameof(Flanking), Flanking), (nameof(Pushing), Pushing), (nameof(Moving), Moving), (nameof(ManDown), ManDown),
-                     (nameof(CaseTaken), CaseTaken), (nameof(CaseDown), CaseDown), (nameof(CaseAlarm), CaseAlarm), (nameof(RoomAlarm), RoomAlarm) })
+                     (nameof(CaseTaken), CaseTaken), (nameof(CaseDown), CaseDown), (nameof(CaseAlarm), CaseAlarm), (nameof(RoomAlarm), RoomAlarm),
+                     (nameof(FlagAlarm), FlagAlarm), (nameof(VipAlarm), VipAlarm) })
         {
             if (lines.Length == 0)
             {
                 v.Error(name, "needs at least one line");
+            }
+        }
+
+        // The flag's and the VIP's alarms only borrow lines that are recorded.
+        var recorded = All.ToHashSet(System.StringComparer.Ordinal);
+        foreach ((string name, string[] lines) in new[] { (nameof(FlagAlarm), FlagAlarm), (nameof(VipAlarm), VipAlarm) })
+        {
+            foreach (string line in lines.Where(l => !recorded.Contains(l)))
+            {
+                v.Error(name, $"'{line}' isn't one of the recorded lines");
             }
         }
     }

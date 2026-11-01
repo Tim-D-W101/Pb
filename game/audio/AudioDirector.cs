@@ -419,6 +419,22 @@ public partial class AudioDirector : Node, ISimEventListener
             case SimEventType.CaseExtracted:
                 Cue(Sfx.CaseOut);
                 break;
+            // Capture the flag (e.Team: the flag's side) and the VIP: the case's sounds, good or bad for your side.
+            case SimEventType.FlagTaken:
+                Play3D(Sfx.CaseTake, e.Position.ToGodot(), _mix.Objective, 1f, CaseRange);
+                Cue(e.Team == _player.Team ? Sfx.CaseAlarm : Sfx.HoldOurs);
+                break;
+            case SimEventType.FlagDropped:
+                Play3D(Sfx.CaseDrop, e.Position.ToGodot(), _mix.Objective, 1f, CaseRange);
+                Cue(e.Team == _player.Team ? Sfx.HoldOurs : Sfx.HoldTheirs);
+                break;
+            case SimEventType.FlagReturned:
+                Cue(e.Team == _player.Team ? Sfx.HoldOurs : Sfx.HoldTheirs);
+                break;
+            case SimEventType.FlagCaptured:
+            case SimEventType.VipEscaped:
+                Cue(Sfx.CaseOut);
+                break;
             case SimEventType.HoldChanged:
                 Sfx? hold = (HoldStatus)e.Extra switch
                 {

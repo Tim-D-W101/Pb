@@ -52,7 +52,7 @@ public static class NetProtocol
     /// Bumped whenever a message changes: copies on different versions refuse each other (2: the callout key; 3: who you
     /// are, in the hello).
     /// </summary>
-    public const int Version = 3;
+    public const int Version = 4;
 
     public static MessageType TypeOf(ReadOnlySpan<byte> packet) => packet.Length > 0 ? (MessageType)packet[0] : MessageType.None;
 }

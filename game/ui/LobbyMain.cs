@@ -440,7 +440,7 @@ public partial class LobbyMain : Control
             sizes.Select(n => ModeText.Size(round.Mode, n)).ToArray(), Math.Max(0, Array.IndexOf(sizes, round.Size)), k => Set(c with { Size = sizes[k] })));
         if (round.Mode.Kind != MatchModeKind.FreeForAll)
         {
-            ObjectiveChoice[] offered = RoundChoices.Offered(_data, round.Area, round.Place);
+            ObjectiveChoice[] offered = RoundChoices.Offered(_data, round.Area, round.Place, round.Mode.Kind);
             if (offered.Length > 1)
             {
                 _choices.AddChild(UiKit.OptionRow("Objective", offered.Select(o => o.DisplayName).ToArray(),

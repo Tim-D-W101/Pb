@@ -18,7 +18,7 @@ the feel of it first: a marker that sounds like one, balls whizzing past your he
 did, arcs that show where paint is coming from, and a moment when you're hit (HIT!, the screen, the ringing, then
 watching yourself walk off with your hand up); then the characters' own animation set (walking, jogging, running,
 sprinting and crouched each way, leaning, refilling, flinching, hands up), blended from how they move, their feet
-held where they land.** Phase 2 is built
+held where they land; then two team modes, capture the flag and VIP escort, with bots that play them.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -27,7 +27,10 @@ kit. You pick it, a mode, how many play and a difficulty from the menu, read the
 **solo** (clear the compound of a squad against the clock), **free-for-all** (up to ten players,
 everyone against everyone) or **teams** (you and bot teammates against a bot team, up to 5 v 5),
 picking up paint and air on the way. In solo and teams you can also play for an objective (Phase 3): **retrieve** (find
-the case in the marked building and carry it out) or **hold** (keep the marked room for a minute in all). Every area is
+the case in the marked building and carry it out) or **hold** (keep the marked room for a minute in all); and in teams
+(Phase 5) **capture the flag** (take theirs from their base and carry it home to yours, while they try for yours) or
+**VIP escort** (one of your side is the VIP, unarmed and slower: bring them out through one of the far ways out, while
+the other side guards those and hunts the VIP). Every area is
 open from the start, and in each you pick where to play: the whole of it, or one part (a building, the tracks, a
 courtyard), taped off all round, with the round kept inside. Besides Oxbarrow Works there's **the Rail Yard**: a goods yard left to rust, rakes of dead wagons on four tracks (you
 can shoot under them, not crawl), an engine shed with a gantry, a goods shed with its platform, a signal box and a
@@ -206,7 +209,11 @@ sentries move between posts near their start, Marksmen change vantage, patrols g
 that hasn't found you in a minute and a half comes looking. The game remembers each area's and place's last round to do
 this, between games too, and so does a host or a dedicated server for everyone in its rounds.
 
-In an objective round the bots play for it: attackers make for the case or the room (opening doors on the way),
+In an objective round the bots play for it. In capture the flag each side keeps a few guards beside its base and sends
+the rest for the other flag; they carry it home or cover whoever has it, send their own fallen flag home, and chase
+whoever took it. In VIP escort the escorts lead the VIP to a far way out, the VIP keeps behind them and takes cover when
+it's shot at, and the defenders guard the ways out from the start and hunt the VIP once they hear where it is. In the
+others, attackers make for the case or the room (opening doors on the way),
 defenders keep near it, and a room both sides are in but neither can see the other in doesn't stay contested for long.
 The case goes out only through a way out well away from where it lay, the HUD shows the case once you're inside its
 building, and the marker says which floor an objective is on.
@@ -257,7 +264,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 482 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes, the animation set…) and 69 network tests — no Godot needed
+dotnet test                                          # 494 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes, the animation set, capture the flag and VIP escort…) and 70 network tests — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost (each slowest tick's own CPU time beside its wall-clock time)
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches (a new seed each run, printed), the characters' gait check and a match with the art on (at 120, 30 and 15 fps), and the art import (Linux/macOS)
 ```

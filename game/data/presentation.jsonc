@@ -1160,7 +1160,10 @@
       "caseTaken": ["Got the case!", "I've got it, cover me!", "Case is mine, heading out!"],
       "caseDown": ["Case is down!", "We lost the case, grab it!", "Someone get the case!"],
       "caseAlarm": ["They've got the case!", "The case is moving, stop them!", "Cut them off!"],
-      "roomAlarm": ["They're in the room!", "Take the room back!", "They're holding it, go!"]
+      "roomAlarm": ["They're in the room!", "Take the room back!", "They're holding it, go!"],
+      // Capture the flag (your flag taken) and VIP escort (their VIP seen): lines from those above, already recorded.
+      "flagAlarm": ["Cut them off!", "Over here!"],
+      "vipAlarm": ["There!", "Cut them off!", "Eyes on one!"]
     },
     // What the referee calls (subtitles, and the referee's voice): at the breakout, a minute and thirty seconds from
     // time, at time, when you're out, and how the round went (won: cleared or traded; lastStanding: free-for-all
@@ -1285,7 +1288,16 @@
     "beamAlpha": 0.22,
     "roomOutlineWidth_m": 0.1,
     "seenWithin_m": 30,
-    "markerSize_px": 16
+    "markerSize_px": 16,
+    // Capture the flag: each flag on a pole flagPoleHeight_m tall with a cloth flagSize_m (width, height) in its side's
+    // colour; its base a ring flagBaseRadius_m round on the ground in the same colour.
+    "flagPoleHeight_m": 2.2,
+    "flagSize_m": [0.8, 0.5],
+    "flagBaseRadius_m": 1.5,
+    // VIP escort: a small marker vipMarkerSize_m wide hovering vipMarkerAbove_m over the VIP's eyes (both sides see it:
+    // the VIP wears the colours).
+    "vipMarkerSize_m": 0.14,
+    "vipMarkerAbove_m": 0.55
   },
 
   // Sound (game/audio). Every effect is synthesised when the game starts (game/audio/SoundBank.cs), `variations` of

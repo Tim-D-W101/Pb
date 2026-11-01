@@ -71,6 +71,8 @@ public static class EventCodec
         NetEventTypes.Callout => Field.Player | Field.Target | Field.Position | Field.Extra,
         NetEventTypes.Contact => Field.Player | Field.Target | Field.Team | Field.Position,
         SimEventType.CalledOut => Field.Player | Field.Target | Field.Team | Field.Position,
+        SimEventType.FlagTaken or SimEventType.FlagCaptured or SimEventType.VipEscaped => Field.Player | Field.Team | Field.Position | Field.Extra,
+        SimEventType.FlagDropped or SimEventType.FlagReturned => Field.Player | Field.Team | Field.Position,
         _ => Field.None,
     };
 

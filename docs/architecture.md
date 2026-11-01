@@ -1417,3 +1417,69 @@ collection under memory pressure. That made the allocation test fail at random o
   - The gait demo (`--gait-check`; CI runs it at 120, 30 and 15 fps) has two new moves, turning on the spot each way.
     It prints how far the feet were held off their paths and how many steps they took standing.
   - The art-on bot match's pop check.
+
+### 18.3 Capture the flag and VIP escort (as built, M5.3)
+
+Two more objectives (`ObjectiveKind.Flag`, `ObjectiveKind.Escort`) in the same frame as retrieve and hold:
+`ObjectiveState` holds how each stands, a mode (`FlagMode`, `EscortMode`) says when the round is won, and both modes
+fall back to the last team standing. Both are played by two teams only: `ObjectiveChoice.TeamsOnly` (rules.jsonc), and
+`PlayableIn(mode)` filters the menu, the lobby and `--objective`.
+
+- **Capture the flag.**
+  - *Bases.* Each side's flag stands at its base: the start nearest the middle of that side's starts (so somewhere
+    they can all reach). It's worked out in `ObjectiveState.SetUp` once everyone is at their start, so every copy of a
+    networked round works out the same bases from the roster, without being sent them.
+  - *Taking it.* Anyone of the other side walking within `pickupRadius_m` takes it, one flag at a time. It moves with
+    the carrier, who can't sprint.
+  - *Dropping and returning.* Hit, the carrier drops it where they fell. Its own side touching it there sends it home
+    (`returnOnTouch`); left lying, it goes home by itself after `returnAfter_s`; the other side can pick it up again.
+  - *Capturing.* Carried within `captureRadius_m` of the carrier's own base, it's captured
+    (`RoundEnd.Captured`, winner the carrier's side), with their own flag at home if `needOwnFlagHome`.
+  - *Time up.* Nobody wins.
+  - *Events.* `FlagTaken`, `FlagDropped`, `FlagReturned` and `FlagCaptured`, carried on the network like the case's.
+    The snapshot holds each flag's position, carrier and whether it's home, plus the side that captured (12 more
+    round fields; protocol 4).
+- **VIP escort.**
+  - *The VIP.* One of the attacking side, dealt from the seed: a bot whenever that side has one, so offline you escort
+    them; on a side of people only, one of the people. The VIP is `PlayerState.Unarmed` (the marker never fires or
+    refills), moves at `SpeedScale` × the usual speeds (the rules' `speedShare`) and can't sprint. All of this is set on
+    every copy at the start from the roster and the seed, so none of it is sent.
+  - *Ways out.* Those that count are at least `minExitDistance_m` from where the VIP starts and at least `farShare` of
+    the farthest one's distance, because a side's starts are often by a gate.
+  - *Winning and losing.* The VIP within `exitRadius_m` of a way out that counts wins for the attackers
+    (`RoundEnd.Escorted`, event `VipEscaped`). The VIP put out wins for the defenders (`RoundEnd.VipOut`), and so does
+    the clock running out.
+  - *Reusing the case's code.* The VIP is held as the case's "carrier", with the case's position following them, so
+    whatever escorts or chases a carried case does the same for the VIP.
+- **Bots.**
+  - *Capture the flag.* At the start, `BotSquad` deals each side its parts. The share nearest the base (`defendShare`,
+    at least one) are posted beside it, across the way the other side will come and not on it. The rest
+    (`BotBrain.SetFlagDuty`) go for the other side's flag: they carry it home, or escort a teammate who has it. A side's
+    fallen flag is sent home by the nearest of that side still in. While a side's flag is carried off, its chasers are
+    told where the carrier is every `alarmInterval_s`. A side whose attackers are all out sends guards instead (a lone
+    survivor goes itself), or nobody would go for the flag again.
+  - *VIP escort.* From the start, `exitGuardShare` of the defenders guard the ways out that count, spread across them.
+    From `alarmAfter_s` they learn where the VIP is, as they do with the case: chasers go after the VIP and the rest
+    wait at the way out nearest them. Escorts keep `lead_m` ahead of the VIP on the way out. The VIP bot never stops
+    to fight; it waits, crouched, for an escort within `waitFor_m`, and with an enemy in sight it takes the nearest
+    cover that hides it from them.
+  - *Shooting first.* Every bot counts a VIP or a carrier (of a flag or the case) as the most pressing enemy in sight
+    (`ObjectiveState.IsKeyPlayer`).
+  - *A fix for every mode.* The grid knows nothing of people, so a bot that has stopped getting closer to its waypoint
+    with someone standing in its way now steps round them (`navigation.stepRound_m`, after `stepRoundAfter_s`). Without
+    this, an attacker walking into a guard at its post stood there until it gave up. Only stopped bots swerve:
+    swerving all the time pressed bots into door leaves.
+- **Presentation.**
+  - *In the world.* Flags on poles in their side's colour, with a ring at each base; carried on the carrier's back,
+    lying where they fell. A marker over the VIP's head, and beams over the ways out that count.
+  - *HUD.* A status line for both flags (or the VIP), a marker on their flag or your base, a second, red one on your
+    own flag whenever it's away, and the VIP or their way out.
+  - *Elsewhere.* Toasts for every flag event, the objective's sounds, the outcomes on the round screens and from the
+    referee, the bases and the VIP on the briefing map, and `--objective-demo` for both.
+- **Checks.**
+  - `FlagEscortTests`: bases, taking, carrying, capturing, dropping, both kinds of return, the draw on time; the VIP's
+    pick, its being unarmed and slower, the ways out that count, and every way the round ends.
+  - `FlagEscortBotTests`: bots take and capture a flag, chase a carrier, guard the VIP's ways out from the start, and
+    bring the VIP out.
+  - A networked flag round stands the same on every copy (`NetRoundTests`).
+  - Smoke runs of both modes on Oxbarrow Works, capture the flag on the Rail Yard and VIP escort in the Hospital Wing.
