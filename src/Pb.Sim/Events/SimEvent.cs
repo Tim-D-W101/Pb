@@ -78,6 +78,10 @@ public enum SimEventType : byte
     FlagCaptured,
     /// <summary>VIP escort: the VIP went out through a way out. PlayerId = the VIP, Team = their side, Extra = the way out's index.</summary>
     VipEscaped,
+    /// <summary>Someone got into a vehicle. PlayerId = who, TargetId = the vehicle, Extra = the seat, Position = where they sat.</summary>
+    VehicleEntered,
+    /// <summary>Someone got out of a vehicle (or was put out of it). PlayerId = who, TargetId = the vehicle, Extra = the seat, Position = where they stand.</summary>
+    VehicleLeft,
 }
 
 public enum FootstepKind : byte

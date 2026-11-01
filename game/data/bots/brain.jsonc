@@ -72,6 +72,23 @@
   // searching and hunting stay at the brisk walking speed.
   "strollPace": 0.55,
 
+  // Driving (Phase 5: the buggies on Thornwick Woods; vehicles.jsonc has the field's rules). A bot going farther than
+  // driveBeyond_m, with a buggy standing empty within driveVehicleWithin_m of it and no enemy in sight, walks to it,
+  // drives the tracks to the point on them nearest where it's going, and gets out within driveGetOutWithin_m of it. It
+  // steers for the point driveLookAhead_m along the track (plus driveLookAheadPerSpeed_s of its speed), at
+  // driveSpeedShare of the buggy's top speed on the straight, slowing to driveCornerSpeed_mps for the sharpest bends.
+  // An enemy seen within driveContactRange_m stops it and gets it out to fight on foot (the driver can't fire); so does
+  // getting nowhere for driveStuck_s after backing up once.
+  "driveBeyond_m": 90,
+  "driveVehicleWithin_m": 30,
+  "driveLookAhead_m": 4,
+  "driveLookAheadPerSpeed_s": 0.6,
+  "driveSpeedShare": 0.9,
+  "driveCornerSpeed_mps": 3.5,
+  "driveContactRange_m": 70,
+  "driveStuck_s": 2.5,
+  "driveGetOutWithin_m": 5,
+
   // What they shout aloud (spotted you, lost you, under fire, refilling, hit...), heard in their voice and read as a
   // subtitle when you're close enough (presentation.jsonc "hud"). The shouting is only what you hear: telling teammates
   // where you are (calloutRange_m below) happens whether or not a line is said. So that shouts stay occasional:

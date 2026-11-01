@@ -18,7 +18,8 @@ the feel of it first: a marker that sounds like one, balls whizzing past your he
 did, arcs that show where paint is coming from, and a moment when you're hit (HIT!, the screen, the ringing, then
 watching yourself walk off with your hand up); then the characters' own animation set (walking, jogging, running,
 sprinting and crouched each way, leaning, refilling, flinching, hands up), blended from how they move, their feet
-held where they land; then two team modes, capture the flag and VIP escort, with bots that play them.** Phase 2 is built
+held where they land; then two team modes, capture the flag and VIP escort, with bots that play them; and Thornwick
+Woods, a woodsball site seven times the size of the works, with buggies to drive (bots drive them too).** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -38,7 +39,13 @@ footbridge over the lot, with Marksmen watching from the high places. Then **the
 dark, its floor a lorry's height above the yard, chambers of racking behind heavy doors off a long aisle, and trailers
 backed onto the docks that you run through to get in. And the hardest, **the Hospital Wing**: three storeys of wards
 and corridors in two wings round an overgrown courtyard that every window looks down on, an operating theatre, a lift
-shaft open through every floor and the end of one wing fallen in. The ladders up the water towers (to a railed catwalk
+shaft open through every floor and the end of one wing fallen in. And the biggest by far, **Thornwick Woods**: a
+woodsball site on old farmland, 344 × 244 m inside its timber fence (seven times Oxbarrow Works), with four woods of
+trees close enough to hide behind, hedged fields with cover scattered over them, a timber fort with a lookout tower, a
+farm, a camp of containers and huts and a scrapyard, and gravel tracks between them, with five **buggies** to drive
+along them. Get in at a buggy's door with F (the driver's seat or the passenger's), drive with W/S and A/D, and get out
+with F once it's nearly stopped. The driver can't fire; the passenger can. Paint breaks on a buggy and never counts,
+someone hit in one gets out and walks off, and a buggy never runs anyone down: it stops short of them. The ladders up the water towers (to a railed catwalk
 12 m up, and on up the tank to its roof) and up the tank wagons' sides can be climbed, by you and by the bots, whose
 paths go up them. The bots hold posts, patrol, hunt and rush, notice you by sight
 and sound, and fight from cover; in free-for-all and teams they fight each other too. They shout where you are, so
@@ -133,6 +140,8 @@ The export presets already include the data files. The editor's F5 run uses a De
 | Open or shut the door you're facing (hold to ease it open) | F | X / Square, facing a door |
 | Get on the ladder you're facing (or, facing out over its top, get on to climb down) | F | X / Square, facing a ladder |
 | On a ladder: climb up / down; let go | W / S; Space | Left stick up / down; A / Cross |
+| Get in a buggy at its door (driver's or passenger's seat), or out once it's nearly stopped | F | X / Square, beside one |
+| Driving: go and brake (then reverse) / steer | W / S; A / D | Left stick |
 | Semi ↔ ramping | B | Y / Triangle |
 | Pause menu (settings, restart, quit) | Esc | Start / Options |
 
@@ -212,7 +221,10 @@ this, between games too, and so does a host or a dedicated server for everyone i
 In an objective round the bots play for it. In capture the flag each side keeps a few guards beside its base and sends
 the rest for the other flag; they carry it home or cover whoever has it, send their own fallen flag home, and chase
 whoever took it. In VIP escort the escorts lead the VIP to a far way out, the VIP keeps behind them and takes cover when
-it's shot at, and the defenders guard the ways out from the start and hunt the VIP once they hear where it is. In the
+it's shot at, and the defenders guard the ways out from the start and hunt the VIP once they hear where it is. On
+Thornwick Woods a bot with a long way to go (their flag, a case or a room across the site) takes a buggy standing empty
+nearby when that's quicker, drives the tracks and gets out near where it's going; seeing an enemy close, it stops and
+gets out to fight (nobody fires from the wheel). In the
 others, attackers make for the case or the room (opening doors on the way),
 defenders keep near it, and a room both sides are in but neither can see the other in doesn't stay contested for long.
 The case goes out only through a way out well away from where it lay, the HUD shows the case once you're inside its
@@ -264,9 +276,9 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 494 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes, the animation set, capture the flag and VIP escort…) and 70 network tests — no Godot needed
+dotnet test                                          # 535 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes, the animation set, capture the flag and VIP escort, buggies and bots driving them, Thornwick Woods…) and 71 network tests — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost (each slowest tick's own CPU time beside its wall-clock time)
-tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches (a new seed each run, printed), the characters' gait check and a match with the art on (at 120, 30 and 15 fps), and the art import (Linux/macOS)
+tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches (a new seed each run, printed), Thornwick Woods with its buggies (bots driving, and --vehicle-demo), the characters' gait check and a match with the art on (at 120, 30 and 15 fps), and the art import (Linux/macOS)
 ```
 
 CI (GitHub Actions) runs all three on every pull request.

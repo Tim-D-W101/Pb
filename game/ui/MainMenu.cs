@@ -353,7 +353,7 @@ public partial class MainMenu : Control
             }
 
             holder.AddChild(AreaCard(areas[k]));
-        }, "Area_", buttonWidth: 230, wrap: true));
+        }, "Area_", buttonWidth: 200, wrap: true));
         holder.AddChild(AreaCard(areas[shown]));
         column.AddChild(holder);
         return Screen(column, left: true);
@@ -441,10 +441,11 @@ public partial class MainMenu : Control
         // there at the head of the right-hand column, where it has the width.
         Label placeBlurb = UiKit.Body(place.Description, 16, UiKit.Dim, wrap: true);
         placeBlurb.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        // The picture is a little shorter for an area with more places than five, so its card still fits the screen.
         var still = new TextureRect
         {
             Name = $"Still_{entry.Id}",
-            CustomMinimumSize = new Vector2(360, 166),
+            CustomMinimumSize = new Vector2(360, Math.Max(100, 166 - 60 * Math.Max(0, places.Count - 5))),
             ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
             StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
             Texture = PlaceStills.For(entry.Id, place.Id),

@@ -119,7 +119,7 @@ public enum CoverPhase : byte
 /// return. Eliminated, it walks off. All randomness comes from a per-bot stream seeded from the match
 /// seed, so a round replays identically from the same inputs. Steady-state ticks don't allocate.
 /// </summary>
-public sealed class BotBrain
+public sealed partial class BotBrain
 {
     private const float ArriveRadius = 0.35f;
     private const float TriggerTicks = 1;
@@ -404,8 +404,15 @@ public sealed class BotBrain
         _cmd = new InputCommand { Tick = tick };
         if (!Self.Alive)
         {
+            if (_ride != RideState.None)
+            {
+                EndRide();
+            }
+
             return WalkOff(dt);
         }
+
+        AfterRide();
 
         bool live = _sim.IsLive && !Passive;
         Senses.Enabled = live;
@@ -446,6 +453,10 @@ public sealed class BotBrain
         _turnSpeed = _b.LookTurnSpeed;
         _atLadder = false;
         Act(dt);
+        if (Self.Vehicle >= 0)
+        {
+            DriveTick(dt);
+        }
         if (_doorLeaf >= 0)
         {
             // Waiting at a door: look at it (whatever the mode wanted to look at), so interact finds it.
@@ -2340,6 +2351,11 @@ public sealed class BotBrain
 
     private void GoTo(Vector3 goal, BotGait gait)
     {
+        if (RideTakes(goal, gait))
+        {
+            return; // on its way there by vehicle
+        }
+
         _goal = goal;
         _gait = gait;
         _hasGoal = true;
@@ -2355,6 +2371,15 @@ public sealed class BotBrain
 
     private void Stop()
     {
+        if (_ride == RideState.Boarding)
+        {
+            EndRide();
+        }
+        else if (_ride == RideState.Driving)
+        {
+            _ride = RideState.Alighting; // stopping here: out of the vehicle
+        }
+
         _hasGoal = false;
         _needPath = false;
         _path.Clear();
@@ -2603,6 +2628,17 @@ public sealed class BotBrain
         if (!_hasGoal)
         {
             return;
+        }
+
+        // At the wheel the driving's done after the mode's had its say (DriveTick); walking to a buggy, in at its door.
+        if (Self.Vehicle >= 0 || Board(dt))
+        {
+            return;
+        }
+
+        if (_needPath && _ride == RideState.None && _tick >= _searchAgainAt)
+        {
+            StartRide(); // a buggy for a long way: its door is the goal now
         }
 
         if (_needPath)

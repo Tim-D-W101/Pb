@@ -1,0 +1,50 @@
+// Vehicles (Phase 5: the woodsball site). In the sim, so the server decides where they go and bots drive by the same
+// rules as people. Keys carry their unit; code converts to SI once on load.
+//
+// The field's rules for vehicles (paintball sites that use them run much the same):
+//   - paint on a vehicle doesn't count: it's cover, and balls break on its body; the people in it are as exposed as
+//     their seats leave them (their own hitboxes, sitting up above the sides);
+//   - whoever drives keeps both hands on the wheel and doesn't fire; a passenger may;
+//   - a vehicle never hits anyone: it stops for anyone in its way;
+//   - the field's speed limit is the vehicle's top speed;
+//   - you get in and out only when it's (nearly) stopped, and someone in it who's hit gets out and walks off.
+{
+  "vehicles": [
+    {
+      "id": "buggy",
+      "displayName": "Buggy",
+      // The body, centred on its own point on the ground: so long (along its heading), wide and high, its floor so far
+      // up. The body (the shell up to its floor and sides) is a paint collider; the seats stick out above it.
+      "length_m": 3.2,
+      "width_m": 1.75,
+      "sideHeight_m": 1.05,
+      "floor_m": 0.4,
+      // From the back axle to the front: how tight it turns (with maxSteer_deg).
+      "wheelbase_m": 2.2,
+      // 43 km/h forward is the site's limit (a sprint is 25: worth walking to one for a long way); a crawl backwards.
+      "maxSpeed_mps": 12.0,
+      "reverseSpeed_mps": 3.0,
+      "accel_mps2": 4.5,
+      "brake_mps2": 8.0,
+      // Off the pedals it rolls to a stop at this rate.
+      "coast_mps2": 1.8,
+      "maxSteer_deg": 30,
+      "steerRate_degps": 75,
+      // Getting in: standing (or walking) within enterRadius_m of a free seat's side; out again only below
+      // exitBelow_mps, beside the seat you were in (or the other side, or behind, whichever's clear).
+      "enterRadius_m": 1.8,
+      "exitBelow_mps": 1.2,
+      // It never hits anyone: it brakes for anyone in the way ahead (or behind, backing up) so as to stop this far short
+      // of them (between its body and theirs), and never comes closer to anyone than brush_m, whatever the driver does.
+      "stopShort_m": 0.6,
+      "brush_m": 0.15,
+      // Where each seat is (x to the vehicle's right, y up from the ground, z ahead of its centre) and what the one in
+      // it does. Sitting, eyes this far above the seat's point.
+      "seatedEyeHeight_m": 0.85,
+      "seats": [
+        { "id": "driver", "at_m": [-0.42, 0.55, -0.1], "drives": true, "fires": false },
+        { "id": "passenger", "at_m": [0.42, 0.55, -0.1], "drives": false, "fires": true }
+      ]
+    }
+  ]
+}

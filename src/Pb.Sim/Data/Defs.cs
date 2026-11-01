@@ -68,6 +68,9 @@ public sealed class SimFilesDef : IValidatable
 
     public string Difficulty { get; set; } = "";
 
+    /// <summary>Vehicles (Phase 5).</summary>
+    public string Vehicles { get; set; } = "";
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Kit), Kit);
@@ -77,6 +80,7 @@ public sealed class SimFilesDef : IValidatable
         v.NotEmpty(nameof(Senses), Senses);
         v.NotEmpty(nameof(Archetypes), Archetypes);
         v.NotEmpty(nameof(Difficulty), Difficulty);
+        v.NotEmpty(nameof(Vehicles), Vehicles);
         v.NotEmpty(nameof(Projectile), Projectile);
         v.NotEmpty(nameof(Marker), Marker);
         v.NotEmpty(nameof(Loader), Loader);

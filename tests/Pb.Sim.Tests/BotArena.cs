@@ -48,6 +48,7 @@ internal sealed class BotArena
                 TickRate = config.TickRate, MatchSeed = seed, BallPoolCapacity = config.BallPoolCapacity, Surfaces = config.Surfaces,
                 Projectile = config.Projectile, BreakModel = config.BreakModel, Shot = config.Shot, Fire = config.Fire,
                 Loader = config.Loader, Air = config.Air, Movement = config.Movement, Hitboxes = config.Hitboxes, Rules = config.Rules,
+                Vehicles = config.Vehicles,
             };
         }
 

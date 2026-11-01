@@ -126,6 +126,9 @@ public enum Sfx
     Caw,
     WingFlap,
     Train,
+
+    // Vehicles: a buggy's engine, a loop played faster the faster it goes.
+    Engine,
 }
 
 /// <summary>
@@ -408,6 +411,7 @@ public sealed class SoundBank
         Sfx.Caw => new(1.3f, 4, (s, v) => Caws(s, 1 + v % 3)),
         Sfx.WingFlap => new(0.9f, 2, (s, _) => WingFlap(s)),
         Sfx.Train => new(18f, 1, (s, _) => Train(s)),
+        Sfx.Engine => new(2f, 1, (s, _) => Engine(s), Loop: true),
         _ => throw new ArgumentOutOfRangeException(nameof(sfx), sfx, null),
     };
 
@@ -1282,6 +1286,27 @@ public sealed class SoundBank
                 s.Samples[i] += band.Process(s.Noise()) * e * e * 0.25f;
             }
         }
+    }
+
+    /// <summary>
+    /// A small two-stroke engine at a fast idle: a firing pulse 32 times a second (a whole number of them in the loop, so
+    /// it loops without a seam), each a thump with a rasp of exhaust on it, through a low-pass like a box round it. Played
+    /// faster as the buggy speeds up.
+    /// </summary>
+    private static void Engine(Synth s)
+    {
+        const float Firing = 32f;
+        var body = Biquad.LowPass(s.Rate, 900f, 0.9f);
+        var rasp = Biquad.BandPass(s.Rate, 1700f, 1.4f);
+        for (int i = 0; i < s.Length; i++)
+        {
+            float phase = s.T(i) * Firing % 1f;
+            float pulse = MathF.Exp(-phase * 9f) * (1f - phase);
+            float thump = MathF.Sin(MathF.Tau * Firing * 2f * s.T(i)) * 0.35f + pulse;
+            s.Samples[i] = body.Process(thump + rasp.Process(s.Noise()) * pulse * 0.6f);
+        }
+
+        s.Saturate(1.6f);
     }
 
     /// <summary>A quiet room: low air, barely there.</summary>

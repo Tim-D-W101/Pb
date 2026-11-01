@@ -56,6 +56,9 @@ public partial class Hud : CanvasLayer, ISimEventListener
     private KillFeed? _feed;
     private Subtitles? _subtitles;
     private Label _prompt = null!;
+
+    /// <summary>What the prompt under the crosshair says now (empty when it's hidden).</summary>
+    public string PromptText => _prompt.Visible ? _prompt.Text : "";
     private HudDef? _hudDef;
     private Color[] _teams = Array.Empty<Color>();
     private double _uiTimer;
@@ -559,6 +562,35 @@ public partial class Hud : CanvasLayer, ISimEventListener
         if (_hudDef is null || !_player.Alive || !_sim.IsLive)
         {
             _prompt.Visible = false;
+            return;
+        }
+
+        // In a vehicle: how fast, how to drive it (or that you can fire from your seat), and how to get out when it's slow
+        // enough; beside a free seat, how to get in.
+        if (_sim.Vehicles.Of(_player) is { } vehicle)
+        {
+            Pb.Sim.Vehicles.VehicleParams kind = vehicle.Params;
+            bool driving = vehicle.Driver == _player.Id;
+            bool slow = MathF.Abs(vehicle.Speed) <= kind.ExitBelow;
+            string speed = $"{MathF.Abs(vehicle.Speed) * 3.6f:0} km/h";
+            string how = driving
+                ? $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · go and brake · {InputSetup.KeyName("move_left")} / {InputSetup.KeyName("move_right")} · steer (no firing at the wheel)"
+                : "you can fire from your seat";
+            string exit = slow ? $"{InputSetup.KeyName("interact")} · get out" : "slow down to get out";
+            _prompt.Visible = true;
+            _prompt.Text = $"{kind.DisplayName} · {speed} · {how} · {exit}";
+            _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
+            return;
+        }
+
+        (int nearVehicle, int nearSeat) = _sim.Vehicles.FreeSeatNear(_player.Position);
+        if (nearVehicle >= 0)
+        {
+            Pb.Sim.Vehicles.VehicleState near = _sim.Vehicles[nearVehicle];
+            bool drives = near.Params.Seats[nearSeat].Drives;
+            _prompt.Visible = true;
+            _prompt.Text = $"{InputSetup.KeyName("interact")} · get in the {near.Params.DisplayName.ToLowerInvariant()} ({(drives ? "drive" : "ride and fire")})";
+            _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
             return;
         }
 

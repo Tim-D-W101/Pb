@@ -75,8 +75,10 @@ public sealed class GameData
             .Select(s => new SurfaceResponse(s.Break50_mps, s.BreakWidth_mps, s.Restitution, s.TangentRetain))
             .ToList();
 
+        VehiclesDef vehicles = Jsonc.Load<VehiclesDef>(source, files.Vehicles);
         var config = new SimConfig
         {
+            Vehicles = vehicles.Vehicles.ToDictionary(v => v.Id, Vehicles.VehicleParams.From, StringComparer.Ordinal),
             TickRate = sim.TickRate_hz,
             MatchSeed = sim.MatchSeed,
             BallPoolCapacity = sim.BallPoolCapacity,

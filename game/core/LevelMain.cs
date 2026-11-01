@@ -53,6 +53,8 @@ namespace Pb.Game.Core;
 ///   --cover-at=X,Z        with --cover-demo, the low cover nearest that point (else the nearest out in the open)
 ///   --ladder-demo         an opponent climbs a ladder, steps off at the top, turns round and climbs down, from the side
 ///   --ladder=N            with --ladder-demo, the level's Nth ladder (else the tallest)
+///   --vehicle-demo        you get in a buggy, drive it along the tracks, get out and look back (--level=thornwick_woods)
+///   --vehicle=N           with --vehicle-demo, the level's Nth vehicle (else the nearest)
 ///   --place-stills=DIR    takes the menu's picture of each of the level's places into DIR (res://ui/places), then quits
 ///   --bot-match           CI: a bot plays your slot (it hunts round the opponent spawns) until the round ends
 ///   --time-limit=SECONDS  overrides the tier's time limit (keeps the bot match short in CI)
@@ -66,7 +68,8 @@ namespace Pb.Game.Core;
 ///   --record              the bot match goes in your records as a round of yours (CI, to exercise the profile)
 ///   --max-pop=CM          the bot match fails if any character's head or hands jump further than this in a frame
 ///   --min-contact-marks=N the bot match fails with fewer than N bot teammates' contacts marked on your HUD
-///   --fast                no cap on sim ticks a frame, so a low --fixed-fps runs the round in few frames (to film a
+///   --min-drives=N        the bot match fails with fewer than N times someone took the wheel of a vehicle
+///   --fast                no cap on sim ticks a frame, so a low --fixed-fps runs the round (or --vehicle-demo) in few frames (to film a
 ///                         whole bot match with --write-movie: --fixed-fps 1 is a second of the round a frame)
 ///   --show-summary        the bot match ends on its summary, up for three seconds (for a screenshot)
 /// Scripted runs skip the briefing and the summary, and keep the bots passive until a script wakes
@@ -139,6 +142,8 @@ public partial class LevelMain : Node3D, ISimEventListener
     private Creepers _creepers = null!;
     private LightShafts _shafts = null!;
     private DoorViews _doors = null!;
+    private VehicleViews _vehicles = null!;
+    private int _rides, _drivers;
     private string? _hitBy;
     private bool _scripted;
     private bool _botMatch;
@@ -287,7 +292,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         // Headless bot matches with the art on measure the characters' pops (CharacterPoser), printed with the result.
         Pb.Game.Player.CharacterPoser.TrackPops = _botMatch;
         _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--splat-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || _botMatch || Args.Has("--objective-demo");
+                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || _botMatch || Args.Has("--objective-demo") || Args.Has("--vehicle-demo");
         bool roundTour = Args.Has("--round-tour");
         // Rounds played with others don't go in your records: they stay your bests alone.
         _counts = !_scripted && !roundTour && _net is null;
@@ -376,6 +381,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _doors = new DoorViews { Name = "Doors" };
         AddChild(_doors);
         _doors.Build(_sim, _world.Materials);
+        _vehicles = new VehicleViews { Name = "Vehicles" };
+        AddChild(_vehicles);
+        _vehicles.Build(_sim, _level, _world.Materials);
         var tracks = new TrackViews { Name = "Tracks" };
         AddChild(tracks);
         tracks.Build(_level, _world.Materials);
@@ -467,7 +475,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         AddChild(_botDebug);
         _botDebug.Initialize(_squad);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());
-        _splats.Initialize(_view, SplatParent, _doors.AnchorOf);
+        _splats.Initialize(_view, SplatParent, id => _doors.AnchorOf(id) ?? _vehicles.AnchorOf(id));
         var fx = GetNode<ImpactFx>("ImpactFx");
         fx.Initialize(_view);
         _dust = new FootDust { Name = "FootDust" };
@@ -551,6 +559,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.Ticked += _ =>
         {
             _doors.Capture();
+            _vehicles.Capture();
             objectiveViews.Capture();
         };
         // One driver for each player, in the sim's order: its step takes their commands in that order.
@@ -603,6 +612,20 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             _player.Teleport(PostureDemo.Position, PostureDemo.Yaw);
             _player.AutoPilot = new PostureDemo(this, _sim);
+            _hud.ShowHelp = false;
+            _hud.ShowPerf = false;
+        }
+        else if (Args.Has("--vehicle-demo"))
+        {
+            var demo = new VehicleDemo(this, _sim, _player, _vehicles, _hud,
+                (state, at) => _pawns.FirstOrDefault(p => p.State == state)?.Teleport(at, state.Yaw));
+            demo.Setup(int.TryParse(Args.Value("--vehicle"), out int which) ? which : null);
+            _player.AutoPilot = demo;
+            if (Args.Has("--fast"))
+            {
+                Engine.MaxPhysicsStepsPerFrame = 1024; // filmed at a low --fixed-fps, as the bot match is
+            }
+
             _hud.ShowHelp = false;
             _hud.ShowPerf = false;
         }
@@ -737,6 +760,12 @@ public partial class LevelMain : Node3D, ISimEventListener
     public void OnSimEvent(in SimEvent e)
     {
         _squad.Hear(e);
+        if (e.Type == SimEventType.VehicleEntered)
+        {
+            _rides++;
+            _drivers += _sim.Vehicles.Count > e.TargetId && e.TargetId >= 0 && e.Extra == _sim.Vehicles[e.TargetId].Params.DriverSeat ? 1 : 0;
+        }
+
         if (e.Type == NetEventTypes.Callout)
         {
             HearCallout(e);
@@ -1825,6 +1854,12 @@ public partial class LevelMain : Node3D, ISimEventListener
             ok &= ContactMarks >= minMarks;
         }
 
+        // CI on Thornwick Woods: at least this many times someone took the wheel of a buggy.
+        if (int.TryParse(Args.Value("--min-drives"), out int minDrives))
+        {
+            ok &= _drivers >= minDrives;
+        }
+
         // Hit feedback (Phase 5): out by a ball, the hit moment played; and with --min-feedback=N, at least N incoming-fire
         // arcs and hit markers between them.
         bool outByBall = !_player.State.Alive && _player.State.EliminatedBy >= 0 && _lastHitTravel is not null;
@@ -1842,6 +1877,7 @@ public partial class LevelMain : Node3D, ISimEventListener
                  $"{you.Eliminations} of {_sim.Players.Count(p => p.Team != _player.State.Team)}, {you.Shots} shots, {you.Hits} hits, " +
                  $"{you.Pickups} pickups; bots put out by bots: {botOnBot}; callouts: {_squad.Shouts} shouted aloud, {_squad.ContactsShared} contacts " +
                  $"shared and heard {_squad.ContactsHeard} times by teammates, {ContactMarks} marked on your HUD, {_callouts} callout-key presses; {_audio.RoundCueLine}; collections {CollectionsLine()}; {PopsLine()}" +
+                 (_sim.Vehicles.Count > 0 ? $"vehicles: {_drivers} drives, {_rides - _drivers} rides as passenger; " : "") +
                  $"simErrors={errors} avgStepMs={_driver.AverageStepMs:0.000}");
         if (_net is { } session)
         {

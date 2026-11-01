@@ -19,7 +19,7 @@ Read [docs/spec.md](docs/spec.md) (requirements, verbatim from the owner) and
 ## Architecture in one paragraph
 
 `src/Pb.Sim` is plain C#, with no Godot references allowed, and decides every outcome:
-ballistics, ball collision, gear, hitboxes, match rules. It's deterministic for a given seed
+ballistics, ball collision, gear, hitboxes, vehicles, match rules. It's deterministic for a given seed
 and input stream. Hosts call `SimWorld.Step()` once per fixed tick with one `InputCommand` per
 player, then read and clear `SimWorld.Events`. The Godot project in `game/` samples input,
 does the collide-and-slide for walking, and renders. Presentation systems implement
@@ -42,6 +42,7 @@ tools/ci/net-round.sh godot                           # CI's networked rounds: a
 tools/ci/wine-join.sh builds/server/linux/Pb-server builds/windows/Pb   # the Windows build plays a round on the Linux server under Wine
 tools/package/godot-project.sh                        # self-contained project zip for Godot's Import
 python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate the hospital wings (edit the script, not the files)
+python3 tools/levels/thornwick_woods.py game/data/levels        # regenerate Thornwick Woods, the big woodsball site (likewise)
 blender -b --factory-startup -P tools/anim/build_clips.py -- game/art/models/clip_walk.glb game/art/models/anim_set.glb   # the characters' animation set (Blender 4.2), then godot --import
 ```
 
@@ -144,6 +145,10 @@ over and tucks it in again, printing how far its knees and elbows got into the c
 nearest that point); it runs headless too, for the numbers alone. `-- --ladder-demo` has an opponent climb the level's
 tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
 Oxbarrow Works and `--level=rail_yard` have ladders).
+`-- --vehicle-demo --level=thornwick_woods` gets you into a buggy at its driver's door, drives it along the tracks round
+the crossroads and gets you out to look back at it (`--vehicle=N` for another; it runs headless too, as CI's smoke test,
+and `--fast` at a low `--fixed-fps` films it in few frames); a bot match's `--min-drives=N` fails it if bots took the
+wheel fewer than N times.
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until

@@ -712,6 +712,8 @@ public sealed class MixDef : IValidatable
 
     public float Door { get; set; }
 
+    public float Engine { get; set; }
+
     public float Pickup { get; set; }
 
     public float HitTaken { get; set; }
@@ -3930,9 +3932,21 @@ public sealed class WoodsDef : IValidatable
 
     public float Sway_m { get; set; }
 
+    public float StandChunk_m { get; set; }
+
+    public float StandWoodRange_m { get; set; }
+
+    public float StandLeafRange_m { get; set; }
+
+    public float StandFade_m { get; set; }
+
     public void Validate(Validator v)
     {
         v.InRange(nameof(Copses), Copses, 0, 100);
+        v.InRange(nameof(StandChunk_m), StandChunk_m, 10, 200);
+        v.InRange(nameof(StandWoodRange_m), StandWoodRange_m, 20, 2000);
+        v.InRange(nameof(StandLeafRange_m), StandLeafRange_m, StandWoodRange_m, 3000);
+        v.InRange(nameof(StandFade_m), StandFade_m, 0, 200);
         if (TreesPerCopse.Length != 2 || TreesPerCopse[0] < 1 || TreesPerCopse[1] < TreesPerCopse[0] || TreesPerCopse[1] > 40)
         {
             v.Error(nameof(TreesPerCopse), "takes [least, most], 1-40");

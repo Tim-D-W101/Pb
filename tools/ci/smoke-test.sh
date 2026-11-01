@@ -17,6 +17,9 @@
 #          a 3 v 3 hold inside the Cold Store and a 3 v 3 retrieve in the Hospital Wing's wings
 #   modes  (Phase 5): 4 v 4 capture the flag and VIP escort rounds on Oxbarrow Works, capture the flag on the Rail Yard
 #          and VIP escort in the Hospital Wing, bots in every slot; each must end with a winner or the clock
+#   woods  (Phase 5): Thornwick Woods, the big woodsball site: the level walk-through, a 4 v 4 round, a 4 v 4 capture
+#          the flag on a fixed seed that must see bots take the wheel of the buggies (--min-drives), and --vehicle-demo
+#          (you get in a buggy, drive the tracks and get out; fails if your body, the drawn buggy or the HUD go astray)
 #   roles  (--role-demo): a Marksman on the Rail Yard spots you far down its view and opens up, and a Flanker on the
 #          Hospital Wing goes round on a teammate's call and looks out from its spot
 #   gait   (--gait-demo --gait-check): a modelled opponent stands, walks, runs, sprints, pulls up, strafes both ways,
@@ -84,6 +87,10 @@ run match-flag res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art 
 run match-escort res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=escort
 run match-rail-yard-flag res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=flag --level=rail_yard
 run match-hospital-wing-escort res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=escort --level=hospital_wing
+run level-thornwick-woods res://scenes/Level.tscn -- "--smoke-test=$level_ticks" --level=thornwick_woods
+run match-thornwick-woods res://scenes/Level.tscn -- --bot-match --time-limit=180 --no-art --mode=teams --size=4 --level=thornwick_woods
+run match-thornwick-woods-flag res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art --mode=teams --size=4 --objective=flag --level=thornwick_woods --seed=7 --min-drives=1
+run vehicle res://scenes/Level.tscn -- --vehicle-demo --level=thornwick_woods --no-art
 run gait res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=30 run gait-30fps res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=15 run gait-15fps res://scenes/Level.tscn -- --gait-demo --gait-check

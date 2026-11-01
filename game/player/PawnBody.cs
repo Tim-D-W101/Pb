@@ -15,6 +15,7 @@ public partial class PawnBody : CharacterBody3D
 {
     private CollisionShape3D _collider = null!;
     private CapsuleShape3D _capsule = null!;
+    private bool _seated;
 
     public PlayerState State { get; private set; } = null!;
 
@@ -79,9 +80,23 @@ public partial class PawnBody : CharacterBody3D
             cmd.Buttons = InputButtons.None;
         }
 
+        if (_seated && State.Vehicle < 0)
+        {
+            // Just out of a vehicle: the body steps out where the sim put it, beside the seat.
+            FollowState(grounded: true);
+        }
+
         bool grounded = GroundedOverride ?? IsOnFloor();
         GroundedOverride = null;
         MovementResult result = MovementModel.Step(State, cmd, Move, dt, grounded, Sim.Collision, Sim.Ladders);
+        _seated = result.Seated;
+        if (result.Seated)
+        {
+            // In a vehicle: it carries the body (the sim seats it each tick); nothing to collide or slide.
+            GlobalPosition = State.Position.ToGodot();
+            Velocity = State.Velocity.ToGodot();
+            return result;
+        }
 
         // On a ladder the rules give the climb itself: no gravity.
         Vector3 velocity = Velocity;
