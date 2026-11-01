@@ -72,7 +72,7 @@ public partial class MainMenu : Control
             AddChild(UiKit.Overlay(UiKit.Panel(UiKit.Body(ex.Message, 20, UiKit.Bad, wrap: true), 900f)));
             if (Args.Has("--smoke-test"))
             {
-                GetTree().Quit(1);
+                GetTree().QuitCleanly(1);
             }
 
             return;
@@ -206,7 +206,7 @@ public partial class MainMenu : Control
 
                 break;
             case 210:
-                GetTree().Quit();
+                GetTree().QuitCleanly();
                 break;
         }
     }
@@ -238,7 +238,7 @@ public partial class MainMenu : Control
             GD.PushError(ex.Message);
             if (DisplayServer.GetName() == "headless")
             {
-                GetTree().Quit(1);
+                GetTree().QuitCleanly(1);
                 return;
             }
 
@@ -304,7 +304,7 @@ public partial class MainMenu : Control
         buttons.AddChild(others);
         buttons.AddChild(UiKit.Button("Training ground", () => Load(GameSession.RangeScene, "Training ground", "Setting out the targets…")));
         buttons.AddChild(UiKit.Button("Settings", () => Open(_settingsScreen)));
-        buttons.AddChild(UiKit.Button("Quit", () => GetTree().Quit()));
+        buttons.AddChild(UiKit.Button("Quit", () => GetTree().QuitCleanly()));
         column.AddChild(buttons);
         if (GameSession.Notice is { } notice)
         {
@@ -813,6 +813,6 @@ public partial class MainMenu : Control
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: menu shows {areas.Length} area{(areas.Length == 1 ? "" : "s")} with {places} places to play, all open, each card on one screen, " +
                  $"{modes.Count} modes with their sizes, objectives and the difficulty tiers, {settingsNote}, and Play with others" +
                  $"{(problems.Count > 0 ? ": " + string.Join("; ", problems) : "")}");
-        GetTree().Quit(ok ? 0 : 1);
+        GetTree().QuitCleanly(ok ? 0 : 1);
     }
 }

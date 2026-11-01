@@ -91,7 +91,7 @@ public partial class GaitDemo : Node, ICommandSource
         if (_walker is null || !found)
         {
             GD.PushError("GAIT DEMO found no clear lane for anyone to walk; quitting");
-            GetTree().Quit(1);
+            GetTree().QuitCleanly(1);
             return;
         }
 
@@ -294,11 +294,11 @@ public partial class GaitDemo : Node, ICommandSource
                 float jerkLimit = Look?.FrameLimit(MaxJerk, _frameTime) ?? MaxJerk, changeLimit = Look?.FrameLimit(MaxChange, _frameTime) ?? MaxChange;
                 GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: gait check over {_checked} moves at {1f / Mathf.Max(_frameTime, 1e-4f):0} fps (jerk up to " +
                          $"{jerkLimit * 100f:0.0} cm, going into a move {changeLimit * 100f:0.0} cm){(ok ? "" : ": " + string.Join("; ", _failures))}");
-                GetTree().Quit(ok ? 0 : 1);
+                GetTree().QuitCleanly(ok ? 0 : 1);
                 return new InputCommand { Tick = tick, Yaw = _facing };
             }
 
-            GetTree().Quit();
+            GetTree().QuitCleanly();
         }
 
         Move move = _moves[index];

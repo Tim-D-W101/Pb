@@ -1,5 +1,4 @@
 using System;
-using Godot;
 using Pb.Sim.Core;
 
 namespace Pb.Game.Audio;
@@ -7,7 +6,8 @@ namespace Pb.Game.Audio;
 /// <summary>
 /// Building blocks for the synthesised sounds (<see cref="SoundBank"/>): a buffer of samples at a rate, noise, filters,
 /// struck resonators and envelopes. Recipes add layers into a buffer; it's then levelled and turned into a Godot stream.
-/// Pure C# on float arrays, so the bank can be rendered off the main thread.
+/// Pure C# on float arrays, so the bank can be rendered off the main thread (and tested without the engine; the Godot
+/// streams are <see cref="SoundSet"/>'s).
 /// </summary>
 public sealed class Synth
 {
@@ -230,26 +230,6 @@ public sealed class Synth
         }
 
         return data;
-    }
-
-    /// <summary>A Godot stream of 16-bit PCM (made on the main thread from bytes rendered anywhere).</summary>
-    public static AudioStreamWav Stream(byte[] pcm, int rate, bool loop)
-    {
-        var stream = new AudioStreamWav
-        {
-            Format = AudioStreamWav.FormatEnum.Format16Bits,
-            MixRate = rate,
-            Stereo = false,
-            Data = pcm,
-        };
-        if (loop)
-        {
-            stream.LoopMode = AudioStreamWav.LoopModeEnum.Forward;
-            stream.LoopBegin = 0;
-            stream.LoopEnd = pcm.Length / 2;
-        }
-
-        return stream;
     }
 }
 

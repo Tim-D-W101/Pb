@@ -83,6 +83,8 @@ public class SettingsTests
         Assert.Equal("cross-dot", s.CrosshairStyle);
         Assert.True(s.Subtitles);
         Assert.True(s.HitMarker);
+        Assert.True(s.IncomingFire);
+        Assert.Equal(1f, s.HitEffect);
         Assert.Equal(1f, s.EffectsVolume);
         Assert.Equal("standard", s.TeamColors);
         Assert.Equal(1f, s.HudScale);
@@ -98,7 +100,7 @@ public class SettingsTests
               "windowMode": "huge", "frameCap": 59, "graphicsPreset": "cinematic", "renderScale": 0.8,
               "graphics": { "shadows": "extreme", "weeds": 7 },
               "volume": 1.5, "effectsVolume": -1, "subtitleSize": 9, "crosshairStyle": "skull", "crosshairColor": "#12345",
-              "crosshairSize": 0.1, "cameraJolt": 3, "maskSpray": "NaN", "teamColors": "rainbow", "hudScale": 0,
+              "crosshairSize": 0.1, "cameraJolt": 3, "maskSpray": "NaN", "hitEffect": 4, "teamColors": "rainbow", "hudScale": 0,
               "bindings": { "jump": { "first": "key:J" }, "teleport": { "first": "key:T" } },
               "version": 2
             }
@@ -123,6 +125,7 @@ public class SettingsTests
         Assert.Equal(0.5f, s.CrosshairSize);
         Assert.Equal(1f, s.CameraJolt);
         Assert.Equal(0f, s.MaskSpray);
+        Assert.Equal(1f, s.HitEffect);
         Assert.Equal("standard", s.TeamColors);
         Assert.Equal(1f, s.HudScale);
         // Bindings for an action that's gone are dropped; the rest stay.

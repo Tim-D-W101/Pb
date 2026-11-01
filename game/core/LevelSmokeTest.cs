@@ -518,7 +518,7 @@ public sealed class LevelSmokeTest
                  $"ladders={_sim.Ladders.Count - _laddersFailed}/{_sim.Ladders.Count} " +
                  $"meshes={_world.MeshCount} walkColliders={_world.ColliderCount} simErrors={_driver.ErrorCount} " +
                  $"avgStepMs={_driver.AverageStepMs:0.000}");
-        _host.GetTree().Quit(ok ? 0 : 1);
+        _host.GetTree().QuitCleanly(ok ? 0 : 1);
     }
 
     /// <summary>

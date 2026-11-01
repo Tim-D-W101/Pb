@@ -47,7 +47,7 @@ public partial class LadderDemo : Node, ICommandSource
         if (_who is null || index < 0 || index >= sim.Ladders.Count)
         {
             GD.PushError("LADDER DEMO found nobody or no such ladder in this level; quitting");
-            GetTree().Quit(1);
+            GetTree().QuitCleanly(1);
             return;
         }
 
@@ -95,7 +95,7 @@ public partial class LadderDemo : Node, ICommandSource
 
         if (_endAt >= 0 && (tick - _endAt) * dt >= After)
         {
-            GetTree().Quit();
+            GetTree().QuitCleanly();
         }
 
         float outward = _ladder.Facing + Mathf.Pi;

@@ -37,6 +37,10 @@ public partial class ViewModel : Node3D
     private readonly MeshInstance3D[] _pouring = new MeshInstance3D[5];
     private float _phase = 1f;
     private float _time;
+    private readonly List<ShaderMaterial> _materials = new();
+    private readonly Vector4[] _paintAt = new Vector4[ViewModelPaint.Slots];
+    private readonly Vector4[] _paintColour = new Vector4[ViewModelPaint.Slots];
+    private bool _paintChanged;
 
     /// <summary>Where the pod's mouth is as it pours, and which way it points (marker frame: right, up, back).</summary>
     private static readonly Vector3 Mouth = new(-0.03f, 0.238f, 0f), Pour = new Vector3(0.75f, -0.62f, 0.15f).Normalized();
@@ -180,6 +184,9 @@ public partial class ViewModel : Node3D
     /// <summary>On a ladder: the marker goes down out of sight (it's slung) while both hands are on the rungs.</summary>
     public bool Lowered { get; set; }
 
+    /// <summary>Not drawn at all (you're out and the camera has left your eyes).</summary>
+    public bool Hidden { get; set; }
+
     private float _low;
 
     public override void _Process(double delta)
@@ -205,7 +212,7 @@ public partial class ViewModel : Node3D
         float cant = Smooth(0f, 0.12f, f) * (1f - Smooth(0.86f, 1f, f));
         _low = Mathf.MoveToward(_low, Lowered ? 1f : 0f, (float)delta / 0.3f);
         float low = Smooth(0f, 1f, _low);
-        Visible = low < 0.98f;
+        Visible = !Hidden && low < 0.98f;
         Position = Rest + new Vector3(0, 0, _kickBack * _kick * _kick) + new Vector3(0f, -0.02f, 0.015f) * cant + new Vector3(0.04f, -0.34f, 0.1f) * low;
         // On the left shoulder the hands swap: the whole model is mirrored, while it passes under your chin.
         // Refilling, it rolls the loader towards you and tips its nose up a little; going onto a ladder, its nose drops away.
@@ -224,6 +231,11 @@ public partial class ViewModel : Node3D
         _podHand.Position = _podTop + new Vector3(-0.12f, -0.32f, 0.12f) * (1f - hold) + new Vector3(shake, shake * 0.5f, 0f);
         _podHand.Basis = new Basis(Vector3.Back, Mathf.DegToRad(60f) * (1f - hold));
 
+        if (Visible)
+        {
+            PushPaint();
+        }
+
         // While it pours, balls tumble out of the mouth into the loader.
         bool pouring = hold > 0.97f;
         for (int i = 0; i < _pouring.Length; i++)
@@ -235,6 +247,50 @@ public partial class ViewModel : Node3D
                 _pouring[i].Position = Mouth + Pour * (0.012f + 0.03f * t) + Vector3.Down * (0.05f * t * t) + new Vector3(0.004f * Mathf.Sin(i * 2.4f), 0f, 0.004f * Mathf.Cos(i * 2.4f));
             }
         }
+    }
+
+    /// <summary>
+    /// Paint on the marker (<see cref="ViewModelPaint"/>): each slot's centre and radius in this node's frame (a zero
+    /// radius is empty), and its colour with how far it has run down in alpha.
+    /// </summary>
+    public void SetPaint(System.ReadOnlySpan<Vector4> at, System.ReadOnlySpan<Vector4> colour)
+    {
+        at.CopyTo(_paintAt);
+        colour.CopyTo(_paintColour);
+        _paintChanged = true;
+    }
+
+    public override void _ExitTree()
+    {
+        // The materials are the meshes' to keep: this list lets go of them now rather than when the collector gets to it
+        // (one still waiting when the game quits is reported as leaked).
+        foreach (ShaderMaterial material in _materials)
+        {
+            material.Dispose();
+        }
+
+        _materials.Clear();
+    }
+
+    /// <summary>The marker's frame, for the paint: a point here (right, up, forward) in this node's own frame.</summary>
+    public static Vector3 MarkerPoint(System.Numerics.Vector3 rightUpForward) => FromRightUpForward(rightUpForward);
+
+    /// <summary>The view model's frame for the paint, every frame (it moves with the camera, kicks and cants); the paint when it changes.</summary>
+    private void PushPaint()
+    {
+        Transform3D toLocal = GlobalTransform.AffineInverse();
+        var m = new Projection(toLocal);
+        foreach (ShaderMaterial material in _materials)
+        {
+            material.SetShaderParameter("vm_from_world", m);
+            if (_paintChanged)
+            {
+                material.SetShaderParameter("paint_at", _paintAt);
+                material.SetShaderParameter("paint_color", _paintColour);
+            }
+        }
+
+        _paintChanged = false;
     }
 
     private static float Smooth(float from, float to, float x) => Mathf.SmoothStep(from, to, x);
@@ -314,6 +370,11 @@ public partial class ViewModel : Node3D
     private ShaderMaterial Material(Color albedo, float roughness, float metallic, bool clear = false)
     {
         var material = new ShaderMaterial { Shader = clear ? _clearShader : _shader };
+        if (!clear)
+        {
+            _materials.Add(material);
+        }
+
         material.SetShaderParameter("albedo", albedo);
         material.SetShaderParameter("roughness", roughness);
         material.SetShaderParameter("metallic", metallic);

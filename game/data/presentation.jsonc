@@ -34,7 +34,12 @@
     "depth_m": 0.14,
     "normalFade": 0.35,
     "distanceFadeBegin_m": 70,
-    "distanceFadeLength_m": 25
+    "distanceFadeLength_m": 25,
+    // A ball hitting at a glance smears: its splat is stretched along the ball's travel (by 1 / the cosine of the angle
+    // it came in at), up to stretchMax times as long as it's wide; from streakFrom on, it's a head with a tail and
+    // spatter thrown on ahead of it.
+    "stretchMax": 3.2,
+    "streakFrom": 1.45
   },
 
   // Impact bursts. Bursts nearer the camera than minCameraDistance_m are skipped: point-blank spray
@@ -1103,9 +1108,6 @@
     "subtitleRange_m": 35,
     // A pickup within this distance gets a prompt under the crosshair.
     "pickupPromptRange_m": 4,
-    // The crosshair flashes this marker when your ball puts someone out.
-    "hitMarkerTime_s": 0.35,
-    "hitMarkerColor": "#ffffff",
     // Below this share of the loader the gear panel's paint count turns amber and says LOW (red and
     // EMPTY at none), while there's paint in the pods to refill from.
     "lowPaint": 0.2,
@@ -1171,6 +1173,77 @@
     }
   },
 
+  // Hit feedback (Phase 5; looks and sound only, nothing here changes who's out).
+  "feedback": {
+    // A ball passing within flybyRadius_m of your head, going at least flybyMinSpeed_mps (bounced and spent balls don't),
+    // whizzes past (from where it passed) and shows an incoming-fire arc. A ball breaking or bouncing on anything within
+    // nearBreak_m of you shows one too.
+    "flybyRadius_m": 1.6,
+    "flybyMinSpeed_mps": 25,
+    "nearBreak_m": 2.5,
+    // The incoming-fire arcs round the crosshair, pointing back where the paint came from (the ball's own travel, never
+    // where anyone is): at most max at once, paint from within merge_deg of an arc refreshing it, on a ring radius (a
+    // share of the screen's height) out from the middle. Each kind, in order whizz, near break, bounce off you and the
+    // hit that put you out: how long it shows (s), how wide (degrees of the ring) and thick (px), and its colour.
+    "arcs": {
+      "max": 6,
+      "merge_deg": 22,
+      "radius": 0.15,
+      "life_s": [1.2, 1.6, 2.2, 4.0],
+      "width_deg": [24, 30, 36, 48],
+      "thickness_px": [5, 7, 9, 12],
+      "colors": ["#f2f2ea", "#ffc04a", "#ff8a33", "#ff3b30"]
+    },
+    // The hit markers: an X round the crosshair, size_px from its middle, starting pop times as big and settling, for time_s.
+    // A put-out also puts a line under the crosshair (who, where, how far, how many left) for lineTime_s. Colours: a
+    // put-out; a ball that bounced off them (it doesn't count); a teammate put out; a target on the training ground.
+    "hitMarkers": {
+      "time_s": 0.6,
+      "size_px": 15,
+      "pop": 1.7,
+      "thickness_px": 3.5,
+      "lineTime_s": 2.6,
+      "outColor": "#ff4a3d",
+      "bounceColor": "#b8b8ae",
+      "teammateColor": "#ffb347",
+      "targetColor": "#ffffff"
+    },
+    // The moment you're hit: the view holds in your eyes for hold_s (a flash of flash_s, the colour draining by
+    // desaturate, the paint's colour flooding the edge it came from by tint, the vignette darkening by vignette), then
+    // eases out over ease_s to watch yourself put your hand up and walk off; residual of it stays while you watch. HIT!
+    // is textSize_px tall. Everything in the world is muffled to muffleCutoff_hz and opens up again over muffleRecover_s
+    // while your ears ring. The settings' hit effect scales the screen's part.
+    "hitMoment": {
+      "hold_s": 0.45,
+      "ease_s": 0.9,
+      "flash_s": 0.08,
+      "desaturate": 0.8,
+      "tint": 0.6,
+      "vignette": 0.85,
+      "residual": 0.3,
+      "textSize_px": 132,
+      "muffleCutoff_hz": 420,
+      "muffleRecover_s": 1.9
+    },
+    // Paint on your own marker: at most max splats (the oldest goes). A ball breaking on cover within reach_m in front
+    // of you spatters it with drops between size_m; one that puts you out by your marker, loader or tank leaves a splat
+    // lethalSize_m across on that part; the paint runs down over run_s. It lands at these spots on the marker
+    // ([right, up, forward] m, as viewModel's muzzleTip_m), a little either side.
+    "viewModelPaint": {
+      "max": 8, "reach_m": 1.1, "size_m": [0.012, 0.03], "lethalSize_m": 0.075, "run_s": 4.0,
+      "spots": [
+        { "part": "barrel", "at_m": [0.0, 0.03, 0.36] },
+        { "part": "barrel", "at_m": [0.0, 0.03, 0.27] },
+        { "part": "barrel", "at_m": [0.012, 0.025, 0.18] },
+        { "part": "body", "at_m": [0.015, 0.0, 0.06] },
+        { "part": "body", "at_m": [-0.015, 0.01, 0.0] },
+        { "part": "loader", "at_m": [0.0, 0.14, 0.02] },
+        { "part": "loader", "at_m": [0.03, 0.12, -0.02] },
+        { "part": "tank", "at_m": [0.0, -0.03, -0.18] }
+      ]
+    }
+  },
+
   // Objectives (rules.jsonc "objectives"), looks only: the colour of the HUD's objective marker, the ways out and the
   // room's outline; the case (a hard case, this size and colour, with a small blinking light while it lies about); the
   // ways out (a beam of light this tall and wide, seen while the round is a retrieve); the room to hold, outlined on its
@@ -1218,12 +1291,15 @@
     "buses": { "master": 0.8, "effects": 1.0, "voices": 1.0, "ambience": 0.8, "menus": 0.7 },
     // How loud each kind of sound plays (dB, on top of volume_db): your shots and others', your loader feeding, gear
     // (dry fire, fire mode, refills), balls breaking and bouncing, footsteps (others', yours), slides and landings,
-    // doors, pickups, being hit, the hit marker, the objectives' cues, the case's beep while it lies about, the
-    // breakout horn and the referee's whistle, the soft cue a round starts on, callouts, the referee's voice and the menus'
-    // clicks.
+    // doors, pickups, being hit, the hit marker on a target; your ball putting someone out (the confirm), bouncing off
+    // them, putting out a teammate; a ball bouncing off you, your ears ringing after a hit, a ball whizzing past, your
+    // loader rattling and spinning empty; the objectives' cues, the case's beep while it lies about, the breakout horn and
+    // the referee's whistle, the soft cue a round starts on, callouts, the referee's voice and the menus' clicks.
     "mix": {
       "shot": -2, "remoteShot": -3, "loader": -20, "gear": -10, "break": -3, "bounce": -12, "footstep": -9,
       "ownFootstep": -19, "slide": -8, "land": -8, "door": -4, "pickup": -8, "hitTaken": -1, "hitMarker": -8,
+      "hitConfirm": -7, "hitBounce": -11, "hitTeammate": -9, "bounceOffYou": -5, "earRing": -24, "whizz": -7,
+      "loaderRattle": -21, "loaderEmpty": -15,
       "objective": -6, "caseBeep": -18, "horn": -6, "whistle": -8, "roundStart": -16, "callout": 0, "referee": -2, "menu": -14
     },
     // A footstep heard out to this radius (movement.jsonc: the pace's radius times the floor's loudness) plays at the

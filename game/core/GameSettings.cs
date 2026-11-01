@@ -114,7 +114,7 @@ public sealed partial class GameSettings
     /// <summary>The crosshair's size, as a share of presentation.jsonc's.</summary>
     public float CrosshairSize { get; set; } = 1f;
 
-    /// <summary>Whether the crosshair flashes when your ball puts someone out.</summary>
+    /// <summary>Whether hit markers show round the crosshair (your ball put someone out, bounced off them, hit a teammate).</summary>
     public bool HitMarker { get; set; } = true;
 
     public bool HeadBob { get; set; }
@@ -124,6 +124,15 @@ public sealed partial class GameSettings
 
     /// <summary>How much paint on your mask covers the view, as a share of presentation.jsonc's.</summary>
     public float MaskSpray { get; set; } = 1f;
+
+    /// <summary>Whether arcs round the crosshair show where paint is coming from (balls breaking or whizzing past close by, hitting you).</summary>
+    public bool IncomingFire { get; set; } = true;
+
+    /// <summary>
+    /// How strongly being hit takes over the screen (the colour draining, the paint's colour flooding in from the side it
+    /// came from), as a share of presentation.jsonc's (0: not at all; HIT! and the sound stay).
+    /// </summary>
+    public float HitEffect { get; set; } = 1f;
 
     // ---- Accessibility
 
@@ -272,6 +281,7 @@ public sealed partial class GameSettings
         CrosshairSize = Range(CrosshairSize, 0.5f, 2.5f, 1f);
         CameraJolt = Range(CameraJolt, 0f, 1f, 1f);
         MaskSpray = Range(MaskSpray, 0f, 1f, 1f);
+        HitEffect = Range(HitEffect, 0f, 1f, 1f);
 
         TeamColors = OneOf(TeamColors, d.TeamColorSets, "standard");
         HudScale = Range(HudScale, 0.75f, 1.5f, 1f);
