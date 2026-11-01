@@ -129,8 +129,9 @@ The main scene is the menu (`scenes/Main.tscn`), so name the scene for anything 
 live in the level file (`viewpoints`), and the range's in `ranges/phase1.jsonc`; `--views="x,y,z>tx,ty,tz;…"` (or `x,y,z,yaw,pitch`) replaces them
 for close-ups of anything in the level. On `Level.tscn`, through the player's own camera,
 `-- --posture-demo` runs a short scripted shoulder swap / lean / muzzle-in-cover sequence,
-`-- --duel-demo` an elimination each way (callout, splat on a character, mask spray, spectator
-view; add `--duel-distance=2` for a close-up), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
+`-- --duel-demo` an elimination each way (callout, splat on a character, hit marker, mask spray, the hit moment and
+walking off; add `--duel-distance=2` for a close-up), `-- --splat-demo` shots at the nearest wall at a glance (streaks)
+and square on (round splats), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
 sprinting, pulling up, strafing, backing off, walking crouched and looking round, seen from the side (the planted steps,
 or the movement clips with `characters.legs` = `"clips"`), printing how far the planted feet slid (`--gait-only=NAME`

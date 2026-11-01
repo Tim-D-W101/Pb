@@ -15,8 +15,9 @@ namespace Pb.Game.Ui;
 /// <summary>
 /// The HUD: crosshair, gear panel (<see cref="GearPanel"/>: loader, pods, air in bar, fire mode, refill), perf overlay, help and
 /// toasts; on the range the target hit tally, and in a round the match HUD (spec §6): the top bar with
-/// the clock and everyone's in/out icon, the kill feed, subtitles for callouts, pickup prompts and the
-/// hit marker. It reads sim state for display only.
+/// the clock and everyone's in/out icon, the kill feed, subtitles for callouts, pickup prompts, the hit
+/// markers (<see cref="HitMarkers"/>) and the incoming-fire arcs (<see cref="IncomingFireRing"/>). It reads sim
+/// state for display only.
 /// </summary>
 public partial class Hud : CanvasLayer, ISimEventListener
 {
@@ -41,6 +42,9 @@ public partial class Hud : CanvasLayer, ISimEventListener
     private Label _arc = null!;
     private GameSettings _settings = null!;
     private CrosshairControl _crosshair = null!;
+    private HitMarkers _markers = null!;
+    private IncomingFireRing _ring = null!;
+    private FeedbackDef? _feedback;
     private Label _perf = null!;
     private GearPanel _gear = null!;
     private Label _warning = null!;
@@ -62,6 +66,38 @@ public partial class Hud : CanvasLayer, ISimEventListener
 
     public bool ShowPerf { get; set; } = true;
 
+    /// <summary>Where you're looking (the camera's yaw, which turns between ticks), for the incoming-fire arcs.</summary>
+    public Func<float>? ViewYaw { get; set; }
+
+    /// <summary>The hit markers shown so far, by kind (<see cref="HitMarkKind"/>).</summary>
+    public int[] HitMarkersShown => _markers.Shown;
+
+    /// <summary>The incoming-fire arcs added so far, by kind (<see cref="IncomingKind"/>).</summary>
+    public int[] IncomingArcsAdded => _ring.Added;
+
+    /// <summary>Paint passed close by your head (a <see cref="Ballistics.FlybyWatch"/> found it): an arc that way.</summary>
+    public void Flyby(System.Numerics.Vector3 velocity, float distance)
+    {
+        if (_settings?.IncomingFire == true && _player?.Alive == true && _feedback is not null)
+        {
+            _ring.Add(velocity, IncomingKind.Flyby, 1f - Math.Clamp(distance / _feedback.FlybyRadius_m, 0f, 1f));
+        }
+    }
+
+    /// <summary>
+    /// You're out: the HUD goes, but for the arc pointing back at the ball that got you, which fades out by itself.
+    /// </summary>
+    public void OutOfTheRound()
+    {
+        foreach (Node child in GetNode<Control>("Root").GetChildren())
+        {
+            if (child is CanvasItem item && child != _ring)
+            {
+                item.Visible = false;
+            }
+        }
+    }
+
     public bool ShowHelp
     {
         get => _help.Visible;
@@ -81,6 +117,12 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _crosshair = new CrosshairControl { MouseFilter = Control.MouseFilterEnum.Ignore };
         _crosshair.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(_crosshair);
+        _ring = new IncomingFireRing { Name = "IncomingFire" };
+        _ring.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddChild(_ring);
+        _markers = new HitMarkers { Name = "HitMarkers" };
+        _markers.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddChild(_markers);
 
         _perf = MakeLabel(root, 18, Control.LayoutPreset.TopLeft, new Vector2(16, 12));
         _hits = MakeLabel(root, 18, Control.LayoutPreset.TopRight, new Vector2(-16, 12), HorizontalAlignment.Right);
@@ -116,6 +158,9 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _settings = settings;
         _splats = splats;
         ApplyView(view);
+        _feedback = view.Feedback;
+        _markers.Configure(view.Feedback.HitMarkers);
+        _ring.Configure(view.Feedback.Arcs, () => ViewYaw?.Invoke() ?? _player.Yaw);
         _gear.Initialize(player.Marker, Color.FromHtml(view.TeamColors[player.Team % view.TeamColors.Length]), view.Hud.LowPaint);
     }
 
@@ -261,6 +306,16 @@ public partial class Hud : CanvasLayer, ISimEventListener
             Eliminated(e);
         }
 
+        if (e.Type is SimEventType.BallBroke or SimEventType.BallBounced)
+        {
+            BallLanded(e);
+        }
+
+        if (e.Type == SimEventType.TargetHit && e.PlayerId == _player?.Id && !PlayerHitboxes.IsPlayer(e.TargetId) && _settings.HitMarker)
+        {
+            _markers.Show(HitMarkKind.Target);
+        }
+
         if (e.Type is SimEventType.CaseTaken or SimEventType.CaseDropped or SimEventType.CaseExtracted or SimEventType.HoldChanged)
         {
             ObjectiveToast(e);
@@ -318,6 +373,57 @@ public partial class Hud : CanvasLayer, ISimEventListener
         }
     }
 
+    /// <summary>
+    /// A ball broke or bounced: if it was your ball bouncing off someone still in, the hit marker that says it didn't
+    /// count; if it was someone else's on you, or close to you, an incoming-fire arc pointing back the way it came.
+    /// </summary>
+    private void BallLanded(in SimEvent e)
+    {
+        if (_player is null || _feedback is null)
+        {
+            return;
+        }
+
+        bool onPlayer = PlayerHitboxes.IsPlayer(e.TargetId);
+        int hitId = onPlayer ? PlayerHitboxes.PlayerIdOf(e.TargetId) : -1;
+        if (e.PlayerId == _player.Id)
+        {
+            if (e.Type == SimEventType.BallBounced && onPlayer && hitId != _player.Id && _settings.HitMarker && _sim.FindPlayer(hitId) is { Alive: true })
+            {
+                _markers.Show(HitMarkKind.Bounce);
+            }
+
+            return;
+        }
+
+        if (!_settings.IncomingFire || (!_player.Alive && !(e.Lethal && hitId == _player.Id)))
+        {
+            return;
+        }
+
+        // Which way it was going when it got here (a bounce reports its way out, so that's mirrored back).
+        System.Numerics.Vector3 travel = e.Type == SimEventType.BallBounced ? IncomingFire.BeforeBounce(e.Velocity, e.Normal) : e.Velocity;
+        if (hitId == _player.Id)
+        {
+            _ring.Add(travel, e.Type == SimEventType.BallBroke && e.Lethal ? IncomingKind.Hit : IncomingKind.BounceOffYou, 1f);
+            return;
+        }
+
+        float distance = DistanceToBody(e.Position);
+        if (distance <= _feedback.NearBreak_m)
+        {
+            _ring.Add(travel, IncomingKind.NearBreak, 1f - distance / MathF.Max(_feedback.NearBreak_m, 0.01f));
+        }
+    }
+
+    /// <summary>How far <paramref name="point"/> is from your body: the line from your feet to your eyes.</summary>
+    private float DistanceToBody(System.Numerics.Vector3 point)
+    {
+        System.Numerics.Vector3 feet = _player.Position, eye = _player.EyePosition, axis = eye - feet;
+        float t = Math.Clamp(System.Numerics.Vector3.Dot(point - feet, axis) / MathF.Max(axis.LengthSquared(), 1e-6f), 0f, 1f);
+        return System.Numerics.Vector3.Distance(point, feet + axis * t);
+    }
+
     /// <summary>A kill feed line, and the hit marker if it was your ball.</summary>
     private void Eliminated(in SimEvent e)
     {
@@ -339,9 +445,22 @@ public partial class Hud : CanvasLayer, ISimEventListener
         string part = SpectatorView.PartName((Pb.Sim.Collision.HitboxPart)e.Extra);
         string distance = shooter is null ? "" : $" · {System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition):0} m";
         _feed!.Add(shooter?.Name ?? "Stray ball", shooter is null ? Colors.White : Of(shooter), victim.Name, Of(victim), part + distance);
-        if (shooter == _player && _settings.HitMarker)
+        if (shooter == _player && _settings.HitMarker && victim != _player)
         {
-            _crosshair.Flash(_hudDef!.HitMarkerTime_s, Color.FromHtml(_hudDef.HitMarkerColor));
+            if (victim.Team == shooter.Team)
+            {
+                _markers.Show(HitMarkKind.Teammate, $"{victim.Name} · {part}", "TEAMMATE");
+            }
+            else
+            {
+                int left = 0;
+                foreach (PlayerState p in _sim.Players)
+                {
+                    left += p.Alive && p.Team != _player.Team ? 1 : 0;
+                }
+
+                _markers.Show(HitMarkKind.Out, $"{victim.Name} · {part}{distance} · {(left == 0 ? "none" : left.ToString())} left", "HIT");
+            }
         }
     }
 

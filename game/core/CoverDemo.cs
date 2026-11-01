@@ -52,7 +52,7 @@ public partial class CoverDemo : Node, ICommandSource
         if (_who is null || !FindSpot(squad.Cover, near, outdoors: !given, out CoverPoint point))
         {
             GD.PushError("COVER DEMO found nobody or no low cover with a clear side view; quitting");
-            GetTree().Quit(1);
+            GetTree().QuitCleanly(1);
             return;
         }
 
@@ -90,7 +90,7 @@ public partial class CoverDemo : Node, ICommandSource
             _printed = true;
             GD.Print($"COVER DEMO crouched: knees up to {_knees * 100f:0.0} cm into the cover, elbows up to {_elbows * 100f:0.0} cm; " +
                      $"standing over it: knees up to {_kneesStanding * 100f:0.0} cm");
-            GetTree().Quit();
+            GetTree().QuitCleanly();
         }
 
         // Standing to shoot over the top, the aim drops a little onto whoever's beyond.

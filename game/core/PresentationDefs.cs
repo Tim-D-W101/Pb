@@ -135,11 +135,15 @@ public sealed class PresentationDef : IValidatable
 
     public HudDef Hud { get; set; } = new();
 
+    /// <summary>Hit feedback (Phase 5): near misses, the incoming-fire arcs, hit markers, the moment you're hit, paint on your marker.</summary>
+    public FeedbackDef Feedback { get; set; } = new();
+
     public ObjectivesViewDef Objectives { get; set; } = new();
 
     public void Validate(Validator v)
     {
         Objectives.Validate(v.Scope(nameof(Objectives)));
+        Feedback.Validate(v.Scope(nameof(Feedback)));
         if (TeamColors.Length < 2)
         {
             v.Error(nameof(TeamColors), "needs at least two colours");
@@ -287,8 +291,16 @@ public sealed class SplatDef : IValidatable
 
     public float DistanceFadeLength_m { get; set; }
 
+    /// <summary>A glancing hit stretches its splat along the ball's travel, up to this many times as long as it's wide.</summary>
+    public float StretchMax { get; set; }
+
+    /// <summary>Stretched this much or more, a splat uses the streaked shapes (a head with a tail and spatter thrown on ahead).</summary>
+    public float StreakFrom { get; set; }
+
     public void Validate(Validator v)
     {
+        v.InRange(nameof(StretchMax), StretchMax, 1, 6);
+        v.InRange(nameof(StreakFrom), StreakFrom, 1, 6);
         v.InRange(nameof(Cap), Cap, 0, 20000);
         v.InRange(nameof(FadeWindow), FadeWindow, 1, 5000);
         v.InRange(nameof(SizeMin_m), SizeMin_m, 0.01, 2);
@@ -705,6 +717,30 @@ public sealed class MixDef : IValidatable
     public float HitTaken { get; set; }
 
     public float HitMarker { get; set; }
+
+    /// <summary>Your ball put someone out.</summary>
+    public float HitConfirm { get; set; }
+
+    /// <summary>Your ball bounced off someone (it doesn't count).</summary>
+    public float HitBounce { get; set; }
+
+    /// <summary>Your ball put a teammate out.</summary>
+    public float HitTeammate { get; set; }
+
+    /// <summary>A ball bounced off you.</summary>
+    public float BounceOffYou { get; set; }
+
+    /// <summary>Your ears ringing after you're hit.</summary>
+    public float EarRing { get; set; }
+
+    /// <summary>A ball whizzing past your head, at the nearest it can come.</summary>
+    public float Whizz { get; set; }
+
+    /// <summary>Your loader's balls rattling as you run, jump and land.</summary>
+    public float LoaderRattle { get; set; }
+
+    /// <summary>Your loader's motor spinning with nothing in it (firing on an empty loader).</summary>
+    public float LoaderEmpty { get; set; }
 
     public float Objective { get; set; }
 
@@ -2192,6 +2228,256 @@ public sealed class ObjectivesViewDef : IValidatable
     }
 }
 
+/// <summary>
+/// Hit feedback (Phase 5, M5.1; presentation only): which balls whizz past (and show an arc), which breaks near you show
+/// one, the arcs themselves, the hit markers, the moment you're hit, and paint on your own marker.
+/// </summary>
+public sealed class FeedbackDef : IValidatable
+{
+    /// <summary>A ball passing within this distance of your head whizzes past and shows an arc (m)...</summary>
+    public float FlybyRadius_m { get; set; }
+
+    /// <summary>...if it's going at least this fast (m/s): bounced and spent balls don't.</summary>
+    public float FlybyMinSpeed_mps { get; set; }
+
+    /// <summary>A ball breaking or bouncing on something within this distance of you shows an arc (m).</summary>
+    public float NearBreak_m { get; set; }
+
+    public IncomingArcsDef Arcs { get; set; } = new();
+
+    public HitMarkersDef HitMarkers { get; set; } = new();
+
+    public HitMomentDef HitMoment { get; set; } = new();
+
+    public ViewModelPaintDef ViewModelPaint { get; set; } = new();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(FlybyRadius_m), FlybyRadius_m, 0.1, 10);
+        v.InRange(nameof(FlybyMinSpeed_mps), FlybyMinSpeed_mps, 0, 200);
+        v.InRange(nameof(NearBreak_m), NearBreak_m, 0, 20);
+        Arcs.Validate(v.Scope(nameof(Arcs)));
+        HitMarkers.Validate(v.Scope(nameof(HitMarkers)));
+        HitMoment.Validate(v.Scope(nameof(HitMoment)));
+        ViewModelPaint.Validate(v.Scope(nameof(ViewModelPaint)));
+    }
+
+    internal static void Colour(Validator v, string key, string colour)
+    {
+        if (!Godot.Color.HtmlIsValid(colour))
+        {
+            v.Error(key, $"'{colour}' is not a valid colour");
+        }
+    }
+}
+
+/// <summary>
+/// The incoming-fire arcs round the crosshair: at most <see cref="Max"/>, paint from within <see cref="Merge_deg"/> of one
+/// refreshing it; per kind (whizz, near break, bounce off you, the hit) how long it shows, how wide and thick it's drawn
+/// and its colour; the ring's radius as a share of the screen's height.
+/// </summary>
+public sealed class IncomingArcsDef : IValidatable
+{
+    public int Max { get; set; }
+
+    public float Merge_deg { get; set; }
+
+    public float Radius { get; set; }
+
+    public float[] Life_s { get; set; } = System.Array.Empty<float>();
+
+    public float[] Width_deg { get; set; } = System.Array.Empty<float>();
+
+    public float[] Thickness_px { get; set; } = System.Array.Empty<float>();
+
+    public string[] Colors { get; set; } = System.Array.Empty<string>();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Max), Max, 1, 32);
+        v.InRange(nameof(Merge_deg), Merge_deg, 0, 90);
+        v.InRange(nameof(Radius), Radius, 0.03, 0.45);
+        Four(v, nameof(Life_s), Life_s, 0.1, 10);
+        Four(v, nameof(Width_deg), Width_deg, 2, 120);
+        Four(v, nameof(Thickness_px), Thickness_px, 1, 40);
+        if (Colors.Length != 4)
+        {
+            v.Error(nameof(Colors), "needs four colours: whizz, near break, bounce off you, the hit");
+        }
+
+        foreach (string c in Colors)
+        {
+            FeedbackDef.Colour(v, nameof(Colors), c);
+        }
+    }
+
+    private static void Four(Validator v, string key, float[] values, double min, double max)
+    {
+        if (values.Length != 4)
+        {
+            v.Error(key, "needs four values: whizz, near break, bounce off you, the hit");
+            return;
+        }
+
+        foreach (float x in values)
+        {
+            v.InRange(key, x, min, max);
+        }
+    }
+}
+
+/// <summary>
+/// The hit markers round the crosshair: how long one shows, its size, how big it starts (it settles to its size), its
+/// stroke; the line under the crosshair after a put-out (how long); and the colours for a put-out, a ball that bounced off
+/// (it doesn't count), a teammate put out and a target on the training ground.
+/// </summary>
+public sealed class HitMarkersDef : IValidatable
+{
+    public float Time_s { get; set; }
+
+    public float Size_px { get; set; }
+
+    public float Pop { get; set; }
+
+    public float Thickness_px { get; set; }
+
+    public float LineTime_s { get; set; }
+
+    public string OutColor { get; set; } = "";
+
+    public string BounceColor { get; set; } = "";
+
+    public string TeammateColor { get; set; } = "";
+
+    public string TargetColor { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Time_s), Time_s, 0.05, 5);
+        v.InRange(nameof(Size_px), Size_px, 2, 80);
+        v.InRange(nameof(Pop), Pop, 1, 4);
+        v.InRange(nameof(Thickness_px), Thickness_px, 0.5, 12);
+        v.InRange(nameof(LineTime_s), LineTime_s, 0.2, 10);
+        FeedbackDef.Colour(v, nameof(OutColor), OutColor);
+        FeedbackDef.Colour(v, nameof(BounceColor), BounceColor);
+        FeedbackDef.Colour(v, nameof(TeammateColor), TeammateColor);
+        FeedbackDef.Colour(v, nameof(TargetColor), TargetColor);
+    }
+}
+
+/// <summary>
+/// The moment you're hit: the view holds in your eyes for <see cref="Hold_s"/> (the flash, the colour draining, the
+/// paint's colour flooding in from where it came), then eases out to the spectator's camera over <see cref="Ease_s"/>
+/// while you walk off. Strengths are at the settings' full hit effect: how much colour drains, how strongly the paint's
+/// colour tints the edge it came from, how dark the vignette goes, and what's left while you watch. HIT! is drawn this
+/// big. The world's sound is muffled to <see cref="MuffleCutoff_hz"/> and opens up again over <see cref="MuffleRecover_s"/>.
+/// </summary>
+public sealed class HitMomentDef : IValidatable
+{
+    public float Hold_s { get; set; }
+
+    public float Ease_s { get; set; }
+
+    public float Flash_s { get; set; }
+
+    public float Desaturate { get; set; }
+
+    public float Tint { get; set; }
+
+    public float Vignette { get; set; }
+
+    public float Residual { get; set; }
+
+    public float TextSize_px { get; set; }
+
+    public float MuffleCutoff_hz { get; set; }
+
+    public float MuffleRecover_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Hold_s), Hold_s, 0, 3);
+        v.InRange(nameof(Ease_s), Ease_s, 0.05, 5);
+        v.InRange(nameof(Flash_s), Flash_s, 0, 1);
+        v.InRange(nameof(Desaturate), Desaturate, 0, 1);
+        v.InRange(nameof(Tint), Tint, 0, 1);
+        v.InRange(nameof(Vignette), Vignette, 0, 1);
+        v.InRange(nameof(Residual), Residual, 0, 1);
+        v.InRange(nameof(TextSize_px), TextSize_px, 20, 400);
+        v.InRange(nameof(MuffleCutoff_hz), MuffleCutoff_hz, 100, 20000);
+        v.InRange(nameof(MuffleRecover_s), MuffleRecover_s, 0.05, 10);
+    }
+}
+
+/// <summary>A spot on the first-person marker where paint can land: which part, and where ([right, up, forward] m, as viewModel's muzzleTip_m).</summary>
+public sealed class PaintSpotDef : IValidatable
+{
+    public static readonly string[] Parts = { "barrel", "body", "loader", "tank" };
+
+    public string Part { get; set; } = "";
+
+    public float[] At_m { get; set; } = System.Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        if (System.Array.IndexOf(Parts, Part) < 0)
+        {
+            v.Error(nameof(Part), $"'{Part}' isn't one of {string.Join(", ", Parts)}");
+        }
+
+        v.Vector(nameof(At_m), At_m);
+    }
+}
+
+/// <summary>
+/// Paint on your own marker: at most <see cref="Max"/> splats at once (the oldest goes); a ball breaking on cover within
+/// <see cref="Reach_m"/> in front of you spatters it (each drop between the two sizes, m), a ball that puts you out by your
+/// marker, loader or tank leaves a splat <see cref="LethalSize_m"/> across, and the paint runs down over <see cref="Run_s"/>.
+/// </summary>
+public sealed class ViewModelPaintDef : IValidatable
+{
+    public int Max { get; set; }
+
+    public float Reach_m { get; set; }
+
+    public float[] Size_m { get; set; } = System.Array.Empty<float>();
+
+    public float LethalSize_m { get; set; }
+
+    public float Run_s { get; set; }
+
+    /// <summary>Where paint can land on the marker: spots on its barrel, body, loader and tank.</summary>
+    public PaintSpotDef[] Spots { get; set; } = System.Array.Empty<PaintSpotDef>();
+
+    public void Validate(Validator v)
+    {
+        if (Spots.Length == 0)
+        {
+            v.Error(nameof(Spots), "needs at least one spot on the marker");
+        }
+
+        for (int i = 0; i < Spots.Length; i++)
+        {
+            Spots[i].Validate(v.Item(nameof(Spots), i));
+        }
+
+        v.InRange(nameof(Max), Max, 0, 16);
+        v.InRange(nameof(Reach_m), Reach_m, 0, 5);
+        if (Size_m.Length != 2)
+        {
+            v.Error(nameof(Size_m), "needs two sizes: the smallest drop and the largest");
+        }
+        else
+        {
+            v.InRange(nameof(Size_m), Size_m[0], 0.002, 0.2);
+            v.InRange(nameof(Size_m), Size_m[1], Size_m[0], 0.2);
+        }
+
+        v.InRange(nameof(LethalSize_m), LethalSize_m, 0.01, 0.3);
+        v.InRange(nameof(Run_s), Run_s, 0.1, 30);
+    }
+}
+
 public sealed class HudDef : IValidatable
 {
     public float IconSize_px { get; set; }
@@ -2205,10 +2491,6 @@ public sealed class HudDef : IValidatable
     public float SubtitleRange_m { get; set; }
 
     public float PickupPromptRange_m { get; set; }
-
-    public float HitMarkerTime_s { get; set; }
-
-    public string HitMarkerColor { get; set; } = "";
 
     /// <summary>Below this share of the loader (0-1), the gear panel's paint count turns amber and says LOW.</summary>
     public float LowPaint { get; set; }
@@ -2243,18 +2525,12 @@ public sealed class HudDef : IValidatable
         v.InRange(nameof(SubtitleTime_s), SubtitleTime_s, 0.5, 30);
         v.InRange(nameof(SubtitleRange_m), SubtitleRange_m, 0, 500);
         v.InRange(nameof(PickupPromptRange_m), PickupPromptRange_m, 0, 50);
-        v.InRange(nameof(HitMarkerTime_s), HitMarkerTime_s, 0.05, 5);
         v.InRange(nameof(LowPaint), LowPaint, 0, 1);
         v.InRange(nameof(NameAbove_m), NameAbove_m, 0, 3);
         v.InRange(nameof(NameRange_m), NameRange_m, 5, 500);
         v.InRange(nameof(CalloutMark_s), CalloutMark_s, 0.5, 30);
         v.InRange(nameof(ChatLines), ChatLines, 1, 20);
         v.InRange(nameof(ChatShow_s), ChatShow_s, 1, 120);
-        if (!Godot.Color.HtmlIsValid(HitMarkerColor))
-        {
-            v.Error(nameof(HitMarkerColor), $"'{HitMarkerColor}' is not a valid colour");
-        }
-
         if (Callsigns.Length < 9 || Callsigns.Distinct().Count() != Callsigns.Length)
         {
             v.Error(nameof(Callsigns), "needs at least nine different callsigns (one per opponent)");

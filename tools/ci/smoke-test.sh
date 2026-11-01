@@ -21,9 +21,10 @@
 #          backs off and walks crouched; fails if a planted foot slides, an ankle or a wrist misses its mark, or the head
 #          or hands jerk, past the limits in game/core/GaitDemo.cs; at 120, 30 and 15 fps (below 30 fps the jerk limits
 #          allow for what the body's own smooth motion changes a frame by: CharactersDef.FrameLimit)
-#   art-match (--bot-match --max-pop --min-contact-marks): a 5 v 5 round with the art on (a fixed seed); fails if any
-#          character's head or hands pop further than --max-pop cm in a frame (likewise allowed for below 30 fps), or bot
-#          teammates' contacts don't reach your HUD; at 120 and at 15 fps
+#   art-match (--bot-match --max-pop --min-contact-marks --min-feedback): a 5 v 5 round with the art on (a fixed seed);
+#          fails if any character's head or hands pop further than --max-pop cm in a frame (likewise allowed for below 30
+#          fps), bot teammates' contacts don't reach your HUD, or no incoming-fire arc or hit marker shows; at 120 and at 15
+#          fps. Every bot match also fails if your bot was put out by a ball and the hit moment didn't play.
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -80,7 +81,7 @@ run match-place-hospital-wing res://scenes/Level.tscn -- --bot-match --time-limi
 run gait res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=30 run gait-30fps res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=15 run gait-15fps res://scenes/Level.tscn -- --gait-demo --gait-check
-run art-match res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15 --min-contact-marks=1
+run art-match res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15 --min-contact-marks=1 --min-feedback=1
 fps=15 run art-match-15fps res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15
 run art res://tools/ArtImport.tscn -- --selftest
 exit "$failed"

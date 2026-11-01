@@ -65,7 +65,7 @@ public partial class RangeMain : Node3D, ISimEventListener
             _hud.ShowFatal(ex.Message);
             if (IsSmokeTest(out _))
             {
-                GetTree().Quit(1);
+                GetTree().QuitCleanly(1);
             }
 
             return;

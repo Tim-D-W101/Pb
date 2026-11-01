@@ -47,7 +47,7 @@ public sealed class ObjectiveDemo : ICommandSource
         if (objective is null)
         {
             GD.PushError("--objective-demo needs --objective=retrieve or --objective=hold");
-            _host.GetTree().Quit(1);
+            _host.GetTree().QuitCleanly(1);
             return new InputCommand { Tick = tick };
         }
 
@@ -85,7 +85,7 @@ public sealed class ObjectiveDemo : ICommandSource
         if (t >= EndAt)
         {
             GD.Print($"OBJECTIVE DEMO done: carrier={objective.Carrier}, held={objective.Held:0.0} s, status={objective.Status}");
-            _host.GetTree().Quit();
+            _host.GetTree().QuitCleanly();
         }
 
         (float yaw, float pitch) = ViewAngles.FromDirection(_look + new SVector3(0f, 0.6f, 0f) - state.EyePosition);

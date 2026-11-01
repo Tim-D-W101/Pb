@@ -41,6 +41,7 @@ namespace Pb.Game.Core;
 ///   --shots               camera tour of the level's viewpoints (screenshots with --write-movie); --views=…
 ///                         gives your own instead ("x,y,z,yaw,pitch" or "x,y,z>tx,ty,tz", separated by ";")
 ///   --posture-demo        scripted lean / shoulder swap / muzzle-in-cover sequence at a wall corner
+///   --splat-demo          shots at the nearest wall at a glance (streaks) and square on (round splats), then a look at them
 ///   --duel-demo           scripted elimination of an opponent, then of you (mask spray, spectator view)
 ///   --duel-distance=M     how far from the bot the duel starts (default 6 m; 2 for a close-up)
 ///   --round-tour          the round's screens in order: briefing, pause menu, a duel, spectator view, summary
@@ -108,6 +109,11 @@ public partial class LevelMain : Node3D, ISimEventListener
     private BotDebugOverlay _botDebug = null!;
     private LevelSmokeTest? _smoke;
     private SpectatorView? _spectator;
+    private HitMoment _hitMoment = null!;
+    private System.Numerics.Vector3? _lastHitTravel;
+    private ViewModelPaint _markerPaint = null!;
+    private MaskSprayOverlay _maskSpray = null!;
+    private FlybyWatch _flybys = null!;
     private PickupVisuals _pickups = null!;
     private WeedField _weeds = null!;
     private FootDust _dust = null!;
@@ -257,7 +263,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             // Headless, nobody can read the message and leave, so the run would wait for ever.
             if (Args.Has("--smoke-test") || DisplayServer.GetName() == "headless")
             {
-                GetTree().Quit(1);
+                GetTree().QuitCleanly(1);
             }
 
             return;
@@ -280,7 +286,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _botMatch = Args.Has("--bot-match");
         // Headless bot matches with the art on measure the characters' pops (CharacterPoser), printed with the result.
         Pb.Game.Player.CharacterPoser.TrackPops = _botMatch;
-        _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
+        _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--splat-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
                     roleDemo is not null || gaitDemo || coverDemo || ladderDemo || _botMatch || Args.Has("--objective-demo");
         bool roundTour = Args.Has("--round-tour");
         // Rounds played with others don't go in your records: they stay your bests alone.
@@ -518,9 +524,27 @@ public partial class LevelMain : Node3D, ISimEventListener
             restart: _net is null ? () => GetTree().ReloadCurrentScene() : null, hudChanged: _ => _hud.ApplySettings(),
             quit: _net is null ? null : LeaveGame);
 
-        var maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
-        AddChild(maskSpray);
-        maskSpray.Initialize(_view, state.Id, _settings);
+        _maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
+        AddChild(_maskSpray);
+        _maskSpray.Initialize(_view, state.Id, _settings);
+
+        // Hit feedback (Phase 5): the moment you're hit, and balls whizzing past your head (heard, and an arc on the HUD).
+        _hitMoment = new HitMoment { Name = "HitMoment" };
+        AddChild(_hitMoment);
+        _hitMoment.Initialize(_view.Feedback.HitMoment);
+        _hud.ViewYaw = () => _player.Yaw;
+        _flybys = new FlybyWatch { Name = "Flybys" };
+        AddChild(_flybys);
+        _flybys.Initialize(_sim, state, _view.Feedback, _driver);
+        _markerPaint = new ViewModelPaint { Name = "MarkerPaint" };
+        AddChild(_markerPaint);
+        _markerPaint.Initialize(_player.ViewModel, state, _view);
+        _driver.AddListener(_markerPaint);
+        _flybys.Passed += flyby =>
+        {
+            _audio.Whizz(flyby.Point.ToGodot(), flyby.Velocity.Length(), flyby.Distance, _flybys.Radius);
+            _hud.Flyby(flyby.Velocity, flyby.Distance);
+        };
 
         _sim.Collision.SkipDynamic = false;
         _driver.Initialize(_sim);
@@ -535,7 +559,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             _driver.AddDriver(p == state ? _player : _pawns.First(o => o.State == p));
         }
 
-        _driver.AddListener(maskSpray);
+        _driver.AddListener(_maskSpray);
         _driver.AddListener(_pickups);
         _driver.AddListener(_balls);
         _driver.AddListener(_splats);
@@ -566,6 +590,14 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             _smoke = new LevelSmokeTest(this, _sim, _driver, _player, _world, ticks, _pawns, _bots);
             _player.AutoPilot = _smoke.Pilot;
+        }
+        else if (Args.Has("--splat-demo"))
+        {
+            var demo = new SplatDemo(this, _sim);
+            demo.Setup(_player);
+            _player.AutoPilot = demo;
+            _hud.ShowHelp = false;
+            _hud.ShowPerf = false;
         }
         else if (Args.Has("--posture-demo"))
         {
@@ -749,6 +781,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             // A ball hitting a body makes it flinch away, whether it breaks or bounces off.
             int id = PlayerHitboxes.PlayerIdOf(e.TargetId);
+            if (id == _player.State.Id && e.Type == SimEventType.BallBroke && e.Lethal)
+            {
+                _lastHitTravel = e.Velocity;
+            }
+
             if (id == _player.State.Id)
             {
                 if (_player.State.Alive)
@@ -1470,7 +1507,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         if (DisplayServer.GetName() == "headless")
         {
             // CI: the game ending after a round played is how a networked run finishes.
-            GetTree().Quit(_summaryShown || _match.Phase == MatchPhase.Ended ? 0 : 1);
+            GetTree().QuitCleanly(_summaryShown || _match.Phase == MatchPhase.Ended ? 0 : 1);
             return;
         }
 
@@ -1577,7 +1614,6 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
-        string part = SpectatorView.PartName((Pb.Sim.Collision.HitboxPart)e.Extra);
         if (victim == _player.State)
         {
             StartSpectating(victim, shooter);
@@ -1595,17 +1631,8 @@ public partial class LevelMain : Node3D, ISimEventListener
             person.WalkOff = WalkOffPilot(victim);
         }
 
+        // (Your own put-outs are the hit marker's line under the crosshair: who, where, how far, how many left.)
         _pawns.FirstOrDefault(o => o.State == victim)?.CallHit();
-        if (shooter == _player.State && victim.Team == shooter.Team)
-        {
-            _hud.Toast($"You put out your teammate {victim.Name}!", 3.0);
-        }
-        else if (shooter == _player.State)
-        {
-            float distance = System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition);
-            int left = _sim.Players.Count(p => p.Alive && p.Team != _player.State.Team);
-            _hud.Toast($"You eliminated {victim.Name} · {part} · {distance:0} m   ({left} left)", 3.0);
-        }
     }
 
     private void StartSpectating(PlayerState victim, PlayerState? shooter)
@@ -1615,24 +1642,54 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
+        string detail = "";
         if (shooter is not null)
         {
             float distance = System.Numerics.Vector3.Distance(shooter.EyePosition, victim.EyePosition);
             _hitBy = $"{shooter.Name} got you: {SpectatorView.PartName(victim.EliminatedPart)}, {distance:0} m.";
+            detail = $"{shooter.Name} got you · {SpectatorView.PartName(victim.EliminatedPart)} · {distance:0} m";
         }
 
-        // Hosting, you walk off the field like everyone else who's out (joined, the host walks you off).
-        _player.AutoPilot = _net is { Hosting: true } ? WalkOffPilot(victim) : new IdlePilot();
-        _player.ViewModel.Visible = false;
-        // The spectator camera starts behind and above where you stood: you're there, hit, marker up.
-        if (_player.Body is { } body)
+        // You stand for the hit, hand and marker going up, then walk off the field like everyone else who's out, once the
+        // camera has eased out to watch (joined, the host walks you off; in a bot match the bot at your controls does it
+        // itself).
+        HitMomentDef moment = _view.Feedback.HitMoment;
+        if (_player.AutoPilot is not (BotPilot or CallingPilot))
         {
-            body.ShadowOnly = false;
+            _player.AutoPilot = new IdlePilot();
+            if (_net?.Client is null)
+            {
+                GetTree().CreateTimer(moment.Hold_s + moment.Ease_s).Timeout += () =>
+                {
+                    if (IsInstanceValid(this) && _player.AutoPilot is IdlePilot && !_player.State.Alive)
+                    {
+                        _player.AutoPilot = WalkOffPilot(victim);
+                    }
+                };
+            }
         }
-        _hud.Visible = false;
+
+        // The moment you're hit: the screen and HIT! (Phase 5), from the side the ball came, in its paint's colour.
+        Color paint = TeamColor(shooter?.Team ?? (victim.Team == 0 ? 1 : 0));
+        float angle = _lastHitTravel is { } travel ? IncomingFire.ScreenAngle(IncomingFire.BearingOf(-travel), _player.Yaw) : float.NaN;
+        _hitMoment.Start(paint, angle, detail, _settings.HitEffect);
+        _hud.OutOfTheRound();
         Input.MouseMode = Input.MouseModeEnum.Visible;
         _spectator = new SpectatorView { Name = "Spectator" };
         AddChild(_spectator);
+        // The camera holds in your eyes for the hit, then eases out to watch you walk off; once it's out of your head your
+        // body is drawn and the marker in your hands goes.
+        void LeftEyes()
+        {
+            _player.ViewModel.Hidden = true;
+            _maskSpray.Clear();
+            _hud.Visible = false;
+            if (_player.Body is { } body)
+            {
+                body.ShadowOnly = false;
+            }
+        }
+
         // Once you've seen who got you: watch the players still in while the round goes on without you, or
         // the summary (scripted runs just end; the smoke test and the bot match end themselves).
         _spectator.Start(victim, shooter, _view.Spectator, _view.Camera.FarClip_m, _sim.Collision, () =>
@@ -1641,18 +1698,19 @@ public partial class LevelMain : Node3D, ISimEventListener
             {
                 if (_smoke is null && !_botMatch)
                 {
-                    GetTree().Quit();
+                    GetTree().QuitCleanly();
                 }
             }
             else if (_match.Phase != MatchPhase.Ended && Watchable().Count > 0)
             {
+                _hitMoment.Settle();
                 _spectator.Follow(Watchable, TeamColor, ShowSummary, _sim.Collision);
             }
             else
             {
                 ShowSummary();
             }
-        });
+        }, _player.Camera.GlobalTransform, _player.Camera.Fov, moment.Hold_s, moment.Ease_s, LeftEyes, showBanner: false);
     }
 
     /// <summary>Who you may watch once you're out: your teammates still in, or in free-for-all anyone still in.</summary>
@@ -1761,6 +1819,18 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             ok &= ContactMarks >= minMarks;
         }
+
+        // Hit feedback (Phase 5): out by a ball, the hit moment played; and with --min-feedback=N, at least N incoming-fire
+        // arcs and hit markers between them.
+        bool outByBall = !_player.State.Alive && _player.State.EliminatedBy >= 0 && _lastHitTravel is not null;
+        ok &= !outByBall || _hitMoment.Played > 0;
+        int feedback = _hud.IncomingArcsAdded.Sum() + _hud.HitMarkersShown.Sum();
+        if (int.TryParse(Args.Value("--min-feedback"), out int minFeedback))
+        {
+            ok &= feedback >= minFeedback;
+        }
+
+        GD.Print($"BOT MATCH feedback: {FeedbackLine()}");
         int botOnBot = _sim.Players.Count(p => !p.Alive && p != _player.State && p.EliminatedBy > 0);
         string objective = ObjectiveLine() is { } line ? $" ({line})" : "";
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: bot match ({_round.Line}) {_match.Outcome}{objective} after {_match.Elapsed:0} s: you put out " +
@@ -1810,12 +1880,23 @@ public partial class LevelMain : Node3D, ISimEventListener
         QuitBotMatch(ok && _failedRounds == 0);
     }
 
+    /// <summary>What the hit feedback did this round, for the log.</summary>
+    private string FeedbackLine()
+    {
+        int[] marks = _hud.HitMarkersShown, arcs = _hud.IncomingArcsAdded;
+        return $"hit markers {marks[(int)HitMarkKind.Out]} out, {marks[(int)HitMarkKind.Bounce]} bounced, {marks[(int)HitMarkKind.Teammate]} teammates; " +
+               $"incoming-fire arcs {arcs[(int)IncomingKind.Flyby]} whizzes, {arcs[(int)IncomingKind.NearBreak]} near breaks, " +
+               $"{arcs[(int)IncomingKind.BounceOffYou]} bounces off you, {arcs[(int)IncomingKind.Hit]} hits; {_flybys.Count} balls whizzed past " +
+               $"({_audio.Whizzes} heard); {_audio.Confirms} confirms; {_splats.Streaks} streaked splats; {_markerPaint.Count} on your marker; " +
+               $"hit moment played {_hitMoment.Played} times";
+    }
+
     private void QuitBotMatch(bool ok)
     {
         StopNetwork();
         _net?.Leave(_net.Hosting ? "The host ended the game." : "left");
         _net = null;
-        GetTree().Quit(ok ? 0 : 1);
+        GetTree().QuitCleanly(ok ? 0 : 1);
     }
 
     /// <summary>How the network went this round, for the log: corrections, traffic, the round trip, what the server dropped.</summary>

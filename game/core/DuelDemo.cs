@@ -66,7 +66,7 @@ public sealed class DuelDemo : ICommandSource
         if (_target is null || t > 1500)
         {
             GD.Print(_target is null ? "DUEL no target out in the open" : "DUEL timed out");
-            _host.GetTree().Quit();
+            _host.GetTree().QuitCleanly();
             return default;
         }
 
@@ -85,7 +85,7 @@ public sealed class DuelDemo : ICommandSource
 
         if (_incomingAt >= 0 && t >= _incomingAt + EndAfterIncoming)
         {
-            _host.GetTree().Quit();
+            _host.GetTree().QuitCleanly();
         }
 
         (float yaw, float pitch) = ScenePositions.AimAt(_sim, me, _target);
