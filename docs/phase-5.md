@@ -128,6 +128,9 @@ How I've read it:
 - A pushed version tag (`v0.5.0`) makes a numbered GitHub Release with `Pb-windows.zip` (and the servers) besides the
   rolling test build.
 - `HOW-TO-PLAY.txt` in the zip; a short "Play it" section at the top of the README.
+- *As built* (architecture §18.5): the export preset, the zip, `Play.bat` and the rolling test build were already
+  there, so D adds the numbered releases, a `HOW-TO-PLAY.txt` that covers every area, mode and control (as a file of its
+  own), and the README section.
 
 ## Acceptance checks (every PR)
 

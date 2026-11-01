@@ -3,6 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
+    # A version tag (v0.5.0) makes a numbered release of the Windows build and the servers, besides the test build.
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
@@ -126,9 +128,11 @@ jobs:
       - name: Import project
         run: tools/ci/import.sh ~/.local/godot/godot
       - name: Export the Windows build
-        run: tools/package/windows-build.sh ~/.local/godot/godot builds/windows "$(echo "$HEAD_SHA" | cut -c1-7)"
+        # A version tag's build is called by the tag (v0.5.0); any other by its commit.
+        run: tools/package/windows-build.sh ~/.local/godot/godot builds/windows "${VERSION_TAG:-$(echo "$HEAD_SHA" | cut -c1-7)}"
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          VERSION_TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
           # Reuse each published art pack while its asset is unchanged, so players don't download it again.
           PB_RELEASE_URL: https://github.com/${{ github.repository }}/releases/download/test-build
       - name: Package the dedicated servers (Linux and Windows; the Linux one is started once to check it serves)
@@ -173,3 +177,17 @@ jobs:
               gh release delete-asset test-build "$name" --repo "$GITHUB_REPOSITORY" -y
           done
           gh release edit test-build --repo "$GITHUB_REPOSITORY" --notes "$notes"
+      # A version tag (v0.5.0): a numbered release that stays as it is, with the whole game, the servers and how to play.
+      - name: Publish the numbered release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="Pb ${GITHUB_REF_NAME} for Windows ($(grep '^date=' builds/windows/release/manifest.txt | cut -d= -f2)).
+          Download Pb-windows.zip, unzip it anywhere and double-click Play.bat (or Pb.exe). No Godot or .NET needed. If Windows says it protected your PC, click More info, then Run anyway: the game isn't signed. HOW-TO-PLAY.txt in the zip has the areas, modes and controls.
+          Play.bat keeps the game up to date from the latest test build. Pb.exe plays this version as it is.
+          Dedicated servers: Pb-server-windows.zip (Server.bat) or Pb-server-linux.tar.gz (run-server.sh); step by step: https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_REF_NAME}/docs/hosting.md"
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --title "Pb ${GITHUB_REF_NAME}" --notes "$notes"
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber builds/windows/release/Pb-windows.zip \
+            builds/windows/Pb/HOW-TO-PLAY.txt builds/server/release/Pb-server-windows.zip builds/server/release/Pb-server-linux.tar.gz

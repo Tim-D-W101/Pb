@@ -1,0 +1,47 @@
+Pb: how to play
+
+Getting started
+1. Keep everything in this folder together (Pb.exe, Pb.pck, and the art and data_Pb_windows_x86_64
+   folders).
+2. Double-click Play.bat. It downloads only the files that changed since your version (usually about
+   1 MB; more when new art arrives), then starts the game; without internet it just starts the game.
+   Pb.exe starts it without updating.
+   If Windows says "Windows protected your PC", click "More info", then "Run anyway" (the game isn't
+   signed, so Windows doesn't know it yet).
+3. In the menu: Play, then pick an area and where in it to play (all of it, or one part), a mode, how
+   many play, an objective, a difficulty, and Start. Everything is open from the start.
+
+The areas
+  Oxbarrow Works      a derelict works yard: warehouse, offices, pump house, guardhouse
+  The Rail Yard       dead wagons on four tracks, an engine shed, a signal box, a footbridge
+  The Cold Store      a dark refrigerated depot: chambers behind heavy doors, trailers at the docks
+  The Hospital Wing   three storeys of wards round an overgrown courtyard
+  Thornwick Woods     a big woodsball site: woods, hedged fields, a fort, a farm, a camp, a scrapyard,
+                      and buggies to drive between them
+
+The modes
+  Solo: clear the area of a squad. Free-for-all: everyone against everyone, up to ten.
+  Teams: you and bot teammates against a bot team, up to 5 v 5.
+  Objectives: retrieve (carry the case out), hold (keep the marked room), and in teams capture the
+  flag (bring theirs home to your base) or VIP escort (get your VIP out through a far way out).
+  One hit with a ball that breaks on you and you're out; a bounce doesn't count.
+
+Controls (keyboard and mouse; a gamepad works too)
+  WASD and mouse      move and look
+  Left click          fire                     B   semi or ramping
+  Shift               sprint (no firing)       Ctrl or C   crouch
+  Space               jump                     Q / E       lean left / right
+  X                   swap shoulder            V           slide (from a run)
+  R                   refill the loader from a pod
+  F                   doors, ladders, and getting in or out of a buggy
+  In a buggy          W / S go and brake, A / D steer; the driver can't fire, a passenger can;
+                      get out with F once it's nearly stopped
+  Esc                 pause (settings, restart, quit)
+  F4 frame rate, F12 graphics presets (Esc -> render scale if it lags), F11 fullscreen,
+  F3 what the bots are thinking. The Training ground (main menu) is the ballistics range.
+
+Playing with others
+  Play with others (main menu) hosts a game or joins one, on your network or over the internet: up
+  to ten people, with bots filling the rest. Hosting over the internet needs a port forwarded on
+  your router; step by step, and how to run a dedicated server:
+  https://github.com/Tim-D-W101/Pb/blob/main/docs/hosting.md
