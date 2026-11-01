@@ -125,12 +125,17 @@ internal sealed class NetRig
     }
 
     /// <summary>A round with these players ((id, team, person, x, z) facing north), its people played by the copies that joined, in order.</summary>
-    public RoundSetupMessage StartRound(string mode = "teams", float timeLimit = 900f, params (int Id, byte Team, bool Person, float X, float Z)[] roster)
+    public RoundSetupMessage StartRound(string mode = "teams", float timeLimit = 900f, params (int Id, byte Team, bool Person, float X, float Z)[] roster) =>
+        StartRoundFor(Pb.Sim.Data.ObjectiveKind.Eliminate, mode, timeLimit, roster);
+
+    /// <summary>Likewise, played for <paramref name="objective"/>.</summary>
+    public RoundSetupMessage StartRoundFor(Pb.Sim.Data.ObjectiveKind objective, string mode, float timeLimit,
+        params (int Id, byte Team, bool Person, float X, float Z)[] roster)
     {
         var setup = new RoundSetupMessage
         {
             Round = Server.Round + 1, LevelId = "", ModeId = mode, Size = roster.Length, TierId = "normal", Seed = 7, TimeLimit = timeLimit,
-            StartPods = 3, BotPods = 2, Pickups = false, Attackers = 0,
+            StartPods = 3, BotPods = 2, Pickups = false, Attackers = 0, Objective = objective,
         };
         foreach ((int id, byte team, bool person, float x, float z) in roster)
         {

@@ -153,12 +153,12 @@ the art on, fails it if any character's head or hands jump further than that in 
 the checks allow for the body's own motion, `CharactersDef.FrameLimit`), and `--min-contact-marks=N` if fewer of your bot
 teammates' contacts reached your HUD; `--fast --show-summary` at `--fixed-fps 1` films it through to its summary, a
 second of the round a frame. `--mode=solo|ffa|teams`, `--size=N` (opponents in solo, everyone in free-for-all, a side
-in teams), `--objective=eliminate|retrieve|hold` and `--place=ID` pick the mode, size,
+in teams), `--objective=eliminate|retrieve|hold|flag|escort` (the last two with `--mode=teams`) and `--place=ID` pick the mode, size,
 objective and where in the area (the menu's choices; they're in `rules.jsonc` and the level file's `places`), e.g.
 `-- --round-tour --mode=ffa --size=6 --place=warehouse`; `--render-scale=0.25` (with `--preset=low`) makes long lavapipe
 runs quicker; and
-`-- --objective-demo --objective=retrieve` (or `hold`) shows the objective through your eyes: its marker, the case or
-the room, the ways out. `-- --menu-tour` on the
+`-- --objective-demo --objective=retrieve` (or `hold`, or `flag` or `escort` with `--mode=teams`) shows the objective
+through your eyes: its marker, the case, the room, their flag or your VIP, the ways out. `-- --menu-tour` on the
 main scene shows each menu screen. Frame rates under lavapipe mean nothing; only the owner's
 hardware can confirm the 60 fps target.
 

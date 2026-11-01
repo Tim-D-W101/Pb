@@ -41,6 +41,12 @@ public sealed class BotSquad
     private int _searcherAsked;
     private float _alarmLeft;
 
+    // Capture the flag: the round whose parts have been dealt, and each flag's alarm clock. VIP escort: the round whose
+    // ways out have been given guards.
+    private ObjectiveState? _flagsDealtFor;
+    private ObjectiveState? _exitsGuardedFor;
+    private readonly float[] _flagAlarmLeft = new float[2];
+
     public BotSquad(SimWorld sim, BotConfig config, NavGrid grid, CoverSet cover)
     {
         Sim = sim;
@@ -334,10 +340,24 @@ public sealed class BotSquad
     private void UpdateObjective()
     {
         ObjectiveState? objective = Sim.IsLive ? Sim.Match?.Objective : null;
+        if (objective is { Done: false, Kind: ObjectiveKind.Flag })
+        {
+            UpdateFlags(objective);
+            return;
+        }
+
+        if (objective is { Done: false, Kind: ObjectiveKind.Escort } && !ReferenceEquals(_exitsGuardedFor, objective))
+        {
+            _exitsGuardedFor = objective;
+            GuardEscortExits(objective);
+        }
+
         bool on = objective is { Done: false } && objective.Kind switch
         {
             ObjectiveKind.Retrieve => objective.CaseMoved,
             ObjectiveKind.Hold => objective.Status is HoldStatus.Ours or HoldStatus.Contested,
+            // The VIP: the defenders hear where they are once the round has been going a while.
+            ObjectiveKind.Escort => !objective.VipOut && Sim.Match!.Elapsed >= objective.EscortRules.AlarmAfter,
             _ => false,
         };
         if (!on)
@@ -355,7 +375,12 @@ public sealed class BotSquad
         if (objective!.Kind == ObjectiveKind.Retrieve)
         {
             _alarmLeft = objective.RetrieveRules.AlarmInterval;
-            AlarmCase(objective);
+            AlarmCase(objective, objective.RetrieveRules.Chasers);
+        }
+        else if (objective.Kind == ObjectiveKind.Escort)
+        {
+            _alarmLeft = objective.EscortRules.AlarmInterval;
+            AlarmCase(objective, objective.EscortRules.Chasers);
         }
         else
         {
@@ -402,7 +427,180 @@ public sealed class BotSquad
         }
     }
 
-    private void AlarmCase(ObjectiveState objective)
+    /// <summary>
+    /// Capture the flag, once a tick while the round is live. At the start each side's bots are dealt their parts: the
+    /// share of them nearest their base (at least one) guard it, facing the other side's, and the rest go for theirs.
+    /// Then: a side's fallen flag is sent home by the nearest of that side still in; and while a side's flag is carried
+    /// off, the chasers of that side nearest the carrier go after them, told where they are every alarm interval.
+    /// </summary>
+    private void UpdateFlags(ObjectiveState objective)
+    {
+        FlagRules r = objective.FlagRules;
+        if (!ReferenceEquals(_flagsDealtFor, objective))
+        {
+            _flagsDealtFor = objective;
+            DealFlagParts(objective);
+        }
+
+        foreach (FlagState flag in objective.Flags)
+        {
+            KeepAttacking(flag.Team, objective);
+        }
+
+        for (int f = 0; f < objective.Flags.Count && f < _flagAlarmLeft.Length; f++)
+        {
+            FlagState flag = objective.Flags[f];
+            int returner = -1;
+            if (flag.Down)
+            {
+                SortTeam(flag.Team, flag.Position);
+                returner = _byDistance.Count > 0 ? _byDistance[0].Self.Id : -1;
+            }
+
+            foreach (BotBrain bot in _bots)
+            {
+                if (bot.Self.Team == flag.Team)
+                {
+                    bot.SetFlagDuty(bot.FlagAttacker, bot.Self.Id == returner);
+                }
+            }
+
+            if (flag.Carrier >= 0 && Sim.FindPlayer(flag.Carrier) is { Alive: true } carrier)
+            {
+                _flagAlarmLeft[f] -= Sim.Dt;
+                if (_flagAlarmLeft[f] <= 0f)
+                {
+                    _flagAlarmLeft[f] = r.AlarmInterval;
+                    SortTeam(flag.Team, carrier.Position);
+                    for (int k = 0; k < r.Chasers && k < _byDistance.Count; k++)
+                    {
+                        _byDistance[k].Alarm(carrier);
+                    }
+                }
+            }
+            else
+            {
+                _flagAlarmLeft[f] = 0f;
+            }
+        }
+    }
+
+    /// <summary>
+    /// VIP escort, at the start: the share of the defenders that guard the ways out that count, each sent to the way out
+    /// nearest them in turn (so they spread across them), posted a little inside it, facing in.
+    /// </summary>
+    private void GuardEscortExits(ObjectiveState objective)
+    {
+        IReadOnlyList<int> exits = objective.CountingExits;
+        if (exits.Count == 0)
+        {
+            return;
+        }
+
+        SortDefenders(objective.Attackers, objective.VipStart);
+        int guards = _byDistance.Count == 0 ? 0 : Math.Clamp((int)MathF.Round(_byDistance.Count * objective.EscortRules.ExitGuardShare), 1, _byDistance.Count);
+        // The defenders farthest from the VIP (nearest the far ways out) go: the last of the sorted list.
+        for (int g = 0; g < guards; g++)
+        {
+            BotBrain bot = _byDistance[_byDistance.Count - 1 - g];
+            Vector3 exit = objective.Level.Exits[exits[g % exits.Count]].Position;
+            Vector3 inward = Flat(objective.VipStart - exit) > 1e-3f ? Vector3.Normalize((objective.VipStart - exit) with { Y = 0f }) : Vector3.UnitZ;
+            Vector3 across = new(-inward.Z, 0f, inward.X);
+            float side = (g / exits.Count) * (g / exits.Count % 2 == 0 ? 1f : -1f);
+            Guard(bot, exit + inward * Config.Brain.ExitGuardInset + across * side * Config.Brain.GuardSpacing, YawOf(inward), shout: false);
+        }
+    }
+
+    /// <summary>
+    /// Capture the flag: a side whose attackers are all out sends guards after their flag instead (all but the share
+    /// that guards, of those still in; one left alone goes itself), the ones nearest the other base first; otherwise
+    /// nobody would ever go for it again and the round would sit out the clock.
+    /// </summary>
+    private void KeepAttacking(byte team, ObjectiveState objective)
+    {
+        int alive = 0, attackers = 0;
+        foreach (BotBrain bot in _bots)
+        {
+            if (bot.Self.Alive && bot.Self.Team == team && !bot.Self.Unarmed)
+            {
+                alive++;
+                attackers += bot.FlagAttacker ? 1 : 0;
+            }
+        }
+
+        int guards = alive <= 1 ? 0 : Math.Clamp((int)MathF.Round(alive * objective.FlagRules.DefendShare), 1, alive - 1);
+        int wanted = alive - guards;
+        if (attackers >= wanted || objective.TheirFlag(team) is not { } theirs)
+        {
+            return;
+        }
+
+        SortTeam(team, theirs.Home);
+        for (int k = 0; k < _byDistance.Count && attackers < wanted; k++)
+        {
+            BotBrain bot = _byDistance[k];
+            if (!bot.FlagAttacker)
+            {
+                bot.SetFlagDuty(attack: true, returner: false);
+                attackers++;
+            }
+        }
+    }
+
+    /// <summary>Capture the flag: each side's guards (nearest its base, posted round it facing the other base) and attackers.</summary>
+    private void DealFlagParts(ObjectiveState objective)
+    {
+        FlagRules r = objective.FlagRules;
+        foreach (FlagState flag in objective.Flags)
+        {
+            FlagState? theirs = objective.TheirFlag(flag.Team);
+            Vector3 toward = theirs is not null && Flat(theirs.Home - flag.Home) > 1e-3f
+                ? Vector3.Normalize((theirs.Home - flag.Home) with { Y = 0f })
+                : Vector3.UnitZ;
+            Vector3 across = new(-toward.Z, 0f, toward.X);
+            SortTeam(flag.Team, flag.Home);
+            int guards = _byDistance.Count == 0 ? 0 : Math.Clamp((int)MathF.Round(_byDistance.Count * r.DefendShare), 1, _byDistance.Count);
+            for (int k = 0; k < _byDistance.Count; k++)
+            {
+                BotBrain bot = _byDistance[k];
+                bool guard = k < guards;
+                bot.SetFlagDuty(attack: !guard, returner: false);
+                if (guard)
+                {
+                    // Either side of the base, across the way they'll come from (not on it: the side's attackers set off
+                    // that way), facing it.
+                    float side = (k / 2 + 0.5f) * (k % 2 == 0 ? 1f : -1f);
+                    Guard(bot, flag.Home + across * side * Config.Brain.GuardSpacing, YawOf(toward), shout: false);
+                }
+            }
+        }
+    }
+
+    /// <summary>The bots of <paramref name="team"/> still in, nearest <paramref name="at"/> first (no allocation).</summary>
+    private void SortTeam(byte team, Vector3 at)
+    {
+        _byDistance.Clear();
+        foreach (BotBrain bot in _bots)
+        {
+            if (!bot.Self.Alive || bot.Self.Team != team || bot.Self.Unarmed)
+            {
+                continue;
+            }
+
+            float d = Flat(bot.Self.Position - at);
+            int k = _byDistance.Count;
+            _byDistance.Add(bot);
+            while (k > 0 && Flat(_byDistance[k - 1].Self.Position - at) > d)
+            {
+                _byDistance[k] = _byDistance[k - 1];
+                k--;
+            }
+
+            _byDistance[k] = bot;
+        }
+    }
+
+    private void AlarmCase(ObjectiveState objective, int chasers)
     {
         Vector3 at = objective.CasePosition;
         SortDefenders(objective.Attackers, at);
@@ -414,7 +612,6 @@ public sealed class BotSquad
         Vector3 inward = Flat(at - exit) > 1e-3f ? Vector3.Normalize((at - exit) with { Y = 0f }) : Vector3.UnitZ;
         Vector3 across = new(-inward.Z, 0f, inward.X);
         Vector3 exitPost = exit + inward * Config.Brain.ExitGuardInset;
-        int chasers = objective.RetrieveRules.Chasers;
         for (int k = 0; k < _byDistance.Count; k++)
         {
             BotBrain bot = _byDistance[k];
@@ -468,7 +665,8 @@ public sealed class BotSquad
     }
 
     /// <summary>A defender's post on the walkable ground nearest <paramref name="spot"/>.</summary>
-    private void Guard(BotBrain bot, Vector3 spot, float yaw) => bot.Guard(Grid.TrySnap(spot, out Vector3 snapped) ? snapped : spot, yaw);
+    private void Guard(BotBrain bot, Vector3 spot, float yaw, bool shout = true) =>
+        bot.Guard(Grid.TrySnap(spot, out Vector3 snapped) ? snapped : spot, yaw, shout);
 
     /// <summary>The defenders still in, nearest <paramref name="at"/> first (an insertion sort into a kept list: no allocation).</summary>
     private void SortDefenders(byte attackers, Vector3 at)

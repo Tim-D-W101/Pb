@@ -15,6 +15,8 @@
 #          retrieve and a ten-player free-for-all; and in parts of the areas (walled in and taped off): a
 #          six-player free-for-all in Oxbarrow Works' warehouse, a solo round in the Rail Yard's engine shed,
 #          a 3 v 3 hold inside the Cold Store and a 3 v 3 retrieve in the Hospital Wing's wings
+#   modes  (Phase 5): 4 v 4 capture the flag and VIP escort rounds on Oxbarrow Works, capture the flag on the Rail Yard
+#          and VIP escort in the Hospital Wing, bots in every slot; each must end with a winner or the clock
 #   roles  (--role-demo): a Marksman on the Rail Yard spots you far down its view and opens up, and a Flanker on the
 #          Hospital Wing goes round on a teammate's call and looks out from its spot
 #   gait   (--gait-demo --gait-check): a modelled opponent stands, walks, runs, sprints, pulls up, strafes both ways,
@@ -78,6 +80,10 @@ run match-place res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art
 run match-place-rail-yard res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --random-spawns --level=rail_yard --place=engine_shed
 run match-place-cold-store res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=hold --level=cold_store --place=store
 run match-place-hospital-wing res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=retrieve --level=hospital_wing --place=wings
+run match-flag res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=flag
+run match-escort res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=escort
+run match-rail-yard-flag res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=flag --level=rail_yard
+run match-hospital-wing-escort res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=escort --level=hospital_wing
 run gait res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=30 run gait-30fps res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=15 run gait-15fps res://scenes/Level.tscn -- --gait-demo --gait-check

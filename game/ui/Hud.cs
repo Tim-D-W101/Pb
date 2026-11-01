@@ -316,7 +316,8 @@ public partial class Hud : CanvasLayer, ISimEventListener
             _markers.Show(HitMarkKind.Target);
         }
 
-        if (e.Type is SimEventType.CaseTaken or SimEventType.CaseDropped or SimEventType.CaseExtracted or SimEventType.HoldChanged)
+        if (e.Type is SimEventType.CaseTaken or SimEventType.CaseDropped or SimEventType.CaseExtracted or SimEventType.HoldChanged
+            or SimEventType.FlagTaken or SimEventType.FlagDropped or SimEventType.FlagReturned or SimEventType.FlagCaptured or SimEventType.VipEscaped)
         {
             ObjectiveToast(e);
             return;
@@ -365,6 +366,15 @@ public partial class Hud : CanvasLayer, ISimEventListener
                 Pb.Sim.Match.HoldStatus.Theirs => $"They're in {room}",
                 _ => null,
             },
+            // Capture the flag: e.Team is the flag's side.
+            SimEventType.FlagTaken => e.PlayerId == _player.Id ? "You have their flag: get it home to your base (you can't sprint with it)"
+                : e.Team == _player.Team ? $"{who} has taken your flag!" : $"{who} has their flag",
+            SimEventType.FlagDropped => e.Team == _player.Team ? $"{who} is out: your flag is down. Touch it to send it home"
+                : e.PlayerId == _player.Id ? "You're out: their flag is down" : $"{who} is out: their flag is down",
+            SimEventType.FlagReturned => e.Team == _player.Team ? "Your flag is home" : "Their flag is back at their base",
+            SimEventType.FlagCaptured => e.Team == _player.Team ? (e.PlayerId == _player.Id ? "You captured their flag!" : $"{who} captured their flag!")
+                : $"{who} captured your flag",
+            SimEventType.VipEscaped => e.Team == _player.Team ? (e.PlayerId == _player.Id ? "You got out!" : $"{who} got out!") : $"Their VIP, {who}, got out",
             _ => null,
         };
         if (line is not null)

@@ -415,8 +415,9 @@ public partial class MainMenu : Control
         int modeIndex = Math.Max(0, again ? modes.ToList().FindIndex(m => m.Id == GameSession.ModeId) : 0);
         GameMode mode = modes[modeIndex];
         int size = again && GameSession.Size is { } last && mode.Sizes.Contains(last) ? last : mode.DefaultSize;
+        // The objectives the place has room for and the mode plays (capture the flag and the VIP: two teams).
         ObjectiveChoice[] Offered(PlaceSpec p) =>
-            _data.Config.Rules.Objectives.Kinds.Where(k => level.ForPlace(p).Objectives.Offers(k.Kind)).ToArray();
+            _data.Config.Rules.Objectives.Kinds.Where(k => level.ForPlace(p).Objectives.Offers(k.Kind) && k.PlayableIn(mode.Kind)).ToArray();
         ObjectiveChoice[] objectives = Offered(place);
         ObjectiveChoice objective = objectives.FirstOrDefault(o => again && RecordBook.IdOf(o.Kind) == GameSession.ObjectiveId) ?? objectives[0];
         int tierIndex = Array.FindIndex(tiers, t => again && t.Id == GameSession.TierId);
@@ -716,14 +717,16 @@ public partial class MainMenu : Control
                 problems.Add($"{entry.Id}: no Start button");
             }
 
-            // In each place, picking each mode offers that mode's sizes, and the place's objectives except in free-for-all.
+            // In each place, picking each mode offers that mode's sizes, and the place's objectives the mode plays (none to
+            // pick in free-for-all; capture the flag and the VIP in teams only).
             for (int p = 0; p < level.Places.Count; p++)
             {
                 buttons.First(b => b.Name == $"Place_{entry.Id}_{p}").ButtonPressed = true;
 
-                int objectives = _data.Config.Rules.Objectives.Kinds.Count(k => level.ForPlace(level.Places[p]).Objectives.Offers(k.Kind));
                 for (int m = 0; m < modes.Count; m++)
                 {
+                    int objectives = _data.Config.Rules.Objectives.Kinds.Count(k => level.ForPlace(level.Places[p]).Objectives.Offers(k.Kind) &&
+                                                                                    k.PlayableIn(modes[m].Kind));
                     buttons.First(b => b.Name == $"Mode_{entry.Id}_{m}").ButtonPressed = true;
                     int offered = _levels.FindChildren($"Size_{entry.Id}_*", nameof(Button), owned: false).Count(b => !b.IsQueuedForDeletion());
                     if (offered != modes[m].Sizes.Count)
@@ -732,7 +735,7 @@ public partial class MainMenu : Control
                     }
 
                     int shown = _levels.FindChildren($"Objective_{entry.Id}_*", nameof(Button), owned: false).Count(b => !b.IsQueuedForDeletion());
-                    int wanted = modes[m].Kind != MatchModeKind.FreeForAll && objectives > 1 ? objectives : 0;
+                    int wanted = objectives > 1 ? objectives : 0;
                     if (shown != wanted)
                     {
                         problems.Add($"{entry.Id}, {level.Places[p].Id}: {modes[m].Id} offers {shown} objectives, not {wanted}");

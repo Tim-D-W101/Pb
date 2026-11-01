@@ -61,6 +61,23 @@ public enum SimEventType : byte
     /// called out (−1: none in sight), <see cref="SimEvent.Position"/> where they are (or where the caller is looking).
     /// </summary>
     CalledOut,
+
+    /// <summary>
+    /// Capture the flag: someone took a flag. PlayerId = who, Team = the flag's side, Position = where it was, Extra = 1 when
+    /// it was at its base.
+    /// </summary>
+    FlagTaken,
+    /// <summary>Capture the flag: the carrier went out and the flag fell. PlayerId = who carried it, Team = its side, Position = where it lies.</summary>
+    FlagDropped,
+    /// <summary>Capture the flag: a flag went home. PlayerId = who sent it (−1: it went by itself), Team = its side, Position = its base.</summary>
+    FlagReturned,
+    /// <summary>
+    /// Capture the flag: a flag was carried home to the other side's base. PlayerId = the carrier, Team = the carrier's side
+    /// (who won), Extra = the flag's side, Position = the base.
+    /// </summary>
+    FlagCaptured,
+    /// <summary>VIP escort: the VIP went out through a way out. PlayerId = the VIP, Team = their side, Extra = the way out's index.</summary>
+    VipEscaped,
 }
 
 public enum FootstepKind : byte

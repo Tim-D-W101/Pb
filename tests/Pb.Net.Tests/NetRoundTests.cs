@@ -359,6 +359,38 @@ public class NetRoundTests
     }
 
     [Fact]
+    public void Capture_the_flag_stands_the_same_on_every_copy()
+    {
+        var rig = new NetRig();
+        RigClient a = rig.Join("A", Ping100);
+        rig.Run(30);
+        rig.StartRoundFor(Pb.Sim.Data.ObjectiveKind.Flag, "teams", 900f, (0, 0, true, 0f, 0f), (1, 0, false, 3f, 0f), (2, 1, false, 0f, -25f),
+            (3, 1, false, 3f, -25f));
+        rig.GoLive();
+        ObjectiveState server = rig.Sim!.Match!.Objective!, copy = a.Sim!.Match!.Objective!;
+        // The bases come from the roster, so every copy has them without being told.
+        Assert.Equal(server.Flags.Select(f => (f.Team, f.Home)), copy.Flags.Select(f => (f.Team, f.Home)));
+
+        // The bot on your side runs off with theirs ...
+        FlagState theirs = server.TheirFlag(0)!;
+        rig.Sim.FindPlayer(1)!.Position = theirs.Home;
+        rig.Run(Second / 2);
+        Assert.Equal(1, theirs.Carrier);
+        rig.Sim.FindPlayer(1)!.Position = new Vector3(2f, 0f, -12f);
+        rig.Run(Second / 2);
+        Assert.Equal((1, false), (copy.TheirFlag(0)!.Carrier, copy.TheirFlag(0)!.AtHome));
+        Assert.True(Vector3.Distance(copy.TheirFlag(0)!.Position, new Vector3(2f, 0f, -12f)) < 0.1f);
+
+        // ... and is put out: it lies where they fell, on every copy.
+        rig.Sim.FindPlayer(1)!.Alive = false;
+        rig.Run(Second / 2);
+        Assert.True(theirs.Down);
+        Assert.True(copy.TheirFlag(0)!.Down);
+        Assert.True(Vector3.Distance(copy.TheirFlag(0)!.Position, theirs.Position) < 0.1f);
+        Assert.Equal(MatchPhase.Live, a.Sim.Match.Phase);
+    }
+
+    [Fact]
     public void Every_copy_ends_the_round_with_the_servers_result_and_numbers()
     {
         var rig = new NetRig();

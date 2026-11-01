@@ -225,3 +225,104 @@ New tests and checks:
 ### What's next
 
 PR C1: capture the flag and VIP escort.
+
+## M5.3 (C1) — Capture the flag and VIP escort
+
+**Branch:** `claude/eager-cannon-c05kkv-modes` (on B's)
+
+### What was built
+
+Two new objectives, played by two teams in any area (the menu and the lobby offer them in teams only):
+
+- **Capture the flag.**
+  - Each side's flag stands at its base: where that side starts, marked by a ring in its colour.
+  - Walk onto theirs to take it, then carry it home to your base. You can't sprint while carrying it.
+  - Hit while carrying it, you drop it where you fell. Your own side touching your fallen flag sends it home, and left
+    alone it goes home by itself after 30 s. Either side can pick a fallen flag up again.
+  - The round is won by a capture, or by the last side standing. When time runs out, nobody wins.
+- **VIP escort.**
+  - One of your side is the VIP: unarmed, at 80 % of everyone's pace, never sprinting. Offline it's always one of your
+    bot teammates, so you're the escort.
+  - Bring the VIP to one of the far ways out to win.
+  - If the VIP is hit, or the time runs out, the other side wins.
+- **Bots that play them.**
+  - *Capture the flag.* Each side posts a few guards beside its base and sends the rest for the other flag. Attackers
+    carry it home or cover whoever has it. The nearest bot sends its own fallen flag home, and a side whose flag is
+    taken goes after the carrier. When a side's attackers are all out, guards take their place.
+  - *VIP escort.* The escorts lead the VIP a few steps ahead toward the way out. The VIP waits for them and takes cover
+    when it's shot at. The defenders guard the ways out that count from the start, and hunt the VIP once they hear
+    where it is.
+  - *Every mode.* Bots shoot a VIP or a carrier first. A bot blocked by someone standing in its path now steps round
+    them. Before, an attacker walking into its own guard stood there until it gave up.
+- **On screen.**
+  - Flags on poles in their side's colour: standing at the base, on the carrier's back, or lying where they fell.
+  - A marker over the VIP's head and beams over the ways out.
+  - The HUD line and markers: their flag, your base while you carry it, your own flag (in red) whenever it's away, and
+    the VIP or their way out.
+  - Toasts, the objective's sounds, outcome screens, the referee, the bases and the VIP on the briefing map, callouts
+    ("Cut them off!"), and `--objective-demo` for both.
+- **Online.** Every copy works out the same bases and VIP from the roster and the seed. The flags and the VIP's fate
+  travel in the snapshot (protocol 4).
+
+### How it looks
+
+| ![Capture the flag on Oxbarrow Works: their flag at their base in blue, its ring, "THEIR FLAG" over it, a guard beside it](phase-5/c1-flag-base.jpg) | ![Carrying their flag: the HUD says get it home with no sprinting, your base marked 79 m off, one of their guards right there](phase-5/c1-flag-carried.jpg) |
+|---|---|
+
+![VIP escort: Lark, the VIP, marked over the head, with an escort, the HUD line saying to escort Lark to a way out](phase-5/c1-vip.jpg)
+
+Captured with `--objective-demo` under lavapipe at the low preset.
+
+### How to run it
+
+```bash
+godot --path game res://scenes/Level.tscn -- --mode=teams --size=4 --objective=flag      # or --objective=escort
+godot --path game res://scenes/Level.tscn -- --objective-demo --objective=flag --mode=teams
+godot --headless --path game res://scenes/Level.tscn -- --bot-match --mode=teams --size=4 --objective=escort --no-art
+```
+
+Or pick Teams in the menu: capture the flag and VIP escort are in its objectives.
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `dotnet test tests/Pb.Sim.Tests` | 494 passed (12 new) |
+| `dotnet test tests/Pb.Net.Tests` | 70 passed (1 new) |
+| `tools/ci/smoke-test.sh` | 36 of 36 passed (4 new) |
+
+New tests and runs:
+- `FlagEscortTests`:
+  - capture the flag: where the bases are; taking, carrying and capturing a flag; dropping it, both ways it goes home,
+    and the other side picking it up again; nobody wins on time;
+  - VIP escort: the VIP is dealt from the seed (a bot, the same every time, a person only on a side of people); can't
+    fire and doesn't sprint; only the far ways out count; the round ends three ways (out, hit, time).
+- `FlagEscortBotTests`: bots take and capture a flag; a side whose flag is taken is told where the carrier is; the
+  defenders guard the VIP's ways out from the start; bots bring the VIP out.
+- `NetRoundTests`: a capture the flag round stands the same on every copy, with the bases worked out locally and the
+  carried and fallen flag where the server has it.
+- Smoke: 4 v 4 rounds of both on Oxbarrow Works, capture the flag on the Rail Yard, VIP escort in the Hospital Wing.
+  In the final run, capture the flag on Oxbarrow Works ended after 29 s with your side out and your flag being carried
+  off. On the Rail Yard your side cleared theirs after 44 s, with both flags home. The VIP got out of Oxbarrow Works
+  after 21 s and was put out in the Hospital Wing after 22 s.
+
+How the bots' rounds went, 4 v 4 on Oxbarrow Works across seeds while tuning:
+- Capture the flag: rounds of 30–55 s. Most end with one side out; some end in a capture (one in 33 s, the defence
+  beaten to it).
+- VIP escort: rounds of 15–36 s. The VIP got out in 2 of 6, which matches how VIP games usually favour the defence.
+  Before the defenders guarded the ways out, the VIP walked out every time in 20 s; before the VIP took cover, it was
+  hit every time.
+
+### Known issues
+
+- **One capture wins the round.** There's no score to a set number of captures yet; a round is a round, like the
+  others.
+- **The alarms borrow recorded lines** ("Cut them off!", "There!") rather than having their own ("They've got our
+  flag!"), until a voice take for them is made.
+- **Escort balance is tuned on Oxbarrow Works.** Escort rounds on the other areas pass the smoke runs, but how often
+  the VIP gets out there hasn't been measured.
+- **The VIP is always a bot when your side has one.** You can't choose to be the VIP offline.
+
+### What's next
+
+PR C2: the big woodsball site, with buggies.

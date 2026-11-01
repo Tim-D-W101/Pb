@@ -512,7 +512,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         BuildOthersHud(state);
         var objectiveViews = new ObjectiveViews { Name = "Objective" };
         AddChild(objectiveViews);
-        objectiveViews.Build(_sim, _view.Objectives);
+        objectiveViews.Build(_sim, _view.Objectives, _view.TeamColors);
         _pickups = new PickupVisuals { Name = "Pickups" };
         AddChild(_pickups);
         _pickups.Build(_sim.Pickups);
@@ -653,7 +653,12 @@ public partial class LevelMain : Node3D, ISimEventListener
                 if (_match.Phase == MatchPhase.Live && tick % every == 0)
                 {
                     ObjectiveState? o = _match.Objective;
-                    string objective = o is null ? "" : o.Kind == ObjectiveKind.Hold ? $"; {o.Room!.Name} {o.Status}, held {o.Held:0} s"
+                    string Flag(FlagState f) =>
+                        $"team {f.Team}'s flag {(f.Carrier >= 0 ? "carried by " + _sim.FindPlayer(f.Carrier)?.Name : f.AtHome ? "home" : "down")} at {f.Position}";
+                    string objective = o is null ? ""
+                        : o.Kind == ObjectiveKind.Hold ? $"; {o.Room!.Name} {o.Status}, held {o.Held:0} s"
+                        : o.Kind == ObjectiveKind.Flag ? "; " + string.Join(", ", o.Flags.Select(Flag))
+                        : o.Kind == ObjectiveKind.Escort ? $"; the VIP {_sim.FindPlayer(o.Vip)?.Name} at {o.CasePosition}{(o.VipOut ? " (out)" : "")}"
                         : $"; case {(o.Carrier >= 0 ? "carried by " + _sim.FindPlayer(o.Carrier)?.Name : o.CaseMoved ? "dropped" : "untouched")} at {o.CasePosition}";
                     GD.Print($"BOT MATCH {_match.Elapsed:0} s: you at {state.Position} ({brain.Label}){objective}; " +
                              $"{_sim.Players.Count(p => p.Alive && p.Team == state.Team)} of yours and {_sim.Players.Count(p => p.Alive && p.Team != state.Team)} of theirs in");
@@ -2004,6 +2009,28 @@ public partial class LevelMain : Node3D, ISimEventListener
                 : $"You held {ModeText.The(o.Room!.Name)} for {o.Held:0} of {o.HoldRules.HoldTime:0} s.";
         }
 
+        if (o.Kind == ObjectiveKind.Flag)
+        {
+            int us = _player.State.Team;
+            FlagState? theirs = o.TheirFlag(us), own = o.FlagOf(us);
+            if (o.Done)
+            {
+                bool ours = o.CapturedBy == us;
+                return $"{(ours ? "Your side" : "They")} carried {(ours ? "their" : "your")} flag home at {RoundScreens.Clock(_match.Elapsed)}.";
+            }
+
+            string Where(FlagState? f, string whose) => f is null ? "" : f.AtHome ? $"{whose} flag was home" : f.Carrier >= 0 ? $"{whose} flag was being carried" : $"{whose} flag was down";
+            return $"{Where(theirs, "Their")}; {Where(own, "your").ToLowerInvariant()}.";
+        }
+
+        if (o.Kind == ObjectiveKind.Escort)
+        {
+            string vip = o.Vip == _player.State.Id ? "You" : _sim.FindPlayer(o.Vip)?.Name ?? "The VIP";
+            return o.Done ? $"{vip} got out through {o.Level.Exits[o.ExitUsed].Name} at {RoundScreens.Clock(_match.Elapsed)}."
+                : o.VipOut ? $"{vip} {(vip == "You" ? "were" : "was")} put out at {RoundScreens.Clock(_match.Elapsed)}."
+                : $"{vip} didn't get out in time.";
+        }
+
         string carrier = o.Carrier == _player.State.Id ? "You" : _sim.FindPlayer(o.Carrier)?.Name ?? "Your side";
         return o.Done ? $"{carrier} got it out through {o.Level.Exits[o.ExitUsed].Name} at {RoundScreens.Clock(_match.Elapsed)}."
             : o.Carrier >= 0 ? $"{carrier} still had the case."
@@ -2018,9 +2045,13 @@ public partial class LevelMain : Node3D, ISimEventListener
             return null;
         }
 
-        return o.Kind == ObjectiveKind.Hold
-            ? ("Held", $"{o.Held:0} of {o.HoldRules.HoldTime:0} s")
-            : ("Case", o.Done ? $"out through {o.Level.Exits[o.ExitUsed].Name}" : o.Carrier >= 0 ? "carried, not out" : o.CaseMoved ? "dropped" : "not found");
+        return o.Kind switch
+        {
+            ObjectiveKind.Hold => ("Held", $"{o.Held:0} of {o.HoldRules.HoldTime:0} s"),
+            ObjectiveKind.Flag => ("Flag", o.Done ? (o.CapturedBy == _player.State.Team ? "captured by your side" : "captured by theirs") : "not captured"),
+            ObjectiveKind.Escort => ("VIP", o.Done ? $"out through {o.Level.Exits[o.ExitUsed].Name}" : o.VipOut ? "put out" : "didn't get out"),
+            _ => ("Case", o.Done ? $"out through {o.Level.Exits[o.ExitUsed].Name}" : o.Carrier >= 0 ? "carried, not out" : o.CaseMoved ? "dropped" : "not found"),
+        };
     }
 
     private void BackToLevelSelect()
@@ -2330,7 +2361,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         map.Configure(_level, new Vector2(380f, 320f), (_start.Position.ToGodot(), _start.Yaw), team, _teamColor);
         if (_match.Objective is { } objective)
         {
-            map.MarkObjective(objective, Color.FromHtml(_view.Objectives.Color));
+            map.MarkObjective(objective, Color.FromHtml(_view.Objectives.Color), _view.TeamColors);
         }
 
         return map;
@@ -2399,6 +2430,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         if (mode.Kind == MatchModeKind.FreeForAll)
         {
             objective = objectives.Find(ObjectiveKind.Eliminate)!;
+        }
+        else if (!objective.PlayableIn(mode.Kind))
+        {
+            throw new InvalidOperationException($"{objective.DisplayName} is played by two teams: add --mode=teams");
         }
         else if (!data.Levels[entry.Id].Objectives.Offers(objective.Kind))
         {
