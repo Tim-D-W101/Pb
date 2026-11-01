@@ -1,8 +1,22 @@
 // Provenance of every imported art asset (spec: original IP only), written by tools/art/import.sh:
 // the Higgsfield job that made it, the generator and prompt, where it was downloaded from, and the
 // files the import produced. A sim test checks that every texture and model the kit uses is listed.
+// Art made by a script in this repository (the animation set) names the script as its job and source.
 {
   "assets": [
+    {
+      "id": "anim_set",
+      "kind": "clip",
+      "job": "tools/anim/build_clips.py",
+      "generator": "blender-4.2-script",
+      "prompt": "The characters' animation set, keyframed by script on the generator's biped rig (clip_walk's): idle and crouched idle; walk, jog, run and the crouched walk forward, right, back and left; sprint; lean left and right; the refill; the flinch; hands up",
+      "source": "tools/anim/build_clips.py",
+      "imported": "2026-11-01",
+      "files": [
+        "res://art/models/anim_set.glb"
+      ],
+      "notes": "blender -b --factory-startup -P tools/anim/build_clips.py -- game/art/models/clip_walk.glb game/art/models/anim_set.glb (the rig only, 24 clips at 30 frames a second)"
+    },
     {
       "id": "oil_drum",
       "kind": "model",

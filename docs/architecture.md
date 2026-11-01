@@ -1330,3 +1330,90 @@ collection under memory pressure. That made the allocation test fail at random o
   hand-made moves and a real shot), `SoundTests`, `SettingsTests`. The bot match prints a feedback line (markers by kind,
   arcs by kind, whizzes, confirms, streaked splats, paint on your marker, the hit moment) and fails if you were put out
   by a ball and the hit moment didn't play; `--min-feedback=N` fails it with fewer than N arcs and markers.
+
+### 18.2 The characters' animation (as built, M5.2)
+
+- **The clips** (`tools/anim/build_clips.py`, run in Blender 4.2 without a window). There are 24 clips on the generator's
+  24-bone biped:
+  - idle and crouched idle (4 s: the weight shifting from foot to foot, breathing);
+  - walk, jog, run and the crouched walk, each forward, right, back and left;
+  - sprint (forward);
+  - lean left and right (the legs' brace);
+  - refill, the flinch (`hit`) and hands up.
+
+  Poses are written in the body's terms (the hips' height, sway and turn; the spine's bend and twist; where each ankle
+  is and how the foot is pitched) and solved to thigh and shin by two-bone IK. A step works like this:
+  - The ball of the foot is planted and moves back under the body at exactly the pace's ground speed.
+  - The heel peels up over the ball.
+  - The foot swings forward on a Hermite curve: it leaves at half the ground speed and arrives at the full speed, so it
+    is still in the world as it touches down. It lifts early and comes down late.
+
+  Every step cycle starts with the left foot landing, so the clips of a family blend in step. The paces' speeds are the
+  game's own data (`characters.animPaces`, which the script reads):
+
+  | Sim movement | Speed | Clip |
+  |---|---|---|
+  | Walking | 3 m/s | jog |
+  | Running | 5.5 m/s | run |
+  | Sprinting | 7 m/s | sprint |
+  | Crouched | 2 m/s | crouched walk |
+  | Bots' stroll (0.55 × 3) | 1.65 m/s | walk |
+
+  A cycle is a whole number of frames at 30 a second, and its last key repeats its first. The hips sink where a foot
+  lands far ahead. That sink is worked out per frame, then widened and smoothed over a quarter of the cycle, so the hips
+  never dip in a frame or two. When running, a foot comes down nearer under the body than it leaves (`ahead`).
+  Two faults in the first export, both now fixed:
+  - Blender keyed the clips from frame 1, and Godot holds a clip at its first key until that key's time. That added a
+    frame's stall to every cycle.
+  - The feet were placed from under the swaying hips, so a planted foot swayed with them.
+- **Baking** (`MoveClipBaker.BakeSet`). Each model gets the set at load, the same way as the old movement clips.
+  - Each bone turns in skeleton space as the clip turns it from the clip rig's rest, applied to the model's own rest.
+    The hips' sway is scaled by the ratio of the two rigs' leg lengths.
+  - The source's ankle and ball paths are kept too, measured from the point under the body and scaled the same way.
+    Copied onto other proportions, the rotations alone let the feet drift.
+  - A step clip covers its pace's speed × its length × the leg scale in one cycle.
+  - A foot counts as down where it is low *and* moving back at that speed. A foot just leaving the ground, or about to
+    land, can be as low but isn't moving with the ground. A frame's flag covers the step to the next frame.
+- **Blending** (`ClipBlender`, a `SkeletonModifier3D` that runs before `CharacterPoser`).
+  - The body's velocity, in its own frame, picks the clips.
+  - Pace is chosen by speed against the speeds the clips were made for. At the sim's own speeds one clip plays alone:
+    two paces have their feet down at different times, so a blend of them slides.
+  - Direction is chosen by angle: the two directions it falls between, eased so each pure direction holds a little
+    either side.
+  - Everything shares one phase. The phase moves on by the ground covered divided by the blended clips' stride, so
+    planted feet keep pace at any speed in between.
+  - Each weight (moving, each direction, crouch, sprint, refill, out, lean), and the speed the paces are picked by,
+    follows its target at a capped acceleration (`Follow`). A stop eases down through the gaits in about a third of a
+    second rather than snapping through all of them in the sim's 0.15 s, and letting go of sprint mid-stride doesn't
+    snap either. Both hold at any frame rate.
+  - Layers on top of the step cycle:
+    - the lean's brace (legs and hips);
+    - the refill (upper body, in step with the sim's refill);
+    - hands up when out (upper body, whatever the legs do);
+    - the flinch, added last.
+  - Why not an `AnimationTree`: the blend needs one phase across every direction and pace, a stride matched to the
+    ground speed, weights eased by acceleration, and the feet's paths for the IK. A tree's blend spaces sync by time,
+    not stride, and control their weights' timing themselves.
+- **Fitting** (`CharacterPoser.AnimatedBody`). This works as before:
+  - The hips come down by however much deeper the sim's crouch is than the clips carry them.
+  - The upper body is fitted to the sim (aim, lean roll, head, shoulders), and the hands go on the marker.
+  - Each foot goes onto its clip's path (scaled to the build) and onto the ground under it, by two-bone IK.
+
+  New are **held feet**. A foot that is down in the clips is held where it came down: the ball of the foot as drawn
+  stays put on the ground, and the clip still rolls the heel up over it. Without this, a body turning while moving would
+  swing its planted feet round with it, and two clips' strides blended would slide them.
+  - Once the foot lifts, the hold eases out (`footLock.release_mps2`) during the swing, so the foot lands where its clip
+    lands it.
+  - If the leg can't reach a held foot, the foot gives way just as far as it must (it pivots).
+  - A foot held further than `maxOffset_m` from its path lets go at once (a teleport).
+  - Standing still, a held foot that the body has turned or moved `stepFrom_m` away from steps back under it: lifted,
+    one foot at a time. That covers turning on the spot, settling into the stance after a stop, and the first step off.
+- **Fallback.** Without the set (missing, or not on the generator's rig) the characters plant steps as before
+  (`legs: "steps"`, which is still selectable); the old movement clips stay available as `"clips"`. Ladders keep their
+  own limbs. With `--no-art` there are no models at all.
+- **Checks.**
+  - `AnimationDataTests`: each sim speed has a clip made for it; the set holds every clip, and each starts at 0 s; each
+    step cycle is as long as its cadence makes it.
+  - The gait demo (`--gait-check`; CI runs it at 120, 30 and 15 fps) has two new moves, turning on the spot each way.
+    It prints how far the feet were held off their paths and how many steps they took standing.
+  - The art-on bot match's pop check.

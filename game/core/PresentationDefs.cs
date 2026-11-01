@@ -1434,8 +1434,23 @@ public sealed class CharactersDef : IValidatable
 
     public float GripDrop_m { get; set; }
 
-    /// <summary>How the legs move: "steps" plants each foot in the world as it walks (<see cref="Steps"/>), "clips" plays the movement clips.</summary>
-    public string Legs { get; set; } = "steps";
+    /// <summary>
+    /// How the body moves: "animated" plays the animation set (<see cref="AnimSet"/>, Phase 5), "steps" plants each foot in
+    /// the world as it walks (<see cref="Steps"/>), "clips" plays the old movement clips.
+    /// </summary>
+    public string Legs { get; set; } = "animated";
+
+    /// <summary>The animation set (one GLB of clips on the generator's rig: tools/anim/build_clips.py), for "animated".</summary>
+    public string AnimSet { get; set; } = "";
+
+    /// <summary>The ground speeds the set's step clips were made for, and how the blend between them follows the body.</summary>
+    public AnimPacesDef AnimPaces { get; set; } = new();
+
+    /// <summary>Animated legs: how the blend's weights follow what the body does.</summary>
+    public AnimBlendDef AnimBlend { get; set; } = new();
+
+    /// <summary>Animated legs: a foot that's down is held where it came down.</summary>
+    public FootLockDef FootLock { get; set; } = new();
 
     /// <summary>The planted steps (<see cref="Pb.Game.Player.StepGait"/>).</summary>
     public StepsDef Steps { get; set; } = new();
@@ -1474,10 +1489,19 @@ public sealed class CharactersDef : IValidatable
         v.InRange(nameof(LadderHipsDown_m), LadderHipsDown_m, 0, 0.4);
         v.InRange(nameof(LadderLimbMove_s), LadderLimbMove_s, 0.02, 1);
         v.InRange(nameof(LadderLimbSwing_m), LadderLimbSwing_m, 0, 0.3);
-        if (Legs is not ("steps" or "clips"))
+        if (Legs is not ("animated" or "steps" or "clips"))
         {
-            v.Error(nameof(Legs), $"'{Legs}' is neither \"steps\" nor \"clips\"");
+            v.Error(nameof(Legs), $"'{Legs}' is none of \"animated\", \"steps\" and \"clips\"");
         }
+
+        if (Legs == "animated" && string.IsNullOrWhiteSpace(AnimSet))
+        {
+            v.Error(nameof(AnimSet), "\"animated\" legs need an animation set");
+        }
+
+        AnimPaces.Validate(v.Scope(nameof(AnimPaces)));
+        AnimBlend.Validate(v.Scope(nameof(AnimBlend)));
+        FootLock.Validate(v.Scope(nameof(FootLock)));
 
         Steps.Validate(v.Scope(nameof(Steps)));
         v.InRange(nameof(HipDropPerEyeDrop), HipDropPerEyeDrop, 0, 1.5);
@@ -1499,6 +1523,118 @@ public sealed class CharactersDef : IValidatable
 /// How characters step (<see cref="Pb.Game.Player.StepGait"/>): the gait by speed, the stance, turning on
 /// the spot, the heel and toe, the hips, and the poses off the ground.
 /// </summary>
+/// <summary>
+/// The paces the animation set's step clips were made for (tools/anim/build_clips.py reads them from here): the blend
+/// picks its clips by these, so each speed the sim moves at plays the clip made for it, unblended.
+/// </summary>
+public sealed class AnimPacesDef : IValidatable
+{
+    public float Walk_mps { get; set; } = 1.65f;
+
+    public float Jog_mps { get; set; } = 3f;
+
+    public float Run_mps { get; set; } = 5.5f;
+
+    public float Sprint_mps { get; set; } = 7f;
+
+    public float Crouch_mps { get; set; } = 2f;
+
+    /// <summary>How fast the speed the clips are picked by can change its own pace (m/s³): a stop eases through the gaits.</summary>
+    public float Follow_mps3 { get; set; } = 200f;
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Walk_mps), Walk_mps, 0.5, 3);
+        v.InRange(nameof(Crouch_mps), Crouch_mps, 0.5, 4);
+        v.InRange(nameof(Follow_mps3), Follow_mps3, 10, 10000);
+        if (!(Walk_mps < Jog_mps && Jog_mps < Run_mps && Run_mps < Sprint_mps))
+        {
+            v.Error(nameof(Jog_mps), "the paces must rise: walk, jog, run, sprint");
+        }
+    }
+}
+
+/// <summary>
+/// Animated legs: how each of the blend's weights follows its target (<see cref="Pb.Game.Player.ClipBlender"/>), as the
+/// most its rate may change a second (1/s²: <see cref="Pb.Game.Player.Follow"/>), so it eases in and out alike at any frame rate.
+/// </summary>
+public sealed class AnimBlendDef : IValidatable
+{
+    /// <summary>The step cycle starts coming in from this share of the walk's speed, and is all in by this.</summary>
+    public float MovingFrom { get; set; } = 0.15f;
+
+    public float MovingBy { get; set; } = 0.6f;
+
+    /// <summary>After a stop the step cycle runs on at this share of the walk's speed while it blends out (the last step finishes).</summary>
+    public float LastStep { get; set; } = 0.35f;
+
+    public float Moving_ps2 { get; set; } = 60f;
+
+    public float Direction_ps2 { get; set; } = 90f;
+
+    public float Crouch_ps2 { get; set; } = 120f;
+
+    public float Lean_ps2 { get; set; } = 120f;
+
+    public float Sprint_ps2 { get; set; } = 60f;
+
+    public float Refill_ps2 { get; set; } = 60f;
+
+    public float Out_ps2 { get; set; } = 40f;
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(MovingFrom), MovingFrom, 0, 1);
+        v.InRange(nameof(MovingBy), MovingBy, 0.05, 2);
+        v.InRange(nameof(LastStep), LastStep, 0, 1);
+        if (MovingBy <= MovingFrom)
+        {
+            v.Error(nameof(MovingBy), "the step cycle has to be all in after it starts coming in: over movingFrom");
+        }
+
+        foreach ((string name, float value) in new[]
+                 {
+                     (nameof(Moving_ps2), Moving_ps2), (nameof(Direction_ps2), Direction_ps2), (nameof(Crouch_ps2), Crouch_ps2),
+                     (nameof(Lean_ps2), Lean_ps2), (nameof(Sprint_ps2), Sprint_ps2), (nameof(Refill_ps2), Refill_ps2), (nameof(Out_ps2), Out_ps2),
+                 })
+        {
+            v.InRange(name, value, 1, 10000);
+        }
+    }
+}
+
+/// <summary>Animated legs: holding a foot that's down where it came down (<see cref="Pb.Game.Player.CharacterPoser"/>).</summary>
+public sealed class FootLockDef : IValidatable
+{
+    /// <summary>How fast a foot's hold eases out once it lifts (m/s²).</summary>
+    public float Release_mps2 { get; set; } = 40f;
+
+    /// <summary>A held foot lets go when holding it would take it further than this from its clip's path (m).</summary>
+    public float MaxOffset_m { get; set; } = 0.35f;
+
+    /// <summary>Standing, a held foot the body has turned or moved this far from steps back under it (m)...</summary>
+    public float StepFrom_m { get; set; } = 0.12f;
+
+    /// <summary>... in this long (s) ...</summary>
+    public float Step_s { get; set; } = 0.28f;
+
+    /// <summary>... lifting this high (m).</summary>
+    public float StepLift_m { get; set; } = 0.06f;
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Release_mps2), Release_mps2, 1, 1000);
+        v.InRange(nameof(MaxOffset_m), MaxOffset_m, 0.05, 1);
+        v.InRange(nameof(StepFrom_m), StepFrom_m, 0.02, 0.5);
+        v.InRange(nameof(Step_s), Step_s, 0.05, 1);
+        v.InRange(nameof(StepLift_m), StepLift_m, 0, 0.3);
+        if (StepFrom_m >= MaxOffset_m)
+        {
+            v.Error(nameof(StepFrom_m), "a foot has to step before it's let go: under maxOffset_m");
+        }
+    }
+}
+
 public sealed class StepsDef : IValidatable
 {
     /// <summary>The gait by speed, in rising order; between rows it blends.</summary>

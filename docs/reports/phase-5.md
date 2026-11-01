@@ -113,3 +113,115 @@ Quitting now frees the scene and lets .NET finalise what it holds before Godot c
 ### What's next
 
 PR B, the characters' animation set.
+
+## M5.2 (B) — The characters' animation
+
+**Branch:** `claude/eager-cannon-c05kkv-animation` (on A's)
+
+### What was built
+
+- **An animation set made by script.** `tools/anim/build_clips.py` keyframes it in Blender 4.2 (no window needed) on
+  the generator's biped rig. It has 24 clips:
+  - idle and crouched idle;
+  - walk, jog, run and crouched walk, each forward, right, back and left;
+  - sprint;
+  - the lean's brace each way;
+  - the refill, a flinch, and hands up.
+
+  Steps work the way feet do: the ball of the foot is planted and moves back under the body at exactly the clip's
+  speed, the heel peels up over it, and the swing lands at ground speed, so the foot touches down still. Every step
+  cycle starts with the left foot landing, so any of them can blend in step. The clips' speeds are the game's own data
+  (`characters.animPaces`), so each speed the sim moves at has a clip made for it.
+- **Blended every frame from how they move** (`ClipBlender`).
+  - Speed picks the pace. Direction picks the clips round it: forward, sideways, backing off, and anything between.
+  - All the clips share one step phase, which moves on by the ground covered, so planted feet keep pace at any speed.
+  - Crouching, sprinting, the lean, the refill (in step with the sim's), the flinch, and hands up when out are layered
+    on top.
+  - Every weight eases in and out at a capped rate. A stop from a sprint eases down through the run and the walk to the
+    idle in about a third of a second, and it looks the same at 15, 30 or 120 fps.
+- **Feet that stay where they land.**
+  - Each foot that's down in the clips is held where it came down, while the clip rolls the heel up over the ball. So
+    when the body turns while running, or between two clips' strides, the feet don't skate.
+  - When the foot lifts, it eases back onto its clip's path for the next landing.
+  - Standing still and turning on the spot, the feet step round, one at a time, lifted. After a stop, the feet settle
+    into the stance with a step.
+- **Fitted to each character's build.** The set is baked onto each of the three models when they load, using their own
+  proportions, with the feet on their clips' paths scaled to the legs. Feet still go onto stairs and kerbs by the ground
+  under each one, as before.
+- **The old steps stay as the fallback** (`"legs": "steps"`) if the set is missing.
+
+### Before and after
+
+The gait demo (`-- --gait-demo`), rendered under the software renderer. In each pair, the top row is before (the planted
+steps) and the bottom row is after (the animation set), filmed from the side: six moments a tenth of a second apart (a
+fifteenth running and sprinting; turning, about a quarter).
+
+![Walking and running, before and after](phase-5/b-walk-run.jpg)
+
+![Strafing and the crouched walk, before and after](phase-5/b-strafe-crouch.jpg)
+
+![Sprinting before and after, and turning on the spot (new): the feet step round](phase-5/b-turn-sprint.jpg)
+
+The gait check's numbers, before (the planted steps, on A) and after. Slide is how fast a foot that's down moves
+across the ground. Jerk is the most the head, hands or hips change their frame-to-frame step against the body, which
+is what a pop looks like:
+
+| Move | Feet slide, 120 fps | Jerk, 30 fps | Jerk, 15 fps |
+|---|---|---|---|
+| walk | 0.12 → 0.03 m/s | 1.7 → 0.7 cm | 4.2 → 2.5 cm |
+| run (turning round as it starts) | 0.15 → 0.15 m/s | 1.4 → 1.1 cm | 4.8 → 3.8 cm |
+| sprint (turning round as it starts) | 0.17 → 0.03 m/s | 2.0 → 1.5 cm | 6.5 → 4.3 cm |
+| stop | 0.00 → 0.00 m/s | 0.1 → 0.1 cm | 3.5 → 3.4 cm |
+| strafe right | 0.11 → 0.02 m/s | 1.0 → 0.9 cm | 5.3 → 3.2 cm |
+| strafe left | 0.11 → 0.05 m/s | 1.9 → 0.8 cm | 8.3 → 2.9 cm |
+| back off | 0.13 → 0.09 m/s | 1.6 → 0.8 cm | 4.2 → 2.9 cm |
+| crouched walk | 0.09 → 0.03 m/s | 0.4 → 0.6 cm | 1.6 → 2.1 cm |
+| turn left, on the spot (new) | 0.00 m/s | 0.1 cm | 0.2 cm |
+| turn right, on the spot (new) | 0.00 m/s | 0.1 cm | 0.2 cm |
+
+The run's remaining slide comes from the turn it starts with: running round a tight turn at 240° a second, a held foot
+the leg can no longer reach gives way just far enough to pivot.
+
+### How to run it
+
+```bash
+godot --path game res://scenes/Level.tscn -- --gait-demo                     # one opponent through every move, from the side
+godot --path game res://scenes/Level.tscn -- --gait-demo --gait-only=turn    # just turning on the spot
+godot --headless --path game --fixed-fps 30 res://scenes/Level.tscn -- --gait-demo --gait-check   # the numbers, as CI checks them
+blender -b --factory-startup -P tools/anim/build_clips.py -- game/art/models/clip_walk.glb game/art/models/anim_set.glb
+godot --headless --path game --import                                         # after remaking the set
+```
+
+Or play: every character uses the set.
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `dotnet test tests/Pb.Sim.Tests` | 482 passed (3 new) |
+| `dotnet test tests/Pb.Net.Tests` | 69 passed |
+| `tools/ci/smoke-test.sh` | 32 of 32 passed (the gait check now 12 moves at each rate) |
+
+New tests and checks:
+- `AnimationDataTests`: every speed the sim moves at has a clip made for it; the set holds every clip the blender plays,
+  each starting at 0 s; each step cycle is as long as its cadence makes it. Two faults turned up while building this.
+  Blender's export keyed every clip from frame 1, so Godot held the first pose for a frame, a stall in every stride; the
+  last two tests guard against that. And the feet were placed from under the swaying hips, so a planted foot swayed
+  with them; the gait check's slide would show that.
+- The gait demo has two new moves, turning on the spot each way. Its line for each move now says how far the feet were
+  held off their clips' paths and how many steps they took standing. CI runs the gait check at 120, 30 and 15 fps, and
+  the art-on bot match's pop check, as before. The worst pop in the art match was 2.7 cm at 120 fps, against a 15 cm
+  limit.
+
+### Known issues
+
+- **Made by script, not motion capture.** The gaits are believable but plain, and all three characters share them
+  (only the idle's timing differs). The clips are easy to tune: the gait table and the poses are at the top of the script.
+- **No clips for jumping, landing, sliding or climbing.** In the air or sliding, the step cycle holds where it is.
+  Ladders still place the limbs themselves, as before.
+- **Leaning only braces the legs.** The upper body's roll is still the sim's lean, as before.
+- **Sharp turns while running pivot the held foot** (up to 13 cm off its path) rather than taking an extra step.
+
+### What's next
+
+PR C1: capture the flag and VIP escort.
