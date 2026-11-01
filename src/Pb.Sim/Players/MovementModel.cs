@@ -175,6 +175,9 @@ public struct MovementResult
     public Stance Stance;
     public float EyeHeight;
     public bool Sprinting;
+
+    /// <summary>In a vehicle: it carries the body (the sim seats it each tick), which doesn't walk, fall or collide.</summary>
+    public bool Seated;
 }
 
 /// <summary>
@@ -206,6 +209,18 @@ public static class MovementModel
         state.SlideCooldown = MathF.Max(0f, state.SlideCooldown - dt);
         state.JumpCooldown = MathF.Max(0f, state.JumpCooldown - dt);
         bool alive = state.Alive;
+
+        if (state.Vehicle >= 0)
+        {
+            // In a vehicle: it carries you, sitting up in your seat; no walking, jumping, crouching or climbing.
+            state.Sprinting = false;
+            state.Stance = Stance.Standing;
+            return new MovementResult
+            {
+                Seated = true, Stance = Stance.Standing, EyeHeight = state.EyeHeight, CapsuleHeight = p.CapsuleHeightFor(Stance.Standing),
+                HorizontalVelocity = VectorMath.Horizontal(state.Velocity),
+            };
+        }
 
         if (state.Ladder >= 0)
         {

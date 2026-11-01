@@ -66,5 +66,8 @@ public sealed class SimConfig
 
     public required Match.MatchRules Rules { get; init; }
 
+    /// <summary>What can be driven (vehicles.jsonc), by id.</summary>
+    public IReadOnlyDictionary<string, Vehicles.VehicleParams> Vehicles { get; init; } = new Dictionary<string, Vehicles.VehicleParams>();
+
     public float Dt => 1f / TickRate;
 }

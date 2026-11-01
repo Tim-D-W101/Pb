@@ -179,7 +179,7 @@ public sealed class NetServer : IDisposable
     {
         _round = setup.Round;
         _over = false;
-        _fields = new WorldFields(sim.Players.Count, sim.Doors.Count, Grid(sim));
+        _fields = new WorldFields(sim.Players.Count, sim.Doors.Count, Grid(sim), sim.Vehicles.All);
         _zeros = new uint[Math.Max(OwnFields.Count, _fields.Count)];
         _world = new uint[WorldRing][];
         _worldTicks = new int[WorldRing];

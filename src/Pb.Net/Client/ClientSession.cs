@@ -50,7 +50,7 @@ public sealed class ClientSession
         sim.Role = SimRole.Client;
         sim.LocalPlayerId = localPlayerId;
         Local = sim.FindPlayer(localPlayerId);
-        Fields = new WorldFields(sim.Players.Count, sim.Doors.Count, NetServer.Grid(sim));
+        Fields = new WorldFields(sim.Players.Count, sim.Doors.Count, NetServer.Grid(sim), sim.Vehicles.All);
         Array.Fill(_seqs, -1);
         client.BeginRound(round, Fields);
     }
@@ -82,6 +82,12 @@ public sealed class ClientSession
     public bool Following { get; private set; }
 
     /// <summary>
+    /// This copy's own player is in a vehicle (as the server last had them): the server drives it, so they sit in their
+    /// seat where it's drawn, not predicted.
+    /// </summary>
+    public bool Riding => Local is { Vehicle: >= 0 };
+
+    /// <summary>
     /// Where the last small correction moved this copy's own player from, less where it moved it to: the camera and body
     /// are drawn this far off and eased back, so a small correction never shows as a jump. Zero after a big one.
     /// </summary>
@@ -92,6 +98,7 @@ public sealed class ClientSession
     {
         Client.Poll();
         Client.AdvanceClock(dt);
+        SeatLocal();
         Reconcile(dt);
         PoseOthers();
         _tickStart = Sim.Time;
@@ -141,10 +148,28 @@ public sealed class ClientSession
         CorrectionOffset = ease <= 0f ? Vector3.Zero : CorrectionOffset * MathF.Max(0f, 1f - dt / ease);
     }
 
+    /// <summary>This copy's own player in the vehicle and seat the newest snapshot has them in, or out of it.</summary>
+    private void SeatLocal()
+    {
+        if (Local is not null && Fields.Vehicles > 0 && Client.Newest is { } newest)
+        {
+            (int vehicle, int seat) = Fields.SeatOf(newest.World, Local.Id);
+            Sim.Vehicles.SeatFromServer(Local, vehicle, seat);
+        }
+    }
+
     private void Reconcile(float dt)
     {
         if (Local is null || !Client.TakeOwn(out int lastRun, out ReadOnlySpan<uint> fields))
         {
+            return;
+        }
+
+        if (Riding)
+        {
+            // In a vehicle the server drives: nothing of this copy's to check. Getting out, the server's state (beside the
+            // seat) differs from the seat this copy had, and is put back here as any correction is.
+            CorrectionOffset = Vector3.Zero;
             return;
         }
 
@@ -222,6 +247,7 @@ public sealed class ClientSession
         }
 
         Fields.ApplyDoors(Sim, (t < 0.5f ? a : b).World);
+        Fields.ApplyVehicles(Sim, a.World, b.World, t);
         if (Client.Newest is { } newest)
         {
             Fields.ApplyRound(Sim, newest.World);

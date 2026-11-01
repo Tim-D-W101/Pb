@@ -700,7 +700,14 @@
   // nearest clearance_m from the place and the farthest reach_m beyond that, kept lineClearance_m from
   // power and pole lines. treesPerCopse and spread_m are least-most; height_m is least-most tree height.
   // A copse takes one of leafColors (a few of its trees another): late-summer greens with some turning.
+  // A level's own woods (Thornwick Woods: its trees are in the level file, their trunks in the sim) are grown the same
+  // way, in squares standChunk_m on a side: each square's wood is drawn out to standWoodRange_m and its leaves out to
+  // standLeafRange_m (fading over the last standFade_m), so a big site's far woods cost little.
   "woods": {
+    "standChunk_m": 40,
+    "standWoodRange_m": 170,
+    "standLeafRange_m": 330,
+    "standFade_m": 25,
     "copses": 10,
     "treesPerCopse": [3, 8],
     "spread_m": [7, 20],
@@ -1334,7 +1341,7 @@
     // the referee's whistle, the soft cue a round starts on, callouts, the referee's voice and the menus' clicks.
     "mix": {
       "shot": -2, "remoteShot": -3, "loader": -20, "gear": -10, "break": -3, "bounce": -12, "footstep": -9,
-      "ownFootstep": -19, "slide": -8, "land": -8, "door": -4, "pickup": -8, "hitTaken": -1, "hitMarker": -8,
+      "ownFootstep": -19, "slide": -8, "land": -8, "door": -4, "engine": -12, "pickup": -8, "hitTaken": -1, "hitMarker": -8,
       "hitConfirm": -7, "hitBounce": -11, "hitTeammate": -9, "bounceOffYou": -5, "earRing": -24, "whizz": -7,
       "loaderRattle": -21, "loaderEmpty": -15,
       "objective": -6, "caseBeep": -18, "horn": -6, "whistle": -8, "roundStart": -16, "callout": 0, "referee": -2, "menu": -14

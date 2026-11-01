@@ -155,6 +155,11 @@ public sealed class NavGrid : IBotNavigation
     /// <summary>Builds the grid for <paramref name="level"/>: every surface flagged for walking, plus the ground.</summary>
     public static NavGrid Build(LevelLayout level, NavParams p)
     {
+        if (level.NavCellSize > 0f && level.NavCellSize != p.CellSize)
+        {
+            p = p.WithCellSize(level.NavCellSize); // a big level's coarser grid
+        }
+
         Aabb bounds = level.Bounds;
         float cell = p.CellSize;
         int cols = Math.Max(1, (int)MathF.Ceiling((bounds.Max.X - bounds.Min.X) / cell));
@@ -163,49 +168,78 @@ public sealed class NavGrid : IBotNavigation
         // Walkable geometry: what feet stand on and what bodies bump into. The drawn stair steps count
         // too (people walk on the smooth ramp laid over them), so nobody paths underneath a flight.
         var shapes = new List<Shape>();
-        var walk = new CollisionWorld(2f);
+        var surfaces = new List<SurfaceId>();
         foreach (LevelPrimitive prim in level.Primitives)
         {
             if (prim.Has(PrimitiveFlags.Walk) || prim.Role == PrimitiveRole.Stair)
             {
-                Shape shape = prim.CreateShape();
-                shapes.Add(shape);
-                walk.Add(shape, prim.Surface, "walk");
+                shapes.Add(prim.CreateShape());
+                surfaces.Add(prim.Surface);
             }
         }
 
-        walk.Build();
         var index = new ColumnIndex(bounds.Min.X, bounds.Min.Z, bounds.Max.X, bounds.Max.Z, 2f, shapes);
 
-        var columnStart = new int[cols * rows + 1];
-        var spanY = new List<float>(cols * rows + cols * rows / 4);
-        var intervals = new List<(float Bottom, float Top)>(16);
-        var floors = new List<float>(8);
-        for (int r = 0; r < rows; r++)
+        // The columns, a band of rows to each of a few threads (each with its own collision world: a world's queries
+        // aren't shared), then joined in order, so the grid is the same however many threads built it.
+        int bands = Math.Clamp(Environment.ProcessorCount, 1, Math.Max(1, rows / 16));
+        var bandSpans = new List<float>[bands];
+        var columnCount = new int[cols * rows];
+        Parallel.For(0, bands, band =>
         {
-            float z = bounds.Min.Z + (r + 0.5f) * cell;
-            for (int c = 0; c < cols; c++)
+            var walk = new CollisionWorld(2f);
+            for (int i = 0; i < shapes.Count; i++)
             {
-                float x = bounds.Min.X + (c + 0.5f) * cell;
-                columnStart[r * cols + c] = spanY.Count;
-                SolidIntervals(index, shapes, x, z, intervals);
-                FloorsWithHeadroom(intervals, p.AgentHeight, bounds.Max.Y, floors);
-                foreach (float y in floors)
+                walk.Add(shapes[i], surfaces[i], "walk");
+            }
+
+            walk.Build();
+            var spans = new List<float>(cols * (rows / bands + 1));
+            var intervals = new List<(float Bottom, float Top)>(16);
+            var floors = new List<float>(8);
+            for (int r = rows * band / bands; r < rows * (band + 1) / bands; r++)
+            {
+                float z = bounds.Min.Z + (r + 0.5f) * cell;
+                for (int c = 0; c < cols; c++)
                 {
-                    // Clear of walls: a body-height capsule of the agent radius, starting a step above the
-                    // floor (a step's worth of kerb or slope is fine), touches nothing.
-                    var low = new Vector3(x, y + p.StepHeight + p.AgentRadius, z);
-                    var high = new Vector3(x, y + p.AgentHeight - p.AgentRadius, z);
-                    if (!walk.SweepSphere(low, high, p.AgentRadius, out _))
+                    float x = bounds.Min.X + (c + 0.5f) * cell;
+                    int before = spans.Count;
+                    SolidIntervals(index, shapes, x, z, intervals);
+                    FloorsWithHeadroom(intervals, p.AgentHeight, bounds.Max.Y, floors);
+                    foreach (float y in floors)
                     {
-                        spanY.Add(y);
+                        // Clear of walls: a body-height capsule of the agent radius, starting a step above the
+                        // floor (a step's worth of kerb or slope is fine), touches nothing.
+                        var low = new Vector3(x, y + p.StepHeight + p.AgentRadius, z);
+                        var high = new Vector3(x, y + p.AgentHeight - p.AgentRadius, z);
+                        if (!walk.SweepSphere(low, high, p.AgentRadius, out _))
+                        {
+                            spans.Add(y);
+                        }
                     }
+
+                    columnCount[r * cols + c] = spans.Count - before;
                 }
             }
+
+            bandSpans[band] = spans;
+        });
+
+        var columnStart = new int[cols * rows + 1];
+        for (int col = 0; col < cols * rows; col++)
+        {
+            columnStart[col + 1] = columnStart[col] + columnCount[col];
         }
 
-        columnStart[cols * rows] = spanY.Count;
-        return new NavGrid(p, bounds.Min.X, bounds.Min.Z, cols, rows, columnStart, spanY.ToArray(), level.Ladders);
+        var spanY = new float[columnStart[cols * rows]];
+        int at = 0;
+        foreach (List<float> spans in bandSpans)
+        {
+            spans.CopyTo(spanY, at);
+            at += spans.Count;
+        }
+
+        return new NavGrid(p, bounds.Min.X, bounds.Min.Z, cols, rows, columnStart, spanY, level.Ladders);
     }
 
     /// <summary>Ladders the grid joins up (each climbable both ways).</summary>

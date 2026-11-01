@@ -71,6 +71,11 @@ public sealed class PlayerState
     /// <summary>Share of the usual speeds this player moves at (the VIP's is the rules' speed share; everyone else's 1).</summary>
     public float SpeedScale { get; set; } = 1f;
 
+    /// <summary>The vehicle this player is in (<see cref="Vehicles.VehicleSet"/>), or −1; and which of its seats.</summary>
+    public int Vehicle { get; set; } = -1;
+
+    public int Seat { get; set; } = -1;
+
     /// <summary>Who eliminated this player (−1 = nobody yet), when, and where the ball broke.</summary>
     public int EliminatedBy { get; set; } = -1;
 

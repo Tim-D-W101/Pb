@@ -99,7 +99,7 @@ internal static class NetBench
                 c.Poll();
                 if (c.TakeRoundSetup() is { } s)
                 {
-                    c.BeginRound(s.Round, new WorldFields(sim.Players.Count, sim.Doors.Count, NetServer.Grid(sim)));
+                    c.BeginRound(s.Round, new WorldFields(sim.Players.Count, sim.Doors.Count, NetServer.Grid(sim), sim.Vehicles.All));
                     c.SendLoaded(s.Round);
                     seqs[i] = 0;
                 }
@@ -252,6 +252,6 @@ internal static class NetBench
     {
         TickRate = c.TickRate, MatchSeed = c.MatchSeed, BallPoolCapacity = Math.Max(c.BallPoolCapacity, balls * 2), Surfaces = c.Surfaces,
         Projectile = c.Projectile, BreakModel = c.BreakModel, Shot = c.Shot, Fire = c.Fire, Loader = c.Loader, Air = c.Air, Movement = c.Movement,
-        Hitboxes = c.Hitboxes, Rules = c.Rules,
+        Hitboxes = c.Hitboxes, Rules = c.Rules, Vehicles = c.Vehicles,
     };
 }

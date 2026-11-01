@@ -198,6 +198,18 @@ public sealed class LevelLayout
     /// <summary>Railway tracks (their rails are among the primitives; the game draws them and their sleepers).</summary>
     public IReadOnlyList<TrackSpec> Tracks { get; init; } = Array.Empty<TrackSpec>();
 
+    /// <summary>Every tree of the level's woods (their trunks are among <see cref="Primitives"/>; the game draws the rest).</summary>
+    public IReadOnlyList<TreeSpec> Trees { get; init; } = Array.Empty<TreeSpec>();
+
+    /// <summary>Roads to drive on (their surface is among <see cref="Primitives"/>): how bots drive.</summary>
+    public IReadOnlyList<RoadSpec> Roads { get; init; } = Array.Empty<RoadSpec>();
+
+    /// <summary>Where the vehicles stand when a round starts (in a place, those inside it).</summary>
+    public IReadOnlyList<VehicleSpot> VehicleSpots { get; init; } = Array.Empty<VehicleSpot>();
+
+    /// <summary>The bots' grid spacing on this level (0: navigation.jsonc's); a big level's is coarser.</summary>
+    public float NavCellSize { get; init; }
+
     /// <summary>Where in the level you can choose to play, the menu's order (the whole level among them).</summary>
     public IReadOnlyList<PlaceSpec> Places { get; init; } = Array.Empty<PlaceSpec>();
 
@@ -305,6 +317,10 @@ public sealed class LevelLayout
             Viewpoints = views.Count > 0 ? views : Viewpoints,
             Objectives = ObjectivesIn(place, entries),
             Tracks = Tracks,
+            Trees = Trees,
+            Roads = Roads,
+            VehicleSpots = VehicleSpots.Where(v => place.Contains(v.Position)).ToArray(),
+            NavCellSize = NavCellSize,
             Places = Places,
             Place = place,
         };

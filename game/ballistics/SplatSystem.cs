@@ -38,7 +38,7 @@ public partial class SplatSystem : Node3D, ISimEventListener
     public int Capacity => _def?.Cap ?? 0;
 
     /// <summary>What world splats paint: everything but your marker and the doors (a splat on a door moves with it).</summary>
-    public const uint WorldMask = 0xFFFFF & ~ViewModel.RenderLayer & ~World.DoorViews.RenderLayer;
+    public const uint WorldMask = 0xFFFFF & ~ViewModel.RenderLayer & ~World.DoorViews.RenderLayer & ~World.VehicleViews.RenderLayer;
 
     /// <param name="receiverNode">What a splat on (receiver id, hitbox part, hit point) should stick to, or null for the world.</param>
     /// <param name="colliderNode">What a splat on a moving paint collider (a door) should stick to, or null for the world.</param>

@@ -39,6 +39,15 @@ public sealed class NavParams
 
     /// <summary>A search counts each metre climbed on a ladder as this much walking.</summary>
     public float LadderCostPerMetre { get; init; } = 3.5f;
+
+    /// <summary>The same, on a grid of <paramref name="cell"/> spacing (a big level's coarser one).</summary>
+    public NavParams WithCellSize(float cell) => new()
+    {
+        CellSize = cell, AgentRadius = AgentRadius, AgentHeight = AgentHeight, StepHeight = StepHeight, WaypointRadius = WaypointRadius,
+        StuckTime = StuckTime, StepRound = StepRound, StepRoundAfter = StepRoundAfter, SearchesPerTick = SearchesPerTick,
+        MaxSearchNodes = MaxSearchNodes, SearchNodesPerTick = SearchNodesPerTick, HeuristicWeight = HeuristicWeight, Landmarks = Landmarks,
+        LadderCostPerMetre = LadderCostPerMetre,
+    };
 }
 
 /// <summary>How every bot thinks and acts (SI, angles in radians), from bots/brain.jsonc.</summary>
@@ -105,6 +114,25 @@ public sealed class BrainParams
 
     /// <summary>A stroll's share of the walking speed (patrols, going back to a post, walking off).</summary>
     public required float StrollPace { get; init; }
+
+    /// <summary>Going farther than this, a bot with a buggy standing empty near it drives (m).</summary>
+    public required float DriveBeyond { get; init; }
+
+    public required float DriveVehicleWithin { get; init; }
+
+    public required float DriveLookAhead { get; init; }
+
+    public required float DriveLookAheadPerSpeed { get; init; }
+
+    public required float DriveSpeedShare { get; init; }
+
+    public required float DriveCornerSpeed { get; init; }
+
+    public required float DriveContactRange { get; init; }
+
+    public required float DriveStuck { get; init; }
+
+    public required float DriveGetOutWithin { get; init; }
 
     public required float CalloutCooldown { get; init; }
 
@@ -348,6 +376,15 @@ public sealed class BotConfig
             AimTolerance = brain.AimTolerance_deg * Units.DegreesToRadians,
             WalkOffTime = brain.WalkOffTime_s,
             StrollPace = brain.StrollPace,
+            DriveBeyond = brain.DriveBeyond_m,
+            DriveVehicleWithin = brain.DriveVehicleWithin_m,
+            DriveLookAhead = brain.DriveLookAhead_m,
+            DriveLookAheadPerSpeed = brain.DriveLookAheadPerSpeed_s,
+            DriveSpeedShare = brain.DriveSpeedShare,
+            DriveCornerSpeed = brain.DriveCornerSpeed_mps,
+            DriveContactRange = brain.DriveContactRange_m,
+            DriveStuck = brain.DriveStuck_s,
+            DriveGetOutWithin = brain.DriveGetOutWithin_m,
             CalloutCooldown = brain.CalloutCooldown_s,
             CalloutRepeat = brain.CalloutRepeat_s,
             CalloutChance = brain.CalloutChance,

@@ -94,6 +94,9 @@ public sealed class SimWorld
     /// <summary>The level's door leaves (none on the range).</summary>
     public DoorSet Doors { get; } = new();
 
+    /// <summary>The level's vehicles (Phase 5): who's in them and how they drive.</summary>
+    public Vehicles.VehicleSet Vehicles { get; } = new();
+
     /// <summary>The level's ladders (none on the range), climbed by the movement rules.</summary>
     public LadderSet Ladders { get; } = new();
 
@@ -167,6 +170,7 @@ public sealed class SimWorld
         Stress = null;
         level.BuildCollision(Collision);
         Doors.Load(level.Doors, Collision, MatchSeed, Config.Rules.Doors);
+        Vehicles.Load(level.VehicleSpots, Config.Vehicles, Collision, level.Bounds, Config.Surfaces.Get("metal"));
         Ladders.Load(level.Ladders);
         Targets.Load(Array.Empty<TargetSpec>());
         Ballistics.Bounds = level.Bounds;
@@ -180,6 +184,7 @@ public sealed class SimWorld
         Pickups.Load(Array.Empty<PickupSpec>());
         range.BuildCollision(Collision);
         Doors.Load(Array.Empty<DoorSpec>(), Collision, MatchSeed, Config.Rules.Doors);
+        Vehicles.Load(Array.Empty<VehicleSpot>(), Config.Vehicles, Collision, range.Bounds, Config.Surfaces.Get("metal"));
         Ladders.Load(Array.Empty<LadderSpec>());
         Targets.Load(range.Targets);
         Targets.Update(Time);
@@ -240,6 +245,8 @@ public sealed class SimWorld
             p.Unarmed = false;
             p.SpeedScale = 1f;
         }
+
+        Vehicles.Reset(_players);
 
         // Capture the flag's bases and the VIP come from where everyone starts (and the seed).
         objective?.SetUp(_players, setup, MatchSeed);
@@ -317,16 +324,28 @@ public sealed class SimWorld
 
                 if (!client)
                 {
-                    Doors.Interact(this, player, IsLive && player.Alive && !climbing && cmd.Has(InputButtons.Interact), dt);
+                    // A vehicle (getting in or out) takes a press before a door does; sitting in one, doors are out of reach.
+                    bool down = IsLive && player.Alive && !climbing && cmd.Has(InputButtons.Interact);
+                    if (Vehicles.Interact(this, player, down && !player.InteractDown) || player.Vehicle >= 0)
+                    {
+                        player.InteractDown = down;
+                    }
+                    else
+                    {
+                        Doors.Interact(this, player, down, dt);
+                    }
+
+                    Vehicles.Drive(player, cmd);
                     CallOut(player, cmd.Has(InputButtons.Callout), t0);
                 }
             }
         }
 
-        // A joining copy takes the doors, the pickups and the round from the server.
+        // A joining copy takes the doors, the vehicles, the pickups and the round from the server.
         if (!client)
         {
             Doors.Step(this, dt);
+            Vehicles.Step(this, dt);
             if (IsLive)
             {
                 Pickups.Update(this, Config.Rules);
@@ -454,7 +473,8 @@ public sealed class SimWorld
     private int MarkerStep(PlayerState player, in InputCommand cmd, double t0, float dt, bool climbing, SimEventQueue events)
     {
         bool live = IsLive;
-        bool armed = live && !climbing && !player.Unarmed;
+        // The VIP has nothing to fire; whoever drives keeps both hands on the wheel.
+        bool armed = live && !climbing && !player.Unarmed && Vehicles.MayFire(player);
         var input = new MarkerInput(
             armed && cmd.Has(InputButtons.Fire), armed && cmd.Has(InputButtons.Refill),
             cmd.Has(InputButtons.ToggleFireMode), player.Sprinting, player.Alive, player.MarkerReady);

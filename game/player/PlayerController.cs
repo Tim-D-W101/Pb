@@ -178,7 +178,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         }
 
         float speed = State.HorizontalSpeed;
-        if (_settings.HeadBob && IsOnFloor() && speed > 0.5f && State.Stance != Stance.Sliding)
+        if (_settings.HeadBob && IsOnFloor() && speed > 0.5f && State.Stance != Stance.Sliding && State.Vehicle < 0)
         {
             _bobPhase += speed * (float)delta / _view.Camera.HeadBobStride_m * Mathf.Tau;
         }
@@ -239,6 +239,21 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
 
     private InputCommand SampleDevices(int tick)
     {
+        // In a vehicle the view turns with it, as your head would, so steering doesn't leave you looking off the side.
+        if (Sim.Vehicles.Of(State) is { } ride)
+        {
+            if (_rideYaw is { } last)
+            {
+                _yaw += Mathf.AngleDifference(last, ride.Yaw);
+            }
+
+            _rideYaw = ride.Yaw;
+        }
+        else
+        {
+            _rideYaw = null;
+        }
+
         bool mouseCaptured = Input.MouseMode == Input.MouseModeEnum.Captured;
         bool padConnected = Input.GetConnectedJoypads().Count > 0;
         bool acceptInput = mouseCaptured || padConnected;
@@ -265,7 +280,8 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
             if ((buttons & Both) == Both)
             {
                 bool interact = State.OnLadder || Sim.Doors.FindTarget(State.EyePosition, Pb.Sim.Core.ViewAngles.Forward(_yaw, _pitch)) >= 0 ||
-                                Sim.Ladders.FindGrab(State.Position, _yaw, Move.Climbing, out _) >= 0;
+                                Sim.Ladders.FindGrab(State.Position, _yaw, Move.Climbing, out _) >= 0 ||
+                                State.Vehicle >= 0 || Sim.Vehicles.FreeSeatNear(State.Position).Vehicle >= 0;
                 buttons &= interact ? ~InputButtons.Refill : ~InputButtons.Interact;
             }
         }
@@ -281,6 +297,7 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
     }
 
     private bool _crouchHeld, _crouchLatched, _walkHeld, _walkLatched;
+    private float? _rideYaw;
 
     /// <summary>
     /// A button as a toggle: each press flips it on or off, and <paramref name="release"/> lets go of it; as a hold it's

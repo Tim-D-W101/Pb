@@ -391,6 +391,45 @@ public class NetRoundTests
     }
 
     [Fact]
+    public void A_buggy_drives_the_same_on_every_copy_and_its_driver_rides_where_its_drawn()
+    {
+        var rig = new NetRig { Buggy = true };
+        RigClient a = rig.Join("A", Ping100);
+        rig.Run(30);
+        // You stand at its driver's door (left of it, facing north); a bot of yours and one of theirs well away.
+        rig.StartRound("teams", 900f, (0, 0, true, -1.425f, 0.1f), (1, 0, false, 8f, 10f), (2, 1, false, 0f, 40f));
+        rig.GoLive();
+        Pb.Sim.Vehicles.VehicleState server = rig.Sim!.Vehicles[0];
+        int start = rig.Sim.Tick;
+        // In (a press), north at full throttle for two seconds, the brake, then out (another press).
+        a.Script = (t, p) =>
+        {
+            float s = (t - start) / (float)Second;
+            InputButtons press = s is > 0.2f and < 0.3f || s is > 5f and < 5.1f ? InputButtons.Interact : InputButtons.None;
+            var move = new Vector2(0f, s is > 0.5f and < 2.5f ? 1f : s is >= 2.5f and < 4.5f ? -0.4f : 0f);
+            return new InputCommand { Tick = t, Yaw = p.Yaw, Buttons = press, Move = move };
+        };
+        rig.Run(2 * Second);
+        PlayerState you = a.Sim!.FindPlayer(0)!;
+        Pb.Sim.Vehicles.VehicleState copy = a.Sim.Vehicles[0];
+        Assert.Equal(0, server.Driver);
+        Assert.True(a.Session!.Riding, "the copy doesn't have you in it");
+        Assert.Equal(0, copy.Driver);
+        Assert.True(server.Position.Z < -3f, $"it didn't go north on the server ({server.Position})");
+        Assert.True(copy.Position.Z < -1f, $"it didn't go north on the copy ({copy.Position})");
+        Assert.True(Vector3.Distance(you.Position, copy.Seat(copy.Params.DriverSeat)) < 0.01f, "you're not in your seat where it's drawn");
+        Assert.Contains(a.Events, e => e.Type == SimEventType.VehicleEntered && e.PlayerId == 0);
+
+        rig.Run(4 * Second);
+        Assert.Equal(-1, rig.Sim.FindPlayer(0)!.Vehicle);
+        Assert.False(a.Session.Riding);
+        Assert.Equal(-1, copy.Driver);
+        Assert.True(Vector3.Distance(copy.Position, server.Position) < 0.05f, "the copy's buggy isn't where the server's stopped");
+        Assert.True(Vector3.Distance(you.Position, rig.Sim.FindPlayer(0)!.Position) < 0.3f, "you're not where the server put you out");
+        Assert.Contains(a.Events, e => e.Type == SimEventType.VehicleLeft && e.PlayerId == 0);
+    }
+
+    [Fact]
     public void Every_copy_ends_the_round_with_the_servers_result_and_numbers()
     {
         var rig = new NetRig();
