@@ -916,10 +916,35 @@
     "ladderHipsDown_m": 0.06,
     "ladderLimbMove_s": 0.2,
     "ladderLimbSwing_m": 0.08,
-    // How the legs move. "steps" plants each foot in the world where it lands until its next step, so
-    // feet never skate, in any direction, at any pace, turning on the spot or on stairs (below).
-    // "clips" plays the movement clips instead (forward clips only: strafing and turning slide).
-    "legs": "steps",
+    // How the body moves. "animated" (Phase 5) plays the animation set below: clips made by tools/anim/build_clips.py
+    // in Blender on the generator's rig (idle, walk, jog, run and the crouched walk each four ways, sprint, the lean, the
+    // refill, the flinch, hands up), baked onto each model and blended from the body's movement, its feet fitted to stairs.
+    // "steps" plants each foot in the world where it lands until its next step (below), as before Phase 5.
+    // "clips" plays the old movement clips instead (forward clips only: strafing and turning slide).
+    "legs": "animated",
+    "animSet": "res://art/models/anim_set.glb",
+    // The ground speeds the set's step clips are made for (tools/anim/build_clips.py reads them from here: rebuild the
+    // set after changing one). The blend picks its clips by speed against these, so the sim's own speeds (movement.jsonc:
+    // walking 3, running 5.5, sprinting 7, crouched 2) each play the clip made for them, unblended, and the bots' stroll
+    // the walk. "follow" is how fast the speed the clips are picked by may change its own pace (m/s³): stopping from a
+    // sprint, the body eases down through the run, the jog and the walk in about a third of a second instead of
+    // snapping through them in the sim's 0.15 s.
+    "animPaces": { "walk_mps": 1.65, "jog_mps": 3.0, "run_mps": 5.5, "sprint_mps": 7.0, "crouch_mps": 2.0, "follow_mps3": 200 },
+    // How the blend's weights follow what the body does, as the most each one's rate may change a second (1/s²), so
+    // they ease in and out alike at any frame rate: the step cycle coming in as the body speeds up (from "movingFrom" of
+    // the walk's speed, all in by "movingBy"; after a stop it runs on at "lastStep" of it while it blends out, so the last
+    // step finishes), each direction, the crouch, the lean's brace, the sprint over the run, the refill, hands up when out.
+    "animBlend": {
+      "movingFrom": 0.15, "movingBy": 0.6, "lastStep": 0.35,
+      "moving_ps2": 60, "direction_ps2": 90, "crouch_ps2": 120, "lean_ps2": 120, "sprint_ps2": 60, "refill_ps2": 60, "out_ps2": 40
+    },
+    // A foot that's down in the clips is held where it came down, across the ground (the clip still rolls it up over the
+    // ball): turning while moving, or between two clips' strides, the clips alone would slide it. Once it lifts, the hold
+    // eases out ("release", m/s²) as it swings, so it lands where its clip lands it; one that would be held further than
+    // "maxOffset" from its clip's path lets go at once (a teleport, a snap of the body). Standing, a held foot that the
+    // body has turned (or moved) "stepFrom" away from steps back under it, one foot at a time: "step" seconds, lifted
+    // "stepLift" (turning on the spot, settling into the stance after a stop, the first step off).
+    "footLock": { "release_mps2": 40, "maxOffset_m": 0.35, "stepFrom_m": 0.12, "step_s": 0.28, "stepLift_m": 0.06 },
     "steps": {
       // The gait by speed: cycles a second (a cycle is two steps), the share of the cycle each foot
       // is in the air (under half is a walk, both feet down between steps; over half a run, both off

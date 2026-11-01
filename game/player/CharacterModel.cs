@@ -40,6 +40,9 @@ public partial class CharacterModel : Node3D
 
     public Gait? Gait { get; private set; }
 
+    /// <summary>The animation set playing on the model ("animated" legs), or null.</summary>
+    public ClipBlender? Blender { get; private set; }
+
     /// <summary>The model at <paramref name="path"/>, or null when the file is missing or isn't the generator's rig.</summary>
     public static CharacterModel? TryCreate(string path, Color tint, Color team, CharactersDef def)
     {
@@ -69,7 +72,36 @@ public partial class CharacterModel : Node3D
         var model = new CharacterModel { Name = "Model", _skeleton = skeleton, Poser = poser };
         MoveClip? Clip(string name, string? file) => MoveClipBaker.Bake(name, file, path, instance, skeleton);
         MoveClip? walk = def.Legs == "clips" ? Clip("walk", def.Clips.Walk) : null;
-        if (walk is not null)
+        poser.Build = poser.Measure(skeleton, SkeletonInModel(instance, skeleton));
+        ClipBlender? blender = null;
+        if (def.Legs == "animated" && MoveClipBaker.BakeSet(def.AnimSet, def.AnimPaces, path, instance, skeleton) is { } set)
+        {
+            blender = new ClipBlender { Name = "Clips" };
+            if (blender.Bind(skeleton, set, def.AnimPaces, def.AnimBlend))
+            {
+                model.Blender = poser.Blender = blender;
+                poser.MaxReachDrop = def.Steps.MaxReachDrop_m;
+                poser.ReachDropAccel = def.Steps.ReachDropAccel_mps2;
+                poser.ReachDropUpAccel = def.Steps.ReachDropUpAccel_mps2;
+                poser.LockRelease = def.FootLock.Release_mps2;
+                poser.LockMaxOffset = def.FootLock.MaxOffset_m;
+                poser.StepFrom = def.FootLock.StepFrom_m;
+                poser.StepTime = def.FootLock.Step_s;
+                poser.StepLiftHeight = def.FootLock.StepLift_m;
+            }
+            else
+            {
+                GD.PushWarning($"{def.AnimSet} lacks the idle or the walk; {path.GetFile()} plants steps instead");
+                blender.QueueFree();
+                blender = null;
+            }
+        }
+
+        if (blender is not null)
+        {
+            // Posed by its clips (below the poser, which fits them to the sim).
+        }
+        else if (walk is not null)
         {
             model.Gait = poser.Gait = new Gait(def, walk, Clip("run", def.Clips.Run), Clip("crouchWalk", def.Clips.CrouchWalk));
         }
@@ -84,6 +116,12 @@ public partial class CharacterModel : Node3D
         }
 
         model.AddChild(instance);
+        if (blender is not null)
+        {
+            // Modifiers run in order: the clips pose the body, then the poser fits it.
+            skeleton.AddChild(blender);
+        }
+
         skeleton.AddChild(poser);
         model._animation = FindFirst<AnimationPlayer>(instance);
         model.Tint(instance, tint);
@@ -103,8 +141,12 @@ public partial class CharacterModel : Node3D
 
     public override void _Ready()
     {
-        // The idle clip loops underneath the procedural pose.
-        if (_animation is not null && _animation.GetAnimationList() is { Length: > 0 } clips)
+        // The idle clip loops underneath the procedural pose (with the animation set, the set poses every bone itself).
+        if (Blender is not null)
+        {
+            _animation?.Stop();
+        }
+        else if (_animation is not null && _animation.GetAnimationList() is { Length: > 0 } clips)
         {
             Animation clip = _animation.GetAnimation(clips[0]);
             clip.LoopMode = Animation.LoopModeEnum.Linear;

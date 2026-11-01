@@ -42,6 +42,7 @@ tools/ci/net-round.sh godot                           # CI's networked rounds: a
 tools/ci/wine-join.sh builds/server/linux/Pb-server builds/windows/Pb   # the Windows build plays a round on the Linux server under Wine
 tools/package/godot-project.sh                        # self-contained project zip for Godot's Import
 python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate the hospital wings (edit the script, not the files)
+blender -b --factory-startup -P tools/anim/build_clips.py -- game/art/models/clip_walk.glb game/art/models/anim_set.glb   # the characters' animation set (Blender 4.2), then godot --import
 ```
 
 The menu's picture of each place (`game/ui/places/LEVEL_PLACE.jpg`) is taken in the game, from the viewpoint the level
@@ -133,8 +134,10 @@ for close-ups of anything in the level. On `Level.tscn`, through the player's ow
 walking off; add `--duel-distance=2` for a close-up), `-- --splat-demo` shots at the nearest wall at a glance (streaks)
 and square on (round splats), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
-sprinting, pulling up, strafing, backing off, walking crouched and looking round, seen from the side (the planted steps,
-or the movement clips with `characters.legs` = `"clips"`), printing how far the planted feet slid (`--gait-only=NAME`
+sprinting, pulling up, strafing, backing off, walking crouched, turning on the spot both ways and looking round, seen from
+the side (the animation set; the planted steps with `characters.legs` = `"steps"`, the old movement clips with
+`"clips"`), printing how far the planted feet slid, how far they were held off their clips' paths and how many steps
+they took standing (`PB_ANIM_DEBUG=1` prints the blend and the left foot every frame; `--gait-only=NAME`
 plays only the moves starting with NAME; `--gait-check` fails it, headless too, past the slide, jerk and miss limits in
 `GaitDemo.cs`, as CI's smoke test does at 120, 30 and 15 fps). `-- --cover-demo` tucks an opponent in behind low cover, stands it up to shoot
 over and tucks it in again, printing how far its knees and elbows got into the cover (`--cover-at=X,Z` picks the cover

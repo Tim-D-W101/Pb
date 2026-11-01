@@ -100,6 +100,50 @@ public partial class CharacterPoser : SkeletonModifier3D
     /// <summary>The movement clips and how they play (when the legs follow clips rather than steps).</summary>
     public Gait? Gait { get; set; }
 
+    /// <summary>
+    /// The animation set (Phase 5, "animated" legs): it poses the whole body from its clips before this modifier runs, and
+    /// this one only fits the result to the sim (the crouch's depth, the lean, the aim, the head, the hands on the marker)
+    /// and puts each foot on its clip's path, on the ground. Null with steps or the old movement clips.
+    /// </summary>
+    public ClipBlender? Blender { get; set; }
+
+    /// <summary>The legs' build (from the rest pose): ladders and the animated legs use it whatever moves the legs.</summary>
+    public StepGait.LegBuild Build { get; set; }
+
+    /// <summary>Animated legs: the ground's height under a point (world), for fitting the feet on stairs and kerbs.</summary>
+    public StepGait.GroundQuery? Ground { get; set; }
+
+    /// <summary>Animated legs: the height of the floor the body stands on (world), where the clips put the feet.</summary>
+    public float FloorHeight { get; set; }
+
+    /// <summary>Animated legs: how fast a foot's hold (<see cref="FootLock"/>) eases out once it lifts (m/s², <see cref="Follow"/>).</summary>
+    public float LockRelease { get; set; } = 40f;
+
+    /// <summary>Animated legs: a held foot lets go when holding it would take it further than this from its clip's path (m).</summary>
+    public float LockMaxOffset { get; set; } = 0.35f;
+
+    /// <summary>Animated legs, standing: a held foot the body has turned (or moved) this far from steps back under it (m).</summary>
+    public float StepFrom { get; set; } = 0.12f;
+
+    /// <summary>... taking this long (s) ...</summary>
+    public float StepTime { get; set; } = 0.28f;
+
+    /// <summary>... and lifting this high (m).</summary>
+    public float StepLiftHeight { get; set; } = 0.06f;
+
+    /// <summary>The furthest a held foot has been from its clip's path since this was last set (m; for the gait demo).</summary>
+    public float CheckLock { get; set; }
+
+    /// <summary>How many steps the feet have taken standing (turning on the spot, settling after a stop), for the demos.</summary>
+    public int StandingSteps { get; private set; }
+
+    private readonly bool[] _locked = new bool[2];
+    private readonly float[] _stepT = { -1f, -1f };
+    private readonly Vector3[] _stepFrom = new Vector3[2];
+    private readonly Vector3[] _lockAt = new Vector3[2];
+    private readonly Vector3[] _lockOffset = new Vector3[2];
+    private readonly Vector3[] _lockOffsetSpeed = new Vector3[2];
+
     /// <summary>On a ladder: where the balls of the feet and the hands go on the rungs (world); null off one.</summary>
     public LadderGrip? Ladder { get; set; }
 
@@ -172,6 +216,12 @@ public partial class CharacterPoser : SkeletonModifier3D
         {
             LadderBody(skeleton, toSkeleton, grip, up, forward, right);
             Record(skeleton, up.Length(), "after a ladder");
+            return;
+        }
+
+        if (Blender is not null)
+        {
+            AnimatedBody(skeleton, toSkeleton, up, forward, right, (float)delta);
             return;
         }
 
@@ -382,6 +432,189 @@ public partial class CharacterPoser : SkeletonModifier3D
     }
 
     /// <summary>
+    /// Animated legs: the clips have posed the whole body (<see cref="Blender"/>). The hips go down as far again as the
+    /// sim's crouch is deeper than the clips carry them (never up: a run's sink and an idle's soft knees stay), and further
+    /// where a foot needs it to reach the ground under it (followed at a capped acceleration, as with the steps); then the
+    /// upper body's fit to the sim, each foot onto its clip's path (scaled to this build) and the ground under it by
+    /// two-bone IK (copied onto other proportions, the clips' leg rotations alone let the feet drift), and the hands onto
+    /// the marker.
+    /// </summary>
+    private void AnimatedBody(Skeleton3D skeleton, Transform3D toSkeleton, Vector3 up, Vector3 forward, Vector3 right, float delta)
+    {
+        ClipBlender blender = Blender!;
+        float unit = up.Length();
+        Transform3D hips = skeleton.GetBoneGlobalPose(_hips);
+        float crouch = Mathf.Max(0f, HipDrop - blender.PostureDrop);
+
+        // Each foot down in the clips held where it came down (turning, or between two clips' strides, they'd slide it),
+        // then where its ground is, against the floor the clips stand it on.
+        Transform3D toWorld = skeleton.GlobalTransform;
+        Basis toSkeletonBasis = toWorld.Basis.Inverse();
+        bool holding = blender.Stepping, standing = blender.Moving <= 0.5f;
+        Vector3 leftHeld = blender.LeftAnkle + toSkeletonBasis * HeldOffset(0, delta) + up * StepLift(0);
+        Vector3 rightHeld = blender.RightAnkle + toSkeletonBasis * HeldOffset(1, delta) + up * StepLift(1);
+        float leftLift = GroundLift(toWorld, leftHeld), rightLift = GroundLift(toWorld, rightHeld);
+        // A foot over a step down needs the hips lower to reach it (the lower of the two, by the most a step can be).
+        float need = Mathf.Clamp(-Mathf.Min(Mathf.Min(leftLift, rightLift), 0f), 0f, MaxReachDrop);
+        Follow.Toward(ref _reachDrop, ref _reachDropSpeed, need, need > _reachDrop ? ReachDropAccel : ReachDropUpAccel, delta);
+        hips.Origin -= up * (crouch + Mathf.Max(_reachDrop, 0f));
+        skeleton.SetBoneGlobalPose(_hips, hips);
+
+        UpperBody(skeleton, up, forward, right, toSkeleton);
+        Vector3 leftTarget = leftHeld + up * leftLift, rightTarget = rightHeld + up * rightLift;
+        FootOnPath(skeleton, _leftLeg, leftTarget, forward);
+        FootOnPath(skeleton, _rightLeg, rightTarget, forward);
+        leftTarget = Hold(skeleton, 0, _leftLeg, _leftToe, leftTarget, blender.LeftDown && holding, standing, toWorld, toSkeletonBasis, up, forward);
+        rightTarget = Hold(skeleton, 1, _rightLeg, _rightToe, rightTarget, blender.RightDown && holding, standing, toWorld, toSkeletonBasis, up, forward);
+        Hands(skeleton, toSkeleton, up, right);
+        if (ClipBlender.Debug && blender.Moving > 0.5f)
+        {
+            Vector3 aim = toWorld * leftTarget, at = toWorld * skeleton.GetBoneGlobalPose(_leftLeg[2]).Origin;
+            Vector3 ball = toWorld * skeleton.GetBoneGlobalPose(_leftToe).Origin;
+            GD.Print($"POSE down {blender.LeftDown} phase {blender.Phase:0.000} target {aim.X:0.000},{aim.Y:0.000},{aim.Z:0.000} " +
+                     $"world {at.X:0.000},{at.Y:0.000},{at.Z:0.000} ball {ball.X:0.000},{ball.Y:0.000},{ball.Z:0.000}");
+        }
+
+        Check(skeleton, 0, _leftLeg[2], _leftToe, toWorld * leftTarget, blender.LeftDown && _stepT[0] < 0f, delta);
+        Check(skeleton, 1, _rightLeg[2], _rightToe, toWorld * rightTarget, blender.RightDown && _stepT[1] < 0f, delta);
+        Record(skeleton, unit, SupportRaise <= 0f ? null : "after going out");
+    }
+
+    /// <summary>
+    /// How far a foot is moved off its clip's path (world, across the ground) to hold it (<see cref="Hold"/>): while held,
+    /// as last set; once let go, easing out at <see cref="LockRelease"/>, so it lands where its clip lands it; stepping
+    /// back under the body standing, all the way in <see cref="StepTime"/>.
+    /// </summary>
+    private Vector3 HeldOffset(int i, float delta)
+    {
+        if (_stepT[i] >= 0f)
+        {
+            _stepT[i] += delta / Mathf.Max(StepTime, 0.05f);
+            if (_stepT[i] >= 1f)
+            {
+                _stepT[i] = -1f;
+                _lockOffset[i] = _lockOffsetSpeed[i] = Vector3.Zero;
+            }
+            else
+            {
+                _lockOffset[i] = _stepFrom[i] * (1f - Mathf.SmoothStep(0f, 1f, _stepT[i]));
+            }
+
+            return _lockOffset[i];
+        }
+
+        if (!_locked[i])
+        {
+            Follow.Toward(ref _lockOffset[i].X, ref _lockOffsetSpeed[i].X, 0f, LockRelease, delta);
+            Follow.Toward(ref _lockOffset[i].Z, ref _lockOffsetSpeed[i].Z, 0f, LockRelease, delta);
+        }
+
+        return _lockOffset[i];
+    }
+
+    /// <summary>
+    /// Holds a foot that's down (in the clips) where it came down, once it's on its path: the ball of the foot as drawn
+    /// stays put across the ground (the clip still rolls the heel up over it), so turning while moving, or between two
+    /// clips' strides, it doesn't slide. A foot lifting lets go (<see cref="HeldOffset"/>), and one that would be held
+    /// further than <see cref="LockMaxOffset"/> from its path lets go at once (a teleport, a snap of the body). A held foot
+    /// the leg can't reach any more (the body turning away over it) gives, across the ground, just as far as it must: it
+    /// pivots round rather than the leg stretching. <paramref name="standing"/>, a foot the body has turned or moved
+    /// <see cref="StepFrom"/> from steps back under it, one foot at a time. Returns where the ankle went (skeleton space).
+    /// </summary>
+    private Vector3 Hold(Skeleton3D skeleton, int i, int[] leg, int toe, Vector3 target, bool down, bool standing, Transform3D toWorld,
+        Basis toSkeletonBasis, Vector3 up, Vector3 forward)
+    {
+        if (!down || toe < 0 || _stepT[i] >= 0f)
+        {
+            _locked[i] = false;
+            return target;
+        }
+
+        Vector3 ball = toWorld * skeleton.GetBoneGlobalPose(toe).Origin;
+        if (!_locked[i])
+        {
+            _locked[i] = true;
+            _lockAt[i] = ball;
+            _lockOffsetSpeed[i] = Vector3.Zero;
+            return target;
+        }
+
+        Vector3 back = _lockAt[i] - ball;
+        back.Y = 0f;
+        Vector3 aim = target + toSkeletonBasis * back;
+        Vector3 fromHip = aim - skeleton.GetBoneGlobalPose(leg[0]).Origin;
+        float reach = (skeleton.GetBoneRest(leg[1]).Origin.Length() + skeleton.GetBoneRest(leg[2]).Origin.Length()) * 0.995f;
+        if (fromHip.LengthSquared() > reach * reach)
+        {
+            Vector3 axis = up.Normalized();
+            Vector3 vertical = axis * fromHip.Dot(axis), across = fromHip - vertical;
+            float most = reach * reach - vertical.LengthSquared();
+            if (most <= 0f || across.LengthSquared() < 1e-8f)
+            {
+                _locked[i] = false;
+                return target;
+            }
+
+            Vector3 give = toWorld.Basis * (across * (Mathf.Sqrt(most) / across.Length()) - across);
+            give.Y = 0f;
+            back += give;
+            _lockAt[i] += give;
+        }
+
+        Vector3 offset = _lockOffset[i] + back;
+        if (offset.Length() > LockMaxOffset)
+        {
+            _locked[i] = false;
+            return target;
+        }
+
+        _lockOffset[i] = offset;
+        CheckLock = Mathf.Max(CheckLock, offset.Length());
+        target += toSkeletonBasis * back;
+        FootOnPath(skeleton, leg, target, forward);
+        if (standing && offset.Length() > StepFrom && _stepT[1 - i] < 0f)
+        {
+            // Standing, turned (or moved) too far from this foot: from the next frame it steps back under the body.
+            _locked[i] = false;
+            _stepFrom[i] = offset;
+            _stepT[i] = 0f;
+            StandingSteps++;
+        }
+
+        return target;
+    }
+
+    /// <summary>How high a foot stepping standing is lifted now (m).</summary>
+    private float StepLift(int i) => _stepT[i] >= 0f ? StepLiftHeight * Mathf.Sin(Mathf.Pi * _stepT[i]) : 0f;
+
+    /// <summary>How far the ground under an ankle (skeleton space) is above the body's floor (m; below is negative).</summary>
+    private float GroundLift(Transform3D toWorld, Vector3 ankle)
+    {
+        if (Ground is null)
+        {
+            return 0f;
+        }
+
+        Vector3 at = toWorld * ankle;
+        return Ground(new Vector3(at.X, FloorHeight, at.Z), out float height) ? Mathf.Clamp(height - FloorHeight, -MaxReachDrop, 0.35f) : 0f;
+    }
+
+    /// <summary>Puts a foot's ankle at <paramref name="target"/> (skeleton space) by two-bone IK, the knee bending where it bends now.</summary>
+    private void FootOnPath(Skeleton3D skeleton, int[] chain, Vector3 target, Vector3 forward)
+    {
+        Vector3 hip = skeleton.GetBoneGlobalPose(chain[0]).Origin;
+        Vector3 knee = skeleton.GetBoneGlobalPose(chain[1]).Origin;
+        Vector3 ankle = skeleton.GetBoneGlobalPose(chain[2]).Origin;
+        Vector3 bend = (knee - hip).Lerp(knee - ankle, 0.5f);
+        if (bend.LengthSquared() < 1e-8f)
+        {
+            bend = forward;
+        }
+
+        SolveTwoBone(skeleton, chain, target, bend, keepEnd: true);
+    }
+
+    /// <summary>
     /// On a ladder: the hips in towards the rungs and down, square to them (the idle's turn of the hips and the chest
     /// taken out), the head looking where the sim's does, the balls of the feet on their rungs with the knees forward
     /// and a little out, and the hands on theirs with the elbows down and out.
@@ -399,8 +632,8 @@ public partial class CharacterPoser : SkeletonModifier3D
         Rotate(skeleton, _spineTop, axis, back * 0.3f);
         UpperBody(skeleton, up, forward, right, toSkeleton);
 
-        float ballAhead = Steps is { HasBuild: true } s ? s.Build.BallAhead : 0.13f;
-        float ankleHeight = Steps is { HasBuild: true } t ? t.Build.AnkleHeight : 0.08f;
+        float ballAhead = Build.Length > 0f ? Build.BallAhead : 0.13f;
+        float ankleHeight = Build.Length > 0f ? Build.AnkleHeight : 0.08f;
         Vector3 lift = Vector3.Up * ankleHeight;
         StepLeg(skeleton, toSkeleton, _leftLeg, _leftToe, _leftRest, grip.LeftFoot - grip.Into * ballAhead + lift, grip.Into, 0f, -1f, up, 0.3f);
         StepLeg(skeleton, toSkeleton, _rightLeg, _rightToe, _rightRest, grip.RightFoot - grip.Into * ballAhead + lift, grip.Into, 0f, 1f, up, 0.3f);
