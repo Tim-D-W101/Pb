@@ -4,6 +4,27 @@ An original first-person tactical paintball game: physically simulated paintball
 eliminations, played through abandoned industrial compounds you explore and clear, with up to
 ten players a round. Built with Godot 4.7 (.NET / C#).
 
+## Play it
+
+**On Windows:** download `Pb-windows.zip` from a [numbered release](https://github.com/Tim-D-W101/Pb/releases), or
+the [latest test build](https://github.com/Tim-D-W101/Pb/releases/download/test-build/Pb-windows.zip) (rebuilt on
+every change). Unzip it anywhere and double-click **`Play.bat`**: no Godot or .NET needed, and `Play.bat` keeps the game
+up to date. If Windows says it protected your PC, click **More info**, then **Run anyway** (the game isn't signed).
+
+In the menu, choose **Play**, then pick an area and a mode, how many play and a difficulty, and **Start**. Thornwick
+Woods is the big one, with buggies. **Play with others** hosts a game or joins one ([hosting](docs/hosting.md)).
+
+The main keys:
+
+| Key | Does |
+|---|---|
+| WASD and the mouse | Move and look |
+| Left click | Fire |
+| F | Doors, ladders and buggies |
+| Esc | Pause |
+
+The rest are under [Controls](#controls) and in the zip's `HOW-TO-PLAY.txt`.
+
 **Status: Phase 3 is finished but for your play-test ([report](docs/reports/phase-3.md), [plan](docs/phase-3.md)):
 four open areas, each with places to play in, doors, ladders, objectives, new opponents, sound with voiced callouts, full
 settings; after your play-test (2026-10-06) every area is open with nothing to unlock, and the opponents plant their
@@ -99,7 +120,9 @@ comes in packs of its own, one per texture or model, so only new or changed art 
 starts the game.
 Windows may ask you to confirm ("More info" → "Run anyway") because the game isn't signed. Every CI
 run publishes the build there (and as the run's "Pb-windows" artifact); `tools/package/windows-build.sh`
-makes the same build locally.
+makes the same build locally. Pushing a version tag (`git tag v0.5.0 && git push origin v0.5.0`) also makes a
+**numbered release** of it, with the servers and `HOW-TO-PLAY.txt`, that stays as it is
+([releases](https://github.com/Tim-D-W101/Pb/releases)).
 
 **Playing together:** **Play with others** in the menu hosts a game or joins one, on your network or over the internet.
 A dedicated server runs on its own, on your PC or a rented Linux machine. The release has both:

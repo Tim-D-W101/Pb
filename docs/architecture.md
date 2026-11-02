@@ -1564,3 +1564,15 @@ everything else, so the server rules them and bots drive by the same rules and c
   - Smoke runs: the level walk-through, a 4 v 4, a 4 v 4 capture the flag on a fixed seed that must see bots drive
     (`--min-drives`), and `--vehicle-demo`, which drives your own buggy and checks your body, the drawn buggy and the
     HUD.
+
+### 18.5 A build to share (as built, M5.5)
+
+The Windows build (`tools/package/windows-build.sh`, §16) already exports `Pb-windows.zip`: Godot's Windows export
+with the .NET runtime bundled, the art in packs of its own, `Play.bat` to keep it up to date, and a manifest of every
+game file's SHA-256. CI builds it on every run and publishes it as the rolling "test-build" release. Phase 5 adds:
+
+- **Numbered releases.** The workflow also runs on version tags (`v*`). For a tag, the build is stamped with the tag's
+  name instead of the commit, and a last step makes a GitHub Release named for the tag, with `Pb-windows.zip`, the
+  dedicated servers and `HOW-TO-PLAY.txt`. Re-running it uploads the files again over the same release.
+- **`HOW-TO-PLAY.txt`** lives in `tools/package/windows/` beside `Play.bat`. The build copies it in with Windows line
+  endings; it's one of the game's own files, so `Play.bat` updates it like the rest.
