@@ -29,6 +29,9 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
     // The seat (M5.7): the head's sway against the pulls of driving (in the body's frame) and how fast it's going, the
     // seat's velocity at the last two ticks (its pulls), and the clock the shaking runs on.
     private Vector3 _seatLag, _seatLagSpeed, _seatVelocity, _seatPull;
+
+    /// <summary>The head's spring is stepped at least this often (Hz).</summary>
+    private const float SpringRate = 120f;
     private float _shakeClock;
     private float _bobPhase;
 
@@ -268,11 +271,23 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         System.Numerics.Vector3 at = ride.Params.Seats[State.Seat].At;
         Vector3 seatEye = drawn * new Vector3(at.X, at.Y + ride.Params.SeatedEyeHeight, -at.Z);
 
-        // The head against the pulls (a spring in the body's frame), held to its reach.
+        // The head against the pulls (a spring in the body's frame), held to its reach. Stepped in pieces of at most a
+        // 120th of a second: in one step of a long frame (a hitch, or a film at 4 frames a second) the stiff spring
+        // overshot further each frame until the view was lost in infinities.
         Vector3 target = (body.Inverse() * -_seatPull * def.HeadLag_mpmps2).LimitLength(def.HeadLagMax_m);
         float w = Mathf.Tau * def.HeadLag_hz;
-        _seatLagSpeed += ((target - _seatLag) * (w * w) - _seatLagSpeed * (2f * def.HeadLagDamping * w)) * dt;
-        _seatLag = (_seatLag + _seatLagSpeed * dt).LimitLength(def.HeadLagMax_m * 1.5f);
+        int steps = Math.Clamp((int)MathF.Ceiling(dt * SpringRate), 1, 64);
+        float h = dt / steps;
+        for (int k = 0; k < steps; k++)
+        {
+            _seatLagSpeed += ((target - _seatLag) * (w * w) - _seatLagSpeed * (2f * def.HeadLagDamping * w)) * h;
+            _seatLag = (_seatLag + _seatLagSpeed * h).LimitLength(def.HeadLagMax_m * 1.5f);
+        }
+
+        if (!_seatLag.IsFinite() || !_seatLagSpeed.IsFinite())
+        {
+            _seatLag = _seatLagSpeed = Vector3.Zero;
+        }
 
         // Shaken: by the engine as it revs, and by the ground as it goes (rough on loose stuff).
         _shakeClock += dt;

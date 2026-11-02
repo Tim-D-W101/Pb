@@ -653,6 +653,10 @@ was silent (fixed on A: the game started no sounds under the dummy driver Movie 
 - The vehicle demo pulls the handbrake once at speed, and fails unless the engine was on over 5 s, the tyres over 3 s
   and the skid at all; where anything can be heard, unless they were playing too. Headless (CI), here: the engine
   23.2 s (19.2 s under load), the tyres on gravel 21.1 s and grass 2.1 s, scrubbing 3.9 s.
+- Filming the demo with its sound (at 4 frames a second) found the driver's head on its spring lost in infinities: the
+  stiff spring, stepped once a frame, overshot further each long frame, and the ambience then set a volume from a
+  position that wasn't a number. A long hitch in play would have done the same. The spring now steps in pieces of at
+  most a 120th of a second, and starts again from rest if it ever isn't finite.
 
 ### What's next
 
