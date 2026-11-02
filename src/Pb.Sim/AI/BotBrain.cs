@@ -2660,6 +2660,15 @@ public sealed partial class BotBrain
         {
             StartRide(); // a buggy for a long way: its door is the goal now
         }
+        else if (!_needPath && _ride == RideState.None && _tick >= _lookForRideAt && _sim.Vehicles.Count > 0)
+        {
+            // On a long way on foot, now and then: a buggy it's come near (it used to look only when it set off).
+            _lookForRideAt = _tick + (int)(_b.DriveLookEvery / _sim.Dt);
+            if (StartRide())
+            {
+                return;
+            }
+        }
 
         if (_needPath)
         {
