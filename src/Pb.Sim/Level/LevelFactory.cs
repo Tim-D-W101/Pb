@@ -35,6 +35,33 @@ public static class LevelFactory
 
         MaterialRef Material(Validator scope, string property, string? id) => KitCatalog.ResolveMaterial(materials, scope, property, id);
 
+        // The rolling ground first (M5.8): everything outdoors stands on it.
+        var levelBounds = new Aabb(Validator.ToVector3(def.BoundsMin_m), Validator.ToVector3(def.BoundsMax_m));
+        Terrain? terrain = null;
+        if (def.Terrain is { } shape && materials.TryGetValue(def.GroundMaterial, out KitMaterial? groundKind))
+        {
+            // The ground patches (a wood's leaf litter, a yard) become the terrain's own cover there, lying over its hills.
+            Validator scope = errors.Scope(nameof(LevelDef.Terrain));
+            var patches = new List<(Vector4, SurfaceId, int)>();
+            for (int i = 0; def.GroundPatches is not null && i < def.GroundPatches.Length; i++)
+            {
+                MaterialRef m = Material(errors.Item(nameof(LevelDef.GroundPatches), i), nameof(GroundPatchDef.Material), def.GroundPatches[i].Material);
+                patches.Add((KitGeometry.Rect(def.GroundPatches[i].Rect_m), kit.Materials[m.Index].Surface, m.Index));
+            }
+
+            var beds = new List<(SurfaceId, int)>();
+            for (int i = 0; shape.Streams is not null && i < shape.Streams.Length; i++)
+            {
+                MaterialRef bed = Material(scope.Item(nameof(TerrainDef.Streams), i), nameof(TerrainStreamDef.Material), shape.Streams[i].Material);
+                beds.Add((kit.Materials[bed.Index].Surface, bed.Index));
+            }
+
+            terrain = Terrain.Build(shape, levelBounds, def.Roads ?? Array.Empty<RoadDef>(), shape.RoadMargin_m, (groundKind.Surface, groundKind.Index),
+                patches, beds);
+        }
+
+        Vector3 Lift(Vector3 p) => terrain?.Lift(p) ?? p;
+
         void PlaceProp(Validator scope, PropPlacementDef placement, PlanFrame parent, string ownerPrefix)
         {
             if (!kit.Props.TryGetValue(placement.Prop, out PropType? type))
@@ -44,6 +71,18 @@ public static class LevelFactory
             }
 
             Vector3 position = parent.ToWorld(Validator.ToVector3(placement.Position_m));
+            if (terrain is not null && ownerPrefix.Length == 0)
+            {
+                // Out on the rolling ground: standing on the lowest of the ground under it, not floating off a slope.
+                float reach = 0.3f;
+                foreach (PropColliderTemplate c in type.Colliders)
+                {
+                    reach = MathF.Max(reach, MathF.Sqrt(c.Center.X * c.Center.X + c.Center.Z * c.Center.Z) + MathF.Max(c.HalfExtents.X, c.HalfExtents.Z));
+                }
+
+                position.Y += terrain.LowestUnder(position.X, position.Z, reach);
+            }
+
             float yaw = parent.Yaw + placement.Yaw_deg * Units.DegreesToRadians;
             int first = sink.Items.Count;
             var frame = new PlanFrame(position, yaw);
@@ -81,12 +120,13 @@ public static class LevelFactory
             ground = kit.Materials[0];
         }
 
-        for (int i = 0; def.GroundPatches is not null && i < def.GroundPatches.Length; i++)
+        for (int i = 0; terrain is null && def.GroundPatches is not null && i < def.GroundPatches.Length; i++)
         {
             GroundPatchDef patch = def.GroundPatches[i];
             Validator item = errors.Item(nameof(LevelDef.GroundPatches), i);
             MaterialRef m = Material(item, nameof(GroundPatchDef.Material), patch.Material);
-            // A thin slab just above the ground: paint sees its surface, walking doesn't notice the 4 mm.
+            // A thin slab just above the ground: paint sees its surface, walking doesn't notice the 4 mm. (On rolling
+            // ground the patches are the terrain's own cover instead.)
             KitGeometry.Slab(sink, PlanFrame.Identity, KitGeometry.Rect(patch.Rect_m), Array.Empty<Vector4>(), 0.004f, 0.05f, m,
                 PrimitiveFlags.Paint | PrimitiveFlags.Render, PrimitiveRole.GroundPatch, Owner($"patch#{i}"));
         }
@@ -102,7 +142,7 @@ public static class LevelFactory
                 continue;
             }
 
-            var frame = new PlanFrame(Validator.ToVector3(placement.Position_m), placement.Yaw_deg * Units.DegreesToRadians);
+            var frame = new PlanFrame(Lift(Validator.ToVector3(placement.Position_m)), placement.Yaw_deg * Units.DegreesToRadians);
             int owner = Owner($"{template.Id}#{i}");
             buildings.Add(new PlacedBuilding(template, owner, frame));
             BuildBuilding(sink, frame, template.Def, materials, owner, areas, (scope, p) => PlaceProp(scope, p, frame, $"{template.Id}#{i}/"));
@@ -133,7 +173,8 @@ public static class LevelFactory
             {
                 int owner = Owner($"wall#{i}");
                 walls.Add(new PlacedWall(wall, owner, PlanFrame.Identity));
-                KitGeometry.WallRun(sink, PlanFrame.Identity, wall, wall.BaseElevation_m, wall.Height_m, m, owner);
+                (float low, float high) = terrain is null ? (0f, 0f) : GroundAlong(terrain, wall.Points_m, wall.Closed);
+                KitGeometry.WallRun(sink, PlanFrame.Identity, wall, wall.BaseElevation_m + low, wall.Height_m + (high - low), m, owner);
             }
         }
 
@@ -204,8 +245,10 @@ public static class LevelFactory
             TreeStandDef wood = def.Woods[i];
             MaterialRef bark = Material(errors.Item(nameof(LevelDef.Woods), i), "material", "tree_bark");
             int owner = Owner($"wood:{wood.Name}");
-            foreach (TreeSpec tree in WoodsGrower.Grow(wood))
+            foreach (TreeSpec grown in WoodsGrower.Grow(wood))
             {
+                // On the rolling ground a trunk stands a little into it, so no slope shows under its foot.
+                TreeSpec tree = terrain is null ? grown : grown with { Foot = grown.Foot with { Y = terrain.LowestUnder(grown.Foot.X, grown.Foot.Z, grown.Radius) - 0.15f } };
                 float trunk = tree.Height * WoodsGrower.TrunkShare;
                 sink.AddCylinder(PlanFrame.Identity, tree.Foot + new Vector3(0f, trunk * 0.5f, 0f), Quaternion.Identity, tree.Radius, trunk * 0.5f, bark,
                     PrimitiveFlags.Paint | PrimitiveFlags.Walk | PrimitiveFlags.Cover, PrimitiveRole.Column, owner);
@@ -225,22 +268,42 @@ public static class LevelFactory
                 continue; // already reported
             }
 
-            Vector3[] points = r.Points_m.Select(p => new Vector3(p[0], 0f, p[1])).ToArray();
+            Vector3[] points = r.Points_m.Select(p => Lift(new Vector3(p[0], 0f, p[1]))).ToArray();
             int owner = Owner($"road:{r.Name}");
             const float lift = 0.006f, half = 0.025f; // just above any ground patch under it
             for (int k = 1; k < points.Length; k++)
             {
-                Vector3 a = points[k - 1], b = points[k];
-                float length = Vector3.Distance(a, b);
-                if (length < 1e-3f)
+                // In pieces short enough to lie on the rolling ground (one piece on level ground), each sloping as it does.
+                Vector3 from = points[k - 1], to = points[k];
+                float flat = MathF.Sqrt((to.X - from.X) * (to.X - from.X) + (to.Z - from.Z) * (to.Z - from.Z));
+                int pieces = terrain is null ? 1 : Math.Max(1, (int)MathF.Ceiling(flat / RoadPiece));
+                for (int q = 0; q < pieces; q++)
                 {
-                    continue;
-                }
+                    Vector3 a = Lift(Vector3.Lerp(from, to, q / (float)pieces) with { Y = 0f });
+                    Vector3 b = Lift(Vector3.Lerp(from, to, (q + 1) / (float)pieces) with { Y = 0f });
+                    float length = Vector3.Distance(a, b);
+                    if (length < 1e-3f)
+                    {
+                        continue;
+                    }
 
-                Vector3 along = (b - a) / length;
-                Quaternion turn = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.Atan2(along.X, along.Z));
-                sink.AddBox(PlanFrame.Identity, (a + b) * 0.5f + new Vector3(0f, lift - half, 0f), turn, new Vector3(r.Width_m * 0.5f, half, length * 0.5f), m,
-                    PrimitiveFlags.Paint | PrimitiveFlags.Render, PrimitiveRole.GroundPatch, owner);
+                    Vector3 along = (b - a) / length;
+                    Quaternion turn = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.Atan2(along.X, along.Z)) *
+                                      Quaternion.CreateFromAxisAngle(Vector3.UnitX, -MathF.Asin(Math.Clamp(along.Y, -1f, 1f)));
+                    // Raised by however far the ground under it bulges above the line between its ends, so it never shows
+                    // through the track on a crest.
+                    float bulge = 0f;
+                    for (int s = 1; terrain is not null && s < 8; s++)
+                    {
+                        Vector3 on = Vector3.Lerp(a, b, s / 8f);
+                        bulge = MathF.Max(bulge, terrain.HeightAt(on.X, on.Z) - on.Y);
+                    }
+
+                    // Each piece a hair longer than its share, so the joins over a crest don't open up.
+                    sink.AddBox(PlanFrame.Identity, (a + b) * 0.5f + new Vector3(0f, lift - half + bulge, 0f), turn,
+                        new Vector3(r.Width_m * 0.5f, half, length * 0.5f + (pieces > 1 ? 0.05f : 0f)), m,
+                        PrimitiveFlags.Paint | PrimitiveFlags.Render, PrimitiveRole.GroundPatch, owner);
+                }
             }
 
             for (int k = 1; k + 1 < points.Length; k++)
@@ -256,17 +319,29 @@ public static class LevelFactory
         for (int i = 0; def.Vehicles is not null && i < def.Vehicles.Length; i++)
         {
             VehiclePlacementDef v = def.Vehicles[i];
-            vehicles.Add(new VehicleSpot(v.Vehicle, Validator.ToVector3(v.Position_m), v.Yaw_deg * Units.DegreesToRadians));
+            vehicles.Add(new VehicleSpot(v.Vehicle, Lift(Validator.ToVector3(v.Position_m)), v.Yaw_deg * Units.DegreesToRadians));
         }
 
         // Invisible walking walls along the bounds.
-        var bounds = new Aabb(Validator.ToVector3(def.BoundsMin_m), Validator.ToVector3(def.BoundsMax_m));
+        Aabb bounds = levelBounds;
         AddBoundary(sink, bounds, ground.Ref, Owner("bounds"));
 
         // Areas, spawns, patrols, pickups.
         for (int i = 0; def.Areas is not null && i < def.Areas.Length; i++)
         {
-            areas.Add(ToArea(def.Areas[i], PlanFrame.Identity));
+            AreaSpec area = ToArea(def.Areas[i], PlanFrame.Identity);
+            if (terrain is not null)
+            {
+                // Over the rolling ground: from below its lowest to above its highest in the area.
+                (float low, float high) = terrain.RangeIn(area.Box.Min.X, area.Box.Min.Z, area.Box.Max.X, area.Box.Max.Z);
+                area = new AreaSpec
+                {
+                    Name = area.Name, Indoor = area.Indoor, Light = area.Light, Tone = area.Tone,
+                    Box = new Aabb(area.Box.Min with { Y = area.Box.Min.Y + MathF.Min(low, 0f) }, area.Box.Max with { Y = area.Box.Max.Y + MathF.Max(high, 0f) }),
+                };
+            }
+
+            areas.Add(area);
         }
 
         var patrols = new Dictionary<string, PatrolRoute>(StringComparer.Ordinal);
@@ -276,7 +351,7 @@ public static class LevelFactory
             patrols[p.Id] = new PatrolRoute
             {
                 Id = p.Id,
-                Points = p.Points_m.Select(Validator.ToVector3).ToArray(),
+                Points = p.Points_m.Select(q => Lift(Validator.ToVector3(q))).ToArray(),
                 Loop = p.Loop,
                 Pause = p.Pause_s,
             };
@@ -297,7 +372,7 @@ public static class LevelFactory
                 item.Error(nameof(OpponentSpawnDef.Patrol), $"unknown patrol '{s.Patrol}'");
             }
 
-            Vector3 position = Validator.ToVector3(s.Position_m);
+            Vector3 position = Lift(Validator.ToVector3(s.Position_m));
             CheckInside(item, nameof(OpponentSpawnDef.Position_m), position, bounds);
             spawns.Add(new OpponentSpawn
             {
@@ -313,7 +388,7 @@ public static class LevelFactory
         for (int i = 0; def.Pickups is not null && i < def.Pickups.Length; i++)
         {
             PickupDef p = def.Pickups[i];
-            Vector3 position = Validator.ToVector3(p.Position_m);
+            Vector3 position = Lift(Validator.ToVector3(p.Position_m));
             CheckInside(errors.Item(nameof(LevelDef.Pickups), i), nameof(PickupDef.Position_m), position, bounds);
             pickups.Add(new PickupSpec { Id = p.Id, Kind = p.Kind, Position = position });
         }
@@ -321,22 +396,22 @@ public static class LevelFactory
         var playerSpawns = new List<SpawnPoint>();
         for (int i = 0; i < def.PlayerSpawns.Length; i++)
         {
-            Vector3 position = Validator.ToVector3(def.PlayerSpawns[i].Position_m);
+            Vector3 position = Lift(Validator.ToVector3(def.PlayerSpawns[i].Position_m));
             CheckInside(errors.Item(nameof(LevelDef.PlayerSpawns), i), nameof(SpawnDef.Position_m), position, bounds);
             playerSpawns.Add(new SpawnPoint(position, def.PlayerSpawns[i].Yaw_deg * Units.DegreesToRadians));
         }
 
         AreaSpec spawnArea = areas.First(a => a.Name == def.SpawnArea);
         LevelObjectives objectives = def.Objectives is null ? LevelObjectives.None
-            : ToObjectives(errors.Scope(nameof(LevelDef.Objectives)), def.Objectives, areas, playerSpawns, bounds);
-        Vector3 deadZone = Validator.ToVector3(def.DeadZone_m);
+            : ToObjectives(errors.Scope(nameof(LevelDef.Objectives)), def.Objectives, areas, playerSpawns, bounds, Lift);
+        Vector3 deadZone = Lift(Validator.ToVector3(def.DeadZone_m));
         Viewpoint[] viewpoints = (def.Viewpoints ?? Array.Empty<ViewpointDef>())
-            .Select(vp => new Viewpoint(vp.Name, Validator.ToVector3(vp.Position_m), vp.Yaw_deg * Units.DegreesToRadians, vp.Pitch_deg * Units.DegreesToRadians))
+            .Select(vp => new Viewpoint(vp.Name, Lift(Validator.ToVector3(vp.Position_m)), vp.Yaw_deg * Units.DegreesToRadians, vp.Pitch_deg * Units.DegreesToRadians))
             .ToArray();
         var places = new List<PlaceSpec>();
         for (int i = 0; i < def.Places.Length; i++)
         {
-            places.Add(ToPlace(def.Places[i], errors.Item(nameof(LevelDef.Places), i), bounds, playerSpawns, deadZone, viewpoints));
+            places.Add(ToPlace(def.Places[i], errors.Item(nameof(LevelDef.Places), i), bounds, playerSpawns, deadZone, viewpoints, Lift));
         }
 
         errors.ThrowIfErrors();
@@ -372,6 +447,7 @@ public static class LevelFactory
             Trees = trees,
             Roads = roads,
             VehicleSpots = vehicles,
+            Terrain = terrain,
             NavCellSize = def.NavCellSize_m,
             Places = places,
             Place = places.FirstOrDefault(p => p.Whole),
@@ -380,7 +456,7 @@ public static class LevelFactory
 
     /// <summary>A place from its definition: its rect inside the level, with an entry, a walk-off spot and the viewpoint of its picture inside it.</summary>
     private static PlaceSpec ToPlace(PlaceDef d, Validator item, Aabb bounds, List<SpawnPoint> levelEntries, Vector3 levelDeadZone,
-        IReadOnlyList<Viewpoint> viewpoints)
+        IReadOnlyList<Viewpoint> viewpoints, Func<Vector3, Vector3> lift)
     {
         Aabb? rect = null;
         if (d.Rect_m is { Length: 4 } r && r[2] > r[0] && r[3] > r[1])
@@ -398,8 +474,8 @@ public static class LevelFactory
             DisplayName = d.DisplayName,
             Description = d.Description,
             Bounds = rect,
-            PlayerSpawns = d.PlayerSpawns?.Select(s => new SpawnPoint(Validator.ToVector3(s.Position_m), s.Yaw_deg * Units.DegreesToRadians)).ToArray(),
-            DeadZone = d.DeadZone_m is { Length: 3 } z ? Validator.ToVector3(z) : null,
+            PlayerSpawns = d.PlayerSpawns?.Select(s => new SpawnPoint(lift(Validator.ToVector3(s.Position_m)), s.Yaw_deg * Units.DegreesToRadians)).ToArray(),
+            DeadZone = d.DeadZone_m is { Length: 3 } z ? lift(Validator.ToVector3(z)) : null,
             SpawnScale = d.SpawnScale,
             Still = StillOf(d, item, rect, viewpoints),
         };
@@ -466,12 +542,12 @@ public static class LevelFactory
     /// the ways out (by default one at each player spawn), and each room to hold from the areas of its name.
     /// </summary>
     private static LevelObjectives ToObjectives(Validator errors, LevelObjectivesDef def, IReadOnlyList<AreaSpec> areas,
-        IReadOnlyList<SpawnPoint> playerSpawns, Aabb bounds)
+        IReadOnlyList<SpawnPoint> playerSpawns, Aabb bounds, Func<Vector3, Vector3> lift)
     {
         var spots = new List<CaseSpot>();
         for (int i = 0; i < def.CaseSpots_m.Length; i++)
         {
-            Vector3 at = Validator.ToVector3(def.CaseSpots_m[i]);
+            Vector3 at = lift(Validator.ToVector3(def.CaseSpots_m[i]));
             string key = $"{nameof(LevelObjectivesDef.CaseSpots_m)}[{i}]";
             CheckInside(errors, key, at, bounds);
             AreaSpec? building = areas.Where(a => a.Indoor && a.Box.Contains(at + new Vector3(0f, 0.1f, 0f))).MaxBy(a => a.Volume);
@@ -487,7 +563,7 @@ public static class LevelFactory
         var exits = new List<ExitSpec>();
         for (int i = 0; def.Exits is not null && i < def.Exits.Length; i++)
         {
-            Vector3 at = Validator.ToVector3(def.Exits[i].At_m);
+            Vector3 at = lift(Validator.ToVector3(def.Exits[i].At_m));
             CheckInside(errors.Item(nameof(LevelObjectivesDef.Exits), i), nameof(ExitDef.At_m), at, bounds);
             exits.Add(new ExitSpec(def.Exits[i].Name, at));
         }
@@ -512,7 +588,9 @@ public static class LevelFactory
             }
 
             Aabb biggest = boxes.MaxBy(b => (b.Max.X - b.Min.X) * (b.Max.Z - b.Min.Z));
-            var centre = new Vector3((biggest.Min.X + biggest.Max.X) * 0.5f, MathF.Max(biggest.Min.Y, 0f), (biggest.Min.Z + biggest.Max.Z) * 0.5f);
+            // On its floor: the room's bottom, or the ground under it if that's higher (a ground floor's box starts a little below).
+            var middle = new Vector3((biggest.Min.X + biggest.Max.X) * 0.5f, 0f, (biggest.Min.Z + biggest.Max.Z) * 0.5f);
+            var centre = middle with { Y = MathF.Max(biggest.Min.Y, lift(middle).Y) };
             rooms.Add(new HoldRoom { Name = name, Boxes = boxes, Centre = centre });
         }
 
@@ -618,6 +696,31 @@ public static class LevelFactory
         {
             areas.Add(ToArea(b.Areas[i], frame));
         }
+    }
+
+    /// <summary>A track's pieces on the rolling ground are at most this long (m), so each lies on the ground under it.</summary>
+    private const float RoadPiece = 1f;
+
+    /// <summary>The lowest and highest the ground goes along a wall's line (sampled every metre).</summary>
+    private static (float Low, float High) GroundAlong(Terrain terrain, float[][] points, bool closed)
+    {
+        float low = float.MaxValue, high = float.MinValue;
+        int segments = points.Length < 2 ? 0 : closed ? points.Length : points.Length - 1;
+        for (int k = 0; k < segments; k++)
+        {
+            float[] a = points[k], b = points[(k + 1) % points.Length];
+            float length = MathF.Sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]));
+            int steps = Math.Max(1, (int)MathF.Ceiling(length));
+            for (int q = 0; q <= steps; q++)
+            {
+                float t = q / (float)steps;
+                float h = terrain.HeightAt(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t);
+                low = MathF.Min(low, h);
+                high = MathF.Max(high, h);
+            }
+        }
+
+        return low <= high ? (low, high) : (0f, 0f);
     }
 
     private static AreaSpec ToArea(AreaDef a, PlanFrame frame)

@@ -18,7 +18,9 @@ public sealed class MaterialLibrary
     private readonly Dictionary<string, int> _ids = new(System.StringComparer.Ordinal);
     private readonly Dictionary<int, Material> _materials = new();
     private readonly Dictionary<(int Index, Color Color), Material> _recoloured = new();
+    private readonly Dictionary<(int Index, int Order), Material> _edges = new();
     private readonly Shader _shader;
+    private Shader? _edgeShader;
 
     public MaterialLibrary(IReadOnlyList<KitMaterial> materials)
     {
@@ -45,6 +47,41 @@ public sealed class MaterialLibrary
     }
 
     public bool IsTransparent(int index) => this[index] is StandardMaterial3D;
+
+    /// <summary>
+    /// The material with ragged edges (weathered_edge.gdshader), for the rolling ground's cover drawn over the ground
+    /// where they meet (M5.8): the same parameters, drawn only where the vertex colour's alpha beats a ragged threshold,
+    /// and just in front of what's under it, by a step for its <paramref name="order"/> (1 and up) among the covers.
+    /// </summary>
+    public Material EdgeVariant(int index, int order)
+    {
+        if (_edges.TryGetValue((index, order), out Material? edge))
+        {
+            return edge;
+        }
+
+        Material plain = this[index];
+        if (plain is ShaderMaterial shaded)
+        {
+            _edgeShader ??= GD.Load<Shader>("res://shaders/weathered_edge.gdshader");
+            var variant = new ShaderMaterial { Shader = _edgeShader };
+            foreach (Godot.Collections.Dictionary uniform in _shader.GetShaderUniformList())
+            {
+                StringName name = uniform["name"].AsStringName();
+                variant.SetShaderParameter(name, shaded.GetShaderParameter(name));
+            }
+
+            variant.SetShaderParameter("edge_nudge", 0.00008f * order);
+            edge = variant;
+        }
+        else
+        {
+            edge = plain;
+        }
+
+        _edges[(index, order)] = edge;
+        return edge;
+    }
 
     /// <summary>The index of the kit material with this id, or −1.</summary>
     public int Find(string id) => _ids.TryGetValue(id, out int index) ? index : -1;

@@ -26,7 +26,8 @@ does the collide-and-slide for walking, and renders. Presentation systems implem
 `ISimEventListener` and never change outcomes. Bots (Phase 2) and network clients (Phase 4)
 produce the same `InputCommand`s as humans. Since Phase 2 the game is explorable compound levels
 (see `docs/architecture.md` §14): levels are built from a data kit of analytic primitives, so paint
-collision never needs engine meshes.
+collision never needs engine meshes. A level can have rolling ground (`terrain`, §18.6): one height field that paint,
+sight, wheels, the bots' grid, walking and the drawn ground all share; heights in the level file are above it.
 
 ## Commands
 
@@ -45,6 +46,9 @@ python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate th
 python3 tools/levels/thornwick_woods.py game/data/levels        # regenerate Thornwick Woods, the big woodsball site (likewise)
 blender -b --factory-startup -P tools/anim/build_clips.py -- game/art/models/clip_walk.glb game/art/models/anim_set.glb   # the characters' animation set (Blender 4.2), then godot --import
 ```
+
+Every level load prints a `Load:` line with each part's time (the data, the bots' grid, the world's meshes, the
+dressing, the rest), to tell a slow load apart.
 
 The menu's picture of each place (`game/ui/places/LEVEL_PLACE.jpg`) is taken in the game, from the viewpoint the level
 file's place names in `"still"`; retake a level's after changing it (under lavapipe, below), then import:

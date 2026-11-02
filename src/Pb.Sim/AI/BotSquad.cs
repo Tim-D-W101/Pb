@@ -342,6 +342,45 @@ public sealed class BotSquad
     }
 
     /// <summary>On the first call of a new tick, last step's sounds become current and the search budget refills.</summary>
+    // Where each side of a team round started (the middle of its players' places on the round's first tick), so a hunt
+    // can head for the other side's end of a big site (M5.8).
+    private readonly Vector3[] _sideStart = new Vector3[2];
+    private readonly int[] _sideStarters = new int[2];
+    private Match.MatchState? _startsOf;
+
+    /// <summary>The middle of where side <paramref name="team"/> of the round started, if it had anyone.</summary>
+    internal bool SideStart(int team, out Vector3 at)
+    {
+        at = default;
+        if (team < 0 || team >= _sideStart.Length || _sideStarters[team] == 0)
+        {
+            return false;
+        }
+
+        at = _sideStart[team] / _sideStarters[team];
+        return true;
+    }
+
+    private void NoteStarts()
+    {
+        if (ReferenceEquals(_startsOf, Sim.Match))
+        {
+            return;
+        }
+
+        _startsOf = Sim.Match;
+        Array.Clear(_sideStart);
+        Array.Clear(_sideStarters);
+        foreach (PlayerState p in Sim.Players)
+        {
+            if (p.Present && p.Team < _sideStart.Length)
+            {
+                _sideStart[p.Team] += p.Position;
+                _sideStarters[p.Team]++;
+            }
+        }
+    }
+
     private void Sync(int tick)
     {
         if (tick == _syncedTick)
@@ -350,6 +389,7 @@ public sealed class BotSquad
         }
 
         _syncedTick = tick;
+        NoteStarts();
         _current.Clear();
         ReadOnlySpan<SimEvent> fresh = _incoming.Items;
         for (int i = 0; i < fresh.Length; i++)

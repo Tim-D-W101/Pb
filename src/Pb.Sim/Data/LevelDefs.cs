@@ -1205,6 +1205,10 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public RoadDef[]? Roads { get; set; }
 
+    /// <summary>Rolling ground (M5.8): hills, dips, banks and stream beds over the level; flat without it.</summary>
+    [Optional]
+    public TerrainDef? Terrain { get; set; }
+
     /// <summary>Where the vehicles stand when the round starts.</summary>
     [Optional]
     public VehiclePlacementDef[]? Vehicles { get; set; }
@@ -1228,6 +1232,7 @@ public sealed class LevelDef : IValidatable
         LevelDefChecks.Items(v, nameof(Woods), Woods);
         LevelDefChecks.Items(v, nameof(Roads), Roads);
         LevelDefChecks.Items(v, nameof(Vehicles), Vehicles);
+        Terrain?.Validate(v.Scope(nameof(Terrain)));
         if (NavCellSize_m != 0f)
         {
             // Coarser than this and the kit's narrowest doors (0.9 m, less a bot's width each side) might fall between places.
@@ -1823,6 +1828,165 @@ public sealed class TreeStandDef : IValidatable
         {
             v.Vector($"{nameof(Clear_m)}[{i}]", Clear_m[i], 4);
         }
+    }
+}
+
+/// <summary>
+/// Rolling ground (M5.8): a height field over the level, from smooth hills and dips, banks along lines and a gentle
+/// unevenness everywhere, held level on flats (under buildings, in yards, at the gates) and at the level's edge, with
+/// stream beds cut into it. The sim's paint, sight and wheels, the bots' grid and walking all meet the same ground.
+/// </summary>
+public sealed class TerrainDef : IValidatable
+{
+    /// <summary>The height field's grid (m).</summary>
+    public float Cell_m { get; set; } = 1f;
+
+    [Optional]
+    public TerrainHillDef[]? Hills { get; set; }
+
+    [Optional]
+    public TerrainRidgeDef[]? Ridges { get; set; }
+
+    [Optional]
+    public TerrainStreamDef[]? Streams { get; set; }
+
+    [Optional]
+    public TerrainFlatDef[]? Flats { get; set; }
+
+    /// <summary>Round a flat the ground blends back to its own over this far (m).</summary>
+    public float FlatMargin_m { get; set; }
+
+    /// <summary>The ground comes back to level this far inside the level's bounds (the fence stands on the level).</summary>
+    public float Edge_m { get; set; }
+
+    /// <summary>A track's ground is level across it, blending back to the ground beside it over this far (m).</summary>
+    public float RoadMargin_m { get; set; }
+
+    /// <summary>Layers of gentle unevenness everywhere (the long swells of a field, the bumps a wheel feels).</summary>
+    [Optional]
+    public TerrainNoiseDef[]? Noise { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Cell_m), Cell_m, 0.25, 8);
+        v.InRange(nameof(FlatMargin_m), FlatMargin_m, 0, 100);
+        v.InRange(nameof(Edge_m), Edge_m, 0, 200);
+        v.InRange(nameof(RoadMargin_m), RoadMargin_m, 0, 50);
+        LevelDefChecks.Items(v, nameof(Hills), Hills);
+        LevelDefChecks.Items(v, nameof(Ridges), Ridges);
+        LevelDefChecks.Items(v, nameof(Streams), Streams);
+        LevelDefChecks.Items(v, nameof(Flats), Flats);
+        LevelDefChecks.Items(v, nameof(Noise), Noise);
+    }
+}
+
+/// <summary>A smooth round hill (a dip, if its height is below zero): its middle, its radius and how high it rises there.</summary>
+public sealed class TerrainHillDef : IValidatable
+{
+    public float[] At_m { get; set; } = Array.Empty<float>();
+
+    public float Radius_m { get; set; }
+
+    public float Height_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.Vector(nameof(At_m), At_m, 2);
+        v.InRange(nameof(Radius_m), Radius_m, 1, 1000);
+        v.InRange(nameof(Height_m), Height_m, -30, 60);
+    }
+}
+
+/// <summary>A bank along a line of points (x, z): so wide at its foot, so high along its crest.</summary>
+public sealed class TerrainRidgeDef : IValidatable
+{
+    public float[][] Points_m { get; set; } = Array.Empty<float[]>();
+
+    public float Width_m { get; set; }
+
+    public float Height_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Width_m), Width_m, 0.5, 200);
+        v.InRange(nameof(Height_m), Height_m, -30, 30);
+        if (Points_m.Length < 2)
+        {
+            v.Error(nameof(Points_m), "needs at least two points");
+        }
+
+        for (int i = 0; i < Points_m.Length; i++)
+        {
+            v.Vector($"{nameof(Points_m)}[{i}]", Points_m[i], 2);
+        }
+    }
+}
+
+/// <summary>
+/// A stream bed along a line of points (x, z): cut so deep into the ground, so wide at its bottom, its banks sloping up
+/// over so far each side; its bottom of a ground material (mud).
+/// </summary>
+public sealed class TerrainStreamDef : IValidatable
+{
+    public string Name { get; set; } = "";
+
+    public float[][] Points_m { get; set; } = Array.Empty<float[]>();
+
+    public float Width_m { get; set; }
+
+    public float Depth_m { get; set; }
+
+    public float Banks_m { get; set; }
+
+    public string Material { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Name), Name);
+        v.NotEmpty(nameof(Material), Material);
+        v.InRange(nameof(Width_m), Width_m, 0.5, 50);
+        v.InRange(nameof(Depth_m), Depth_m, 0.05, 10);
+        v.InRange(nameof(Banks_m), Banks_m, 0.1, 50);
+        if (Points_m.Length < 2)
+        {
+            v.Error(nameof(Points_m), "needs at least two points");
+        }
+
+        for (int i = 0; i < Points_m.Length; i++)
+        {
+            v.Vector($"{nameof(Points_m)}[{i}]", Points_m[i], 2);
+        }
+    }
+}
+
+/// <summary>A rectangle (x0, z0, x1, z1) where the ground is held level at a height (under a building, a yard).</summary>
+public sealed class TerrainFlatDef : IValidatable
+{
+    public float[] Rect_m { get; set; } = Array.Empty<float>();
+
+    [Optional]
+    public float Height_m { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.Vector(nameof(Rect_m), Rect_m, 4);
+        v.InRange(nameof(Height_m), Height_m, -30, 60);
+    }
+}
+
+/// <summary>A layer of gentle unevenness everywhere: bumps about so far across and so high (at most), from a seed.</summary>
+public sealed class TerrainNoiseDef : IValidatable
+{
+    public float Size_m { get; set; }
+
+    public float Height_m { get; set; }
+
+    public uint Seed { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Size_m), Size_m, 1, 1000);
+        v.InRange(nameof(Height_m), Height_m, 0, 20);
     }
 }
 

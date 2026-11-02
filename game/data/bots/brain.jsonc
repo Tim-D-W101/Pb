@@ -83,7 +83,7 @@
   // driveFightSpeed_mps, steadier to shoot from; an enemy within driveFightOutWithin_m gets it out to fight on foot, and
   // so does getting nowhere for driveStuck_s after backing up twice.
   "driveBeyond_m": 90,
-  "driveVehicleWithin_m": 30,
+  "driveVehicleWithin_m": 50,
   "driveLookAhead_m": 4,
   "driveLookAheadPerSpeed_s": 0.6,
   "driveSpeedShare": 0.9,
@@ -116,6 +116,10 @@
   // (1 = always the nearest), and look around for huntLookAround_s at each.
   "huntChoices": 3,
   "huntLookAround_s": 2,
+  // In a team round, a hunting bot farther than huntTowardEnemyBeyond_m from the middle of where the other team started
+  // picks its next spot among those nearest their end of the site instead: on a big site (Thornwick Woods) that's far
+  // enough for a buggy (driveBeyond_m), so they drive to the fight. 0: always among its own nearest.
+  "huntTowardEnemyBeyond_m": 100,
 
   // Teamwork: a bot that spots someone shouts where they are, and teammates within calloutRange_m (half that
   // through walls) get it as a lead, give or take contactError_m; while it keeps them in sight it calls it again

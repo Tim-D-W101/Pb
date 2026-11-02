@@ -164,6 +164,9 @@ public sealed class BrainParams
     /// <summary>Hunting, how long they look around at each spot.</summary>
     public required float HuntLookAround { get; init; }
 
+    /// <summary>In a team round, farther than this from the other team's starts a hunt heads for their end (0: never).</summary>
+    public required float HuntTowardEnemyBeyond { get; init; }
+
     /// <summary>How far a contact shout carries to teammates (halved through walls).</summary>
     public required float CalloutRange { get; init; }
 
@@ -402,6 +405,7 @@ public sealed class BotConfig
             SquadCalloutGap = brain.SquadCalloutGap_s,
             HuntChoices = brain.HuntChoices,
             HuntLookAround = brain.HuntLookAround_s,
+            HuntTowardEnemyBeyond = brain.HuntTowardEnemyBeyond_m,
             CalloutRange = brain.CalloutRange_m,
             ContactError = brain.ContactError_m,
             ShareInterval = brain.ShareInterval_s,

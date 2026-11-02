@@ -607,3 +607,109 @@ New tests:
 
 PR G: rolling ground on Thornwick Woods (hills, dips, banks, a stream bed), bots taking the buggies in plain team rounds,
 and a quicker load.
+
+## M5.8 (G) — Rolling ground, bots driving in team rounds, a quicker load
+
+**Branch:** `claude/eager-cannon-c05kkv-terrain` (on F's)
+
+### What was built
+
+Tim's third call on Thornwick Woods: ground that rolls, bots that take the buggies in plain team rounds, and a load
+time near the other areas'.
+
+- **Thornwick Woods rolls** (`terrain` in its level file, made by `tools/levels/thornwick_woods.py`):
+  - *Hills:* in the fields and the woods, the biggest 4.5 m in Rookery Wood and 4 m in Blackthorn Wood. The fort's
+    lookout and stockade stand on a 1.6 m knoll.
+  - *Banks:* the north lane runs sunk between banks; another runs along the west track; a berm crosses the north field.
+  - *Dips:* one west of the crossroads, a quarry dip by the east fence, and Rookery Wood's hollow.
+  - *The brook:* from the west fence past the farm into Rookery hollow, 0.8 m deep, its bed of mud. The lane, the
+    east track and the ring ford it.
+  - *Gentle unevenness everywhere:* long swells over the fields and small bumps a wheel feels.
+  - *Level ground where it should be:* under the buildings, in the yards, round the parked buggies, along the hedges
+    and along the fence, so walls and buildings stand true.
+  - *Where it's built:* in the sim (`Terrain`), the same on every copy. Paint breaks on it, sight lines stop at it,
+    wheels ride it, bots walk it and players walk on it as a height map, all on the same triangles. Paint and tyres know
+    the brook's mud from the fields' grass and the woods' leaf litter.
+- **Everything outdoors stands on it.** Buildings stand on their level ground. Props stand at the lowest ground under
+  them, a little into a slope rather than floating off it, and trees a little into it. The hedges and the fence run
+  from the ground along them, and the tracks lie on it in pieces of at most 1 m. Starts, patrols, pickups, the case's
+  spots, the ways out, the viewpoints and where the out walk to are all on it.
+- **How it looks.** The ground is drawn in chunks, exactly the sim's triangles, shaded by its slopes. Leaf litter, a yard's
+  dirt and the brook's mud are drawn over the grass with ragged edges that wander like real ones, not the grid's
+  sawtooth. The brook has shallow dark water in it, with a strip of mud showing either side; it's looks only, so paint
+  and people go through to the mud. Weeds, worn paths, ground litter and the rest follow the slopes.
+- **Bots drive in team rounds.** In a team round, a bot with nothing to go on hunts toward the other side's end of the
+  site (from 100 m away). On Thornwick Woods that's far enough for a buggy, so with one standing empty within 50 m (it
+  was 30) it drives the tracks there. The same 4 v 4 that had no drives and ran out of time before had two drives and
+  was decided in 90 s; three more seeds had two drives each.
+- **A quicker load.** The game prints each part of a level's load as one `Load:` line. Headless on this 4-core container,
+  from the menu's pick to the round being ready:
+
+  | Area | Before | Now |
+  |---|---|---|
+  | Thornwick Woods | 20.3 s | 12.5 s |
+  | Oxbarrow Works | 14.7 s | 11.0 s |
+
+  - *The bots' landmark tables* (3.7 s of Thornwick's 4.4 s grid) are worked out on another thread while the rest
+    loads. Every search waits for them first, so bots decide exactly as before.
+  - *The methods compiled up front* (1.2 s) compile on a worker thread from the start of the load.
+  - *The markings' texture* (1.7 s) paints its cells side by side on the cores.
+  - *The ground survey* finds the slabs near a point without asking them all. The tracks' hundreds of short pieces had
+    the weeds taking 20 s without it.
+  - The terrain's meshes and the woods' bark skip the engine's slow tangent generator.
+
+### How it looks
+
+From a little above eye height, under software rendering:
+
+![The brook and the lane's ford from the farmyard, before (flat) and now](phase-5/g-ford.jpg)
+![The sunken north lane; the ring climbing over Blackthorn Wood's hill](phase-5/g-lane-hill.jpg)
+![Rookery Wood's hollow, where the brook ends; the fort on its knoll beyond the hedge](phase-5/g-hollow-fort.jpg)
+
+### How to run it
+
+```bash
+godot --path game res://scenes/Level.tscn -- --level=thornwick_woods --mode=teams --size=4
+godot --path game res://scenes/Level.tscn -- --bot-match --level=thornwick_woods --mode=teams --size=4 --min-drives=1
+python3 tools/levels/thornwick_woods.py game/data/levels    # after changing the hills, banks or brook in the script
+```
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `dotnet test tests/Pb.Sim.Tests` | 557 passed (13 new: 12 in `TerrainTests`, 1 in `ThornwickWoodsTests`) |
+| `dotnet test tests/Pb.Net.Tests` | 73 passed |
+| `tools/ci/smoke-test.sh` | CHECKS_SMOKE |
+| `dotnet run -c Release --project tools/Pb.Bench` | Thornwick Woods with ten players and 1,000 balls: 0.495 ms a tick (F: 0.492). 1,000 balls on their own: 0.287 ms (F: 0.304): a sweep that stays above the highest ground in the blocks under it skips the ground. The server's networked step there is 0.507 ms against its 0.5 ms budget (F: 0.493), within the run-to-run spread on this container. Its bots' grid builds in 186 ms, its landmarks ready 1.7 s later alongside the load (F: 1,755 ms in all). |
+
+New tests:
+- `TerrainTests`:
+  - Thornwick rolls: its hills, the hollow, the sunken lane, the brook lower than its banks and of mud, the lane
+    dipping through the ford.
+  - It's level under the buildings and on the fort's knoll, and everything placed stands on it.
+  - Sweeps meet it where its heights say: 400 random rays each with no radius, a ball's and a wheel probe's, against a
+    marching reference (within 1 cm, 1.6 cm for the probe).
+  - Paint and sight find the right surface there: mud, turf, leaf litter and the lane's gravel. The north field's rise
+    hides a crouching player.
+  - It builds the same twice (in 133 ms with the rest of the level).
+  - A bot walks down through the brook and over a rise.
+  - A buggy dips through the ford (1.1 m down, 21° at most, at up to 12 m/s) and climbs over Blackthorn hill on the ring.
+  - One parked across a slope stays put.
+- `ThornwickWoodsTests`:
+  - two hunters a side, at the north and south gates, take a buggy toward the other end;
+  - the grid builds in under 2.5 s, its landmarks after.
+
+### Known issues
+
+- Where the grid is coarse for it (1 m), a cover's edge is ragged by design but its line still follows the grid's
+  points: from up high a yard's corner is rounder than its rectangle.
+- Ground cards (leaves, stones) need a nearly level spot, so there are fewer on the slopes than on the flat.
+- The brook's water is a flat strip at each point's height, so it rises and falls a little with the ground along its
+  line rather than running strictly downhill.
+- The engine's own height map for walking (Jolt) may split its squares the other way from the sim; on this ground that's
+  under a centimetre underfoot.
+
+### What's next
+
+Tim's call: anything from the play-test of E, F and G.

@@ -141,7 +141,7 @@ public partial class GroundDetail : Node3D
             foreach (LevelPrimitive p in level.Primitives)
             {
                 Aabb b = p.Bounds;
-                if (p.Role != PrimitiveRole.Wall || p.Kind != PrimitiveKind.Box || b.Min.Y > GroundSurvey.GroundTop || b.Max.Y - b.Min.Y < 0.5f)
+                if (p.Role != PrimitiveRole.Wall || p.Kind != PrimitiveKind.Box || _survey.Raised(p.Center.X, p.Center.Z, b.Min.Y) || b.Max.Y - b.Min.Y < 0.5f)
                 {
                     continue;
                 }
@@ -186,7 +186,7 @@ public partial class GroundDetail : Node3D
         private bool Fits(HashSet<string> on, string sky, float x, float z, float width, float length, out float y, out float yaw)
         {
             yaw = R(0f, Mathf.Tau);
-            if (!on.Contains(_survey.SurfaceAt(x, z, out y)) || y >= GroundSurvey.GroundTop)
+            if (!on.Contains(_survey.SurfaceAt(x, z, out y)) || _survey.Raised(x, z, y))
             {
                 return false;
             }

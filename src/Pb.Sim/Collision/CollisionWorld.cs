@@ -80,7 +80,7 @@ public sealed class CollisionWorld : ICollisionWorld
     {
         var collider = new Collider(_colliders.Count, shape, surface, name, dynamic);
         _colliders.Add(collider);
-        (shape is PlaneShape ? _planes : _gridded).Add(collider.Id);
+        (shape.Everywhere ? _planes : _gridded).Add(collider.Id);
         _dirty = true;
         return collider;
     }
@@ -209,6 +209,7 @@ public sealed class CollisionWorld : ICollisionWorld
 
         hit.T = best;
         hit.Point = from + d * best;
+        hit.Surface = _colliders[hit.ColliderId].Shape.SurfaceAt(hit.Point, hit.Surface);
         return true;
     }
 
@@ -241,6 +242,7 @@ public sealed class CollisionWorld : ICollisionWorld
 
         hit.T = best;
         hit.Point = from + d * best;
+        hit.Surface = _colliders[hit.ColliderId].Shape.SurfaceAt(hit.Point, hit.Surface);
         return true;
     }
 

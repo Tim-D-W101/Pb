@@ -1393,10 +1393,20 @@ public sealed partial class BotBrain
         Span<float> distances = stackalloc float[MaxChoices];
         int choices = Math.Clamp(_b.HuntChoices, 1, MaxChoices);
         int found = 0;
+        // In a team round, far from the other side's end of the site, the hunt heads there (M5.8): its next spot is among
+        // those nearest their end, on a big site often far enough for a buggy.
+        Vector3 toward = Self.Position;
+        if (_b.HuntTowardEnemyBeyond > 0f && _sim.Match is { Setup.Mode: MatchModeKind.Teams } && Self.Team < 2 &&
+            _squad.SideStart(1 - Self.Team, out Vector3 theirs) && FlatDistance(Self.Position, theirs) > _b.HuntTowardEnemyBeyond)
+        {
+            toward = theirs;
+        }
+
         for (int i = 0; i < level.OpponentSpawns.Count; i++)
         {
-            float d = FlatDistance(Self.Position, level.OpponentSpawns[i].Position);
-            if (_huntVisited[i] || d <= 2f)
+            Vector3 spot = level.OpponentSpawns[i].Position;
+            float d = FlatDistance(toward, spot);
+            if (_huntVisited[i] || FlatDistance(Self.Position, spot) <= 2f)
             {
                 continue;
             }

@@ -274,7 +274,7 @@ public partial class WeedField : Node3D
             {
                 Aabb bounds = p.Bounds;
                 if (p.Role is not (PrimitiveRole.Wall or PrimitiveRole.Prop or PrimitiveRole.Column) || !p.Has(PrimitiveFlags.Paint) ||
-                    bounds.Min.Y > GroundTop || bounds.Max.Y - bounds.Min.Y < 0.2f)
+                    _survey.Raised(p.Center.X, p.Center.Z, bounds.Min.Y) || bounds.Max.Y - bounds.Min.Y < 0.2f)
                 {
                     continue;
                 }

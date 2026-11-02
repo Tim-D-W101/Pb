@@ -88,7 +88,7 @@ run match-escort res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-ar
 run match-rail-yard-flag res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=flag --level=rail_yard
 run match-hospital-wing-escort res://scenes/Level.tscn -- --bot-match --time-limit=150 --no-art --mode=teams --size=4 --objective=escort --level=hospital_wing
 run level-thornwick-woods res://scenes/Level.tscn -- "--smoke-test=$level_ticks" --level=thornwick_woods
-run match-thornwick-woods res://scenes/Level.tscn -- --bot-match --time-limit=180 --no-art --mode=teams --size=4 --level=thornwick_woods
+run match-thornwick-woods res://scenes/Level.tscn -- --bot-match --time-limit=180 --no-art --mode=teams --size=4 --level=thornwick_woods --min-drives=1
 run match-thornwick-woods-flag res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art --mode=teams --size=4 --objective=flag --level=thornwick_woods --seed=7 --min-drives=1
 run vehicle res://scenes/Level.tscn -- --vehicle-demo --level=thornwick_woods --no-art
 run gait res://scenes/Level.tscn -- --gait-demo --gait-check

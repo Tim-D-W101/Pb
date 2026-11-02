@@ -111,6 +111,9 @@ public sealed class PresentationDef : IValidatable
 
     public VehicleViewDef VehicleView { get; set; } = new();
 
+    /// <summary>What's drawn of the rolling ground beyond its own surfaces (M5.8): the water in its stream beds.</summary>
+    public TerrainViewDef TerrainView { get; set; } = new();
+
     public YardFittingsDef YardFittings { get; set; } = new();
 
     public PlaceBoundaryDef PlaceBoundary { get; set; } = new();
@@ -214,6 +217,7 @@ public sealed class PresentationDef : IValidatable
         FloorDebris.Validate(v.Scope(nameof(FloorDebris)));
         Woods.Validate(v.Scope(nameof(Woods)));
         VehicleView.Validate(v.Scope(nameof(VehicleView)));
+        TerrainView.Validate(v.Scope(nameof(TerrainView)));
         YardFittings.Validate(v.Scope(nameof(YardFittings)));
         PlaceBoundary.Validate(v.Scope(nameof(PlaceBoundary)));
         WallHangings.Validate(v.Scope(nameof(WallHangings)));
@@ -4777,6 +4781,31 @@ public sealed class DummyViewDef : IValidatable
 /// swaying with the pulls of driving and shaken by the ground and the engine, the view widening at speed; the steering
 /// wheel turning with the front wheels; and what the tyres throw up off each kind of ground.
 /// </summary>
+/// <summary>The water in the rolling ground's stream beds (M5.8): looks only; paint and people go through it.</summary>
+public sealed class TerrainViewDef : IValidatable
+{
+    /// <summary>How far over the bed's bottom the water's surface lies (m).</summary>
+    public float WaterDepth_m { get; set; } = 0.1f;
+
+    /// <summary>How far in from the foot of each bank the water's edge is (m), so a strip of mud shows either side.</summary>
+    public float WaterInset_m { get; set; } = 0.3f;
+
+    /// <summary>The water's colour (sRGB), how rough its surface is, and how much it reflects.</summary>
+    public string WaterColor { get; set; } = "#2b2e24";
+
+    public float WaterRoughness { get; set; } = 0.06f;
+
+    public float WaterSpecular { get; set; } = 0.6f;
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(WaterDepth_m), WaterDepth_m, 0, 2);
+        v.InRange(nameof(WaterInset_m), WaterInset_m, 0, 5);
+        v.InRange(nameof(WaterRoughness), WaterRoughness, 0, 1);
+        v.InRange(nameof(WaterSpecular), WaterSpecular, 0, 1);
+    }
+}
+
 public sealed class VehicleViewDef : IValidatable
 {
     /// <summary>How much of the body's lean and pitch the seat view takes (0 the horizon stays level, 1 all of it).</summary>

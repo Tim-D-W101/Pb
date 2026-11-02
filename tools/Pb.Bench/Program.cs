@@ -92,7 +92,10 @@ foreach ((string id, LevelLayout level) in data.Levels)
     var watch = Stopwatch.StartNew();
     BotSquad built = BotSquad.ForLevel(probe, data.Bots, level);
     double buildMs = watch.Elapsed.TotalMilliseconds;
-    Console.WriteLine($"**{level.DisplayName}**: navigation grid of {built.Grid.SpanCount:N0} places and {built.Cover.Points.Count} cover points, built at load in {buildMs:0} ms.");
+    built.Grid.WaitForLandmarks();
+    double landmarksMs = watch.Elapsed.TotalMilliseconds;
+    Console.WriteLine($"**{level.DisplayName}**: navigation grid of {built.Grid.SpanCount:N0} places and {built.Cover.Points.Count} cover points, built at load in {buildMs:0} ms " +
+                      $"(its landmarks, worked out alongside the rest of the load, ready {landmarksMs:0} ms after it started).");
     Console.WriteLine();
     Console.WriteLine($"| Bots (hard), with you in the yard | Mean ms/tick (brains) | p95 ms/tick | Max ms/tick | {CpuHeader()} | Path searches | Most places searched in a tick |");
     Console.WriteLine("|---|---|---|---|---|---|---|");

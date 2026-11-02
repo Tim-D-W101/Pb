@@ -83,7 +83,7 @@ public partial class WornPaths : Node3D
             var cells = new SortedDictionary<(int X, int Z), (Vector2 Sum, int Count)>();
             foreach (CoverPoint c in cover)
             {
-                if (c.Position.Y > 0.3f || !on.Contains(survey.SurfaceAt(c.Position.X, c.Position.Z, out _)))
+                if (c.Position.Y - survey.GroundAt(c.Position.X, c.Position.Z) > 0.3f || !on.Contains(survey.SurfaceAt(c.Position.X, c.Position.Z, out _)))
                 {
                     continue;
                 }

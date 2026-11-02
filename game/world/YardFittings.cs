@@ -75,7 +75,7 @@ public partial class YardFittings : Node3D
                 return false;
             }
 
-            if (!on.Contains(survey.SurfaceAt(x, z, out y)) || y >= GroundSurvey.GroundTop || !survey.OpenGround(x, z, 0.05f, out _))
+            if (!on.Contains(survey.SurfaceAt(x, z, out y)) || survey.Raised(x, z, y) || !survey.OpenGround(x, z, 0.05f, out _))
             {
                 return false;
             }
@@ -175,7 +175,7 @@ public partial class YardFittings : Node3D
     private static bool FitsAgainstWall(GroundSurvey survey, HashSet<string> on, Vector3 at, float length, float width, float yaw, out float y)
     {
         y = 0f;
-        if (!on.Contains(survey.SurfaceAt(at.X, at.Z, out y)) || y >= GroundSurvey.GroundTop || !survey.OpenGround(at.X, at.Z, 0.05f, out _))
+        if (!on.Contains(survey.SurfaceAt(at.X, at.Z, out y)) || survey.Raised(at.X, at.Z, y) || !survey.OpenGround(at.X, at.Z, 0.05f, out _))
         {
             return false;
         }
