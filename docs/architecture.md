@@ -1513,7 +1513,7 @@ everything else, so the server rules them and bots drive by the same rules and c
     `enterRadius_m` of its door, or out when the vehicle is below `exitBelow_mps`. They get out beside their seat, or
     on the other side, or behind, whichever is clear. A press while it's too fast is used up.
   - *Driving.* The driver's move input works the pedal (forward and back) and the wheel (left and right). M5.4's
-    vehicle was a bicycle; since M5.7 it's a sprung rigid body (§18.5).
+    vehicle was a bicycle; since M5.7 it's a sprung rigid body (§18.6).
   - *What stops it.* Three spheres along the body are swept against the level's paint colliders; the level's edge and
     other vehicles stop it too. It never hits anyone: it brakes for anyone in the way ahead (or behind, backing) to stop
     `stopShort_m` short of them, and never comes closer than `brush_m` to anyone, whatever the driver does.
@@ -1528,7 +1528,7 @@ everything else, so the server rules them and bots drive by the same rules and c
     0.4 ms without that check.
   - *Network.* Each vehicle's position, turn, speed, wheels, engine and seats travel in the snapshot (`WorldFields`;
     protocol 6 since M5.7), and `VehicleEntered` and `VehicleLeft` travel as events. A joining copy draws the vehicles a
-    little behind the server, like everyone else, except the one its own player drives, which it predicts (§18.5). Its
+    little behind the server, like everyone else, except the one its own player drives, which it predicts (§18.6). Its
     own player's seat comes from the newest snapshot; getting out is put right like any correction.
 - **Bots** (`BotBrain.Driving.cs`, `RoadGraph`).
   - *When.* A bot setting off for somewhere farther than `driveBeyond_m` considers a buggy standing empty within
@@ -1555,7 +1555,7 @@ everything else, so the server rules them and bots drive by the same rules and c
     `AnimatableBody3D` box to walk into. Each draws on a render layer of its own, so paint that hits it stays on it as
     it drives off (`SplatAnchor`).
   - *You.* The view turns with the buggy. The HUD shows the buggy's speed and gear, how to drive, and when you can get
-    out, or how to get in beside one. (The seat's view, the seated characters and the sounds are M5.7's, §18.5.)
+    out, or how to get in beside one. (The seat's view, the seated characters and the sounds are M5.7's, §18.6.)
 - **Checks.**
   - `VehicleTests`: getting in, driving and out; steering; walls and people stopping it; the driver's one-handed
     shots spreading twice the passenger's; someone hit getting out; paint on the body; a new round.
@@ -1567,7 +1567,19 @@ everything else, so the server rules them and bots drive by the same rules and c
     (`--min-drives`), and `--vehicle-demo`, which drives your own buggy and checks your body, the drawn buggy and the
     HUD.
 
-### 18.5 The buggy's handling (as built, M5.7)
+### 18.5 A build to share (as built, M5.5)
+
+The Windows build (`tools/package/windows-build.sh`, §16) already exports `Pb-windows.zip`: Godot's Windows export
+with the .NET runtime bundled, the art in packs of its own, `Play.bat` to keep it up to date, and a manifest of every
+game file's SHA-256. CI builds it on every run and publishes it as the rolling "test-build" release. Phase 5 adds:
+
+- **Numbered releases.** The workflow also runs on version tags (`v*`). For a tag, the build is stamped with the tag's
+  name instead of the commit, and a last step makes a GitHub Release named for the tag, with `Pb-windows.zip`, the
+  dedicated servers and `HOW-TO-PLAY.txt`. Re-running it uploads the files again over the same release.
+- **`HOW-TO-PLAY.txt`** lives in `tools/package/windows/` beside `Play.bat`. The build copies it in with Windows line
+  endings; it's one of the game's own files, so `Play.bat` updates it like the rest.
+
+### 18.6 The buggy's handling (as built, M5.7)
 
 Tim's call on C2: much more realistic buggies, a driver who can shoot (M5.6), and online driving that doesn't lag.
 
