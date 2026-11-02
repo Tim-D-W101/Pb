@@ -2467,26 +2467,48 @@ public sealed partial class BotBrain
         return true;
     }
 
-    /// <summary>A door leaf within a step of this bot's body, and the point a step straight off it.</summary>
+    /// <summary>
+    /// A door leaf within a step of this bot's body, and where to go to get off it. Alongside a hinged leaf, that's round
+    /// its free end on this side of it: in the pocket between a leaf standing open and the wall it opened toward, a step
+    /// straight off the leaf only pressed the bot into the wall, and it planned the same way through the leaf again for
+    /// the rest of the round. Otherwise (or with the way round its end walled off), a step straight off it.
+    /// </summary>
     private bool StuckOnLeaf(out Vector3 off)
     {
         off = default;
         Level.DoorSet doors = _sim.Doors;
         Vector3 body = Self.Position + new Vector3(0f, 1f, 0f);
-        float near = _squad.Config.Navigation.AgentRadius + 0.35f;
+        float radius = _squad.Config.Navigation.AgentRadius;
+        float near = radius + 0.35f;
         for (int i = 0; i < doors.Count; i++)
         {
-            if (doors.Shape(i).DistanceTo(body, out Vector3 nearest) < near)
+            Level.DoorShape shape = doors.Shape(i);
+            if (shape.DistanceTo(body, out Vector3 nearest) >= near)
             {
-                Vector3 away = (body - nearest) with { Y = 0f };
-                if (away.LengthSquared() < 1e-6f)
-                {
-                    continue;
-                }
-
-                off = Self.Position + Vector3.Normalize(away) * 0.6f;
-                return true;
+                continue;
             }
+
+            Vector3 away = (body - nearest) with { Y = 0f };
+            if (away.LengthSquared() < 1e-6f)
+            {
+                continue;
+            }
+
+            off = Self.Position + Vector3.Normalize(away) * 0.6f;
+            Level.DoorSpec s = doors[i];
+            // A hinged leaf's box runs from its hinge (along its X axis) to its free end.
+            if (!s.Sliding && Vector3.Dot(Self.Position - s.Hinge, shape.AxisX) < s.Width)
+            {
+                float side = Vector3.Dot(Self.Position - shape.Center, shape.AxisZ) >= 0f ? 1f : -1f;
+                Vector3 round = s.Hinge + shape.AxisX * (s.Width + radius + 0.25f) + shape.AxisZ * (side * (radius + 0.1f));
+                round.Y = Self.Position.Y;
+                if (Clear(body, round + new Vector3(0f, 1f, 0f)))
+                {
+                    off = round;
+                }
+            }
+
+            return true;
         }
 
         return false;
@@ -2720,9 +2742,9 @@ public sealed partial class BotBrain
             _bestDistance = float.MaxValue;
             if (StuckOnLeaf(out Vector3 off))
             {
-                // Pressed against a door leaf: off it first, then plan again from there.
+                // Pressed against a door leaf: off it first (at a walk, with time to get going), then plan again from there.
                 _unstickTo = off;
-                _unstickFor = 0.5f;
+                _unstickFor = MathF.Min(1.2f, 0.3f + FlatDistance(Self.Position, off) / _sim.Config.Movement.WalkSpeed);
             }
 
             if (++_repaths > 3)

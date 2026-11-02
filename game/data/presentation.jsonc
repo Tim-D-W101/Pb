@@ -1246,7 +1246,8 @@
     // The moment you're hit: the view holds in your eyes for hold_s (a flash of flash_s, the colour draining by
     // desaturate, the paint's colour flooding the edge it came from by tint, the vignette darkening by vignette), then
     // eases out over ease_s to watch yourself put your hand up and walk off; residual of it stays while you watch. HIT!
-    // is textSize_px tall. Everything in the world is muffled to muffleCutoff_hz and opens up again over muffleRecover_s
+    // is textSize_px tall, its middle textAt of the way down the screen (above the incoming-fire arcs' ring, so the arc
+    // pointing back at the ball that got you doesn't strike it through). Everything in the world is muffled to muffleCutoff_hz and opens up again over muffleRecover_s
     // while your ears ring. The settings' hit effect scales the screen's part.
     "hitMoment": {
       "hold_s": 0.45,
@@ -1257,6 +1258,7 @@
       "vignette": 0.85,
       "residual": 0.3,
       "textSize_px": 132,
+      "textAt": 0.2,
       "muffleCutoff_hz": 420,
       "muffleRecover_s": 1.9
     },

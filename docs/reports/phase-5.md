@@ -110,6 +110,46 @@ Quitting now frees the scene and lets .NET finalise what it holds before Godot c
   for a ball that spun off a corner.
 - **Joined players' walk-off** is the host's to start, as before; the camera and the moment play the same.
 
+### After Tim's check of the stack
+
+Tim played the stack (#11 to #18) and found four things wrong on this branch's side; each is fixed here and merged up
+the stack.
+
+- **No splats on walls.** Two causes:
+  - Godot's Compatibility renderer, which it falls back to (OpenGL) on a graphics card or driver without Vulkan, draws no
+    decals at all, so every splat and run of paint was invisible there. Where the renderer draws no decals, splats and
+    runs are now flat cards on the surface (`game/ballistics/PaintCards.cs`), in the decal's frame and size.
+  - The splat demo aimed its square-on shots past the end of the wall it found, printed no result, and its last frame
+    of a capture was empty (the scene freed before the quit). Now it picks the nearest wall with a clear stretch long
+    enough for both runs, keeps its view to the end, and checks: the shots broke on the wall, the glancing ones
+    streaked, a splat was placed for each, and drawn, the screen at each break looks painted against the same view
+    before the first shot. CI runs it headless (`splat`). Under Vulkan and under Compatibility, 12 of the 14 breaks in
+    view look painted (the other two are at a grazing angle far along the wall).
+- **The incoming-paint arcs** were drawn under the paint on your mask and the moment you're hit (the HUD is layer 1,
+  those 5 and 6), so the arc pointing back at the ball that got you was all but hidden. The arcs now have their own
+  layer (7), and HIT! sits higher (`hitMoment.textAt`), clear of their ring. The duel demo now also sends a ball past
+  your head and one breaking close by, and looks at the screen where the HUD says each arc is: all three are on it
+  (with the arcs back under the overlays, the check fails on the Hit arc). CI runs it headless (`duel`).
+- **`ObjectivePacingTests` failed on another machine** (hold, Hospital Wing, seed 4). Its rounds are chaotic, and a
+  machine whose floating point differs a hair plays them differently; the fix is for every round to end, not just the
+  six pinned. A sweep of 32 seeds of that round had 7 still running out the clock, and two causes:
+  - a bot in the pocket between a door standing open and the wall it opened toward stepped straight off the leaf, into
+    the wall, and planned through the leaf again for the rest of the round: it now steps round the leaf's free end
+    (`DoorTests.A_bot_tucked_behind_a_leaf_standing_open_walks_round_its_end`, which fails with the old step);
+  - a bot started on top of a boiler in the boiler house had no way down, and held the room contested: cover on a piece
+    of the bots' grid apart from the one most cover stands on is stranded (`CoverPoint.Stranded`), and nobody starts
+    there (`SpawnVarietyTests.Nobody_starts_somewhere_with_no_way_off`; 37 such points on the Hospital Wing, 42 on the
+    Rail Yard, 8 in the Cold Store).
+
+  Afterwards all 32 seeds of that round ended, and so did 16 seeds each of the other five pinned rounds (112 rounds,
+  none to the clock).
+- **Captures had no sound**: Movie Maker runs Godot's dummy audio driver, and the game started no sounds under it. It
+  now does when writing a movie, which mixes them into the capture's `f.wav`.
+
+| The splat demo's last frame: Vulkan's decals, and the cards under Compatibility (OpenGL) | The three arcs: past your head (pale, left), breaking close by (amber, right) and the one that put you out (red), over the paint on your mask |
+|---|---|
+| ![The splat demo's last frame under Vulkan and under Compatibility](phase-5/a-fix-splats.jpg) | ![The incoming-fire arcs over the hit moment](phase-5/a-fix-arcs.jpg) |
+
 ### What's next
 
 PR B, the characters' animation set.

@@ -138,9 +138,9 @@ public partial class HitMoment : CanvasLayer
         Vector2 size = new(screen.X, _def.TextSize_px * 1.4f);
         _hit.Size = size;
         _hit.PivotOffset = size * 0.5f;
-        _hit.Position = new Vector2(0f, screen.Y * 0.36f - size.Y * 0.5f);
+        _hit.Position = new Vector2(0f, screen.Y * _def.TextAt - size.Y * 0.5f);
         _detail.Size = new Vector2(screen.X, 44f);
-        _detail.Position = new Vector2(0f, screen.Y * 0.36f + size.Y * 0.42f);
+        _detail.Position = new Vector2(0f, screen.Y * _def.TextAt + size.Y * 0.42f);
     }
 
     private static float Smooth(float x)
