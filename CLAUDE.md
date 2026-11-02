@@ -26,7 +26,7 @@ does the collide-and-slide for walking, and renders. Presentation systems implem
 `ISimEventListener` and never change outcomes. Bots (Phase 2) and network clients (Phase 4)
 produce the same `InputCommand`s as humans. Since Phase 2 the game is explorable compound levels
 (see `docs/architecture.md` §14): levels are built from a data kit of analytic primitives, so paint
-collision never needs engine meshes. A level can have rolling ground (`terrain`, §18.6): one height field that paint,
+collision never needs engine meshes. A level can have rolling ground (`terrain`, §18.7): one height field that paint,
 sight, wheels, the bots' grid, walking and the drawn ground all share; heights in the level file are above it.
 
 ## Commands
@@ -37,6 +37,7 @@ dotnet test                                           # Pb.Sim tests (fast, no e
 dotnet run -c Release --project tools/Pb.Bench        # ballistics report + tick cost
 tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end check
 tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in art/*.pck
+git tag v0.5.0 && git push origin v0.5.0              # CI makes a numbered GitHub Release of it (zip, servers, HOW-TO-PLAY.txt)
 tools/package/server-build.sh godot                   # then the dedicated servers: Pb-server-linux.tar.gz, Pb-server-windows.zip
 godot --headless --path game -- --server              # a dedicated server from the source (game/data/server.jsonc; docs/hosting.md)
 tools/ci/net-round.sh godot                           # CI's networked rounds: a dedicated server and five players over UDP, two of them cheating
