@@ -28,9 +28,11 @@ public static class AudioBuses
 
     /// <summary>
     /// Whether nothing can be heard (Godot's dummy driver, as in headless runs). Sounds are still made and counted, but not
-    /// started: the dummy driver never retires a finished playback, so they'd pile up and outlive the game.
+    /// started: the dummy driver never retires a finished playback, so they'd pile up and outlive the game. Writing a
+    /// movie (Movie Maker) runs the dummy driver too, but mixes it a frame at a time into the movie's sound: there they're
+    /// started (a capture's sound was silent, so nothing showed the buggy's engine or anything else playing).
     /// </summary>
-    public static bool Silent { get; } = AudioServer.GetDriverName() == "Dummy";
+    public static bool Silent { get; } = AudioServer.GetDriverName() == "Dummy" && string.IsNullOrEmpty(Engine.GetWriteMoviePath());
 
     /// <summary>Makes the buses if they aren't there yet. A bus can only send to one before it, hence the order.</summary>
     public static void Ensure()
