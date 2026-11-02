@@ -112,6 +112,32 @@ public sealed class BrainDef : IValidatable
 
     public float StrollPace { get; set; }
 
+    public float DriveBeyond_m { get; set; }
+
+    public float DriveVehicleWithin_m { get; set; }
+
+    /// <summary>
+    /// A buggy is taken when the way by it (to its door, along the tracks, on from them) takes at most this many times as
+    /// long as going on foot (M5.8): a long run is what a player would drive instead, if it's no slower to speak of.
+    /// </summary>
+    public float DriveFavour { get; set; } = 1f;
+
+    public float DriveLookEvery_s { get; set; }
+
+    public float DriveLookAhead_m { get; set; }
+
+    public float DriveLookAheadPerSpeed_s { get; set; }
+
+    public float DriveSpeedShare { get; set; }
+
+    public float DriveCornerSpeed_mps { get; set; }
+
+    public float DriveContactRange_m { get; set; }
+
+    public float DriveStuck_s { get; set; }
+
+    public float DriveGetOutWithin_m { get; set; }
+
     public float CalloutCooldown_s { get; set; }
 
     /// <summary>The same bot doesn't shout the same thing again within this.</summary>
@@ -229,6 +255,17 @@ public sealed class BrainDef : IValidatable
         v.InRange(nameof(AimTolerance_deg), AimTolerance_deg, 0.05, 45);
         v.InRange(nameof(WalkOffTime_s), WalkOffTime_s, 1, 600);
         v.InRange(nameof(StrollPace), StrollPace, 0.2, 1);
+        v.InRange(nameof(DriveBeyond_m), DriveBeyond_m, 10, 1000);
+        v.InRange(nameof(DriveVehicleWithin_m), DriveVehicleWithin_m, 2, 200);
+        v.InRange(nameof(DriveFavour), DriveFavour, 0.5, 2);
+        v.InRange(nameof(DriveLookEvery_s), DriveLookEvery_s, 0.1, 60);
+        v.InRange(nameof(DriveLookAhead_m), DriveLookAhead_m, 1, 30);
+        v.InRange(nameof(DriveLookAheadPerSpeed_s), DriveLookAheadPerSpeed_s, 0, 3);
+        v.InRange(nameof(DriveSpeedShare), DriveSpeedShare, 0.2, 1);
+        v.InRange(nameof(DriveCornerSpeed_mps), DriveCornerSpeed_mps, 0.5, 20);
+        v.InRange(nameof(DriveContactRange_m), DriveContactRange_m, 0, 500);
+        v.InRange(nameof(DriveStuck_s), DriveStuck_s, 0.5, 20);
+        v.InRange(nameof(DriveGetOutWithin_m), DriveGetOutWithin_m, 1, 30);
     }
 }
 

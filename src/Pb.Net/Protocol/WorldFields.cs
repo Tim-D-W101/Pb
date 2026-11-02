@@ -1,18 +1,32 @@
+using System.Numerics;
 using Pb.Net.Packing;
 using Pb.Sim;
 using Pb.Sim.Match;
+using Pb.Sim.Vehicles;
 
 namespace Pb.Net.Protocol;
 
 /// <summary>
 /// What every player's snapshot shares, as one list of fields: each player (<see cref="PuppetFields"/>), each door leaf's
-/// openness, then the round (its phase and clock, the result, the objective, the pickups taken). Laid out once per round,
-/// the same on every copy, from the round's players and level.
+/// openness, each vehicle (where it is, which way it faces, its speed and wheels, who's in each seat), then the round
+/// (its phase and clock, the result, the objective, the pickups taken). Laid out once per round, the same on every copy,
+/// from the round's players and level.
 /// </summary>
 public sealed class WorldFields
 {
     public const int DoorBits = 10;
     public const int MaxPickups = 64;
+
+    /// <summary>A vehicle's fields before its seats: x, y, z, yaw, speed, steer.</summary>
+    private const int VehicleHead = 6;
+
+    private const int YawBits = 12, SpeedBits = 10, SteerBits = 8, SeatBits = 5;
+
+    /// <summary>The fastest a vehicle is sent as going, either way (m/s).</summary>
+    private const float MaxVehicleSpeed = 16f;
+
+    /// <summary>The most a vehicle's wheels are sent as turned, either way (rad).</summary>
+    private const float MaxSteer = 1f;
 
     private const int MatchCount = 29;
 
@@ -21,12 +35,23 @@ public sealed class WorldFields
 
     private readonly byte[] _widths;
 
-    public WorldFields(int players, int doors, in PositionQuant grid)
+    private readonly int[] _vehicleAt;
+    private readonly int _vehicleFields;
+
+    public WorldFields(int players, int doors, in PositionQuant grid, IReadOnlyList<VehicleState>? vehicles = null)
     {
         Players = players;
         Doors = doors;
         Grid = grid;
-        Count = players * PuppetFields.Count + doors + MatchCount;
+        Vehicles = vehicles?.Count ?? 0;
+        _vehicleAt = new int[Vehicles + 1];
+        for (int v = 0; v < Vehicles; v++)
+        {
+            _vehicleAt[v + 1] = _vehicleAt[v] + VehicleHead + vehicles![v].Occupants.Length;
+        }
+
+        _vehicleFields = _vehicleAt[Vehicles];
+        Count = players * PuppetFields.Count + doors + _vehicleFields + MatchCount;
         _widths = new byte[Count];
         Span<byte> puppet = stackalloc byte[PuppetFields.Count];
         PuppetFields.Widths(grid, puppet);
@@ -38,6 +63,18 @@ public sealed class WorldFields
         for (int d = 0; d < doors; d++)
         {
             _widths[DoorsAt + d] = DoorBits;
+        }
+
+        for (int v = 0; v < Vehicles; v++)
+        {
+            Span<byte> w = _widths.AsSpan(VehiclesAt + _vehicleAt[v], _vehicleAt[v + 1] - _vehicleAt[v]);
+            w[0] = (byte)grid.BitsX;
+            w[1] = (byte)grid.BitsY;
+            w[2] = (byte)grid.BitsZ;
+            w[3] = YawBits;
+            w[4] = SpeedBits;
+            w[5] = SteerBits;
+            w[VehicleHead..].Fill(SeatBits); // who's in each seat + 1
         }
 
         Span<byte> m = _widths.AsSpan(MatchAt);
@@ -74,6 +111,8 @@ public sealed class WorldFields
 
     public int Doors { get; }
 
+    public int Vehicles { get; }
+
     public PositionQuant Grid { get; }
 
     public int Count { get; }
@@ -82,7 +121,9 @@ public sealed class WorldFields
 
     private int DoorsAt => Players * PuppetFields.Count;
 
-    private int MatchAt => DoorsAt + Doors;
+    private int VehiclesAt => DoorsAt + Doors;
+
+    private int MatchAt => VehiclesAt + _vehicleFields;
 
     public Span<uint> Puppet(Span<uint> fields, int player) => fields.Slice(player * PuppetFields.Count, PuppetFields.Count);
 
@@ -99,6 +140,20 @@ public sealed class WorldFields
         for (int d = 0; d < Doors; d++)
         {
             into[DoorsAt + d] = Quant.Range(sim.Doors.Open(d), 0f, 1f, DoorBits);
+        }
+
+        for (int v = 0; v < Vehicles && v < sim.Vehicles.Count; v++)
+        {
+            VehicleState car = sim.Vehicles[v];
+            Span<uint> f = Vehicle(into, v);
+            Grid.Quantize(car.Position, out f[0], out f[1], out f[2]);
+            f[3] = Quant.Angle(car.Yaw, YawBits);
+            f[4] = Quant.Range(car.Speed, -MaxVehicleSpeed, MaxVehicleSpeed, SpeedBits);
+            f[5] = Quant.Range(car.Steer, -MaxSteer, MaxSteer, SteerBits);
+            for (int s = 0; s < car.Occupants.Length && VehicleHead + s < f.Length; s++)
+            {
+                f[VehicleHead + s] = (uint)(car.Occupants[s] + 1);
+            }
         }
 
         Span<uint> m = into.Slice(MatchAt, MatchCount);
@@ -154,6 +209,58 @@ public sealed class WorldFields
             }
         }
     }
+
+    /// <summary>
+    /// A joining copy: the vehicles <paramref name="t"/> of the way from snapshot <paramref name="a"/> to <paramref name="b"/>
+    /// (drawn, like everyone else, a little behind the server), and who's in them as the nearer has it. This copy's own
+    /// player's seat is <see cref="SeatOf"/>'s, from the newest.
+    /// </summary>
+    public void ApplyVehicles(SimWorld sim, ReadOnlySpan<uint> a, ReadOnlySpan<uint> b, float t)
+    {
+        Span<int> occupants = stackalloc int[8];
+        for (int v = 0; v < Vehicles && v < sim.Vehicles.Count; v++)
+        {
+            ReadOnlySpan<uint> fa = Vehicle(a, v), fb = Vehicle(b, v), near = t < 0.5f ? fa : fb;
+            Vector3 position = Vector3.Lerp(Grid.Dequantize(fa[0], fa[1], fa[2]), Grid.Dequantize(fb[0], fb[1], fb[2]), t);
+            float ya = Quant.FromAngle(fa[3], YawBits), yb = Quant.FromAngle(fb[3], YawBits);
+            float turn = MathF.IEEERemainder(yb - ya, MathF.Tau);
+            float speed = Lerp(Quant.FromRange(fa[4], -MaxVehicleSpeed, MaxVehicleSpeed, SpeedBits),
+                Quant.FromRange(fb[4], -MaxVehicleSpeed, MaxVehicleSpeed, SpeedBits), t);
+            float steer = Lerp(Quant.FromRange(fa[5], -MaxSteer, MaxSteer, SteerBits), Quant.FromRange(fb[5], -MaxSteer, MaxSteer, SteerBits), t);
+            int seats = Math.Min(occupants.Length, near.Length - VehicleHead);
+            for (int s = 0; s < seats; s++)
+            {
+                occupants[s] = (int)near[VehicleHead + s] - 1;
+            }
+
+            sim.Vehicles.ApplyServer(v, position, ya + turn * t, speed, steer, occupants[..seats], sim.Players, sim.LocalPlayerId);
+        }
+    }
+
+    /// <summary>The vehicle and seat <paramref name="playerId"/> is in as <paramref name="fields"/> have it, or (−1, −1).</summary>
+    public (int Vehicle, int Seat) SeatOf(ReadOnlySpan<uint> fields, int playerId)
+    {
+        for (int v = 0; v < Vehicles; v++)
+        {
+            ReadOnlySpan<uint> f = Vehicle(fields, v);
+            for (int s = VehicleHead; s < f.Length; s++)
+            {
+                if ((int)f[s] - 1 == playerId)
+                {
+                    return (v, s - VehicleHead);
+                }
+            }
+        }
+
+        return (-1, -1);
+    }
+
+    private Span<uint> Vehicle(Span<uint> fields, int v) => fields.Slice(VehiclesAt + _vehicleAt[v], _vehicleAt[v + 1] - _vehicleAt[v]);
+
+    private ReadOnlySpan<uint> Vehicle(ReadOnlySpan<uint> fields, int v) =>
+        fields.Slice(VehiclesAt + _vehicleAt[v], _vehicleAt[v + 1] - _vehicleAt[v]);
+
+    private static float Lerp(float a, float b, float t) => a + (b - a) * t;
 
     /// <summary>A joining copy: the round and the pickups as a snapshot has them (the newest, for your own player's sake).</summary>
     public void ApplyRound(SimWorld sim, ReadOnlySpan<uint> fields)

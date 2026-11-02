@@ -41,6 +41,11 @@ public sealed class NavGridMover
         }
 
         MovementResult result = MovementModel.Step(state, cmd, _sim.Config.Movement, dt, grounded, _sim.Collision, _sim.Ladders);
+        if (result.Seated)
+        {
+            return; // the vehicle carries it
+        }
+
         if (result.Climbing)
         {
             // Straight along the ladder: nothing on the grid holds a climber.

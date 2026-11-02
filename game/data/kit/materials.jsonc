@@ -53,6 +53,11 @@
     { "id": "drum_rust", "surface": "metal", "color": "#6d3f27", "pattern": "rust", "tile_m": 0.3, "roughness": 0.80, "weathering": 0.80, "metallic": 0.3, "albedo": "res://art/textures/drum_rust_albedo.jpg", "normal": "res://art/textures/drum_rust_normal.jpg", "roughnessMap": "res://art/textures/drum_rust_roughness.jpg", "breakUpRepeat": true },
 
     // Soft stuff
+    // Bark on the woods' trunks (drawn, no photo yet).
+    { "id": "tree_bark", "surface": "wood", "color": "#4a3f33", "pattern": "wood", "tile_m": 0.8, "roughness": 0.95, "weathering": 0.4 },
+    // Thornwick Woods' ground: the fields' grass, and the leaf litter under the woods.
+    { "id": "grass_field", "surface": "turf", "color": "#5d7140", "pattern": "grass", "tile_m": 3.0, "roughness": 0.98, "weathering": 0.15, "breakUpRepeat": true },
+    { "id": "leaf_litter", "surface": "dirt", "color": "#5e4c36", "pattern": "dirt", "tile_m": 2.5, "roughness": 0.98, "weathering": 0.35, "breakUpRepeat": true },
     { "id": "wood_planks", "surface": "wood", "color": "#896a4b", "pattern": "wood", "tile_m": 0.8, "roughness": 0.85, "weathering": 0.60, "albedo": "res://art/textures/wood_planks_albedo.jpg", "normal": "res://art/textures/wood_planks_normal.jpg", "roughnessMap": "res://art/textures/wood_planks_roughness.jpg" },
     { "id": "wood_pallet", "surface": "wood", "color": "#a1845d", "pattern": "wood", "tile_m": 0.48, "roughness": 0.90, "weathering": 0.20, "albedo": "res://art/textures/wood_pallet_albedo.jpg", "normal": "res://art/textures/wood_pallet_normal.jpg", "roughnessMap": "res://art/textures/wood_pallet_roughness.jpg" },
     { "id": "wood_laminate", "surface": "wood", "color": "#9a7148", "pattern": "wood", "tile_m": 1.4, "roughness": 0.60, "weathering": 0.40, "albedo": "res://art/textures/wood_laminate_albedo.jpg", "normal": "res://art/textures/wood_laminate_normal.jpg", "roughnessMap": "res://art/textures/wood_laminate_roughness.jpg", "breakUpRepeat": true },

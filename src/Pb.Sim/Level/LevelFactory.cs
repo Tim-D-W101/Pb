@@ -197,6 +197,68 @@ public static class LevelFactory
             });
         }
 
+        // Woods: each trunk a cylinder paint, sight and walking meet, tall enough to hide behind (the crown is looks only).
+        var trees = new List<TreeSpec>();
+        for (int i = 0; def.Woods is not null && i < def.Woods.Length; i++)
+        {
+            TreeStandDef wood = def.Woods[i];
+            MaterialRef bark = Material(errors.Item(nameof(LevelDef.Woods), i), "material", "tree_bark");
+            int owner = Owner($"wood:{wood.Name}");
+            foreach (TreeSpec tree in WoodsGrower.Grow(wood))
+            {
+                float trunk = tree.Height * WoodsGrower.TrunkShare;
+                sink.AddCylinder(PlanFrame.Identity, tree.Foot + new Vector3(0f, trunk * 0.5f, 0f), Quaternion.Identity, tree.Radius, trunk * 0.5f, bark,
+                    PrimitiveFlags.Paint | PrimitiveFlags.Walk | PrimitiveFlags.Cover, PrimitiveRole.Column, owner);
+                trees.Add(tree);
+            }
+        }
+
+        // Roads: strips on the ground (paint sees their surface, as with ground patches), a disc at each bend.
+        var roads = new List<RoadSpec>();
+        for (int i = 0; def.Roads is not null && i < def.Roads.Length; i++)
+        {
+            RoadDef r = def.Roads[i];
+            Validator item = errors.Item(nameof(LevelDef.Roads), i);
+            MaterialRef m = Material(item, nameof(RoadDef.Material), r.Material);
+            if (r.Points_m.Length < 2 || r.Points_m.Any(p => p is not { Length: 2 }))
+            {
+                continue; // already reported
+            }
+
+            Vector3[] points = r.Points_m.Select(p => new Vector3(p[0], 0f, p[1])).ToArray();
+            int owner = Owner($"road:{r.Name}");
+            const float lift = 0.006f, half = 0.025f; // just above any ground patch under it
+            for (int k = 1; k < points.Length; k++)
+            {
+                Vector3 a = points[k - 1], b = points[k];
+                float length = Vector3.Distance(a, b);
+                if (length < 1e-3f)
+                {
+                    continue;
+                }
+
+                Vector3 along = (b - a) / length;
+                Quaternion turn = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.Atan2(along.X, along.Z));
+                sink.AddBox(PlanFrame.Identity, (a + b) * 0.5f + new Vector3(0f, lift - half, 0f), turn, new Vector3(r.Width_m * 0.5f, half, length * 0.5f), m,
+                    PrimitiveFlags.Paint | PrimitiveFlags.Render, PrimitiveRole.GroundPatch, owner);
+            }
+
+            for (int k = 1; k + 1 < points.Length; k++)
+            {
+                sink.AddCylinder(PlanFrame.Identity, points[k] + new Vector3(0f, lift - half, 0f), Quaternion.Identity, r.Width_m * 0.5f, half, m,
+                    PrimitiveFlags.Paint | PrimitiveFlags.Render, PrimitiveRole.GroundPatch, owner);
+            }
+
+            roads.Add(new RoadSpec { Name = r.Name, Points = points, Width = r.Width_m, Material = kit.Materials[m.Index] });
+        }
+
+        var vehicles = new List<VehicleSpot>();
+        for (int i = 0; def.Vehicles is not null && i < def.Vehicles.Length; i++)
+        {
+            VehiclePlacementDef v = def.Vehicles[i];
+            vehicles.Add(new VehicleSpot(v.Vehicle, Validator.ToVector3(v.Position_m), v.Yaw_deg * Units.DegreesToRadians));
+        }
+
         // Invisible walking walls along the bounds.
         var bounds = new Aabb(Validator.ToVector3(def.BoundsMin_m), Validator.ToVector3(def.BoundsMax_m));
         AddBoundary(sink, bounds, ground.Ref, Owner("bounds"));
@@ -307,6 +369,10 @@ public static class LevelFactory
             Viewpoints = viewpoints,
             Objectives = objectives,
             Tracks = tracks,
+            Trees = trees,
+            Roads = roads,
+            VehicleSpots = vehicles,
+            NavCellSize = def.NavCellSize_m,
             Places = places,
             Place = places.FirstOrDefault(p => p.Whole),
         };

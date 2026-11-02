@@ -1197,6 +1197,22 @@ public sealed class LevelDef : IValidatable
     [Optional]
     public TrackDef[]? Tracks { get; set; }
 
+    /// <summary>Woods: trees scattered over rectangles (Phase 5: the woodsball site).</summary>
+    [Optional]
+    public TreeStandDef[]? Woods { get; set; }
+
+    /// <summary>Roads and tracks to drive on: drawn on the ground, and the way bots drive.</summary>
+    [Optional]
+    public RoadDef[]? Roads { get; set; }
+
+    /// <summary>Where the vehicles stand when the round starts.</summary>
+    [Optional]
+    public VehiclePlacementDef[]? Vehicles { get; set; }
+
+    /// <summary>The bots' grid spacing here, when not navigation.jsonc's (a big level's coarser grid loads faster).</summary>
+    [Optional]
+    public float NavCellSize_m { get; set; }
+
     /// <summary>
     /// Where in the level you can choose to play, in menu order: the whole of it (a place without a rect),
     /// or a part, with the round kept inside it. Every place is open.
@@ -1209,6 +1225,14 @@ public sealed class LevelDef : IValidatable
         v.NotEmpty(nameof(DisplayName), DisplayName);
         Objectives?.Validate(v.Scope(nameof(Objectives)));
         LevelDefChecks.Items(v, nameof(Tracks), Tracks);
+        LevelDefChecks.Items(v, nameof(Woods), Woods);
+        LevelDefChecks.Items(v, nameof(Roads), Roads);
+        LevelDefChecks.Items(v, nameof(Vehicles), Vehicles);
+        if (NavCellSize_m != 0f)
+        {
+            // Coarser than this and the kit's narrowest doors (0.9 m, less a bot's width each side) might fall between places.
+            v.InRange(nameof(NavCellSize_m), NavCellSize_m, 0.2, 0.38);
+        }
         LevelDefChecks.Items(v, nameof(Viewpoints), Viewpoints);
         if (Places.Length == 0 || Places[0].Rect_m is not null || Places[0].Id != "whole")
         {
@@ -1745,3 +1769,103 @@ internal static class LevelDefChecks
 }
 
 #pragma warning restore CA1707
+
+/// <summary>
+/// A wood: trees scattered over a rectangle of the plan (x0, z0, x1, z1), about one to every <see cref="Spacing_m"/>
+/// square (a jittered grid, with a share of the cells left empty for glades), none in the clearings, dealt from
+/// <see cref="Seed"/> so every copy of a round grows the same wood. Each trunk is a cylinder paint, sight and walking all
+/// meet (the canopy above is looks only).
+/// </summary>
+public sealed class TreeStandDef : IValidatable
+{
+    public string Name { get; set; } = "";
+
+    public float[] Rect_m { get; set; } = Array.Empty<float>();
+
+    /// <summary>Mean distance between neighbouring trees.</summary>
+    public float Spacing_m { get; set; }
+
+    /// <summary>Share of the grid's cells with no tree (glades, the odd gap).</summary>
+    [Optional]
+    public float Gaps { get; set; } = 0.15f;
+
+    /// <summary>The trunks' radius at the foot, least and most.</summary>
+    public float[] TrunkRadius_m { get; set; } = Array.Empty<float>();
+
+    /// <summary>The trees' height, least and most (the trunk's cylinder is the lower part of it).</summary>
+    public float[] Height_m { get; set; } = Array.Empty<float>();
+
+    /// <summary>Rectangles kept clear of trees: rides, clearings, a road through.</summary>
+    [Optional]
+    public float[][]? Clear_m { get; set; }
+
+    public int Seed { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Name), Name);
+        v.Vector(nameof(Rect_m), Rect_m, 4);
+        v.InRange(nameof(Spacing_m), Spacing_m, 1.5, 50);
+        v.InRange(nameof(Gaps), Gaps, 0, 0.95);
+        v.Vector(nameof(TrunkRadius_m), TrunkRadius_m, 2);
+        v.Vector(nameof(Height_m), Height_m, 2);
+        if (TrunkRadius_m.Length == 2 && (TrunkRadius_m[0] < 0.05f || TrunkRadius_m[1] < TrunkRadius_m[0] || TrunkRadius_m[1] > 1.5f))
+        {
+            v.Error(nameof(TrunkRadius_m), "needs 0.05 ≤ least ≤ most ≤ 1.5");
+        }
+
+        if (Height_m.Length == 2 && (Height_m[0] < 2f || Height_m[1] < Height_m[0] || Height_m[1] > 40f))
+        {
+            v.Error(nameof(Height_m), "needs 2 ≤ least ≤ most ≤ 40");
+        }
+
+        for (int i = 0; Clear_m is not null && i < Clear_m.Length; i++)
+        {
+            v.Vector($"{nameof(Clear_m)}[{i}]", Clear_m[i], 4);
+        }
+    }
+}
+
+/// <summary>A road or track: a line of points on the plan (x, z), so wide, of a ground material.</summary>
+public sealed class RoadDef : IValidatable
+{
+    public string Name { get; set; } = "";
+
+    public float[][] Points_m { get; set; } = Array.Empty<float[]>();
+
+    public float Width_m { get; set; }
+
+    public string Material { get; set; } = "";
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Name), Name);
+        v.InRange(nameof(Width_m), Width_m, 1, 20);
+        if (Points_m.Length < 2)
+        {
+            v.Error(nameof(Points_m), "needs at least two points");
+        }
+
+        for (int i = 0; i < Points_m.Length; i++)
+        {
+            v.Vector($"{nameof(Points_m)}[{i}]", Points_m[i], 2);
+        }
+    }
+}
+
+/// <summary>A vehicle (vehicles.jsonc) standing at a place when the round starts.</summary>
+public sealed class VehiclePlacementDef : IValidatable
+{
+    public string Vehicle { get; set; } = "";
+
+    public float[] Position_m { get; set; } = Array.Empty<float>();
+
+    [Optional]
+    public float Yaw_deg { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Vehicle), Vehicle);
+        v.Vector(nameof(Position_m), Position_m);
+    }
+}

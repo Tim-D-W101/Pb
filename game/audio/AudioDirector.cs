@@ -58,6 +58,7 @@ public partial class AudioDirector : Node, ISimEventListener
     private float _whizzWait;
     private AudioStreamPlayer3D[] _pool = Array.Empty<AudioStreamPlayer3D>();
     private AudioStreamPlayer3D[] _speakers = Array.Empty<AudioStreamPlayer3D>();
+    private AudioStreamPlayer3D[] _engines = Array.Empty<AudioStreamPlayer3D>();
     private int _next;
     private int _nextSpeaker;
     private int _budget;
@@ -225,6 +226,7 @@ public partial class AudioDirector : Node, ISimEventListener
         }
 
         CaseBeacon(dt);
+        Engines();
         Ambience?.Update(dt, _ear, _set);
         _rattleWait -= dt;
         _whizzWait -= dt;
@@ -733,6 +735,57 @@ public partial class AudioDirector : Node, ISimEventListener
         if (!AudioBuses.Silent)
         {
             player.Play();
+        }
+    }
+
+    /// <summary>
+    /// The vehicles' engines: running while someone's at the wheel, higher the faster it goes and the harder it's pushed
+    /// (a loop on a player of its own, following the vehicle).
+    /// </summary>
+    private void Engines()
+    {
+        Pb.Sim.Vehicles.VehicleSet vehicles = _sim.Vehicles;
+        if (_set is null || vehicles.Count == 0)
+        {
+            return;
+        }
+
+        if (_engines.Length != vehicles.Count)
+        {
+            foreach (AudioStreamPlayer3D old in _engines)
+            {
+                old.QueueFree();
+            }
+
+            _engines = new AudioStreamPlayer3D[vehicles.Count];
+            for (int i = 0; i < _engines.Length; i++)
+            {
+                _engines[i] = Player3D(AudioBuses.Effects, _def.UnitSize_m, _def.MaxDistance_m);
+                _engines[i].Stream = _set.Get(Sfx.Engine, 0);
+            }
+        }
+
+        for (int i = 0; i < _engines.Length; i++)
+        {
+            Pb.Sim.Vehicles.VehicleState v = vehicles[i];
+            AudioStreamPlayer3D engine = _engines[i];
+            bool running = v.Driver >= 0 || MathF.Abs(v.Speed) > 0.3f;
+            if (running != engine.Playing && !AudioBuses.Silent)
+            {
+                if (running)
+                {
+                    engine.Play();
+                }
+                else
+                {
+                    engine.Stop();
+                }
+            }
+
+            float pace = MathF.Abs(v.Speed) / MathF.Max(v.Params.MaxSpeed, 1f);
+            engine.GlobalPosition = v.Position.ToGodot() + Vector3.Up * 0.6f;
+            engine.PitchScale = 0.8f + 1.1f * pace + 0.2f * MathF.Abs(v.Throttle);
+            engine.VolumeDb = _def.Volume_db + _mix.Engine + 3f * MathF.Abs(v.Throttle) + 3f * pace;
         }
     }
 

@@ -44,6 +44,11 @@ internal sealed class OpenGroundBody : IPredictedBody
 
         bool grounded = p.Position.Y <= 1e-4f;
         MovementResult r = MovementModel.Step(p, cmd, sim.Config.Movement, dt, grounded, sim.Collision, sim.Ladders);
+        if (r.Seated)
+        {
+            return; // a vehicle carries them
+        }
+
         float vy = r.JumpVelocity > 0f ? r.JumpVelocity : grounded ? 0f : p.Velocity.Y - sim.Config.Movement.Gravity * dt;
         var v = new Vector3(r.HorizontalVelocity.X, vy, r.HorizontalVelocity.Z);
         Vector3 at = p.Position + v * dt;
@@ -107,6 +112,20 @@ internal sealed class NetRig
             TestData.Config.Surfaces.Get("concrete"), "north wall");
     }
 
+    /// <summary>A buggy stands at the origin facing north in this rig's rounds (on every copy).</summary>
+    public bool Buggy { get; set; }
+
+    /// <summary>The ground, and this rig's buggy if it has one.</summary>
+    public void GroundFor(SimWorld sim)
+    {
+        Ground(sim);
+        if (Buggy)
+        {
+            sim.Vehicles.Load(new[] { new Pb.Sim.Level.VehicleSpot("buggy", Vector3.Zero, 0f) }, TestData.Config.Vehicles, sim.Collision,
+                new Pb.Sim.Collision.Aabb(new Vector3(-100f, -2f, -100f), new Vector3(100f, 30f, 100f)), TestData.Config.Surfaces.Get("metal"));
+        }
+    }
+
     public RigClient Join(string name, LagSettings? lag = null, string build = "build-1", string data = "data-1", string password = "",
         ulong seed = 1, string key = "")
     {
@@ -145,7 +164,7 @@ internal sealed class NetRig
             });
         }
 
-        Sim = RoundWorld.Build(TestData.Config, setup, null, Ground);
+        Sim = RoundWorld.Build(TestData.Config, setup, null, GroundFor);
         _commands = new InputCommand[Sim.Players.Count];
         _overSent = false;
         int[] people = roster.Where(r => r.Person).Select(r => r.Id).ToArray();
@@ -334,7 +353,7 @@ internal sealed class RigClient
 
     private void Build(RoundSetupMessage setup)
     {
-        Sim = RoundWorld.Build(TestData.Config, setup, null, NetRig.Ground);
+        Sim = RoundWorld.Build(TestData.Config, setup, null, _rig.GroundFor);
         _commands = new InputCommand[Sim.Players.Count];
         PlayerState? me = Sim.FindPlayer(setup.YourPlayerId);
         _localIndex = me is null ? -1 : Sim.Players.ToList().IndexOf(me);

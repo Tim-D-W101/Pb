@@ -62,6 +62,19 @@
         "outpatients", "theatre", "womens_ward", "courtyard", "main_entrance", "east_stairs", "pharmacy", "sun_ward",
         "boiler_house", "fallen_end"
       ]
+    },
+    {
+      // The big one: seven times the works, so rounds run longer, and there are buggies to cross it in.
+      "id": "thornwick_woods", "displayName": "Thornwick Woods", "file": "levels/thornwick_woods.jsonc",
+      "tiers": [
+        { "id": "easy", "displayName": "Easy", "bots": "easy", "timeLimit_s": 1200, "startPods": 3, "botPods": 1, "pickups": true },
+        { "id": "normal", "displayName": "Normal", "bots": "normal", "timeLimit_s": 1200, "startPods": 2, "botPods": 2, "pickups": true },
+        { "id": "hard", "displayName": "Hard", "bots": "hard", "timeLimit_s": 1020, "startPods": 2, "botPods": 3, "pickups": true }
+      ],
+      "roster": [
+        "farmyard", "barn", "farmhouse", "pump_house", "crossroads", "west_field", "east_field", "middle_copse",
+        "fort_gate", "fort_tower"
+      ]
     }
   ]
 }

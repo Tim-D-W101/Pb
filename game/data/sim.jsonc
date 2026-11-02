@@ -31,6 +31,8 @@
     "brain": "bots/brain.jsonc",
     "senses": "bots/senses.jsonc",
     "archetypes": "bots/archetypes.jsonc",
-    "difficulty": "bots/difficulty.jsonc"
+    "difficulty": "bots/difficulty.jsonc",
+    // Vehicles (Phase 5): what can be driven, and the field's rules for them.
+    "vehicles": "vehicles.jsonc"
   }
 }

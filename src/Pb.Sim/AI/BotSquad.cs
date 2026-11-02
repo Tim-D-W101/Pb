@@ -72,6 +72,41 @@ public sealed class BotSquad
 
     public SimWorld Sim { get; }
 
+    /// <summary>The level's roads, to drive the vehicles along (built when first asked for).</summary>
+    public Vehicles.RoadGraph Roads => _roads ??= Vehicles.RoadGraph.Build(Sim.Level?.Roads ?? Array.Empty<RoadSpec>());
+
+    private Vehicles.RoadGraph? _roads;
+    private BotBrain?[] _vehicleClaims = Array.Empty<BotBrain?>();
+
+    /// <summary>Whether <paramref name="bot"/> may set off for vehicle <paramref name="vehicle"/> (nobody else is).</summary>
+    public bool MayClaimVehicle(int vehicle, BotBrain bot) =>
+        vehicle >= _vehicleClaims.Length || _vehicleClaims[vehicle] is null || _vehicleClaims[vehicle] == bot || !_vehicleClaims[vehicle]!.Self.Alive;
+
+    /// <summary>Marks vehicle <paramref name="vehicle"/> as <paramref name="bot"/>'s to drive, so no other bot sets off for it.</summary>
+    public bool ClaimVehicle(int vehicle, BotBrain bot)
+    {
+        if (_vehicleClaims.Length < Sim.Vehicles.Count)
+        {
+            Array.Resize(ref _vehicleClaims, Sim.Vehicles.Count);
+        }
+
+        if (vehicle < 0 || vehicle >= _vehicleClaims.Length || !MayClaimVehicle(vehicle, bot))
+        {
+            return false;
+        }
+
+        _vehicleClaims[vehicle] = bot;
+        return true;
+    }
+
+    public void ReleaseVehicle(int vehicle, BotBrain bot)
+    {
+        if (vehicle >= 0 && vehicle < _vehicleClaims.Length && _vehicleClaims[vehicle] == bot)
+        {
+            _vehicleClaims[vehicle] = null;
+        }
+    }
+
     public BotConfig Config { get; }
 
     public NavGrid Grid { get; }

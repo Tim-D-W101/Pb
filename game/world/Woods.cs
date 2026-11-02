@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using Pb.Game.Core;
 using Pb.Sim.Data;
+using Pb.Sim.Level;
 
 namespace Pb.Game.World;
 
@@ -156,6 +157,80 @@ public partial class Woods : Node3D
         AddChild(new MultiMeshInstance3D { Name = "Leaves", Multimesh = multimesh, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
     }
 
+    /// <summary>
+    /// A level's own woods (<see cref="LevelLayout.Trees"/>): each tree where the sim has its trunk, as thick and upright
+    /// as the sim's cylinder (paint meets that), its look dealt from the tree's own number; in squares
+    /// <see cref="WoodsDef.StandChunk_m"/> on a side, each square's wood and leaves drawn only so far off.
+    /// </summary>
+    public void BuildStands(IReadOnlyList<TreeSpec> trees, WoodsDef def)
+    {
+        foreach (Node child in GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        TreeCount = trees.Count;
+        if (trees.Count == 0)
+        {
+            return;
+        }
+
+        Color[] leaves = Array.ConvertAll(def.LeafColors, c => Color.FromHtml(c).SrgbToLinear());
+        var chunks = new Dictionary<(int, int), (ShapeMesh Wood, List<(Transform3D, Color, Color)> Clumps)>();
+        foreach (TreeSpec tree in trees)
+        {
+            var key = ((int)MathF.Floor(tree.Foot.X / def.StandChunk_m), (int)MathF.Floor(tree.Foot.Z / def.StandChunk_m));
+            if (!chunks.TryGetValue(key, out var chunk))
+            {
+                var wood = new ShapeMesh();
+                wood.Place(Transform3D.Identity, 10f);
+                chunk = (wood, new List<(Transform3D, Color, Color)>());
+                chunks[key] = chunk;
+            }
+
+            var random = new Random(tree.Look);
+            // Neighbouring trees mostly share a colour (a stand of one kind), with the odd other one among them.
+            Color tint = random.NextDouble() < 0.7 ? leaves[(key.Item1 * 7 + key.Item2 * 13 & 0x7fffffff) % leaves.Length] : leaves[random.Next(leaves.Length)];
+            Tree(chunk.Wood, chunk.Clumps, tree.Foot.ToGodot(), tree.Height, tint, random, tree.Radius);
+        }
+
+        var bark = new StandardMaterial3D { AlbedoColor = Color.FromHtml(def.BarkColor), Roughness = 0.95f };
+        _atlas ??= Paint(new Random(0x7EE5));
+        var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/leaves.gdshader") };
+        material.SetShaderParameter("atlas", _atlas);
+        material.SetShaderParameter("cells", (float)Variants);
+        material.SetShaderParameter("sway", def.Sway_m);
+        ArrayMesh clump = ClumpMesh();
+        foreach (((int cx, int cz), (ShapeMesh wood, List<(Transform3D Transform, Color Tint, Color Custom)> clumps)) in chunks)
+        {
+            var mesh = new ArrayMesh();
+            wood.Commit(mesh, _ => bark);
+            AddChild(new MeshInstance3D
+            {
+                Name = $"Wood_{cx}_{cz}", Mesh = ShapeMesh.WithLods(mesh), VisibilityRangeEnd = def.StandWoodRange_m,
+                VisibilityRangeEndMargin = def.StandFade_m, VisibilityRangeFadeMode = GeometryInstance3D.VisibilityRangeFadeModeEnum.Self,
+            });
+            var multimesh = new MultiMesh
+            {
+                TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true, Mesh = clump,
+                InstanceCount = clumps.Count,
+            };
+            for (int i = 0; i < clumps.Count; i++)
+            {
+                multimesh.SetInstanceTransform(i, clumps[i].Transform);
+                multimesh.SetInstanceColor(i, clumps[i].Tint);
+                multimesh.SetInstanceCustomData(i, clumps[i].Custom);
+            }
+
+            AddChild(new MultiMeshInstance3D
+            {
+                Name = $"Leaves_{cx}_{cz}", Multimesh = multimesh, MaterialOverride = material,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityRangeEnd = def.StandLeafRange_m,
+                VisibilityRangeEndMargin = def.StandFade_m, VisibilityRangeFadeMode = GeometryInstance3D.VisibilityRangeFadeModeEnum.Self,
+            });
+        }
+    }
+
     /// <summary>The point <paramref name="along"/> metres round the edge of <paramref name="rect"/>, then <paramref name="out_"/> metres out from it.</summary>
     private static Vector2 Around(Rect2 rect, float along, float out_)
     {
@@ -186,18 +261,22 @@ public partial class Woods : Node3D
     /// branches from the crown's base reaching out and up towards its edge with two smaller ones off
     /// each, and leaf clumps scattered through the outer part of the crown (an ellipsoid).
     /// </summary>
-    private static void Tree(ShapeMesh wood, List<(Transform3D, Color, Color)> clumps, Vector3 root, float height, Color tint, Random random)
+    private static void Tree(ShapeMesh wood, List<(Transform3D, Color, Color)> clumps, Vector3 root, float height, Color tint, Random random,
+        float trunkRadius = 0f)
     {
         float R(float a, float b) => a + (float)random.NextDouble() * (b - a);
         float leanAngle = R(0f, Mathf.Tau);
-        var lean = new Vector3(MathF.Cos(leanAngle), 0f, MathF.Sin(leanAngle)) * R(0f, 0.07f);
-        float radius = height * R(0.017f, 0.023f);
+        // A level's tree stands as straight and as thick as the sim's trunk (paint meets that); the rest lean a little.
+        var lean = trunkRadius > 0f ? Vector3.Zero : new Vector3(MathF.Cos(leanAngle), 0f, MathF.Sin(leanAngle)) * R(0f, 0.07f);
+        float radius = trunkRadius > 0f ? trunkRadius : height * R(0.017f, 0.023f);
         float crownBase = height * R(0.24f, 0.36f);
         Vector3 Trunk(float y) => root + Vector3.Up * y + lean * y;
 
         // The trunk in a few tapering lengths, from a flared foot to a thin leader.
         float[] stops = { 0f, 0.5f, crownBase, height * 0.62f, height * 0.85f };
-        float[] radii = { radius * 1.35f, radius, radius * 0.85f, radius * 0.55f, radius * 0.2f };
+        float[] radii = trunkRadius > 0f
+            ? new[] { radius * 1.25f, radius, radius * 0.95f, radius * 0.6f, radius * 0.2f }
+            : new[] { radius * 1.35f, radius, radius * 0.85f, radius * 0.55f, radius * 0.2f };
         for (int i = 0; i + 1 < stops.Length; i++)
         {
             Taper(wood, Trunk(stops[i]), Trunk(stops[i + 1]), radii[i], radii[i + 1], 8);

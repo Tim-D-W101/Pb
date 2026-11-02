@@ -165,6 +165,14 @@ public partial class LevelBuilder : Node3D
             AddChild(trees);
             trees.Build(new Rect2(b.Min.X, b.Min.Z, b.Max.X - b.Min.X, b.Max.Z - b.Min.Z), StableHash(level.Id), woods, level.Scenery);
             TreeCount = trees.TreeCount;
+            if (level.Trees.Count > 0)
+            {
+                // The level's own woods, where the sim has their trunks.
+                var stands = new Woods { Name = "Stands" };
+                AddChild(stands);
+                stands.BuildStands(level.Trees, woods);
+                TreeCount += stands.TreeCount;
+            }
         }
 
         BuildMeshes(render);

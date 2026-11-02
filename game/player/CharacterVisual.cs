@@ -379,8 +379,10 @@ public partial class CharacterVisual : Node3D
             _limbs?.Leave();
         }
 
-        // The legs: planted steps where the body goes, or the clips by the ground the feet covered.
-        Vector3 moved = feet - _lastFeet;
+        // The legs: planted steps where the body goes, or the clips by the ground the feet covered. Sitting in a vehicle,
+        // they're still (it's the vehicle that's moving), tucked up as far as they go.
+        bool seated = _state.Vehicle >= 0;
+        Vector3 moved = seated ? Vector3.Zero : feet - _lastFeet;
         _lastFeet = feet;
         float crouch = (_standEye - eye) / Mathf.Max(_standEye - _crouchEye, 0.01f);
         float delta = (float)GetProcessDeltaTime();
@@ -398,17 +400,17 @@ public partial class CharacterVisual : Node3D
         {
             // The animation set: the body's velocity in its own frame (followed a little, as the steps did), how far it's
             // crouched as drawn, sprinting, the lean as drawn, the refill, out; and the ground under the feet, for stairs.
-            Vector3 velocity = _state.Velocity.ToGodot() with { Y = 0f };
+            Vector3 velocity = seated ? Vector3.Zero : _state.Velocity.ToGodot() with { Y = 0f };
             _velocityShown = _velocityShown.Lerp(velocity, 1f - Mathf.Exp(-delta / 0.08f));
             blender.Velocity = new Vector2(_velocityShown.Dot(poser.Right), _velocityShown.Dot(poser.Forward));
-            blender.Crouch = Mathf.Clamp(crouch, 0f, 1f);
-            blender.Sprinting = _state.Sprinting;
+            blender.Crouch = seated ? 1f : Mathf.Clamp(crouch, 0f, 1f);
+            blender.Sprinting = _state.Sprinting && !seated;
             float most = _sim.Config.Movement.LeanAngle;
             blender.Lean = most > 1e-4f ? _leanShown / most : 0f;
             Pb.Sim.Gear.Marker gear = _state.Marker;
             blender.Refill = gear.Refill.Active && _state.Alive && !_shadowOnly ? gear.Refill.Progress(gear.Paint.Params) : -1f;
             blender.Out = !_poseNow.Alive;
-            blender.Stepping = _state.Grounded && _state.Stance != Stance.Sliding && !_state.OnLadder;
+            blender.Stepping = _state.Grounded && _state.Stance != Stance.Sliding && !_state.OnLadder && !seated;
             poser.Ground = _ground;
             poser.FloorHeight = feet.Y;
         }
@@ -416,11 +418,12 @@ public partial class CharacterVisual : Node3D
         {
             steps.KneesOut = _kneesOut;
             steps.Update(feet, yaw, crouch, poser.HipDrop, _shoulderShown, _state.Stance == Stance.Sliding,
-                _state.Grounded, delta, _ground);
+                _state.Grounded || seated, delta, _ground);
         }
         else
         {
-            _model.Gait?.Update(moved, _state.Velocity.ToGodot(), poser.Forward, crouch, _state.Stance == Stance.Sliding, _state.Grounded, delta);
+            _model.Gait?.Update(moved, seated ? Vector3.Zero : _state.Velocity.ToGodot(), poser.Forward, crouch, _state.Stance == Stance.Sliding,
+                _state.Grounded || seated, delta);
         }
     }
 
