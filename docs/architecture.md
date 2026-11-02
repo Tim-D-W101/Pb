@@ -1702,10 +1702,18 @@ time near the other areas'.
     weeds and the rest ask only the ones near them. `PlaceBoundary`'s walking world has the terrain too.
 - **Bots drive in team rounds** (`BotSquad.SideStart`, `BotBrain.PickHuntSpot`). The squad notes where each side of a
   team round started (the middle of its players' places on the round's first tick). A hunting bot (a hunter, or any
-  bot gone restless) farther than `huntTowardEnemyBeyond_m` (100 m) from the other side's start picks its next spot
-  among those nearest that end of the site, not its own nearest. On Thornwick Woods that's farther than `driveBeyond_m`,
-  so with a buggy within `driveVehicleWithin_m` (now 50 m) it drives the tracks there. A 4 v 4 had two drives in each of
-  four seeded rounds; the same round before the change had none and ran out of time.
+  bot gone restless) farther than `huntTowardEnemyBeyond_m` (200 m) from the other side's start picks its next spot
+  among those nearest that end of the site, not its own nearest. That's only on a big site: Thornwick Woods' gates are
+  215–356 m apart, and no compound is 205 m corner to corner, so the compounds' rounds play as before. On Thornwick Woods
+  it's farther than `driveBeyond_m`, so with a buggy within `driveVehicleWithin_m` (now 70 m: each gate has one that
+  near) it drives the tracks there, as long as walking to it and driving takes at most `driveFavour` (1.15) times as long
+  as going on foot: the tracks rarely run straight there, and a long run is what a player would drive instead. A 4 v 4 had two drives in
+  each of four seeded rounds; the same round before the change had none and ran out of time.
+- **Boarding round the buggy** (`BotBrain.WayToDoor`). The bots' grid doesn't know where the buggies are, and in the game
+  a body can't walk through one. So a bot on the far side from the driver's door first walks along that side to beyond
+  the nearer end, then across in front of it to the door's side, then to the door. Each way-point lies further out than
+  the line that hands on to the next, so it never stops at one. A bot that gives up boarding (30 s, or someone else
+  took it) stays on foot for 30 s, so it doesn't claim the same buggy straight back.
 - **Loading** (`LoadClock` prints each part's time as one `Load:` line once the round is ready). Before, Thornwick Woods
   took 20.3 s here (Oxbarrow Works 14.7 s); now 12.5 s (11.0 s):
   - *The bots' landmarks* (eight walks over the whole grid: 3.7 s of Thornwick's 4.4 s grid) are worked out on another
@@ -1725,6 +1733,6 @@ time near the other areas'.
     crouching player. The level builds the same twice. A bot walks down through the brook and over a rise. A buggy dips
     through the ford (down 1.1 m, 21° at most, at up to 12 m/s) and climbs over Blackthorn hill on the ring, and one parked
     across a slope stays put.
-  - `ThornwickWoodsTests`: two hunters a side at the north and south gates take a buggy toward the other end; the grid
-    builds in under 2.5 s (its landmarks after).
+  - `ThornwickWoodsTests`: two hunters a side at the north and south gates take a buggy toward the other end; a bot
+    boarding from a buggy's far side walks round it to the door; the grid builds in under 2.5 s (its landmarks after).
   - The smoke suite's 4 v 4 on Thornwick Woods needs at least one drive (`--min-drives=1`).

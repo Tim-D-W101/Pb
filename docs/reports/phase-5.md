@@ -639,9 +639,15 @@ time near the other areas'.
   sawtooth. The brook has shallow dark water in it, with a strip of mud showing either side; it's looks only, so paint
   and people go through to the mud. Weeds, worn paths, ground litter and the rest follow the slopes.
 - **Bots drive in team rounds.** In a team round, a bot with nothing to go on hunts toward the other side's end of the
-  site (from 100 m away). On Thornwick Woods that's far enough for a buggy, so with one standing empty within 50 m (it
-  was 30) it drives the tracks there. The same 4 v 4 that had no drives and ran out of time before had two drives and
-  was decided in 90 s; three more seeds had two drives each.
+  site once it's more than 200 m from it. That only happens on a big site, so the compounds' rounds play as before. On
+  Thornwick Woods it's far enough for a buggy, so with one standing empty within 70 m (it was 30; each gate has one that
+  near) it drives the tracks there, when that's at most 15 % slower than going on foot (`driveFavour`): the tracks rarely
+  run straight there, and a long run is what a player would drive instead. The same 4 v 4 that had no drives and ran out of time
+  before had two drives and was decided in 90 s; three more seeds had two drives each.
+- **Bots walk round a buggy to its door.** The bots' grid doesn't know where the buggies are, and in the game a body
+  can't walk through one. A bot coming from the far side used to push against it and never reach the driver's door.
+  It then claimed the same buggy again when it gave up, and stood there all round. Now it goes round the nose or the
+  tail, and after giving up it stays on foot for 30 s.
 - **A quicker load.** The game prints each part of a level's load as one `Load:` line. Headless on this 4-core container,
   from the menu's pick to the round being ready:
 
@@ -678,9 +684,9 @@ python3 tools/levels/thornwick_woods.py game/data/levels    # after changing the
 
 | Check | Result |
 |---|---|
-| `dotnet test tests/Pb.Sim.Tests` | 557 passed (13 new: 12 in `TerrainTests`, 1 in `ThornwickWoodsTests`) |
+| `dotnet test tests/Pb.Sim.Tests` | 558 passed (14 new: 12 in `TerrainTests`, 2 in `ThornwickWoodsTests`) |
 | `dotnet test tests/Pb.Net.Tests` | 73 passed |
-| `tools/ci/smoke-test.sh` | CHECKS_SMOKE |
+| `tools/ci/smoke-test.sh` | The full run here had 38 of 40 pass. The two that failed, Thornwick Woods' 4 v 4 and its capture the flag, had no drives: bots couldn't get round a buggy to its door, and a straight run looked as quick as the tracks. Fixed, the 4 v 4 had 3–4 drives on four seeds, and capture the flag had 1–2 drives on seeds 7 to 10, so it passes. Also re-run after the fixes and passed: the art-on 5 v 5 and the vehicle demo. CI runs the whole suite on the PR. |
 | `dotnet run -c Release --project tools/Pb.Bench` | Thornwick Woods with ten players and 1,000 balls: 0.495 ms a tick (F: 0.492). 1,000 balls on their own: 0.287 ms (F: 0.304): a sweep that stays above the highest ground in the blocks under it skips the ground. The server's networked step there is 0.507 ms against its 0.5 ms budget (F: 0.493), within the run-to-run spread on this container. Its bots' grid builds in 186 ms, its landmarks ready 1.7 s later alongside the load (F: 1,755 ms in all). |
 
 New tests:
@@ -698,6 +704,7 @@ New tests:
   - One parked across a slope stays put.
 - `ThornwickWoodsTests`:
   - two hunters a side, at the north and south gates, take a buggy toward the other end;
+  - a bot boarding from the buggy's far side walks round it to the driver's door, never into its tub;
   - the grid builds in under 2.5 s, its landmarks after.
 
 ### Known issues

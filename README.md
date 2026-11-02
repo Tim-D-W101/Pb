@@ -283,7 +283,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 557 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes, the animation set, capture the flag and VIP escort, buggies and bots driving them, Thornwick Woods and its rolling ground…) and 73 network tests — no Godot needed
+dotnet test                                          # 558 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes, the animation set, capture the flag and VIP escort, buggies and bots driving them, Thornwick Woods and its rolling ground…) and 73 network tests — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost (each slowest tick's own CPU time beside its wall-clock time)
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches (a new seed each run, printed), Thornwick Woods with its buggies (bots driving, and --vehicle-demo), the characters' gait check and a match with the art on (at 120, 30 and 15 fps), and the art import (Linux/macOS)
 ```

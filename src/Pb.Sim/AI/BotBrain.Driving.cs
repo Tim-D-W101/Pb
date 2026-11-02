@@ -125,7 +125,8 @@ public sealed partial class BotBrain
         };
         float run = move.RunSpeed, drive = vehicles[0].Params.MaxSpeed * _b.DriveSpeedShare * 0.85f;
         int best = -1;
-        float bestTime = far / pace;
+        // On foot, with a little favour to the buggy: a long run is what a player would drive instead, if it's no slower to speak of.
+        float bestTime = far / pace * _b.DriveFavour;
         for (int i = 0; i < vehicles.Count; i++)
         {
             VehicleState v = vehicles[i];
@@ -184,6 +185,8 @@ public sealed partial class BotBrain
             Vector3 goal = _rideGoal;
             BotGait gait = _rideGait;
             EndRide();
+            // On foot a while: straight after, it'd only claim the same buggy again (M5.8).
+            _noRideUntil = _tick + (int)(30f / _sim.Dt);
             GoTo(goal, gait);
             return true;
         }
@@ -201,7 +204,42 @@ public sealed partial class BotBrain
             return true;
         }
 
+        // The grid doesn't know the buggy's there: from its far side, round its nose or its tail first (M5.8), or a body
+        // walking into its side (the engine's collide-and-slide) never reaches the door.
+        Vector3 toward = WayToDoor(v);
+        if (FlatDistance(_goal, toward) > 0.5f)
+        {
+            _goal = toward;
+            _needPath = true;
+            _path.Clear();
+            _waypoint = 0;
+        }
+
         return false; // on its way: the path to the door
+    }
+
+    /// <summary>
+    /// Where to walk for the driver's door of <paramref name="v"/>: the door, from its side of the buggy; else on along
+    /// the far side to beyond the nearer end, then across in front of that end to the door's side, then the door. Each
+    /// way-point lies further out than the line that hands on to the next, so the bot never stops at one.
+    /// </summary>
+    private Vector3 WayToDoor(VehicleState v)
+    {
+        Vector3 right = v.Right, forward = v.Forward;
+        float side = Vector3.Dot(_rideDoor - v.Position, right) >= 0f ? 1f : -1f;
+        Vector3 offset = Self.Position - v.Position;
+        float across = Vector3.Dot(offset, right) * side, along = Vector3.Dot(offset, forward);
+        float halfWidth = v.Params.Width * 0.5f, halfLength = v.Params.Length * 0.5f;
+        if (across >= halfWidth + 0.3f)
+        {
+            return _rideDoor;
+        }
+
+        float end = along >= 0f ? 1f : -1f;
+        Vector3 beyond = v.Position + forward * (end * (halfLength + 1f));
+        return MathF.Abs(along) >= halfLength + 0.5f
+            ? beyond + right * (side * (halfWidth + 0.8f)) // in front of the end: across to the door's side
+            : beyond - right * (side * (halfWidth + 0.8f)); // alongside the far side: on past the end
     }
 
     /// <summary>At the wheel (after the mode's had its say): the pedal and the wheel along the route, or stopping to get out.</summary>

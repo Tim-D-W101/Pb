@@ -165,6 +165,38 @@ public class ThornwickWoodsTests
     }
 
     [Fact]
+    public void A_bot_boarding_from_the_far_side_walks_round_the_buggy_to_its_door()
+    {
+        // In the game a body can't walk through a buggy, and the bots' grid doesn't know it's there (M5.8): from the side
+        // away from the driver's door, a bot goes round its nose or its tail, never across its tub.
+        BotArena arena = BotArena.Create("normal", level: "thornwick_woods");
+        VehicleState car = arena.Sim.Vehicles[3]; // by the quarry track, facing north, its driver's door on the west side
+        arena.Hero.Position = On(178f, -14f);
+        OpponentSpawn At(string id, float x, float z) => new() { Id = id, Position = On(x, z), Yaw = 0f, Roles = new[] { "hunter" } };
+        BotBrain bot = arena.AddBotAt(At("east", car.Position.X + 3f, car.Position.Z + 0.5f), 0, "hunter");
+        arena.AddBotAt(At("west1", -176f, -6f), 1, "hunter").Passive = true;
+        arena.AddBotAt(At("west2", -176f, -12f), 1, "hunter").Passive = true;
+        arena.Start(mode: MatchModeKind.Teams);
+        float halfWidth = car.Params.Width * 0.5f, halfLength = car.Params.Length * 0.5f, closest = float.MaxValue;
+        arena.Run(20 * 120, () =>
+        {
+            if (bot.Ride == RideState.Boarding && bot.Self.Vehicle < 0)
+            {
+                Vector3 offset = bot.Self.Position - car.Position;
+                float across = MathF.Abs(Vector3.Dot(offset, car.Right)) - halfWidth, along = MathF.Abs(Vector3.Dot(offset, car.Forward)) - halfLength;
+                closest = MathF.Min(closest, MathF.Max(across, along)); // how far outside the tub (below 0: in it)
+            }
+
+            return arena.Sim.Vehicles.Of(bot.Self) is not null;
+        });
+
+        _out.WriteLine($"in after {arena.Sim.Tick / 120f:0.0} s ({bot.Ride}); while boarding it kept {closest:0.00} m clear of the tub");
+        Assert.Equal(car.Id, bot.Self.Vehicle);
+        Assert.Equal(car.Params.DriverSeat, bot.Self.Seat);
+        Assert.True(closest > 0.2f, $"it walked {-closest:0.00} m into the buggy's tub");
+    }
+
+    [Fact]
     public void The_tracks_join_up()
     {
         RoadGraph roads = RoadGraph.Build(Level.Roads);
