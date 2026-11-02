@@ -34,8 +34,8 @@ Controls (keyboard and mouse; a gamepad works too)
   X                   swap shoulder            V           slide (from a run)
   R                   refill the loader from a pod
   F                   doors, ladders, and getting in or out of a buggy
-  In a buggy          W / S go and brake, A / D steer; the driver can't fire, a passenger can;
-                      get out with F once it's nearly stopped
+  In a buggy          W / S go and brake, A / D steer; get out with F once it's nearly stopped
+                      (the HUD says what your seat lets you do)
   Esc                 pause (settings, restart, quit)
   F4 frame rate, F12 graphics presets (Esc -> render scale if it lags), F11 fullscreen,
   F3 what the bots are thinking. The Training ground (main menu) is the ballistics range.
