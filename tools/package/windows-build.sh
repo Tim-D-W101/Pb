@@ -56,26 +56,10 @@ stamps="$(mktemp)"
 
 # Debug symbols are no use to players.
 rm -f "$out"/Pb/data_Pb_windows_x86_64/*.pdb
+# How to play (the areas, the modes, the controls, playing with others), from tools/package/windows/HOW-TO-PLAY.txt, with
+# Windows line endings so Notepad shows it as it should.
 cp "$root/tools/package/windows/Play.bat" "$root/tools/package/windows/update.ps1" "$out/Pb/"
-cat > "$out/Pb/HOW-TO-PLAY.txt" <<'EOF'
-Pb: how to play
-
-1. Keep everything in this folder together (Pb.exe, Pb.pck, and the art and data_Pb_windows_x86_64
-   folders).
-2. Double-click Play.bat. It downloads only the files that changed since your version (usually about
-   1 MB; more when new art arrives), then starts the game; without internet it just starts the game.
-   Pb.exe starts it without updating.
-   If Windows says "Windows protected your PC", click "More info", then "Run anyway" (the game isn't
-   signed, so Windows doesn't know it yet).
-3. In the menu: Play, then for Oxbarrow Works pick a mode (Solo, Free-for-all or Teams), how many
-   players, a difficulty, and Start.
-
-Controls: WASD and mouse, left click fires, Shift sprints, Ctrl or C crouches, Space jumps,
-Q / E lean, X swaps shoulder, V slides, R refills the loader, Esc pauses (settings, quit).
-F4 shows the frame rate, F12 switches graphics presets (low / medium / high / ultra; Esc → render scale if it lags), F11 fullscreen,
-F3 shows what the bots are thinking. The Training ground (main menu) is the ballistics range;
-F3 there fires 1,000 balls at once.
-EOF
+sed 's/$/\r/' "$root/tools/package/windows/HOW-TO-PLAY.txt" > "$out/Pb/HOW-TO-PLAY.txt"
 # The game's own files make the update pack; everything else (Pb.exe, the .NET runtime, Godot's
 # assemblies) is the engine, stamped so the launcher knows when it must fetch the whole game.
 game_files=(Pb.pck data_Pb_windows_x86_64/Pb.dll data_Pb_windows_x86_64/Pb.Sim.dll data_Pb_windows_x86_64/Pb.Net.dll data_Pb_windows_x86_64/Pb.deps.json

@@ -440,3 +440,47 @@ New tests and runs:
 ### What's next
 
 PR D: the Windows build to share.
+
+## M5.5 (D) — A build to share
+
+**Branch:** `claude/eager-cannon-c05kkv-windows` (on C2's)
+
+### What was built
+
+Most of this was already in place since Phase 4. The Windows export preset makes `Pb-windows.zip`, ready to run with
+the .NET runtime bundled, and `Play.bat` keeps it up to date. CI builds it on every run, offers it as the "Pb-windows"
+artifact and publishes it as the rolling "test-build" release, and the Windows build plays a round on the Linux server
+under Wine. What's new:
+
+- **Numbered releases.** Pushing a version tag (`git tag v0.5.0 && git push origin v0.5.0`) runs CI on it. The build
+  is stamped with the tag, and a GitHub Release "Pb v0.5.0" is made with `Pb-windows.zip`, the two dedicated servers
+  and `HOW-TO-PLAY.txt`. It stays as it is; the test build keeps moving.
+- **How to play, up to date.** `HOW-TO-PLAY.txt` is a file of its own now (`tools/package/windows/HOW-TO-PLAY.txt`,
+  given Windows line endings in the build). It covers getting started, the five areas, the modes and objectives, the
+  controls (buggies included) and playing with others. Before, it said to pick Oxbarrow Works.
+- **README: "Play it"** at the top: where to download it, how to start it, the main keys and where the rest are.
+
+### How to run it
+
+```bash
+tools/package/fetch-templates.py 4.7.2 windows_release_x86_64.exe windows_release_x86_64_console.exe
+tools/package/windows-build.sh godot builds/windows v0.5.0     # builds/windows/release/Pb-windows.zip
+git tag v0.5.0 && git push origin v0.5.0                       # CI publishes the numbered release
+```
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `tools/package/windows-build.sh` | Exported locally as `v0.5.0-check` in 8 min: `Pb-windows.zip` 238 MB (62 art packs, 183 MB; a code and data update about 6.8 MB), with the new `HOW-TO-PLAY.txt` inside (Windows line endings) |
+| The workflow | Parses; its shell steps pass `bash -n`. The release step, run with a stand-in `gh` against the local build, creates "Pb v0.5.0" and uploads the zip, `HOW-TO-PLAY.txt` and both servers. It runs for real on the first pushed tag. |
+
+### Known issues
+
+- **A numbered release's `Play.bat` updates from the test build.** Run it from `Play.bat` and it updates to the
+  newest build. `Pb.exe` plays the release as it was made.
+- **The game isn't signed**, so Windows asks you to confirm the first time.
+
+### What's next
+
+Your play-test of Phase 5.

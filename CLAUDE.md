@@ -36,6 +36,7 @@ dotnet test                                           # Pb.Sim tests (fast, no e
 dotnet run -c Release --project tools/Pb.Bench        # ballistics report + tick cost
 tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end check
 tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in art/*.pck
+git tag v0.5.0 && git push origin v0.5.0              # CI makes a numbered GitHub Release of it (zip, servers, HOW-TO-PLAY.txt)
 tools/package/server-build.sh godot                   # then the dedicated servers: Pb-server-linux.tar.gz, Pb-server-windows.zip
 godot --headless --path game -- --server              # a dedicated server from the source (game/data/server.jsonc; docs/hosting.md)
 tools/ci/net-round.sh godot                           # CI's networked rounds: a dedicated server and five players over UDP, two of them cheating
