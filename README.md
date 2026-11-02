@@ -13,7 +13,10 @@ vs player for up to ten, hosted from the game or on a dedicated server) is finis
 ([report](docs/reports/phase-4.md), [plan](docs/phase-4.md), [hosting](docs/hosting.md)).** **After your play-test of
 Phase 4 (2026-10-31): fewer callouts, a quiet start to the round, steadier characters, starts and roles that change
 every round, bots that move about, objective rounds that play out, and no hitches from path finding
-([report](docs/reports/play-test-fixes.md)).** Phase 2 is built
+([report](docs/reports/play-test-fixes.md)).** **Phase 5 is under way ([plan](docs/phase-5.md), [report](docs/reports/phase-5.md)):
+the feel of it first: a marker that sounds like one, balls whizzing past your head, hit markers that say what your ball
+did, arcs that show where paint is coming from, and a moment when you're hit (HIT!, the screen, the ringing, then
+watching yourself walk off with your hand up).** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -54,8 +57,10 @@ the compound itself behind the main menu; and the
 training ground dressed to match, with netting, a timber backstop, inflatable bunkers and masked
 dummies covered in old paint.
 
-Every sound is synthesised in code: the marker's report thinning as the tank empties, paint breaking and
-bouncing off metal, glass, wood, brick, tarp and bodies, footsteps on each floor (splashing in puddles),
+Every sound is synthesised in code: the marker's report in layers (the sear's click, the gas's crack and thump, the
+barrel's ring, the ball's "fwip", the bolt knocking home) thinning as the tank empties, the loader feeding the next balls
+and rattling as you run and land, balls whizzing past your head, paint breaking and bouncing off metal, glass, wood,
+brick, tarp and bodies, footsteps on each floor (splashing in puddles),
 doors by kind, refills, the hit marker, a soft cue as the round goes live and the referee's whistle at its end, all heard from where
 they happen, muffled through walls and echoing in the halls; wind that rises with the gusts, crows,
 distant traffic and trains outside, and each room's own sound inside (dripping water, pigeons in the
@@ -69,8 +74,8 @@ with others too).
 The settings (in the main menu and the pause menu) come in five tabs: Controls, where every action can be bound to
 two keys or mouse buttons and a pad button or stick, with clashes shown and swappable, and crouch and walk can be
 toggles; Video (window mode, v-sync, frame cap, the graphics preset and each of its parts, render scale, field of
-view); Audio (five volumes, subtitles); Gameplay (crosshair style, colour and size, hit marker, head-bob, camera jolt,
-paint on your mask); and Accessibility (two colourblind-safe team colour sets, HUD size).
+view); Audio (five volumes, subtitles); Gameplay (crosshair style, colour and size, hit markers, the incoming-fire arcs, how
+strongly being hit takes over the screen, head-bob, camera jolt, paint on your mask); and Accessibility (two colourblind-safe team colour sets, HUD size).
 
 ## Run it
 
@@ -164,7 +169,18 @@ Top centre, the clock, with an icon for you on the left and one per opponent on 
 while they're in, greyed out with a cross once they're out. The kill feed (top right) names who
 got whom, where and from how far. When an opponent shouts close by ("Contact!", "Hit!"), it shows
 as a subtitle. Walk near a pod or air tank and a prompt under the crosshair says what it is, or
-that you've no room for it. The crosshair flashes when your ball puts someone out. Your gear
+that you've no room for it.
+
+**Hit markers** pop up round the crosshair and say what your ball did: a red X (and a confirm, and a line under the
+crosshair with who, where, how far and how many are left) when it puts someone out; a thin grey one when it bounced off
+them, which doesn't count; an amber one when it put out a teammate. **Arcs round the crosshair** show where paint is
+coming from: pale for a ball whizzing past your head, amber for one breaking close to you, orange for one bouncing off
+you, red for the one that got you. They point back along the ball's own flight, so they say where you're being shot
+from, never where anyone is. **When you're hit**, you hear the thud and your ears ring while everything else goes
+muffled, the screen drains of colour and the paint's colour floods in from the side it came from, and **HIT!** says who
+got you; then the camera eases out of your eyes and you watch yourself put your hand and marker up and walk off the
+field. Splats take the shape of the hit: round head-on, long streaks with spatter thrown on ahead at a glance; and a ball
+that breaks on your marker, or close in front of it, leaves paint on the marker in your hands that runs as it dries. Your gear
 (loader, pods, air) is bottom right; the paint count turns amber and says LOW when the loader is
 nearly empty, and red with EMPTY when it is. Once you're out, a camera above and behind where you
 stood shows you, marker up, and whoever got you.
@@ -236,7 +252,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 459 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts…) and 69 network tests — no Godot needed
+dotnet test                                          # 479 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes…) and 69 network tests — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost (each slowest tick's own CPU time beside its wall-clock time)
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches (a new seed each run, printed), the characters' gait check and a match with the art on (at 120, 30 and 15 fps), and the art import (Linux/macOS)
 ```

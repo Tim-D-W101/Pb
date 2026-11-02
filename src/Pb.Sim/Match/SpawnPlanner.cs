@@ -265,7 +265,8 @@ public static class SpawnPlanner
                 var cover = new List<Candidate>();
                 for (int i = 0; i < _cover.Points.Count; i++)
                 {
-                    if (Inside(_level.SpawnArea, _cover.Points[i].Position) && Vector3.Distance(_cover.Points[i].Position, _you.Position) >= _rules.TeammateSpacing)
+                    if (!_cover.Points[i].Stranded && Inside(_level.SpawnArea, _cover.Points[i].Position) &&
+                        Vector3.Distance(_cover.Points[i].Position, _you.Position) >= _rules.TeammateSpacing)
                     {
                         cover.Add(new Candidate(_cover.Points[i].Position, null, i));
                     }
@@ -464,7 +465,10 @@ public static class SpawnPlanner
 
             for (int i = 0; i < _cover.Points.Count; i++)
             {
-                yield return new Candidate(_cover.Points[i].Position, null, i);
+                if (!_cover.Points[i].Stranded)
+                {
+                    yield return new Candidate(_cover.Points[i].Position, null, i);
+                }
             }
         }
 

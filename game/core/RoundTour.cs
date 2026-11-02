@@ -93,7 +93,7 @@ public partial class RoundTour : Node
         if ((_summaryAt >= 0 && _frame >= _summaryAt + SummaryFrames) || _frame >= GiveUpAt)
         {
             GD.Print(_summaryAt >= 0 ? $"ROUND TOUR done after {_frame} frames" : "ROUND TOUR gave up waiting for the summary");
-            GetTree().Quit(_summaryAt >= 0 ? 0 : 1);
+            GetTree().QuitCleanly(_summaryAt >= 0 ? 0 : 1);
         }
 
         _frame++;

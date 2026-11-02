@@ -95,7 +95,7 @@ public partial class BotDemo : Node, ICommandSource
 
         if (++_frame >= TotalFrames)
         {
-            GetTree().Quit();
+            GetTree().QuitCleanly();
         }
     }
 

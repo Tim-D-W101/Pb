@@ -65,7 +65,7 @@ public partial class ViewpointTour : Node
 
         if (index >= _views.Count)
         {
-            GetTree().Quit();
+            GetTree().QuitCleanly();
             return;
         }
 

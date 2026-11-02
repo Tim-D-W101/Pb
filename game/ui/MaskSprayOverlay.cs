@@ -67,6 +67,23 @@ public partial class MaskSprayOverlay : CanvasLayer, ISimEventListener
         }
     }
 
+    public override void _ExitTree()
+    {
+        SplatTextures.Release(_textures);
+        _textures = System.Array.Empty<ImageTexture>();
+    }
+
+    /// <summary>Takes the paint off the view at once (the camera has left your eyes).</summary>
+    public void Clear()
+    {
+        foreach (Drop d in _drops)
+        {
+            d.Rect.QueueFree();
+        }
+
+        _drops.Clear();
+    }
+
     public override void _Process(double delta)
     {
         for (int i = _drops.Count - 1; i >= 0; i--)

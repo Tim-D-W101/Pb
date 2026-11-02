@@ -64,7 +64,7 @@ public partial class PlaceStills : Node
         int index = _frame / (Settle + 1);
         if (index >= _level.Places.Count)
         {
-            GetTree().Quit();
+            GetTree().QuitCleanly();
             return;
         }
 

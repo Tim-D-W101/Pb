@@ -85,7 +85,7 @@ public partial class ServerMain : Node3D, ISimEventListener
         catch (DataException ex)
         {
             ServerLog.Line($"can't start: {ex.Message}");
-            GetTree().Quit(1);
+            GetTree().QuitCleanly(1);
             return;
         }
 
@@ -96,7 +96,7 @@ public partial class ServerMain : Node3D, ISimEventListener
         catch (InvalidOperationException ex)
         {
             ServerLog.Line($"can't start: {ex.Message}");
-            GetTree().Quit(1);
+            GetTree().QuitCleanly(1);
             return;
         }
 
@@ -421,7 +421,7 @@ public partial class ServerMain : Node3D, ISimEventListener
             ServerLog.Line($"{_served} round{(_served == 1 ? "" : "s")} served: stopping");
             StopNetwork();
             _session.Leave("The server is stopping.");
-            GetTree().CreateTimer(0.5).Timeout += () => GetTree().Quit(0);
+            GetTree().CreateTimer(0.5).Timeout += () => GetTree().QuitCleanly(0);
             return;
         }
 

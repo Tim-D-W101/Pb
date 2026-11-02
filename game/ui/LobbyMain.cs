@@ -587,7 +587,7 @@ public partial class LobbyMain : Control
         _session?.Leave(reason);
         if (DisplayServer.GetName() == "headless")
         {
-            GetTree().Quit(1);
+            GetTree().QuitCleanly(1);
             return;
         }
 

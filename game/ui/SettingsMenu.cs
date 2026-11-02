@@ -140,7 +140,9 @@ public partial class SettingsMenu : VBoxContainer
         page.AddChild(UiKit.OptionRow("  Colour", CrosshairColours.Select(c => c.Name).ToArray(),
             Math.Max(0, Array.FindIndex(CrosshairColours, c => c.Hex == _settings.CrosshairColor)), i => Hud(() => _settings.CrosshairColor = CrosshairColours[i].Hex)));
         page.AddChild(UiKit.SliderRow("  Size", 0.5, 2.5, 0.05, _settings.CrosshairSize, v => Hud(() => _settings.CrosshairSize = (float)v), v => $"{v * 100:0}%"));
-        page.AddChild(UiKit.CheckRow("Hit marker", _settings.HitMarker, on => Set(() => _settings.HitMarker = on)));
+        page.AddChild(UiKit.CheckRow("Hit markers", _settings.HitMarker, on => Set(() => _settings.HitMarker = on)));
+        page.AddChild(UiKit.CheckRow("Incoming fire arcs", _settings.IncomingFire, on => Set(() => _settings.IncomingFire = on)));
+        page.AddChild(UiKit.SliderRow("Hit effect", 0, 1, 0.05, _settings.HitEffect, v => Set(() => _settings.HitEffect = (float)v), v => $"{v * 100:0}%"));
         page.AddChild(UiKit.CheckRow("Head-bob", _settings.HeadBob, on => Set(() => _settings.HeadBob = on)));
         page.AddChild(UiKit.SliderRow("Camera jolt", 0, 1, 0.05, _settings.CameraJolt, v => Set(() => _settings.CameraJolt = (float)v), v => $"{v * 100:0}%"));
         page.AddChild(UiKit.SliderRow("Paint on your mask", 0, 1, 0.05, _settings.MaskSpray, v => Set(() => _settings.MaskSpray = (float)v), v => $"{v * 100:0}%"));

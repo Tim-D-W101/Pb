@@ -1266,3 +1266,67 @@ collection under memory pressure. That made the allocation test fail at random o
   - **Hosted entries.** `CastRound.Memory` carries the entry used (`CastRound.Entry`).
   - **Bot matches.** A bot match takes a new seed and the memory like a round of yours, and `--seed=N` replays one
     exactly, ignoring the memory.
+
+## 18. Phase 5: feel, characters, modes, a big site and a build to share
+
+> **Status: in progress (started 2026-11-01).** The plan is [phase-5.md](phase-5.md); each item is its own pull request,
+> and each part below gains its "as built" notes as it lands. Nothing here changes who's out unless it says so: hit
+> feedback is presentation.
+
+### 18.1 Hit feedback (as built, M5.1)
+
+- **Sounds** (`SoundBank`, still all synthesised). The report is rebuilt in the order a marker's parts sound: the sear
+  (a 0.5 ms click), the valve's crack 1.8 ms later (high-passed noise, decaying in 3-7 ms), the gas's thump (a sine
+  falling from 170 to 62 Hz, scaled by the gas's energy, `body²`, so it fades faster than the pressure and the
+  mechanics come through on a low tank), the barrel as a tube closed at the bolt (its quarter wave and the odd
+  harmonics), the ball's "fwip" (band noise rising from 1.2 to 3.6 kHz), the bolt knocking home 16-22 ms on, and the
+  hiss. New: `LoaderFeed` with two balls dropping into the breech, `LoaderRattle` (your own running steps, jumps and
+  landings; loudest half full: `4·f·(1−f)`), `LoaderEmpty` (a dry fire with no paint), `Whizz` (band noise swept from
+  2.9 kHz down to 0.95 kHz round its pass, a Doppler sketch, with a faint seam flutter), `BounceOffYou`, `HitConfirm`
+  (a tick over a low punch and two bright notes a fifth apart), `HitBounce` (dull, falling: it didn't count),
+  `HitTeammate` (two beating notes, falling), a heavier `HitTaken` and `EarRing` (two tones 13 Hz apart round 3.5 kHz,
+  fading over two seconds). `Synth` no longer touches Godot (the stream is `SoundSet`'s), so the test project renders
+  the bank and `SoundTests` checks the shapes: every sound non-silent, the report at its loudest in its first 12 ms with
+  80 % of its energy in 60 ms and more below 200 Hz at full pressure than low, the whizz peaking mid-way and falling in
+  pitch, the confirm bright and the bounce dull, the ring still ringing at 1.5 s.
+- **Buses** (`AudioBuses`). A `Stinger` bus (dry, the effects' volume) carries the hit moment's own sounds and your
+  confirms; World and Ambience end in a low-pass, the muffle, switched off while open. `AudioDirector` closes it to
+  `hitMoment.muffleCutoff_hz` when you're hit and opens it again over `muffleRecover_s`, evenly in octaves.
+- **Near misses** (`FlybyScan`, plain C#; `FlybyWatch`, a node on `SimDriver.Ticked`). After each step, each ball in the
+  pool not yours, going at least `flybyMinSpeed_mps`, is tested for its nearest approach to your eye along its latest
+  move (its previous position to its position): a ball still closing in at the end of the move is left for the next
+  tick, so each is found on the tick it passes, once (balls are remembered by shooter and shot number in a ring of 64).
+  Within `flybyRadius_m` it whizzes from where it passed (louder the closer, higher the faster, at most one in 40 ms)
+  and adds an arc. It reads the pool and allocates nothing.
+- **Incoming fire** (`IncomingFire`, plain C#; `IncomingFireRing` draws it). Each arc holds a bearing fixed in the world,
+  the yaw facing back along the ball's own travel (a bounce reports its way out, so `BeforeBounce` mirrors it back
+  through the surface), so it turns with you and never says where anyone is. Kinds, least to most urgent: a whizz, a
+  break or bounce within `nearBreak_m` of your body (the line from your feet to your eyes), a bounce off you, the hit that
+  put you out. Paint from within `merge_deg` of an arc refreshes it (taking the more urgent kind and the stronger
+  strength); a full ring drops its oldest. Each kind has its own life, width, thickness and colour.
+- **Hit markers** (`HitMarkers`): an X round the crosshair that pops in at `pop` times its size and settles in about
+  80 ms: a put-out (thick, a white core for its first 90 ms, and a line under the crosshair: who, where, how far, how
+  many left), a ball that bounced off someone still in (thin, grey), a teammate (amber, ringed), a target. They replace
+  the crosshair's flash (`hud.hitMarkerTime_s` and `hitMarkerColor` moved to `feedback.hitMarkers`).
+- **Splats.** `SplatSystem.Stretch` is `1 / cos` of the angle the ball came in at, capped at `splat.stretchMax` (1.6 on a
+  body, whose surface is curved): the decal is that much longer along the ball's travel across the surface (`^0.75`)
+  and a little narrower across it (`^−0.25`), its x along that travel. From `splat.streakFrom` it's one of four streak
+  shapes (`SplatTextures.CreateStreaks`: a head, a tail narrowing along the travel, a fan of spatter on ahead).
+- **Paint on your marker** (`ViewModelPaint`, `viewmodel.gdshader`). Up to eight splats in the view model's own frame
+  (`vm_from_world`, pushed every frame, since the marker kicks, cants and mirrors): a ball that puts you out by your
+  marker, loader or tank leaves one on that part; one breaking within `reach_m` in front of you leaves drops. They're
+  placed at `viewModelPaint.spots` (data, on each part), ragged by a noise, glossy, and run down over `run_s`.
+- **The moment you're hit** (`HitMoment`, `hit_moment.gdshader`, `SpectatorView`, `LevelMain.StartSpectating`). The
+  screen effect reads the screen: colour drained by `desaturate`, the paint's colour flooding in from the edge it came
+  from (further on that side) with a ragged rim, the vignette, a short flash; **HIT!** pops in at twice its size with a
+  little shake, over who got you, where and from how far. It holds for `hold_s`, then eases to `residual` while the
+  spectator camera, started at your eyes (its transform and field of view), slerps out over `ease_s` to its place above
+  and behind you; your body is drawn and the marker in your hands hidden once it's 0.6 m out of your head. You stand for
+  the hit (the out pose blends in, hand and marker up), and once the camera is out you walk off to the dead zone like
+  every bot (`WalkOffPilot`, offline as well as hosting now; joined, the host walks you off), the camera following you
+  and keeping whoever got you in view. The settings' hit effect scales the screen's part.
+- **Settings.** Gameplay: "Incoming fire arcs" (`GameSettings.IncomingFire`) and "Hit effect" (`HitEffect`, 0-1).
+- **Checks.** `FeedbackTests` (the arcs' directions, turning, merging, expiry and the full ring; the near-miss scan on
+  hand-made moves and a real shot), `SoundTests`, `SettingsTests`. The bot match prints a feedback line (markers by kind,
+  arcs by kind, whizzes, confirms, streaked splats, paint on your marker, the hit moment) and fails if you were put out
+  by a ball and the hit moment didn't play; `--min-feedback=N` fails it with fewer than N arcs and markers.

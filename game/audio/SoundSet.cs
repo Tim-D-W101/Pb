@@ -30,7 +30,7 @@ public sealed class SoundSet
         var streams = new AudioStreamWav[Bank.VariationsOf(sfx)];
         for (int v = 0; v < streams.Length; v++)
         {
-            streams[v] = Synth.Stream(Bank.Pcm(sfx, v), Bank.RateOf(sfx), Bank.Loops(sfx));
+            streams[v] = Stream(Bank.Pcm(sfx, v), Bank.RateOf(sfx), Bank.Loops(sfx));
         }
 
         _streams[index] = streams;
@@ -42,6 +42,26 @@ public sealed class SoundSet
     {
         AudioStreamWav[] streams = Streams(sfx);
         return streams[(int)((uint)pick % (uint)streams.Length)];
+    }
+
+    /// <summary>A Godot stream of 16-bit PCM (made on the main thread from bytes rendered anywhere).</summary>
+    public static AudioStreamWav Stream(byte[] pcm, int rate, bool loop)
+    {
+        var stream = new AudioStreamWav
+        {
+            Format = AudioStreamWav.FormatEnum.Format16Bits,
+            MixRate = rate,
+            Stereo = false,
+            Data = pcm,
+        };
+        if (loop)
+        {
+            stream.LoopMode = AudioStreamWav.LoopModeEnum.Forward;
+            stream.LoopBegin = 0;
+            stream.LoopEnd = pcm.Length / 2;
+        }
+
+        return stream;
     }
 
     /// <summary>Frees every stream made so far.</summary>

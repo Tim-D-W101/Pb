@@ -47,6 +47,13 @@ public readonly struct CoverPoint
 
     /// <summary>Somewhere to shoot from: over low cover, or round an edge.</summary>
     public bool CanShoot => Height == CoverHeight.Half || HasEdge;
+
+    /// <summary>
+    /// On a piece of the navigation grid (<see cref="NavGrid.PieceAt"/>) apart from the one most of the level's cover
+    /// stands on: on top of something nothing climbs to. Nobody is started here: a bot started on a boiler had no way
+    /// down, and held the boiler house contested for the rest of the round.
+    /// </summary>
+    public bool Stranded { get; init; }
 }
 
 /// <summary>
@@ -112,6 +119,14 @@ public sealed class CoverSet
         if (level.Place is { Whole: false } place)
         {
             set._points.RemoveAll(c => !place.Contains(c.Position));
+        }
+
+        // The level's ground (in a place, the place's) is the piece of the grid most of the cover stands on.
+        int[] pieces = set._points.Select(p => grid.PieceAt(p.Position)).ToArray();
+        int main = pieces.Where(p => p >= 0).GroupBy(p => p).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Key).FirstOrDefault(-1);
+        for (int i = 0; i < set._points.Count; i++)
+        {
+            set._points[i] = set._points[i] with { Stranded = pieces[i] != main };
         }
 
         set.Index();

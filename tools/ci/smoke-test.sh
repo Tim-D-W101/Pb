@@ -21,9 +21,14 @@
 #          backs off and walks crouched; fails if a planted foot slides, an ankle or a wrist misses its mark, or the head
 #          or hands jerk, past the limits in game/core/GaitDemo.cs; at 120, 30 and 15 fps (below 30 fps the jerk limits
 #          allow for what the body's own smooth motion changes a frame by: CharactersDef.FrameLimit)
-#   art-match (--bot-match --max-pop --min-contact-marks): a 5 v 5 round with the art on (a fixed seed); fails if any
-#          character's head or hands pop further than --max-pop cm in a frame (likewise allowed for below 30 fps), or bot
-#          teammates' contacts don't reach your HUD; at 120 and at 15 fps
+#   art-match (--bot-match --max-pop --min-contact-marks --min-feedback): a 5 v 5 round with the art on (a fixed seed);
+#          fails if any character's head or hands pop further than --max-pop cm in a frame (likewise allowed for below 30
+#          fps), bot teammates' contacts don't reach your HUD, or no incoming-fire arc or hit marker shows; at 120 and at 15
+#          fps. Every bot match also fails if your bot was put out by a ball and the hit moment didn't play.
+#   splat  (--splat-demo): shots at a wall at a glance and square on; fails unless they break on it, the glancing ones
+#          streak and a splat is placed for each (drawn, it also looks for them on the screen)
+#   duel   (--duel-demo): you put an opponent out, then paint comes at you (past your head, breaking close by, on your
+#          mask); fails unless each shows its incoming-fire arc (drawn, it also looks for each on the screen)
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -77,10 +82,12 @@ run match-place res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art
 run match-place-rail-yard res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --random-spawns --level=rail_yard --place=engine_shed
 run match-place-cold-store res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=hold --level=cold_store --place=store
 run match-place-hospital-wing res://scenes/Level.tscn -- --bot-match --time-limit=120 --no-art --mode=teams --size=3 --objective=retrieve --level=hospital_wing --place=wings
+run splat res://scenes/Level.tscn -- --splat-demo --no-art
+run duel res://scenes/Level.tscn -- --duel-demo --no-art
 run gait res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=30 run gait-30fps res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=15 run gait-15fps res://scenes/Level.tscn -- --gait-demo --gait-check
-run art-match res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15 --min-contact-marks=1
+run art-match res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15 --min-contact-marks=1 --min-feedback=1
 fps=15 run art-match-15fps res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15
 run art res://tools/ArtImport.tscn -- --selftest
 exit "$failed"

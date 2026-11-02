@@ -55,7 +55,7 @@ public sealed class PostureDemo : ICommandSource
 
         if (t >= EndAt)
         {
-            _host.GetTree().Quit();
+            _host.GetTree().QuitCleanly();
         }
 
         InputButtons buttons = t switch

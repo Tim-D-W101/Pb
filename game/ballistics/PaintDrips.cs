@@ -11,13 +11,14 @@ namespace Pb.Game.Ballistics;
 /// Fresh paint running down the walls (presentation.jsonc "paintDrips"): where a ball breaks on a steep
 /// face of the world (not on a player or a target), a few runs creep down from the splat, quickly at first
 /// and slowing as the paint gives out, each ending in a bead. Decals in the paint's colour, like the splats
-/// (<see cref="SplatSystem"/>), from a pool with a cap: once it's full the oldest runs are reused. Looks only.
+/// (<see cref="SplatSystem"/>; cards where the renderer draws no decals), from a pool with a cap: once it's full the
+/// oldest runs are reused. Looks only.
 /// </summary>
 public partial class PaintDrips : Node3D, ISimEventListener
 {
     private static ImageTexture[]? _textures;
 
-    private readonly List<Decal> _decals = new();
+    private readonly List<Node3D> _marks = new();
     private readonly List<Run> _running = new();
     private readonly RandomNumberGenerator _rng = new();
     private Color[] _teamColors = Array.Empty<Color>();
@@ -25,12 +26,17 @@ public partial class PaintDrips : Node3D, ISimEventListener
     private SplatDef _splat = null!;
     private int _next;
     private double _now;
+    private bool _cards;
 
-    private readonly record struct Run(Decal Decal, Vector3 Top, Basis Basis, float Length, double Start, float Time);
+    private readonly record struct Run(Node3D Mark, Vector3 Top, Basis Basis, float Width, float Length, double Start, float Time);
+
+    /// <summary>Runs started so far.</summary>
+    public int Started { get; private set; }
 
     public void Initialize(PresentationDef view)
     {
         _rng.Seed = 4321;
+        _cards = !PaintCards.DecalsDrawn;
         _def = view.PaintDrips;
         _splat = view.Splat;
         _teamColors = new Color[view.TeamColors.Length];
@@ -77,7 +83,7 @@ public partial class PaintDrips : Node3D, ISimEventListener
             float t = Mathf.Clamp((float)((_now - r.Start) / r.Time), 0f, 1f);
             // Quickly at first, slowing as the paint gives out.
             float length = r.Length * (1f - (1f - t) * (1f - t) * (1f - t));
-            Place(r.Decal, r.Top, r.Basis, MathF.Max(length, 0.01f));
+            Place(r.Mark, r.Top, r.Basis, r.Width, MathF.Max(length, 0.01f));
             if (t >= 1f)
             {
                 _running.RemoveAt(i);
@@ -87,22 +93,22 @@ public partial class PaintDrips : Node3D, ISimEventListener
 
     public void ClearAll()
     {
-        foreach (Decal decal in _decals)
+        foreach (Node3D mark in _marks)
         {
-            decal.QueueFree();
+            mark.QueueFree();
         }
 
-        _decals.Clear();
+        _marks.Clear();
         _running.Clear();
         _next = 0;
     }
 
     private void Start(Vector3 top, Basis basis, Color color)
     {
-        Decal decal;
-        if (_decals.Count < _def.Cap)
+        Node3D mark;
+        if (_marks.Count < _def.Cap)
         {
-            decal = new Decal
+            mark = _cards ? PaintCards.Create(_splat.DistanceFadeBegin_m + _splat.DistanceFadeLength_m) : new Decal
             {
                 CullMask = SplatSystem.WorldMask,
                 NormalFade = _splat.NormalFade,
@@ -112,16 +118,16 @@ public partial class PaintDrips : Node3D, ISimEventListener
                 DistanceFadeBegin = _splat.DistanceFadeBegin_m,
                 DistanceFadeLength = _splat.DistanceFadeLength_m,
             };
-            AddChild(decal);
-            _decals.Add(decal);
+            AddChild(mark);
+            _marks.Add(mark);
         }
         else
         {
-            decal = _decals[_next];
-            _next = (_next + 1) % _decals.Count;
+            mark = _marks[_next];
+            _next = (_next + 1) % _marks.Count;
             for (int i = _running.Count - 1; i >= 0; i--)
             {
-                if (_running[i].Decal == decal)
+                if (_running[i].Mark == mark)
                 {
                     _running.RemoveAt(i);
                 }
@@ -129,20 +135,37 @@ public partial class PaintDrips : Node3D, ISimEventListener
         }
 
         float width = _rng.RandfRange(_def.Width_m[0], _def.Width_m[1]);
-        decal.TextureAlbedo = _textures![_rng.RandiRange(0, _textures.Length - 1)];
-        decal.Modulate = color;
-        decal.Size = new Vector3(width, _splat.Depth_m, 0.01f);
-        var run = new Run(decal, top, basis, _rng.RandfRange(_def.Length_m[0], _def.Length_m[1]), _now, _rng.RandfRange(_def.Run_s[0], _def.Run_s[1]));
-        Place(decal, top, basis, 0.01f);
+        ImageTexture texture = _textures![_rng.RandiRange(0, _textures.Length - 1)];
+        if (mark is Decal decal)
+        {
+            decal.TextureAlbedo = texture;
+            decal.Modulate = color;
+        }
+        else
+        {
+            PaintCards.Place((MeshInstance3D)mark, new Transform3D(basis, top), new Vector3(width, _splat.Depth_m, 0.01f), texture, color);
+        }
+
+        var run = new Run(mark, top, basis, width, _rng.RandfRange(_def.Length_m[0], _def.Length_m[1]), _now, _rng.RandfRange(_def.Run_s[0], _def.Run_s[1]));
+        Place(mark, top, basis, width, 0.01f);
         _running.Add(run);
+        Started++;
     }
 
     /// <summary>A run <paramref name="length"/> long hanging from <paramref name="top"/> down the face.</summary>
-    private static void Place(Decal decal, Vector3 top, Basis basis, float length)
+    private void Place(Node3D mark, Vector3 top, Basis basis, float width, float length)
     {
-        Vector3 size = decal.Size;
-        decal.Size = new Vector3(size.X, size.Y, length);
-        decal.GlobalTransform = new Transform3D(basis, top + basis.Z * (length * 0.5f));
+        var frame = new Transform3D(basis, top + basis.Z * (length * 0.5f));
+        var size = new Vector3(width, _splat.Depth_m, length);
+        if (mark is Decal decal)
+        {
+            decal.Size = size;
+            decal.GlobalTransform = frame;
+        }
+        else
+        {
+            PaintCards.Reshape((MeshInstance3D)mark, frame, size);
+        }
     }
 
     /// <summary>

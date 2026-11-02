@@ -7,11 +7,14 @@ namespace Pb.Game.Audio;
 /// <summary>Every synthesised sound in the game.</summary>
 public enum Sfx
 {
-    // The marker's report at three tank pressures (full, half, low), and its loader feeding the next ball.
+    // The marker's report at three tank pressures (full, half, low), and its loader feeding the next ball, rattling as
+    // you move, and spinning with nothing in it.
     ReportFull,
     ReportMid,
     ReportLow,
     LoaderFeed,
+    LoaderRattle,
+    LoaderEmpty,
     DryFire,
     FireMode,
     AirLow,
@@ -34,6 +37,9 @@ public enum Sfx
     BreakRubber,
     BreakPlayer,
     BreakMask,
+
+    // A ball whizzing past close to your head.
+    Whizz,
 
     // A ball bouncing off.
     BounceHard,
@@ -73,9 +79,15 @@ public enum Sfx
     SlideRoll,
     SlideBang,
 
-    // You: hit, and hitting someone.
+    // You: hit (and your ears ringing after), a ball bouncing off you; and hitting someone: a target or a put-out (the
+    // confirm), a ball that bounced off them (it doesn't count) and a teammate put out.
     HitTaken,
+    EarRing,
+    BounceOffYou,
     HitMarker,
+    HitConfirm,
+    HitBounce,
+    HitTeammate,
 
     // The objectives.
     CaseTake,
@@ -293,7 +305,9 @@ public sealed class SoundBank
         Sfx.ReportFull => new(0.34f, n, (s, _) => Report(s, 1f)),
         Sfx.ReportMid => new(0.34f, n, (s, _) => Report(s, 0.75f)),
         Sfx.ReportLow => new(0.34f, n, (s, _) => Report(s, 0.5f)),
-        Sfx.LoaderFeed => new(0.16f, 2, (s, _) => LoaderFeed(s), Peak: 0.5f),
+        Sfx.LoaderFeed => new(0.16f, 3, (s, _) => LoaderFeed(s), Peak: 0.5f),
+        Sfx.LoaderRattle => new(0.2f, n + 2, (s, _) => LoaderRattle(s), Peak: 0.6f),
+        Sfx.LoaderEmpty => new(0.4f, 2, (s, _) => LoaderEmpty(s), Peak: 0.5f),
         Sfx.DryFire => new(0.06f, 2, (s, _) => DryFire(s)),
         Sfx.FireMode => new(0.1f, 1, (s, _) => FireMode(s)),
         Sfx.AirLow => new(0.6f, 1, (s, _) => AirLow(s)),
@@ -315,6 +329,8 @@ public sealed class SoundBank
         Sfx.BreakRubber => new(0.42f, n, (s, _) => Break(s, Surface.Rubber)),
         Sfx.BreakPlayer => new(0.42f, n, (s, _) => Break(s, Surface.Player)),
         Sfx.BreakMask => new(0.42f, n, (s, _) => Break(s, Surface.Mask)),
+
+        Sfx.Whizz => new(0.24f, n + 2, (s, _) => Whizz(s)),
 
         Sfx.BounceHard => new(0.12f, n, (s, _) => Bounce(s, Surface.Stone)),
         Sfx.BounceMetal => new(0.3f, n, (s, _) => Bounce(s, Surface.Metal)),
@@ -352,7 +368,12 @@ public sealed class SoundBank
         Sfx.SlideBang => new(0.9f, 2, (s, _) => ColdShut(s, latch: false)),
 
         Sfx.HitTaken => new(0.9f, 2, (s, _) => HitTaken(s)),
+        Sfx.EarRing => new(2.6f, 1, (s, _) => EarRing(s), Peak: 0.35f),
+        Sfx.BounceOffYou => new(0.22f, 2, (s, _) => BounceOffYou(s)),
         Sfx.HitMarker => new(0.09f, 1, (s, _) => HitMarker(s)),
+        Sfx.HitConfirm => new(0.45f, 1, (s, _) => HitConfirm(s)),
+        Sfx.HitBounce => new(0.18f, 1, (s, _) => HitBounce(s)),
+        Sfx.HitTeammate => new(0.6f, 1, (s, _) => HitTeammate(s), Peak: 0.6f),
 
         Sfx.CaseTake => new(0.35f, 1, (s, _) => CaseTake(s)),
         Sfx.CaseDrop => new(0.45f, 2, (s, _) => CaseDrop(s)),
@@ -410,36 +431,73 @@ public sealed class SoundBank
     // ---- The marker -----------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// A paintball marker's report: the sear's click, a sharp crack of air out of the muzzle, the barrel ringing as a
-    /// tube, a thump of body, and a hiss of air after. <paramref name="body"/> (1 at full pressure) weakens and lowers it.
+    /// A paintball marker's report, in the order its parts sound: the sear letting the hammer go (a hard little click),
+    /// the valve's gas cracking out of the muzzle behind the ball, the thump of that gas and the marker's body (a low
+    /// sine falling away), the barrel ringing as a tube closed at the bolt (odd harmonics), the ball's "fwip" as it
+    /// leaves, the bolt knocking back home a moment later, and a hiss of air after. <paramref name="body"/> (1 at full
+    /// pressure) weakens and lowers the gas's part as the tank empties; the mechanics stay.
     /// </summary>
     private static void Report(Synth s, float body)
     {
-        float barrel = s.Range(255f, 300f) * (0.9f + 0.1f * body);
-        s.NoiseBurst(0f, 3400f, 1.4f, 0.0002f, 0.0008f, 0.55f);
-        var high = Biquad.HighPass(s.Rate, 650f, 0.7f);
-        float crackDecay = 0.0035f + (1f - body) * 0.004f;
-        for (int i = 0; i < s.Index(0.06f); i++)
+        // The sear and hammer.
+        s.NoiseBurst(0f, s.Range(3600f, 4300f), 2.2f, 0.0001f, 0.0005f, 0.5f);
+        s.Mode(0f, s.Range(2900f, 3300f), 0.0025f, 0.12f);
+
+        // The valve opens a moment later: the crack of gas out of the muzzle, short and bright.
+        const float valve = 0.0018f;
+        var high = Biquad.HighPass(s.Rate, 700f, 0.7f);
+        float crackDecay = 0.003f + (1f - body) * 0.004f;
+        for (int i = s.Index(valve); i < s.Index(valve + 0.06f); i++)
         {
-            s.Samples[i] += high.Process(s.Noise()) * MathF.Exp(-s.T(i) / crackDecay) * (0.8f + 0.5f * body);
+            s.Samples[i] += high.Process(s.Noise()) * MathF.Exp(-(s.T(i) - valve) / crackDecay) * (0.75f + 0.55f * body);
         }
 
-        s.Mode(0.0004f, barrel, 0.024f, 0.55f * body);
-        s.Mode(0.0004f, barrel * 2.03f, 0.016f, 0.32f * body);
-        s.Mode(0.0004f, barrel * 3.08f, 0.01f, 0.2f);
-        s.NoiseBurst(0.0004f, barrel * 2f, 3f, 0.0004f, 0.012f, 0.25f);
-        s.Sweep(0f, 155f, 62f, 0.0012f, 0.034f, 0.85f * body);
+        // The gas's thump through the marker: what makes it punch, falling from about 170 Hz. It goes with the gas's
+        // energy, so it fades faster than the pressure as the tank empties, and the mechanics come through.
+        float gas = body * body;
+        s.Sweep(valve, 170f * (0.82f + 0.18f * body), 62f, 0.0008f, 0.028f, 0.1f + 1.05f * gas);
+        s.DullBurst(valve, 900f, 0.0006f, 0.006f, 0.35f * gas);
+
+        // The barrel: a tube closed at the bolt rings at its quarter wave and the odd harmonics over it.
+        float barrel = s.Range(255f, 300f) * (0.9f + 0.1f * body);
+        s.Mode(valve, barrel, 0.02f, 0.5f * body);
+        s.Mode(valve, barrel * 3.02f, 0.012f, 0.24f * body);
+        s.Mode(valve, barrel * 5.05f, 0.007f, 0.13f);
+        s.NoiseBurst(valve, barrel * 2f, 3f, 0.0004f, 0.012f, 0.22f);
+
+        // The ball leaving: band noise rising as it clears the muzzle.
+        var fwip = Biquad.BandPass(s.Rate, 1200f, 1.4f);
+        for (int i = s.Index(valve); i < s.Index(valve + 0.03f); i++)
+        {
+            float t = s.T(i) - valve;
+            if ((i & 31) == 0)
+            {
+                fwip.TuneBandPass(s.Rate, 1200f + 2400f * MathF.Min(1f, t / 0.02f), 1.4f);
+            }
+
+            s.Samples[i] += fwip.Process(s.Noise()) * Envelope.AttackDecay(t, 0.003f, 0.006f) * 0.5f * (0.6f + 0.4f * body);
+        }
+
+        // The bolt knocking back home: a short metal knock.
+        float bolt = valve + s.Range(0.016f, 0.022f);
+        s.NoiseBurst(bolt, s.Range(1400f, 1750f), 1.5f, 0.0002f, 0.0016f, 0.42f);
+        s.Struck(bolt, s.Range(980f, 1150f), MetalRatios, 0.012f, 0.16f);
+
+        // Air hissing out after.
         var hiss = Biquad.HighPass(s.Rate, 2600f, 0.7f);
         for (int i = s.Index(0.004f); i < s.Length; i++)
         {
             float t = s.T(i) - 0.004f;
-            s.Samples[i] += hiss.Process(s.Noise()) * Envelope.AttackDecay(t, 0.006f, 0.05f + (1f - body) * 0.04f) * 0.16f;
+            s.Samples[i] += hiss.Process(s.Noise()) * Envelope.AttackDecay(t, 0.006f, 0.05f + (1f - body) * 0.04f) * 0.15f;
         }
 
-        s.Saturate(1.7f);
+        s.Saturate(1.8f);
     }
 
-    /// <summary>The loader's motor spinning up to push the next ball in, and a little gear click.</summary>
+    /// <summary>
+    /// The loader feeding the next ball: its motor spinning up and a gear's click, with a couple of balls dropping down
+    /// the feed neck into the breech (hollow plastic clicks).
+    /// </summary>
     private static void LoaderFeed(Synth s)
     {
         var lowpass = Biquad.LowPass(s.Rate, 1300f, 0.8f);
@@ -452,7 +510,43 @@ public sealed class SoundBank
             s.Samples[i] += lowpass.Process(saw) * Envelope.Swell(t, 0.02f, 0.06f, s.Seconds) * 0.5f;
         }
 
+        float at = s.Range(0.012f, 0.02f);
+        for (int k = 0; k < 2; k++)
+        {
+            s.NoiseBurst(at, s.Range(2300f, 2900f), 2f, 0.0001f, 0.0009f, 0.5f);
+            s.Mode(at, s.Range(620f, 720f), 0.006f, 0.22f);
+            at += s.Range(0.018f, 0.03f);
+        }
+
         s.NoiseBurst(0.09f, 2800f, 2f, 0.0002f, 0.001f, 0.35f);
+    }
+
+    /// <summary>The balls shifting in the loader as you run, jump and land: plastic on plastic, and against the shell.</summary>
+    private static void LoaderRattle(Synth s)
+    {
+        s.Grains(0f, 0.14f, 46, 2300f, 1.1f, 0.0007f, 0.55f);
+        s.Grains(0.005f, 0.12f, 14, 950f, 1.4f, 0.0012f, 0.35f);
+        s.DullBurst(0f, 600f, 0.004f, 0.02f, 0.18f);
+    }
+
+    /// <summary>The loader's motor with nothing to feed: it spins up freely, its paddle ratcheting.</summary>
+    private static void LoaderEmpty(Synth s)
+    {
+        var lowpass = Biquad.LowPass(s.Rate, 1600f, 0.8f);
+        float phase = 0f, paddle = 0f;
+        for (int i = 0; i < s.Length; i++)
+        {
+            float t = s.T(i);
+            phase += (190f + 90f * MathF.Min(1f, t / 0.08f)) / s.Rate;
+            float saw = 2f * (phase - MathF.Floor(phase + 0.5f));
+            s.Samples[i] += lowpass.Process(saw) * Envelope.Swell(t, 0.02f, 0.1f, s.Seconds) * 0.45f;
+            float before = paddle;
+            paddle += 26f / s.Rate;
+            if (MathF.Floor(paddle) > MathF.Floor(before) && t < s.Seconds - 0.08f)
+            {
+                s.NoiseBurst(t, 2600f, 2f, 0.0001f, 0.0007f, 0.3f);
+            }
+        }
     }
 
     private static void DryFire(Synth s)
@@ -614,6 +708,31 @@ public sealed class SoundBank
                 s.Struck(0f, s.Range(1500f, 1900f), PlasticRatios, 0.02f, 0.6f);
                 s.NoiseBurst(0f, 3000f, 1.2f, 0.0002f, 0.002f, 0.8f);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// A ball whizzing past close to your head: its rush of air, high as it comes and falling as it goes (a Doppler
+    /// sweep), loudest as it passes, with a faint flutter from its seam.
+    /// </summary>
+    private static void Whizz(Synth s)
+    {
+        var band = Biquad.BandPass(s.Rate, 2800f, 1.6f);
+        float peak = s.Range(0.06f, 0.08f), tone = 0f;
+        for (int i = 0; i < s.Length; i++)
+        {
+            float t = s.T(i);
+            float x = (t - peak) / (t < peak ? 0.028f : 0.055f);
+            float env = MathF.Exp(-x * x);
+            float pass = Math.Clamp((t - peak + 0.04f) / 0.1f, 0f, 1f);
+            pass = pass * pass * (3f - 2f * pass);
+            if ((i & 31) == 0)
+            {
+                band.TuneBandPass(s.Rate, 2900f - 1950f * pass, 1.6f);
+            }
+
+            tone += MathF.Tau * (1150f - 400f * pass) / s.Rate;
+            s.Samples[i] += (band.Process(s.Noise()) * 2.2f + MathF.Sin(tone) * 0.12f) * env;
         }
     }
 
@@ -898,16 +1017,75 @@ public sealed class SoundBank
     private static void HitTaken(Synth s)
     {
         Break(s, Surface.Player);
-        s.Sweep(0f, 90f, 40f, 0.002f, 0.08f, 1f);
-        s.Mode(0.02f, 3600f, 0.35f, 0.05f);
+        // The thud through your body, deep and close, and the "whump" of the moment.
+        s.Sweep(0f, 110f, 38f, 0.001f, 0.09f, 1.3f);
+        s.DullBurst(0f, 400f, 0.002f, 0.05f, 0.5f);
+        s.NoiseBurst(0f, 180f, 0.8f, 0.004f, 0.12f, 0.35f);
+        s.Saturate(1.4f);
     }
 
-    /// <summary>The hit marker's tick: you put someone out.</summary>
+    /// <summary>Your ears ringing after the hit: two close high tones beating slowly, and their octave, fading away.</summary>
+    private static void EarRing(Synth s)
+    {
+        float a = s.Range(3450f, 3600f);
+        for (int i = 0; i < s.Length; i++)
+        {
+            float t = s.T(i);
+            float env = MathF.Min(1f, t / 0.08f) * MathF.Exp(-t / 0.85f);
+            s.Samples[i] += (MathF.Sin(MathF.Tau * a * t) + 0.8f * MathF.Sin(MathF.Tau * (a + 13f) * t) + 0.12f * MathF.Sin(MathF.Tau * 2f * a * t)) * env;
+        }
+
+        s.NoiseBurst(0f, 3500f, 4f, 0.05f, 0.4f, 0.08f);
+    }
+
+    /// <summary>A ball bouncing off your own gear: a hard, close plastic crack (it doesn't count).</summary>
+    private static void BounceOffYou(Synth s)
+    {
+        s.NoiseBurst(0f, s.Range(2200f, 2700f), 1.4f, 0.0001f, 0.0012f, 0.9f);
+        s.Struck(0f, s.Range(1050f, 1250f), PlasticRatios, 0.022f, 0.6f);
+        s.Sweep(0f, 160f, 90f, 0.001f, 0.012f, 0.4f);
+    }
+
+    /// <summary>The hit marker's tick: your ball broke on a target.</summary>
     private static void HitMarker(Synth s)
     {
         s.Mode(0f, 1850f, 0.012f, 0.8f);
         s.Mode(0f, 3700f, 0.006f, 0.3f);
         s.NoiseBurst(0f, 5000f, 1f, 0.0001f, 0.0006f, 0.4f);
+    }
+
+    /// <summary>
+    /// The confirm: your ball put someone out. A crisp tick over a low punch, then a short bright ring of two notes a
+    /// fifth apart, the second a beat behind the first.
+    /// </summary>
+    private static void HitConfirm(Synth s)
+    {
+        s.NoiseBurst(0f, 4200f, 1.5f, 0.0001f, 0.0007f, 0.55f);
+        s.Mode(0f, 2100f, 0.01f, 0.35f);
+        s.Sweep(0f, 140f, 70f, 0.001f, 0.03f, 0.75f);
+        s.Mode(0.004f, 1318.5f, 0.09f, 0.4f);
+        s.Mode(0.004f, 2637f, 0.04f, 0.12f);
+        s.Mode(0.055f, 1975.5f, 0.12f, 0.35f);
+        s.Mode(0.055f, 3951f, 0.05f, 0.1f);
+    }
+
+    /// <summary>Your ball bounced off them: a dull plastic "tok-tok", falling, with nothing bright in it (it doesn't count).</summary>
+    private static void HitBounce(Synth s)
+    {
+        s.NoiseBurst(0f, 1600f, 1.2f, 0.0001f, 0.001f, 0.5f);
+        s.Mode(0f, 880f, 0.012f, 0.6f);
+        s.Mode(0.05f, 700f, 0.014f, 0.5f);
+        s.DullBurst(0.05f, 900f, 0.0005f, 0.004f, 0.3f);
+    }
+
+    /// <summary>You put a teammate out: two dull falling notes, a semitone apart and beating ("uh-oh").</summary>
+    private static void HitTeammate(Synth s)
+    {
+        s.Mode(0f, 587.3f, 0.12f, 0.45f);
+        s.Mode(0f, 591.5f, 0.12f, 0.3f);
+        s.Mode(0.16f, 554.4f, 0.18f, 0.45f);
+        s.Mode(0.16f, 558.9f, 0.18f, 0.3f);
+        s.Mode(0.16f, 1108.7f, 0.08f, 0.1f);
     }
 
     // ---- The objectives -----------------------------------------------------------------------------------------------

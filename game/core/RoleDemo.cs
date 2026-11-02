@@ -87,7 +87,7 @@ public partial class RoleDemo : Node, ICommandSource
             GD.PushError(role == "flanker"
                 ? "ROLE DEMO: no flanker here with a teammate who could call you out and a way round to your side (try another --level or --mode)"
                 : $"ROLE DEMO: no {role} on this level in this round (try another --level or --mode)");
-            GetTree().Quit(1);
+            GetTree().QuitCleanly(1);
             return;
         }
 
@@ -284,7 +284,7 @@ public partial class RoleDemo : Node, ICommandSource
             GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: role demo, {_role} {_subject.State.Name}: " + (flanker
                 ? $"called by {_caller!.State.Name}, went round from {Seconds(_flankingFrom)} and looked out from its spot from {Seconds(_lookingOutFrom)}"
                 : $"you stepped out at {StepOutAt:0.0} s and it opened up at {Seconds(_engagedAt)}"));
-            GetTree().Quit(ok ? 0 : 1);
+            GetTree().QuitCleanly(ok ? 0 : 1);
         }
     }
 

@@ -18,7 +18,11 @@ namespace Pb.Game.Audio;
 /// pressure; everything else from where it happens, through a pool of 3D players on the Effects bus, dulled with
 /// distance (air absorption) and muffled when the sim's collision says a wall is in the way. Breaks, bounces and
 /// footsteps sound like the surface (presentation.jsonc "audio" → "surfaces"), footsteps as loud as they carry and
-/// splashing in puddles; doors by kind; gear, pickups, being hit and the hit marker for you; the objectives' cues.
+/// splashing in puddles; doors by kind; gear, pickups, being hit and the hit marker for you; the objectives' cues. Since
+/// Phase 5 also the feel of it: your loader rattling as you run and land and spinning when it's empty, balls whizzing
+/// past your head (<see cref="Whizz"/>), a ball bouncing off you, the confirm when your ball puts someone out (a dull
+/// one when it bounced off them, another for a teammate), and when you're hit, the thud and a ringing in your ears on the
+/// stinger bus while the world's sound is muffled for a moment (<see cref="AudioBuses.Muffle"/>).
 /// Bots' callouts play from the caller in their voice (<see cref="VoiceBank"/>), the referee's lines in 2D. The ambience
 /// and the reverb are <see cref="Audio.Ambience"/>'s. Looks after nothing the sim decides.
 /// </summary>
@@ -47,6 +51,11 @@ public partial class AudioDirector : Node, ISimEventListener
     private int _droppedCues;
     private double _clock;
     private AudioStreamPlayer _referee = null!;
+    private AudioStreamPlayer _stinger = null!;
+    private HitMomentDef _moment = null!;
+    private float _muffleAge = -1f;
+    private float _rattleWait;
+    private float _whizzWait;
     private AudioStreamPlayer3D[] _pool = Array.Empty<AudioStreamPlayer3D>();
     private AudioStreamPlayer3D[] _speakers = Array.Empty<AudioStreamPlayer3D>();
     private int _next;
@@ -107,6 +116,15 @@ public partial class AudioDirector : Node, ISimEventListener
 
     public int Spoken { get; private set; }
 
+    /// <summary>Balls heard whizzing past your head.</summary>
+    public int Whizzes { get; private set; }
+
+    /// <summary>Confirms played: your ball put someone out (or bounced off them, or put out a teammate).</summary>
+    public int Confirms { get; private set; }
+
+    /// <summary>Whether the world's sound is muffled right now (you were just hit).</summary>
+    public bool Muffling => _muffleAge >= 0f;
+
     public int Unvoiced { get; private set; }
 
     /// <param name="level">The level (its doors and areas); null on the training ground.</param>
@@ -131,6 +149,8 @@ public partial class AudioDirector : Node, ISimEventListener
         _steps = Player2D(AudioBuses.Effects, 3);
         _round = Player2D(AudioBuses.Effects, 2);
         _referee = Player2D(AudioBuses.Referee, 1);
+        _stinger = Player2D(AudioBuses.Stinger, 4);
+        _moment = view.Feedback.HitMoment;
         _pool = new AudioStreamPlayer3D[_def.Voices];
         for (int i = 0; i < _pool.Length; i++)
         {
@@ -206,6 +226,53 @@ public partial class AudioDirector : Node, ISimEventListener
 
         CaseBeacon(dt);
         Ambience?.Update(dt, _ear, _set);
+        _rattleWait -= dt;
+        _whizzWait -= dt;
+        UpdateMuffle(dt);
+    }
+
+    /// <summary>
+    /// The world's sound after you're hit: muffled at once to the hit moment's cutoff, then opening up again (evenly in
+    /// pitch, so in octaves) over its recovery time.
+    /// </summary>
+    private void UpdateMuffle(float dt)
+    {
+        if (_muffleAge < 0f)
+        {
+            return;
+        }
+
+        _muffleAge += dt;
+        float t = _muffleAge / _moment.MuffleRecover_s;
+        if (t >= 1f)
+        {
+            _muffleAge = -1f;
+            AudioBuses.Muffle(AudioBuses.Open);
+            return;
+        }
+
+        float eased = t * t * (3f - 2f * t);
+        AudioBuses.Muffle(_moment.MuffleCutoff_hz * MathF.Pow(AudioBuses.Open / _moment.MuffleCutoff_hz, eased));
+    }
+
+    /// <summary>
+    /// A ball whizzed past your head (<see cref="Pb.Game.Ballistics.FlybyScan"/>): heard from where it passed nearest,
+    /// louder the closer, a little higher the faster. At most one in 40 ms, so a burst of fire isn't a wall of whizzes.
+    /// </summary>
+    public void Whizz(Vector3 at, float speed, float distance, float radius)
+    {
+        if (_set is null || _whizzWait > 0f)
+        {
+            return;
+        }
+
+        float closeness = 1f - Math.Clamp(distance / MathF.Max(radius, 0.01f), 0f, 1f);
+        float db = _mix.Whizz - 9f * (1f - closeness);
+        if (Play3D(Sfx.Whizz, at, db, Math.Clamp(MathF.Sqrt(speed / 75f), 0.8f, 1.2f) * Jitter(0.04f), 12f))
+        {
+            Whizzes++;
+            _whizzWait = 0.04f;
+        }
     }
 
     public void OnSimEvent(in SimEvent e)
@@ -247,6 +314,20 @@ public partial class AudioDirector : Node, ISimEventListener
             case SimEventType.MaskSprayed when e.TargetId == _player.Id:
                 Play2D(_local, Sfx.BreakMask, _mix.HitTaken);
                 break;
+            case SimEventType.BallBounced when PlayerHitboxes.IsPlayer(e.TargetId) && PlayerHitboxes.PlayerIdOf(e.TargetId) == _player.Id:
+                // Off you: close, on your own gear.
+                Play2D(_local, Sfx.BounceOffYou, _mix.BounceOffYou, Jitter(0.05f));
+                break;
+            case SimEventType.BallBounced when local && PlayerHitboxes.IsPlayer(e.TargetId) && _sim.FindPlayer(PlayerHitboxes.PlayerIdOf(e.TargetId)) is { Alive: true }:
+                // Your ball bounced off someone still in: it doesn't count (you hear it bounce off them too).
+                Play2D(_stinger, Sfx.HitBounce, _mix.HitBounce);
+                Confirms++;
+                if (Play3D(BounceOf(Family.Player), e.Position.ToGodot(), _mix.Bounce + SpeedDb(e.Value, 40f), Jitter(0.08f), BounceRange))
+                {
+                    Bounces++;
+                }
+
+                break;
             case SimEventType.MaskSprayed:
                 Play3D(Sfx.BreakMask, e.Position.ToGodot(), _mix.Break, Jitter(0.05f), BreakRange);
                 break;
@@ -261,13 +342,19 @@ public partial class AudioDirector : Node, ISimEventListener
                 Footstep(e, local);
                 break;
             case SimEventType.PlayerEliminated:
-                if (e.TargetId == _player.Id)
+                if (e.TargetId == _player.Id && e.Extra >= 0)
                 {
-                    Play2D(_local, Sfx.HitTaken, _mix.HitTaken);
+                    // You're hit: the thud and your ears ringing, dry, while the world goes muffled.
+                    Play2D(_stinger, Sfx.HitTaken, _mix.HitTaken);
+                    Play2D(_stinger, Sfx.EarRing, _mix.EarRing, Jitter(0.02f));
+                    _muffleAge = 0f;
+                    AudioBuses.Muffle(_moment.MuffleCutoff_hz);
                 }
-                else if (local)
+                else if (local && e.Extra >= 0)
                 {
-                    Play2D(_local, Sfx.HitMarker, _mix.HitMarker);
+                    bool teammate = _sim.FindPlayer(e.TargetId)?.Team == _player.Team;
+                    Play2D(_stinger, teammate ? Sfx.HitTeammate : Sfx.HitConfirm, teammate ? _mix.HitTeammate : _mix.HitConfirm);
+                    Confirms++;
                 }
 
                 break;
@@ -275,7 +362,9 @@ public partial class AudioDirector : Node, ISimEventListener
                 Play2D(_local, Sfx.HitMarker, _mix.HitMarker);
                 break;
             case SimEventType.DryFire when local:
-                Play2D(_local, Sfx.DryFire, _mix.Gear);
+                // Out of paint, the loader's motor spins on nothing; out of air, the hammer falls on an empty valve.
+                bool noPaint = _player.Marker.Paint.Loader == 0;
+                Play2D(_local, noPaint ? Sfx.LoaderEmpty : Sfx.DryFire, noPaint ? _mix.LoaderEmpty : _mix.Gear);
                 break;
             case SimEventType.FireModeChanged when local:
                 Play2D(_local, Sfx.FireMode, _mix.Gear);
@@ -483,7 +572,10 @@ public partial class AudioDirector : Node, ISimEventListener
             voice.Stream = null;
         }
 
-        foreach (AudioStreamPlayer player in new[] { _shot, _local, _steps, _round, _referee })
+        // Whatever happens next (the menu, another round) isn't muffled.
+        _muffleAge = -1f;
+        AudioBuses.Muffle(AudioBuses.Open);
+        foreach (AudioStreamPlayer player in new[] { _shot, _local, _steps, _round, _referee, _stinger })
         {
             if (player is not null)
             {
@@ -515,11 +607,31 @@ public partial class AudioDirector : Node, ISimEventListener
         {
             Play2D(_steps, sfx, _mix.OwnFootstep + (mix - _mix.Footstep) + loudness * 0.5f, Jitter(0.04f));
             Steps++;
+            Rattle((FootstepKind)e.Extra);
         }
         else if (Play3D(sfx, e.Position.ToGodot() + Vector3.Up * 0.2f, mix + loudness, Jitter(0.05f), MathF.Max(8f, e.Value * 2.5f)))
         {
             Steps++;
         }
+    }
+
+    /// <summary>
+    /// Your loader's balls rattling as you land, jump and run: loudest half full (a full one is packed tight, a nearly empty
+    /// one has little to rattle), not at all when empty. At most one every 0.15 s.
+    /// </summary>
+    private void Rattle(FootstepKind kind)
+    {
+        int capacity = _player.Marker.Paint.Params.Capacity;
+        float fill = capacity > 0 ? (float)_player.Marker.Paint.Loader / capacity : 0f;
+        bool jolt = kind is FootstepKind.Land or FootstepKind.Jump || _player.HorizontalSpeed > 4.2f;
+        if (!jolt || fill <= 0f || _rattleWait > 0f)
+        {
+            return;
+        }
+
+        float amount = MathF.Max(0.3f, 4f * fill * (1f - fill));
+        Play2D(_local, Sfx.LoaderRattle, _mix.LoaderRattle + 20f * MathF.Log10(amount) + (kind == FootstepKind.Land ? 4f : 0f), Jitter(0.06f));
+        _rattleWait = 0.15f;
     }
 
     private void Door(in SimEvent e)

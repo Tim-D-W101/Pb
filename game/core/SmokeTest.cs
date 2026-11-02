@@ -76,6 +76,6 @@ public sealed class SmokeTest
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: ticks={_elapsed} maxLiveBalls={_maxLive}/{target} playerShots={_shots} " +
                  $"breaks={_breaks} bounces={_bounces} targetHits={_targetHits} splats={_splats.ActiveCount} " +
                  $"simErrors={_driver.ErrorCount} avgStepMs={_driver.AverageStepMs:0.000}");
-        _host.GetTree().Quit(ok ? 0 : 1);
+        _host.GetTree().QuitCleanly(ok ? 0 : 1);
     }
 }

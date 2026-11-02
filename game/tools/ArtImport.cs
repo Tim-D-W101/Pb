@@ -49,7 +49,7 @@ public partial class ArtImport : Node
             code = 1;
         }
 
-        GetTree().Quit(code);
+        GetTree().QuitCleanly(code);
     }
 
     /// <summary>
