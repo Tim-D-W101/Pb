@@ -55,6 +55,34 @@ public partial class IncomingFireRing : Control
         }
     }
 
+    /// <summary>
+    /// Where each arc showing now is drawn (the middle of its stroke, in this control's pixels) and its colour there,
+    /// strongest first: for a check that the arcs really show.
+    /// </summary>
+    public System.Collections.Generic.List<(IncomingKind Kind, Vector2 At, Color Colour)> Showing()
+    {
+        var showing = new System.Collections.Generic.List<(IncomingKind, Vector2, Color)>();
+        if (Model is null)
+        {
+            return showing;
+        }
+
+        Vector2 c = Size * 0.5f;
+        float radius = Size.Y * _def.Radius;
+        foreach (IncomingArc arc in Model.Arcs)
+        {
+            float alpha = arc.Fade * (0.55f + 0.45f * arc.Strength);
+            if (alpha > 0.5f)
+            {
+                float screen = IncomingFire.ScreenAngle(arc.Bearing, _viewYaw()) - Mathf.Pi * 0.5f;
+                showing.Add((arc.Kind, c + new Vector2(Mathf.Cos(screen), Mathf.Sin(screen)) * radius, _colours[(int)arc.Kind]));
+            }
+        }
+
+        showing.Sort((a, b) => b.Item1.CompareTo(a.Item1));
+        return showing;
+    }
+
     public override void _Draw()
     {
         _drawn = Model is not null && Model.Count > 0;
