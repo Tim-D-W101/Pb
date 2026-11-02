@@ -1967,6 +1967,13 @@ public sealed class TerrainFlatDef : IValidatable
     [Optional]
     public float Height_m { get; set; }
 
+    /// <summary>
+    /// Level at the ground's own height at the rect's middle (its hills, banks and swells; before any flats) instead of
+    /// <see cref="Height_m"/>: where tracks meet on a hillside, a level crossroads.
+    /// </summary>
+    [Optional]
+    public bool Natural { get; set; }
+
     public void Validate(Validator v)
     {
         v.Vector(nameof(Rect_m), Rect_m, 4);

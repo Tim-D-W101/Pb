@@ -694,14 +694,19 @@ and a quicker load.
 Tim's third call on Thornwick Woods: ground that rolls, bots that take the buggies in plain team rounds, and a load
 time near the other areas'.
 
-- **Thornwick Woods rolls** (`terrain` in its level file, made by `tools/levels/thornwick_woods.py`):
-  - *Hills:* in the fields and the woods, the biggest 4.5 m in Rookery Wood and 4 m in Blackthorn Wood. The fort's
-    lookout and stockade stand on a 1.6 m knoll.
-  - *Banks:* the north lane runs sunk between banks; another runs along the west track; a berm crosses the north field.
-  - *Dips:* one west of the crossroads, a quarry dip by the east fence, and Rookery Wood's hollow.
-  - *The brook:* from the west fence past the farm into Rookery hollow, 0.8 m deep, its bed of mud. The lane, the
-    east track and the ring ford it.
-  - *Gentle unevenness everywhere:* long swells over the fields and small bumps a wheel feels.
+- **Thornwick Woods rolls** (`terrain` in its level file, made by `tools/levels/thornwick_woods.py`; made bigger after
+  Tim's check, below):
+  - *Hills:* in the fields and the woods, the biggest 7.5 m in Rookery Wood and 7 m in Blackthorn Wood; two across the
+    tracks, Gallows Rise on the lane (3.3 m) and Rook's Rise on the east track (3.8 m), and the ring climbing 4 m in each
+    wood. The fort's lookout and stockade stand on a 3.2 m knoll.
+  - *Banks:* the north lane runs sunk between banks 2.2 m high; another runs along the west track; a berm crosses the
+    north field.
+  - *Dips:* a hollow the west track dips 2.8 m through, a quarry pit 4 m deep by the east fence, and Rookery Wood's
+    hollow.
+  - *The brook:* from the west fence past the farm into Rookery hollow, 1.25 m deep, its bed of mud. The lane, the
+    east track and the ring ford it, through its mud.
+  - *Unevenness everywhere:* long swells over the fields (1.8 m), humps a buggy feels lift it, and small bumps a wheel
+    feels.
   - *Level ground where it should be:* under the buildings, in the yards, round the parked buggies, along the hedges
     and along the fence, so walls and buildings stand true.
   - *Where it's built:* in the sim (`Terrain`), the same on every copy. Paint breaks on it, sight lines stop at it,
@@ -743,7 +748,7 @@ time near the other areas'.
 
 ### How it looks
 
-From a little above eye height, under software rendering:
+From a little above eye height, under software rendering, as first made (the pictures after Tim's check are below):
 
 ![The brook and the lane's ford from the farmyard, before (flat) and now](phase-5/g-ford.jpg)
 ![The sunken north lane; the ring climbing over Blackthorn Wood's hill](phase-5/g-lane-hill.jpg)
@@ -793,6 +798,74 @@ New tests:
   line rather than running strictly downhill.
 - The engine's own height map for walking (Jolt) may split its squares the other way from the sim; on this ground that's
   under a centimetre underfoot.
+
+### After Tim's check of the stack
+
+Tim found Thornwick's rolling ground barely there: the vehicle demo's way along the lane and the east track rose and fell
+by about 0.35 m. The hills were mostly off the tracks, and the tracks are level across at their middle line's height.
+
+- **Real hills, dips and banks, on the tracks too** (`tools/levels/thornwick_woods.py`, regenerated):
+  - *Hills across the tracks:* Gallows Rise carries the lane south of the crossroads (3.3 m) and Rook's Rise the east
+    track (3.8 m).
+  - *Dips:* the west track dips 2.8 m through a hollow.
+  - *The ring* climbs 4 m in each wood.
+  - *The woods' hills* are up to 7.5 m.
+  - *Other features:* the quarry is a pit 4 m deep, the north lane runs between banks 2.2 m high, and the brook is
+    1.25 m deep with 7 m banks.
+  - *Swells* of 1.8 m roll over the fields, with humps a buggy feels.
+  - *Overall* the ground runs from −4.1 m to 7.6 m. Along the tracks (every half metre):
+
+    | Track | Lowest | Highest |
+    |---|---|---|
+    | The lane | −1.6 m | 3.4 m |
+    | The east track | −1.1 m | 3.8 m |
+    | The west track | −2.8 m | 1.5 m |
+    | The ring | −1.9 m | 4.0 m |
+
+  - *The vehicle demo's way* now rises and falls 4.9 m, and the buggy's body leans and pitches up to 23° (3° before).
+  - The tracks' grades stay drivable: the steepest is 30%, the pull up Gallows Rise from the crossroads; a fifth on the
+    hills' flanks.
+- **Steps where tracks met.** On a hillside the ground took one track's level or another's, and stepped half a metre at
+  the crossroads. A bot's buggy stopped dead there, and `A_driving_bot_shoots_from_the_wheel_and_drives_on` failed on
+  the new ground.
+  - The levels of every stretch near a point now blend, each by how near it is.
+  - Where tracks meet, the ground is level at its own height (a flat with `natural`: a crossroads on a hillside is
+    level).
+  - New test: `TerrainTests.Its_tracks_have_no_steps_and_stay_drivable` checks every track's surface for nothing
+    steeper than 36%.
+- **Fords through the mud.** The tracks were laid right across the brook's bed, so tyres and paint met gravel there.
+  - No track piece lies in a stream bed now, so wheels meet the mud.
+  - The vehicle demo fails if its way fords and the tyres weren't heard in mud. Headless, its tyres were on gravel
+    21.6 s, grass 1.8 s and mud 0.7 s, and the skid's scrub 4.0 s.
+- **Cover off steep spots.** Stood at the lowest ground under it, a prop on a slope is into the ground at its uphill
+  end: a skip on the fort's 3.2 m knoll went in 0.8 m. The generator now works out the ground as the sim does (its
+  noise too), keeps scattered cover off spots too steep for its footprint, and moved the farm's trailer off the
+  brook's wider bank. Nothing is in more than 0.33 m now.
+- The six menu pictures of Thornwick Woods are retaken, the fort's from further up so it shows on its knoll.
+- A HUD that's only shown (the menu pictures' run) no longer throws on every frame from its hit markers, which weren't
+  set up there. The pictures' run used to go on after its last picture, writing that error every frame (265 MB of log
+  in 16 minutes here); it quits now.
+- **The hills cost the sim nothing measurable.** The benchmark's Thornwick tick with ten players and 1,000 balls came
+  out at 0.512 ms, over its 0.5 ms line, where G's report had 0.495 ms. Measured on Thornwick before and after the
+  hills in alternate runs (six measurements of each), it's the same: 0.53 ms both (1,000 balls on their own, 0.32 and
+  0.34 ms). The other levels move as much from one run to the next on this container (Oxbarrow Works: 0.37 to 0.45 ms),
+  so Thornwick is where it was, at the line. Finer blocks of the ground's highest points, for a ball skimming a slope,
+  made it no quicker, so they aren't in. New test: `TerrainTests.A_ball_skimming_the_ground_meets_it_where_its_heights_say`, 600 short, low,
+  nearly level paths (a ball's in a tick) against the marching reference.
+
+From eye height, under software rendering:
+
+![The lane past the ford toward Gallows Rise; the east track over Rook's Rise from the crossroads; the sunken north lane; the west track through the hollow](phase-5/g-fix-hills-1.jpg)
+![The ring climbing in Blackthorn Wood; the quarry pit; Rookery hollow, where the brook ends; the fort on its knoll from Rook's Rise](phase-5/g-fix-hills-2.jpg)
+
+[g-buggy-sounds.ogg](phase-5/g-buggy-sounds.ogg) is the sound of the vehicle demo filmed over the new ground (24 s): the
+engine and its load, the tyres on gravel and grass and through the ford's mud, and the handbrake's skid. The film counted
+every loop playing for as long as it was on: the engine 24.2 s (19.0 s under load), gravel 21.7 s, grass 1.8 s, mud
+0.8 s, the skid's scrub 4.5 s.
+
+Checks after the fixes: `dotnet test` passes, 567 sim tests and 73 network tests. The smoke runs these touch pass here: the menu, Thornwick's walk-through, its
+4 v 4 (5 drives) and capture the flag (3 drives), the vehicle demo with its sounds, the splat and duel demos, the gait
+demo and the art-on match. CI runs the whole suite on the PR.
 
 ### What's next
 

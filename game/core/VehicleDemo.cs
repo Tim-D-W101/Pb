@@ -33,6 +33,7 @@ public sealed class VehicleDemo : ICommandSource
     private readonly Hud _hud;
     private readonly AudioDirector _audio;
     private readonly List<SVector3> _route = new();
+    private bool _fords;
     private int _start = -1, _vehicle = -1, _outAt = -1, _routeAt, _inFor;
     private bool _promptSeen, _wasIn, _failed, _slung, _raised;
     private float _fastest, _driven, _leaned, _sprayed;
@@ -114,6 +115,16 @@ public sealed class VehicleDemo : ICommandSource
 
         roads.Route(v.Position, far, _route, out float length);
         _route.Insert(0, v.Position);
+        // Whether the way fords a stream (through its bed of mud).
+        for (int k = 0; k + 1 < _route.Count && _sim.Level?.Terrain is { } ground; k++)
+        {
+            for (float s = 0f; s <= 1f; s += 0.02f)
+            {
+                SVector3 p = SVector3.Lerp(_route[k], _route[k + 1], s);
+                _fords |= ground.InBedAt(p.X, p.Z);
+            }
+        }
+
         GD.Print($"VEHICLE DEMO: vehicle {best} ({v.Params.DisplayName}) at {v.Position}, to {far} along {length:0} m of track");
 
         // The opponents stand quiet where they start: anyone on the way is moved off it (it'd stop for them otherwise).
@@ -270,6 +281,7 @@ public sealed class VehicleDemo : ICommandSource
             float tyresPlaying = Playing(Sfx.TyreGravel) + Playing(Sfx.TyreGrass) + Playing(Sfx.TyreMud) + Playing(Sfx.TyreHard);
             Check(On(Sfx.Engine) > 5f, $"the engine was on only {On(Sfx.Engine):0.0} s");
             Check(tyres > 3f, $"the tyres were heard only {tyres:0.0} s");
+            Check(!_fords || On(Sfx.TyreMud) > 0.1f, "the tyres weren't heard in the ford's mud");
             Check(On(Sfx.TyreSkid) + On(Sfx.TyreScrub) > 0.1f, "the handbrake never made the tyres skid");
             Check(AudioBuses.Silent || (Playing(Sfx.Engine) > 0.9f * On(Sfx.Engine) && tyresPlaying > 0.9f * tyres),
                 "the engine or the tyres were on but not playing");

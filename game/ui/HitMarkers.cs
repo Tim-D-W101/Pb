@@ -89,6 +89,11 @@ public partial class HitMarkers : Control
 
     public override void _Process(double delta)
     {
+        if (_def is null)
+        {
+            return; // not configured (a HUD only shown, as for the menu's pictures): every frame used to throw
+        }
+
         float dt = (float)delta;
         if (_lineLeft > 0f)
         {

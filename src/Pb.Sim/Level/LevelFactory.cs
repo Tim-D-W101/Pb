@@ -287,6 +287,13 @@ public static class LevelFactory
                         continue;
                     }
 
+                    // Where it fords a stream, none: the wheels go through the bed's mud.
+                    Vector3 middle = (a + b) * 0.5f;
+                    if (terrain is not null && terrain.InBedAt(middle.X, middle.Z))
+                    {
+                        continue;
+                    }
+
                     Vector3 along = (b - a) / length;
                     Quaternion turn = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.Atan2(along.X, along.Z)) *
                                       Quaternion.CreateFromAxisAngle(Vector3.UnitX, -MathF.Asin(Math.Clamp(along.Y, -1f, 1f)));
@@ -308,6 +315,11 @@ public static class LevelFactory
 
             for (int k = 1; k + 1 < points.Length; k++)
             {
+                if (terrain is not null && terrain.InBedAt(points[k].X, points[k].Z))
+                {
+                    continue;
+                }
+
                 sink.AddCylinder(PlanFrame.Identity, points[k] + new Vector3(0f, lift - half, 0f), Quaternion.Identity, r.Width_m * 0.5f, half, m,
                     PrimitiveFlags.Paint | PrimitiveFlags.Render, PrimitiveRole.GroundPatch, owner);
             }

@@ -140,6 +140,13 @@ public sealed class Terrain
         return _surfaces[_kind[r * Cols + c]];
     }
 
+    /// <summary>Whether (<paramref name="x"/>, <paramref name="z"/>) is in a stream bed (its nearest grid point is).</summary>
+    public bool InBedAt(float x, float z)
+    {
+        int c = Math.Clamp((int)MathF.Round((x - MinX) / Cell), 0, Cols - 1), r = Math.Clamp((int)MathF.Round((z - MinZ) / Cell), 0, Rows - 1);
+        return InBed(c, r);
+    }
+
     /// <summary>A point stood on the ground: its height above the level datum (y = 0) made height above the ground there.</summary>
     public Vector3 Lift(Vector3 p) => p with { Y = p.Y + HeightAt(p.X, p.Z) };
 
@@ -228,21 +235,34 @@ public sealed class Terrain
                 float x = bounds.Min.X + c * cell;
                 float h = shape.Free(x, z);
 
-                // Level across a track: the height its middle line has where it's nearest, blending back beside it.
-                float weight = 0f, level = h;
+                // Level across a track: the height its middle line has where it's nearest, blending back beside it. Where
+                // tracks meet, or a track bends, the levels of the stretches near it blend (each by how near it is): taking
+                // the nearest one's left a step where another took over, half a metre on a hillside, that stopped a buggy.
+                float weight = 0f, levelSum = 0f, shareSum = 0f;
                 for (int k = 0; k < lines.Length; k++)
                 {
-                    (float d, Vector2 nearest) = Nearest(lines[k], new Vector2(x, z));
                     float half = roads[k].Width_m * 0.5f + 0.5f;
-                    float w = d <= half ? 1f : 1f - SmoothStep(half, half + roadMargin, d);
-                    if (w > weight)
+                    Vector2[] line = lines[k];
+                    for (int i = 1; i < line.Length; i++)
                     {
-                        weight = w;
-                        level = shape.Free(nearest.X, nearest.Y);
+                        Vector2 nearest = OnSegment(line[i - 1], line[i], new Vector2(x, z));
+                        float d = Vector2.Distance(nearest, new Vector2(x, z));
+                        float w = d <= half ? 1f : 1f - SmoothStep(half, half + roadMargin, d);
+                        if (w <= 0f)
+                        {
+                            continue;
+                        }
+
+                        weight = MathF.Max(weight, w);
+                        levelSum += w * shape.Free(nearest.X, nearest.Y);
+                        shareSum += w;
                     }
                 }
 
-                h += (level - h) * weight;
+                if (shareSum > 0f)
+                {
+                    h += (levelSum / shareSum - h) * weight;
+                }
 
                 // What covers it: the last ground patch over it, else the ground; a stream bed over all.
                 byte cover = 0;
@@ -296,9 +316,52 @@ public sealed class Terrain
             _def = def;
             _bounds = bounds;
             _ridges = (def.Ridges ?? Array.Empty<TerrainRidgeDef>()).Select(r => r.Points_m.Select(p => new Vector2(p[0], p[1])).ToArray()).ToArray();
+            // Each flat's height: its own, or the ground's at its middle.
+            _flatHeights = (def.Flats ?? Array.Empty<TerrainFlatDef>())
+                .Select(f => f.Natural ? Raw((f.Rect_m[0] + f.Rect_m[2]) * 0.5f, (f.Rect_m[1] + f.Rect_m[3]) * 0.5f) : f.Height_m).ToArray();
         }
 
+        private readonly float[] _flatHeights;
+
         public float Free(float x, float z)
+        {
+            float h = Raw(x, z);
+
+            // Held level on the flats, and coming back to level toward the edge. Where the margins of flats at different
+            // heights meet, their heights blend (each by how near it is, a flat's own rect all its own), so no step opens.
+            float flatWeight = 0f, heightSum = 0f, shareSum = 0f;
+            TerrainFlatDef[] flats = _def.Flats ?? Array.Empty<TerrainFlatDef>();
+            for (int i = 0; i < flats.Length; i++)
+            {
+                TerrainFlatDef flat = flats[i];
+                float x0 = MathF.Min(flat.Rect_m[0], flat.Rect_m[2]), x1 = MathF.Max(flat.Rect_m[0], flat.Rect_m[2]);
+                float z0 = MathF.Min(flat.Rect_m[1], flat.Rect_m[3]), z1 = MathF.Max(flat.Rect_m[1], flat.Rect_m[3]);
+                float dx = MathF.Max(0f, MathF.Max(x0 - x, x - x1)), dz = MathF.Max(0f, MathF.Max(z0 - z, z - z1));
+                float outside = MathF.Sqrt(dx * dx + dz * dz);
+                float w = outside <= 0f ? 1f : 1f - SmoothStep(0f, MathF.Max(_def.FlatMargin_m, 1e-3f), outside);
+                if (w <= 0f)
+                {
+                    continue;
+                }
+
+                float share = w / (1f - w + 1e-5f);
+                heightSum += share * _flatHeights[i];
+                shareSum += share;
+                flatWeight = MathF.Max(flatWeight, w);
+            }
+
+            if (shareSum > 0f)
+            {
+                h += (heightSum / shareSum - h) * flatWeight;
+            }
+
+            float edge = MathF.Min(MathF.Min(x - _bounds.Min.X, _bounds.Max.X - x), MathF.Min(z - _bounds.Min.Z, _bounds.Max.Z - z));
+            float level = 1f - SmoothStep(0f, MathF.Max(_def.Edge_m, 1e-3f), edge);
+            return h * (1f - level);
+        }
+
+        /// <summary>The ground's own shape: its swells, hills and banks, before the flats hold it level.</summary>
+        private float Raw(float x, float z)
         {
             float h = 0f;
             foreach (TerrainNoiseDef noise in _def.Noise ?? Array.Empty<TerrainNoiseDef>())
@@ -327,36 +390,16 @@ public sealed class Terrain
                 }
             }
 
-            // Held level on the flats, and coming back to level toward the edge. Where the margins of flats at different
-            // heights meet, their heights blend (each by how near it is, a flat's own rect all its own), so no step opens.
-            float flatWeight = 0f, heightSum = 0f, shareSum = 0f;
-            foreach (TerrainFlatDef flat in _def.Flats ?? Array.Empty<TerrainFlatDef>())
-            {
-                float x0 = MathF.Min(flat.Rect_m[0], flat.Rect_m[2]), x1 = MathF.Max(flat.Rect_m[0], flat.Rect_m[2]);
-                float z0 = MathF.Min(flat.Rect_m[1], flat.Rect_m[3]), z1 = MathF.Max(flat.Rect_m[1], flat.Rect_m[3]);
-                float dx = MathF.Max(0f, MathF.Max(x0 - x, x - x1)), dz = MathF.Max(0f, MathF.Max(z0 - z, z - z1));
-                float outside = MathF.Sqrt(dx * dx + dz * dz);
-                float w = outside <= 0f ? 1f : 1f - SmoothStep(0f, MathF.Max(_def.FlatMargin_m, 1e-3f), outside);
-                if (w <= 0f)
-                {
-                    continue;
-                }
-
-                float share = w / (1f - w + 1e-5f);
-                heightSum += share * flat.Height_m;
-                shareSum += share;
-                flatWeight = MathF.Max(flatWeight, w);
-            }
-
-            if (shareSum > 0f)
-            {
-                h += (heightSum / shareSum - h) * flatWeight;
-            }
-
-            float edge = MathF.Min(MathF.Min(x - _bounds.Min.X, _bounds.Max.X - x), MathF.Min(z - _bounds.Min.Z, _bounds.Max.Z - z));
-            float level = 1f - SmoothStep(0f, MathF.Max(_def.Edge_m, 1e-3f), edge);
-            return h * (1f - level);
+            return h;
         }
+    }
+
+    /// <summary>The point nearest <paramref name="p"/> on the segment from <paramref name="a"/> to <paramref name="b"/>.</summary>
+    private static Vector2 OnSegment(Vector2 a, Vector2 b, Vector2 p)
+    {
+        Vector2 ab = b - a;
+        float t = Math.Clamp(Vector2.Dot(p - a, ab) / MathF.Max(ab.LengthSquared(), 1e-6f), 0f, 1f);
+        return a + ab * t;
     }
 
     /// <summary>How far <paramref name="p"/> is from a line of points, and the nearest point on it.</summary>

@@ -1661,16 +1661,19 @@ time near the other areas'.
   ground between points is flat on each. The height at a point is, in order:
   - *Free shape:* layers of smooth value noise (`noise`: the long swells of a field, the bumps a wheel feels), raised-
     cosine `hills` (a dip below zero) and `ridges` (banks along a line).
-  - *Flats:* held level (at `height_m`, 0 by default) inside each rect, blending back over `flatMargin_m`. Where the margins
-    of flats at different heights meet, their heights blend, each weighted by how near it is (a rect's inside is all its
-    own), so no step opens. Thornwick Woods holds the ground level under every building (the fort's lookout on a 1.6 m
-    knoll), in the yards, round the parked buggies, along the hedges and along the fence, so walls and buildings stand
-    true.
+  - *Flats:* held level (at `height_m`, 0 by default, or with `natural` at the free shape's height at the rect's middle)
+    inside each rect, blending back over `flatMargin_m`. Where the margins of flats at different heights meet, their
+    heights blend, each weighted by how near it is (a rect's inside is all its own), so no step opens. Thornwick Woods
+    holds the ground level under every building (the fort's lookout on a 3.2 m knoll), in the yards, round the parked
+    buggies, along the hedges and along the fence, so walls and buildings stand true; and at its own height where tracks
+    meet, so a crossroads on a hillside is level.
   - *Edge:* back to level over `edge_m` inside the bounds, so the scrubland round it meets it.
   - *Tracks:* level across each track (at the height its middle line has where it's nearest), blending back to the
-    ground beside it over `roadMargin_m`; along it, they follow the ground.
+    ground beside it over `roadMargin_m`; along it, they follow the ground. Where tracks meet or a track bends, the
+    levels of every stretch near the point blend, each by how near it is (taking the nearest stretch's level left a step
+    where another took over: half a metre at the crossroads on a hillside's flank).
   - *Stream beds* (`streams`), cut last: `depth_m` deep, `width_m` wide at the bottom, the banks sloping up over
-    `banks_m`. A track crossing one dips through it: a ford.
+    `banks_m`. A track crossing one dips through it: a ford, where the track gives way to the bed's mud.
   - *Cover:* each point is the level's ground, one of its ground patches (the last one over it: a wood's leaf litter, a
     yard) or a stream's bed (its own material: Thornwick's brook is `mud`). With rolling ground the ground patches are
     this cover, not slabs over the ground.
@@ -1684,9 +1687,9 @@ time near the other areas'.
   ground under their placement (on their flats). Props stand at the lowest ground under their footprint (a little into
   a slope, never floating), and trees 15 cm into it. Walls run from the lowest ground along them, as tall above the
   highest. Tracks are laid in pieces of at most 1 m, each sloping as the ground does and raised by however far the ground
-  bulges above it, so none shows through on a crest. Spawns, patrols, pickups, case
-  spots, ways out, the hold rooms' middles, viewpoints, the dead zones and the buggies' spots are all lifted onto it,
-  and the areas' heights reach over it.
+  bulges above it, so none shows through on a crest; none in a stream bed, so wheels and paint meet a ford's mud.
+  Spawns, patrols, pickups, case spots, ways out, the hold rooms' middles, viewpoints, the dead zones and the buggies'
+  spots are all lifted onto it, and the areas' heights reach over it.
 - **Bots** (`NavGrid`): a column's ground floor is the ground's height there, and the places under it are left out, so
   the grid follows the hills, the banks and the brook's bed (walkable everywhere: its banks are at most 17°).
 - **Presentation.**

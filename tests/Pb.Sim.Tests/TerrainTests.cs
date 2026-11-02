@@ -33,15 +33,29 @@ public class TerrainTests
 
     private static Vector3 On(float x, float z, float above = 0f) => new(x, Ground.HeightAt(x, z) + above, z);
 
+    /// <summary>The fort's knoll's height (tools/levels/thornwick_woods.py's FORT_KNOLL).</summary>
+    private const float Knoll = 3.2f;
+
     [Fact]
     public void Thornwick_rolls_with_hills_a_hollow_banks_and_a_brook()
     {
         Terrain g = Ground;
         _out.WriteLine($"{g.Cols} × {g.Rows} points every {g.Cell} m, from {g.MinHeight:0.00} m to {g.MaxHeight:0.00} m");
-        Assert.True(g.MaxHeight - g.MinHeight > 5f, "it hardly rolls");
-        Assert.True(g.HeightAt(140f, -92f) > 3.5f, "Rookery Wood's hill isn't there");
-        Assert.True(g.HeightAt(88f, -40f) < -1f, "Rookery hollow isn't there");
-        Assert.True(g.HeightAt(6f, -38f) - g.HeightAt(0f, -38f) > 0.8f, "the north lane isn't sunk between banks");
+        Assert.True(g.MaxHeight - g.MinHeight > 10f, "it hardly rolls");
+        Assert.True(g.HeightAt(140f, -92f) > 6f, "Rookery Wood's hill isn't there");
+        Assert.True(g.HeightAt(88f, -40f) < -2f, "Rookery hollow isn't there");
+        Assert.True(g.HeightAt(144f, 2f) < -3f, "the quarry pit isn't there");
+        Assert.True(g.HeightAt(6.5f, -38f) - g.HeightAt(0f, -38f) > 1.8f, "the north lane isn't sunk between banks");
+        Assert.True(g.HeightAt(-40f, -74f) - g.HeightAt(-40f, -64f) > 1f, "the berm isn't across the north field");
+
+        // The tracks go over the hills and through the hollow (the vehicle demo's way along the lane and the east track
+        // once rose and fell by 0.35 m).
+        Assert.True(g.HeightAt(0f, 3f) > 2.5f, "the lane doesn't go over Gallows Rise");
+        Assert.True(g.HeightAt(33f, -11f) > 3f, "the east track doesn't go over Rook's Rise");
+        Assert.True(g.HeightAt(-36f, -10f) < -2f, "the west track doesn't dip through the hollow");
+        (float low, float high) = Along(new Vector2(0f, 100f), new Vector2(0f, -10f), new Vector2(60f, -12f));
+        _out.WriteLine($"the vehicle demo's way: from {low:0.00} m to {high:0.00} m");
+        Assert.True(high - low > 4f, $"the lane and the east track rise and fall by only {high - low:0.00} m");
 
         // The brook: its bed lower than the field beside it, and of mud, where it crosses the farm.
         SurfaceId mud = TestData.Config.Surfaces.Get("mud");
@@ -49,14 +63,72 @@ public class TerrainTests
         {
             float bed = g.HeightAt(x, 40.7f), field = g.HeightAt(x, 52f);
             _out.WriteLine($"the brook at x {x}: bed {bed:0.00} m, the field beside it {field:0.00} m");
-            Assert.True(field - bed > 0.6f, $"the brook at x {x} is hardly lower than the field");
+            Assert.True(field - bed > 1f, $"the brook at x {x} is hardly lower than the field");
             Assert.Equal(mud, g.SurfaceAt(x, 40.7f));
         }
 
         // Where the lane fords it, the lane dips through it.
         float ford = g.HeightAt(0f, 40.6f), lane = g.HeightAt(0f, 56f);
         _out.WriteLine($"the ford: {ford:0.00} m, the lane 15 m on {lane:0.00} m");
-        Assert.True(lane - ford > 0.6f);
+        Assert.True(lane - ford > 1f);
+    }
+
+    /// <summary>The lowest and highest ground along a line of points, every half metre.</summary>
+    private static (float Low, float High) Along(params Vector2[] points)
+    {
+        float low = float.MaxValue, high = float.MinValue;
+        for (int i = 1; i < points.Length; i++)
+        {
+            float length = Vector2.Distance(points[i - 1], points[i]);
+            for (float s = 0f; s <= length; s += 0.5f)
+            {
+                Vector2 p = Vector2.Lerp(points[i - 1], points[i], s / length);
+                float h = Ground.HeightAt(p.X, p.Y);
+                low = MathF.Min(low, h);
+                high = MathF.Max(high, h);
+            }
+        }
+
+        return (low, high);
+    }
+
+    [Fact]
+    public void Its_tracks_have_no_steps_and_stay_drivable()
+    {
+        // Over every grid point on a track, the ground to the next point any way: no steeper than a buggy climbs. Where tracks met, the ground once took one track's level or the other's and stepped half a
+        // metre between them on a hillside's flank: a buggy stopped dead at the crossroads.
+        Terrain g = Ground;
+        float steepest = 0f;
+        Vector2 at = default;
+        foreach (RoadSpec road in Level.Roads)
+        {
+            for (int i = 1; i < road.Points.Count; i++)
+            {
+                var a = new Vector2(road.Points[i - 1].X, road.Points[i - 1].Z);
+                var b = new Vector2(road.Points[i].X, road.Points[i].Z);
+                Vector2 along = Vector2.Normalize(b - a), across = new(-along.Y, along.X);
+                float length = Vector2.Distance(a, b), half = road.Width * 0.5f;
+                for (float s = 0f; s <= length; s += 0.5f)
+                {
+                    for (float o = -half; o <= half; o += 0.5f)
+                    {
+                        Vector2 p = a + along * s + across * o;
+                        float h = g.HeightAt(p.X, p.Y);
+                        foreach (Vector2 step in new[] { new Vector2(g.Cell, 0f), new Vector2(0f, g.Cell) })
+                        {
+                            float grade = MathF.Abs(g.HeightAt(p.X + step.X, p.Y + step.Y) - h) / g.Cell;
+                            if (grade > steepest)
+                            {
+                                (steepest, at) = (grade, p);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        _out.WriteLine($"the steepest ground on the tracks: {steepest:P0} at {at}");
+        Assert.True(steepest < 0.36f, $"a step or a climb of {steepest:P0} on a track at {at}");
     }
 
     [Fact]
@@ -67,13 +139,13 @@ public class TerrainTests
             Vector3 at = b.Frame.Origin;
             float here = Ground.HeightAt(at.X, at.Z);
             Assert.Equal(here, at.Y, 3);
-            Assert.InRange(MathF.Abs(here - (b.Template.Id == "signal_box" ? 1.6f : 0f)), 0f, 1e-3f);
+            Assert.InRange(MathF.Abs(here - (b.Template.Id == "signal_box" ? Knoll : 0f)), 0f, 1e-3f);
         }
 
         // The fort's knoll is level all over the stockade.
         (float low, float high) = Ground.RangeIn(16f, -102f, 44f, -74f);
-        Assert.InRange(low, 1.6f - 1e-3f, 1.6f + 1e-3f);
-        Assert.InRange(high, 1.6f - 1e-3f, 1.6f + 1e-3f);
+        Assert.InRange(low, Knoll - 1e-3f, Knoll + 1e-3f);
+        Assert.InRange(high, Knoll - 1e-3f, Knoll + 1e-3f);
     }
 
     [Fact]
@@ -99,6 +171,8 @@ public class TerrainTests
             // Its foot (its frame's origin, the floor of its model) at or a little below the ground under its middle.
             float under = Ground.HeightAt(prop.Position.X, prop.Position.Z);
             Assert.True(prop.Position.Y <= under + 1e-3f, $"{prop.Type.Id} at {prop.Position} floats {prop.Position.Y - under:0.00} m over the ground");
+            // (Stood at the lowest ground under it, a prop on a slope is into the ground at its uphill end: the generator
+            // keeps cover off ground too steep for its footprint, where a skip on the fort's knoll went in 0.8 m.)
             Assert.True(prop.Position.Y > under - 0.6f, $"{prop.Type.Id} at {prop.Position} is sunk {under - prop.Position.Y:0.00} m into the ground");
             props++;
         }
@@ -144,6 +218,40 @@ public class TerrainTests
         }
 
         _out.WriteLine($"radius {radius}: worst {worst * 100f:0.0} cm off");
+    }
+
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(0.0085f)]
+    public void A_ball_skimming_the_ground_meets_it_where_its_heights_say(float radius)
+    {
+        // A ball's path in a tick (0.75 m: 90 m/s at 120 Hz), low over the ground and near level, the way most shots fly:
+        // on the hills' slopes, what the blocks' highest points turn away must only ever be paths that miss.
+        var shape = new HeightFieldShape(Ground);
+        var random = new Random(43);
+        int met = 0, over = 0;
+        for (int k = 0; k < 600; k++)
+        {
+            float x = -170f + random.NextSingle() * 340f, z = -120f + random.NextSingle() * 240f;
+            Vector3 from = On(x, z, radius + 0.02f + random.NextSingle() * 0.6f);
+            float heading = random.NextSingle() * MathF.Tau, down = random.NextSingle() * 0.5f;
+            Vector3 d = new Vector3(MathF.Sin(heading) * MathF.Cos(down), -MathF.Sin(down), MathF.Cos(heading) * MathF.Cos(down)) * 0.75f;
+            bool hit = shape.Sweep(from, d, radius, out float t, out _);
+            float reference = Reference(from, d, radius);
+            if (float.IsNaN(reference))
+            {
+                Assert.False(hit && t < 0.98f, $"a sweep from {from} along {d} met nothing, yet the shape says it did at {t:0.000}");
+                over++;
+                continue;
+            }
+
+            met++;
+            Assert.True(hit, $"a sweep from {from} along {d} (r {radius}) missed the ground it meets at {reference:0.000}");
+            Assert.True(MathF.Abs(t - reference) * d.Length() < 0.01f, $"from {from} along {d} (r {radius}): met at {t:0.0000}, should be {reference:0.0000}");
+        }
+
+        _out.WriteLine($"radius {radius}: {met} paths met the ground, {over} passed over it");
+        Assert.True(met > 50 && over > 50, $"the paths should both meet the ground and pass over it ({met} met it, {over} didn't)");
     }
 
     /// <summary>When a sphere along the path first comes within its radius of the ground, by marching and halving.</summary>
