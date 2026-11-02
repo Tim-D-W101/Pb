@@ -24,6 +24,8 @@ public class ThornwickWoodsTests
 
     private static LevelLayout Level => TestData.Data.Levels["thornwick_woods"];
 
+    private static Vector3 On(float x, float z) => new(x, 0f, z);
+
     [Fact]
     public void It_is_several_times_the_works_with_woods_tracks_and_buggies()
     {
@@ -81,6 +83,60 @@ public class ThornwickWoodsTests
         Assert.True(fastest > 5f, $"it never got going ({fastest:0.0} m/s)");
         Assert.True(Flat(bot.Self.Position - goal) < 3f, "it didn't get where it was going");
         Assert.True(seconds < 70f, $"it took {seconds:0} s: walking would've been as quick");
+    }
+
+    [Fact]
+    public void A_bot_boarding_from_the_far_side_walks_round_the_buggy_to_its_door()
+    {
+        // In the game a body can't walk through a buggy, and the bots' grid doesn't know it's there (M5.8): from the side
+        // away from the driver's door, a bot going a long way (to the west gate) goes round its nose or its tail to the
+        // door, never across its tub.
+        BotArena arena = BotArena.Create("normal", level: "thornwick_woods");
+        VehicleState car = arena.Sim.Vehicles[3]; // by the quarry track, facing north, its driver's door on the west side
+        arena.Hero.Position = On(178f, -14f);
+        OpponentSpawn At(string id, float x, float z) => new() { Id = id, Position = On(x, z), Yaw = 0f, Roles = new[] { "hunter" } };
+        BotBrain bot = arena.AddBotAt(At("east", car.Position.X + 3f, car.Position.Z + 0.5f), 0, "hunter");
+        arena.AddBotAt(At("west1", -176f, -6f), 1, "hunter").Passive = true;
+        arena.AddBotAt(At("west2", -176f, -12f), 1, "hunter").Passive = true;
+        arena.Start(mode: MatchModeKind.Teams);
+        bot.Guard(On(-150f, -8f), 0f, shout: false);
+        float halfWidth = car.Params.Width * 0.5f, halfLength = car.Params.Length * 0.5f, closest = float.MaxValue;
+        arena.Run(20 * 120, () =>
+        {
+            if (bot.Ride == RideState.Boarding && bot.Self.Vehicle < 0)
+            {
+                Vector3 offset = bot.Self.Position - car.Position;
+                float across = MathF.Abs(Vector3.Dot(offset, car.Right)) - halfWidth, along = MathF.Abs(Vector3.Dot(offset, car.Forward)) - halfLength;
+                closest = MathF.Min(closest, MathF.Max(across, along)); // how far outside the tub (below 0: in it)
+            }
+
+            return arena.Sim.Vehicles.Of(bot.Self) is not null;
+        });
+
+        _out.WriteLine($"in after {arena.Sim.Tick / 120f:0.0} s ({bot.Ride}); while boarding it kept {closest:0.00} m clear of the tub");
+        Assert.Equal(car.Id, bot.Self.Vehicle);
+        Assert.Equal(car.Params.DriverSeat, bot.Self.Seat);
+        Assert.True(closest > 0.2f, $"it walked {-closest:0.00} m into the buggy's tub");
+    }
+
+    [Fact]
+    public void A_bot_on_a_long_walk_takes_a_buggy_it_comes_near()
+    {
+        // It used to look for a buggy only as it set off, so one too far off then was walked past for good. Now it looks
+        // again every driveLookEvery_s on its way: from west of the farm, beyond reach of the buggies at the south gate,
+        // toward the far east of the south field, it comes near them and takes one.
+        BotArena arena = BotArena.Create("normal", level: "thornwick_woods");
+        Vector3 start = On(-80f, 50f), goal = On(150f, 100f);
+        Assert.All(new[] { arena.Sim.Vehicles[0], arena.Sim.Vehicles[1] },
+            car => Assert.True(Flat(start - car.Position) > TestData.Data.Bots.Brain.DriveVehicleWithin, "it starts within reach of a buggy"));
+        arena.Hero.Position = On(178f, -14f);
+        BotBrain bot = arena.AddBotAt(new OpponentSpawn { Id = "walker", Position = start, Yaw = 0f, Roles = new[] { "sentry" } }, 0, "sentry");
+        arena.AddBotAt(new OpponentSpawn { Id = "far", Position = On(176f, -20f), Yaw = 0f, Roles = new[] { "sentry" } }, 1).Passive = true;
+        arena.Start(mode: MatchModeKind.Teams);
+        bot.Guard(goal, 0f, shout: false);
+        arena.Run(60 * 120, () => arena.Sim.Vehicles.Of(bot.Self) is not null);
+        _out.WriteLine($"after {arena.Sim.Tick / 120f:0.0} s: {bot.Ride}, in {(bot.Self.Vehicle >= 0 ? $"buggy {bot.Self.Vehicle}" : "none")} at {bot.Self.Position}");
+        Assert.Contains(bot.Self.Vehicle, new[] { 0, 1 });
     }
 
     [Fact]
