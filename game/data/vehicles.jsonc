@@ -4,7 +4,9 @@
 // The field's rules for vehicles (paintball sites that use them run much the same):
 //   - paint on a vehicle doesn't count: it's cover, and balls break on its body; the people in it are as exposed as
 //     their seats leave them (their own hitboxes, sitting up above the sides);
-//   - whoever drives keeps both hands on the wheel and doesn't fire; a passenger may;
+//   - whoever drives can fire one-handed, the other hand on the wheel, so less accurately (the seat's spreadScale
+//     times the marker's spread, which already widens with the buggy's speed); a passenger fires as usual;
+//   - everyone in it can be hit and put out as anywhere else (their own hitboxes, sitting up above the sides);
 //   - a vehicle never hits anyone: it stops for anyone in its way;
 //   - the field's speed limit is the vehicle's top speed;
 //   - you get in and out only when it's (nearly) stopped, and someone in it who's hit gets out and walks off.
@@ -42,7 +44,7 @@
       // it does. Sitting, eyes this far above the seat's point.
       "seatedEyeHeight_m": 0.85,
       "seats": [
-        { "id": "driver", "at_m": [-0.42, 0.55, -0.1], "drives": true, "fires": false },
+        { "id": "driver", "at_m": [-0.42, 0.55, -0.1], "drives": true, "fires": true, "spreadScale": 2.0 },
         { "id": "passenger", "at_m": [0.42, 0.55, -0.1], "drives": false, "fires": true }
       ]
     }

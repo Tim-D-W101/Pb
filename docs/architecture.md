@@ -1520,9 +1520,10 @@ everything else, so the server rules them and bots drive by the same rules and c
     `stopShort_m` short of them, and never comes closer than `brush_m` to anyone, whatever the driver does.
   - *Seats.* Everyone in it sits in their seat, moving with it, at `seatedEyeHeight_m`: their own hitboxes, above the
     body's sides. The movement rules return `Seated` for them, so no host walks a seated body.
-  - *The field's rules.* The driver can't fire; a passenger can. Paint breaks on the body (a `VehicleShape`, a dynamic
-    oriented box under the level's bounds) and never counts. Someone hit in it gets out, and without a driver it rolls
-    to a stop. A new round puts every vehicle back empty.
+  - *The field's rules.* The driver fires one-handed: the marker's spread, already wider at the buggy's speed, times
+    the seat's `spreadScale` (2). A passenger fires as usual (M5.6). Paint breaks on the body (a `VehicleShape`, a
+    dynamic oriented box under the level's bounds) and never counts. Someone hit in it gets out, and without a driver it
+    rolls to a stop. A new round puts every vehicle back empty.
   - *Cost.* Filed under the whole level, a `VehicleShape` is asked about every ball, so it turns away a sweep that
     passes outside a sphere round the box before testing the box. A tick with 1,000 balls costs 0.25 ms on the site,
     0.4 ms without that check.
@@ -1538,9 +1539,13 @@ everything else, so the server rules them and bots drive by the same rules and c
     tracks nearest it to the point nearest its goal: points shared by two tracks are junctions, and a track ending on
     another's side joins it there. It steers for a point `driveLookAhead_m` along the route from where it is on the
     current leg (`RoadGraph.Ahead`, so it keeps to the track round corners), and slows for bends and for the end.
-  - *Stopping.* It stops and gets out near the end, or as soon as it sees an enemy within `driveContactRange_m`. Stuck
-    (a person in the way, cover on the track), it backs up and tries again, and after twice gets out. After a failed
-    ride it stays on foot for a while.
+  - *Fighting from the wheel* (M5.6). With an enemy in sight or just seen, it looks at it to make it out, and once it
+    has engaged the mode aims and fires as on foot. A seated bot fires on the move, since it isn't walking. It drives on
+    at no more than `driveFightSpeed_mps`, and goals the fight sets (cover, a spot to stand) mean nothing at the wheel.
+  - *Stopping.* It stops and gets out near the end, or when an enemy in sight comes within `driveFightOutWithin_m`: it's
+    measured to where the enemy is, since the last-known spot can be unset the moment it comes into view. Stuck (a person
+    in the way, cover on the track), it backs up and tries again, and after twice gets out. After a failed ride it
+    stays on foot for a while.
   - *Mode goals.* A goal that changes while riding is driven to, or got out for if it's near.
 - **Presentation.**
   - *The woods* (`Woods.BuildStands`). Each tree is grown with the same trunks, branches and leaf cards as the copses
@@ -1556,10 +1561,11 @@ everything else, so the server rules them and bots drive by the same rules and c
   - *Sound.* A synthesised two-stroke loop per buggy, running while someone's at the wheel, pitched by speed and
     throttle.
 - **Checks.**
-  - `VehicleTests`: getting in, driving and out; steering; walls and people stopping it; firing from the seats; someone
-    hit getting out; paint on the body; a new round.
+  - `VehicleTests`: getting in, driving and out; steering; walls and people stopping it; the driver's one-handed
+    shots spreading twice the passenger's; someone hit getting out; paint on the body; a new round.
   - `ThornwickWoodsTests`: the size, the woods and tracks, the grid's build time and long paths, the tracks joining
-    up, and a bot driving a buggy up the lane and walking the rest.
+    up, a bot driving a buggy up the lane and walking the rest, and a bot firing from the wheel at an enemy it passes
+    and driving on.
   - `NetRoundTests`: a buggy drives the same on every copy, with its driver riding where it's drawn.
   - Smoke runs: the level walk-through, a 4 v 4, a 4 v 4 capture the flag on a fixed seed that must see bots drive
     (`--min-drives`), and `--vehicle-demo`, which drives your own buggy and checks your body, the drawn buggy and the

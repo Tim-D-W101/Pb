@@ -227,6 +227,10 @@ public sealed class VehicleSet
     /// <summary>Whether <paramref name="player"/> may fire where they sit (anyone not in a vehicle may).</summary>
     public bool MayFire(PlayerState player) => Of(player) is not { } v || player.Seat < 0 || v.Params.Seats[player.Seat].Fires;
 
+    /// <summary>How much wider <paramref name="player"/>'s shots go where they sit (a driver's one-handed aim); 1 out of a vehicle.</summary>
+    public float SpreadScale(PlayerState player) =>
+        Of(player) is { } v && player.Seat >= 0 && player.Seat < v.Params.Seats.Count ? v.Params.Seats[player.Seat].SpreadScale : 1f;
+
     /// <summary>
     /// The free seat nearest <paramref name="player"/> within reach (of its side of the vehicle), the driver's first among
     /// equals, or (−1, −1).

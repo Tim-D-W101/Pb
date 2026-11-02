@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Numerics;
 using Pb.Sim.AI;
 using Pb.Sim.Core;
+using Pb.Sim.Events;
 using Pb.Sim.Level;
 using Pb.Sim.Data;
 using Pb.Sim.Match;
@@ -81,6 +82,45 @@ public class ThornwickWoodsTests
         Assert.True(fastest > 5f, $"it never got going ({fastest:0.0} m/s)");
         Assert.True(Flat(bot.Self.Position - goal) < 3f, "it didn't get where it was going");
         Assert.True(seconds < 70f, $"it took {seconds:0} s: walking would've been as quick");
+    }
+
+    [Fact]
+    public void A_driving_bot_shoots_from_the_wheel_and_drives_on()
+    {
+        BotArena arena = BotArena.Create("normal", level: "thornwick_woods");
+        BotBrain bot = arena.AddBotAt(arena.Level.OpponentSpawns.First(s => s.Id == "farmyard"), team: 0, archetype: "sentry");
+        // An enemy standing out in the farm, well off the lane: in sight as the buggy goes by, too far to get out for.
+        BotBrain enemy = arena.AddBotAt(arena.Level.OpponentSpawns.First(s => s.Id == "scrapyard"), team: 1);
+        enemy.Passive = true;
+        enemy.Self.Position = new Vector3(24f, 0f, -24f);
+        arena.AddBotAt(arena.Level.OpponentSpawns.First(s => s.Id == "hazel_copse"), team: 1).Passive = true; // keeps the round going
+        arena.Hero.Position = new Vector3(-150f, 0f, 110f);
+        arena.Start(mode: MatchModeKind.Teams);
+        var goal = new Vector3(6f, 0f, -104f);
+        bot.Guard(goal, 0f, shout: false);
+        int fromTheWheel = 0, seen = 0;
+        float drove = 0f;
+        Vector3 last = bot.Self.Position;
+        arena.Run(90 * 120, () =>
+        {
+            bool driving = arena.Sim.Vehicles.Of(bot.Self) is { } v && v.Driver == bot.Self.Id;
+            if (driving)
+            {
+                drove += Flat(bot.Self.Position - last);
+            }
+
+            for (; seen < arena.Log.Count; seen++)
+            {
+                fromTheWheel += driving && arena.Log[seen].Type == SimEventType.ShotFired && arena.Log[seen].PlayerId == bot.Self.Id ? 1 : 0;
+            }
+
+            last = bot.Self.Position;
+            return bot.Self.Vehicle < 0 && drove > 150f;
+        });
+
+        _out.WriteLine($"drove {drove:0} m, {fromTheWheel} shots from the wheel; the enemy is {(enemy.Self.Alive ? "still in" : "out")}");
+        Assert.True(fromTheWheel > 0, "it never fired from the wheel");
+        Assert.True(drove > 150f, $"it stopped driving after {drove:0} m");
     }
 
     [Fact]

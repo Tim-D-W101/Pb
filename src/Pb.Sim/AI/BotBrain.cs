@@ -2192,7 +2192,8 @@ public sealed partial class BotBrain
         bool reacted = f.SpottedFor >= Tier.ReactionTime * f.ReactionScale;
         bool onTarget = MathF.Abs(BotAim.Wrap(_wantYaw - _yaw)) < _b.AimTolerance && MathF.Abs(_wantPitch - _pitch) < _b.AimTolerance;
         bool ready = Self.MarkerReady && !Self.Sprinting && Self.Marker.Paint.Loader > 0 && Self.Marker.Air.CanFire;
-        bool steadyEnough = Archetype.FireOnMove || Self.HorizontalSpeed < 0.8f;
+        // Carried by a vehicle it fires anyway (from the wheel, one-handed): it isn't walking.
+        bool steadyEnough = Archetype.FireOnMove || Self.HorizontalSpeed < 0.8f || Self.Vehicle >= 0;
         float range = Vector3.Distance(eye, point);
         // A careful shooter at range waits for its aim to settle on the target.
         bool settled = !Archetype.SteadyShots || range <= Archetype.CloseRange || _steady >= _b.AimSettleTime;
@@ -2375,11 +2376,8 @@ public sealed partial class BotBrain
         {
             EndRide();
         }
-        else if (_ride == RideState.Driving)
-        {
-            _ride = RideState.Alighting; // stopping here: out of the vehicle
-        }
 
+        // At the wheel a stop (to aim, to hold) means nothing: the ride decides when to get out.
         _hasGoal = false;
         _needPath = false;
         _path.Clear();

@@ -473,7 +473,7 @@ public sealed class SimWorld
     private int MarkerStep(PlayerState player, in InputCommand cmd, double t0, float dt, bool climbing, SimEventQueue events)
     {
         bool live = IsLive;
-        // The VIP has nothing to fire; whoever drives keeps both hands on the wheel.
+        // The VIP has nothing to fire; a seat that doesn't fire (vehicles.jsonc) keeps its occupant from it.
         bool armed = live && !climbing && !player.Unarmed && Vehicles.MayFire(player);
         var input = new MarkerInput(
             armed && cmd.Has(InputButtons.Fire), armed && cmd.Has(InputButtons.Refill),
@@ -574,7 +574,8 @@ public sealed class SimWorld
         ShotParams p = Config.Shot;
         ShotSolution solution = SolveShot(player, rewind);
         var rng = new Pcg32(SeedHash.Shot(MatchSeed, player.Id, shot.Sequence));
-        float cone = DispersionFor(player.HorizontalSpeed);
+        // A driver fires one-handed (the seat's spread scale), on top of the spread of moving at the vehicle's speed.
+        float cone = DispersionFor(player.HorizontalSpeed) * Vehicles.SpreadScale(player);
         Vector3 direction = Dispersion.SampleCone(solution.Direction, cone, ref rng);
         float speed = MathF.Max(0.5f, shot.MuzzleSpeed + rng.Symmetric(p.VelocityVariance));
         // The cone draws two numbers from the shot's stream and the speed one; the ball's break rolls take it on from there.

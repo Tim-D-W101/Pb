@@ -128,7 +128,11 @@ public sealed class BrainParams
 
     public required float DriveCornerSpeed { get; init; }
 
-    public required float DriveContactRange { get; init; }
+    /// <summary>The fastest it drives with an enemy in sight (steadier to fire from the wheel), m/s.</summary>
+    public required float DriveFightSpeed { get; init; }
+
+    /// <summary>An enemy in sight nearer than this gets it out of the vehicle to fight on foot (m).</summary>
+    public required float DriveFightOutWithin { get; init; }
 
     public required float DriveStuck { get; init; }
 
@@ -382,7 +386,8 @@ public sealed class BotConfig
             DriveLookAheadPerSpeed = brain.DriveLookAheadPerSpeed_s,
             DriveSpeedShare = brain.DriveSpeedShare,
             DriveCornerSpeed = brain.DriveCornerSpeed_mps,
-            DriveContactRange = brain.DriveContactRange_m,
+            DriveFightSpeed = brain.DriveFightSpeed_mps,
+            DriveFightOutWithin = brain.DriveFightOutWithin_m,
             DriveStuck = brain.DriveStuck_s,
             DriveGetOutWithin = brain.DriveGetOutWithin_m,
             CalloutCooldown = brain.CalloutCooldown_s,

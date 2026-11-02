@@ -25,8 +25,9 @@ public enum RideState : byte
 /// Bots driving (Phase 5, Thornwick Woods' buggies), by the same rules and the same commands as people: a bot going
 /// farther than <see cref="BrainParams.DriveBeyond"/>, with a buggy standing empty nearby and no enemy in sight, walks to
 /// its driver's door and gets in; drives the level's tracks (<see cref="RoadGraph"/>) to the point on them nearest where
-/// it's going, steering for a point ahead along them and slowing for bends; and stops and gets out there, or as soon as
-/// it sees an enemy close (it can't fire at the wheel), or when it's got nowhere after backing up. Then it walks the rest.
+/// it's going, steering for a point ahead along them and slowing for bends; with an enemy in sight it fires from the wheel
+/// (one-handed, wider) and drives on, slower; and it stops and gets out there, or when an enemy comes close, or when it's
+/// got nowhere after backing up. Then it walks the rest.
 /// </summary>
 public sealed partial class BotBrain
 {
@@ -64,6 +65,11 @@ public sealed partial class BotBrain
         {
             _rideGait = gait;
             return true;
+        }
+
+        if (_ride is RideState.Driving or RideState.Alighting && Senses.Focus is { Visible: true })
+        {
+            return true; // fighting from the wheel: where to stand or take cover means nothing in a vehicle
         }
 
         if (_ride == RideState.Boarding)
@@ -207,7 +213,11 @@ public sealed partial class BotBrain
             return; // a passenger rides
         }
 
-        _cmd.Buttons &= ~(InputButtons.Fire | InputButtons.Crouch | InputButtons.Sprint | InputButtons.Jump | InputButtons.Interact | InputButtons.Walk);
+        // Firing is the mode's to decide (it aims as on foot); the rest of the buttons mean nothing at the wheel.
+        _cmd.Buttons &= ~(InputButtons.Crouch | InputButtons.Sprint | InputButtons.Jump | InputButtons.Interact | InputButtons.Walk | InputButtons.Refill);
+        // An enemy in sight (or just seen) has its full attention: it looks that way to make it out and then aim, while
+        // driving on; the mode aims and fires as on foot once it has.
+        bool fighting = Senses.Focus is { Visible: true } or { HasLead: true };
         if (_ride == RideState.Boarding)
         {
             // Just in: the way along the tracks from here.
@@ -232,10 +242,11 @@ public sealed partial class BotBrain
             _rideGoal = Self.Position;
         }
 
-        if (_ride == RideState.Driving && Senses.Focus is { Visible: true } seen &&
-            FlatDistance(seen.LastKnown, Self.Position) < _b.DriveContactRange)
+        // In sight, where the enemy is (its last known spot can still be unset the moment it comes into view).
+        if (_ride == RideState.Driving && Senses.Focus is { Visible: true } seen && _sim.FindPlayer(seen.TargetId) is { } foe &&
+            FlatDistance(foe.Position, Self.Position) < _b.DriveFightOutWithin)
         {
-            _ride = RideState.Alighting; // can't fire at the wheel: out to fight
+            _ride = RideState.Alighting; // too close to fight from the wheel: out to fight on foot
             _noRideUntil = _tick + (int)(30f / _sim.Dt);
         }
 
@@ -272,6 +283,10 @@ public sealed partial class BotBrain
         float want = MathF.Min(k.MaxSpeed * _b.DriveSpeedShare,
             _b.DriveCornerSpeed + (k.MaxSpeed * _b.DriveSpeedShare - _b.DriveCornerSpeed) * (1f - bend));
         want = MathF.Min(want, MathF.Sqrt(2f * k.Brake * 0.5f * MathF.Max(0f, left - _b.DriveGetOutWithin * 0.5f)) + 0.5f);
+        if (fighting)
+        {
+            want = MathF.Min(want, _b.DriveFightSpeed); // steadier to fire from
+        }
         float pedal = Math.Clamp((want - v.Speed) * 0.8f, -1f, 1f);
 
         // Getting nowhere (something in the way): back up a little, turning the other way, then go on; twice, and out.
@@ -279,7 +294,11 @@ public sealed partial class BotBrain
         {
             _backUpFor -= dt;
             _cmd.Move = new Vector2(wheel, -1f); // wheel the other way when backing (stick right: wheel right)
-            LookToward(target, slow: false);
+            if (!fighting)
+            {
+                LookToward(target, slow: false);
+            }
+
             return;
         }
 
@@ -297,9 +316,17 @@ public sealed partial class BotBrain
             _backUpFor = 1.2f;
         }
 
-        // The stick: forward and back are the pedal, right is the wheel to the right.
+        // The stick: forward and back are the pedal, right is the wheel to the right. Fighting, it looks at the enemy (the
+        // mode's aim takes over once it's engaged); otherwise down the track.
         _cmd.Move = new Vector2(-wheel, pedal);
-        LookToward(target, slow: false);
+        if (!fighting)
+        {
+            LookToward(target, slow: false);
+        }
+        else if (Mode != BotMode.Engage && Senses.Focus is { } focus)
+        {
+            LookToward(focus.Visible && _sim.FindPlayer(focus.TargetId) is { } sighted ? sighted.Position : focus.LastKnown, slow: false);
+        }
     }
 
     /// <summary>Out of the vehicle this tick (it was in one): the ride's over, on to the goal on foot.</summary>
