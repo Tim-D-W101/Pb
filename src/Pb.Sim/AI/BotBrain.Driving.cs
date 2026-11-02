@@ -253,7 +253,8 @@ public sealed partial class BotBrain
         VehicleParams k = v.Params;
         if (_ride == RideState.Alighting)
         {
-            _cmd.Move = new Vector2(0f, v.Speed > 0.15f ? -1f : v.Speed < -0.15f ? 1f : 0f);
+            // Braking to a stop (off the pedals at a crawl the brakes hold it), then out.
+            _cmd.Move = new Vector2(0f, v.Speed > 0.5f ? -1f : v.Speed < -0.5f ? 1f : 0f);
             if (MathF.Abs(v.Speed) <= k.ExitBelow * 0.5f && (_tick & 1) == 0)
             {
                 _cmd.Buttons |= InputButtons.Interact;
@@ -269,7 +270,7 @@ public sealed partial class BotBrain
         if (left < _b.DriveGetOutWithin)
         {
             _ride = RideState.Alighting;
-            _cmd.Move = new Vector2(0f, v.Speed > 0.15f ? -1f : 0f);
+            _cmd.Move = new Vector2(0f, v.Speed > 0.5f ? -1f : 0f);
             return;
         }
 
@@ -282,7 +283,10 @@ public sealed partial class BotBrain
         float bend = MathF.Min(1f, MathF.Abs(angle) / (MathF.PI * 0.5f));
         float want = MathF.Min(k.MaxSpeed * _b.DriveSpeedShare,
             _b.DriveCornerSpeed + (k.MaxSpeed * _b.DriveSpeedShare - _b.DriveCornerSpeed) * (1f - bend));
-        want = MathF.Min(want, MathF.Sqrt(2f * k.Brake * 0.5f * MathF.Max(0f, left - _b.DriveGetOutWithin * 0.5f)) + 0.5f);
+        // Slow enough to stop by the end braking at half what the ground under it allows, and to take the bend on it.
+        float decel = v.StopDecel;
+        want = MathF.Min(want, MathF.Sqrt(2f * decel * 0.5f * MathF.Max(0f, left - _b.DriveGetOutWithin * 0.5f)) + 0.5f);
+        want *= MathF.Sqrt(Math.Clamp(decel / (VehicleParams.Gravity * _b.DriveGripFull), 0.3f, 1f));
         if (fighting)
         {
             want = MathF.Min(want, _b.DriveFightSpeed); // steadier to fire from

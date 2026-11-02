@@ -703,6 +703,28 @@
   // A level's own woods (Thornwick Woods: its trees are in the level file, their trunks in the sim) are grown the same
   // way, in squares standChunk_m on a side: each square's wood is drawn out to standWoodRange_m and its leaves out to
   // standLeafRange_m (fading over the last standFade_m), so a big site's far woods cost little.
+  // The buggies (M5.7). From the seat the view takes seatTilt of the body's lean and pitch; the head sways against the
+  // pulls of driving (headLag_mpmps2 metres per m/s² of them, at most headLagMax_m, springing back at headLag_hz damped
+  // to headLagDamping of critical) and shakes with the engine (engineShake_m at the red line) and rough ground
+  // (groundShake_m at the top speed, on gravel and dirt); the view widens fovAtSpeed_deg at the top speed. The steering
+  // wheel turns steeringRatio times as far as the front wheels. Each back wheel throws up to sprayAmount bits, each
+  // lasting sprayLifetime_s: dust off dry loose ground from dustFrom_mps (all of it at dustFull_mps), and whatever the
+  // ground is (spray: dust, grass bits, mud, or smoke off hard ground) as the tyre scrubs (sliding or spinning) from
+  // scrubFrom_mps (all of it at scrubFull_mps).
+  "vehicleView": {
+    "seatTilt": 0.85,
+    "headLag_mpmps2": 0.006, "headLagMax_m": 0.07, "headLag_hz": 3.2, "headLagDamping": 0.55,
+    "fovAtSpeed_deg": 6,
+    // Someone seated sways out of the turns: so many degrees per m/s² the vehicle pulls them sideways.
+    "bodySway_degpmps2": 1.2,
+    "engineShake_m": 0.0015, "groundShake_m": 0.006,
+    "steeringRatio": 4.5,
+    "sprayAmount": 48, "sprayLifetime_s": 1.4,
+    "dustFrom_mps": 2.5, "dustFull_mps": 11, "scrubFrom_mps": 0.8, "scrubFull_mps": 5,
+    "spray": { "gravel": "dust", "dirt": "dust", "turf": "grass", "mud": "mud", "asphalt": "smoke", "concrete": "smoke" },
+    "dustColor": "#b8a68a", "grassColor": "#5d7a2e", "mudColor": "#40311f", "smokeColor": "#d8d6d0"
+  },
+
   "woods": {
     "standChunk_m": 40,
     "standWoodRange_m": 170,
@@ -1312,6 +1334,18 @@
   // `maxSoundsPerFrame` new ones a frame, each at full volume within unitSize_m and falling off with distance out to
   // maxDistance_m (most kinds carry less far: see AudioDirector).
   "audio": {
+    // A buggy (M5.7): the engine loop (32 firings a second) plays at its own pitch at rpmAtPitch1 revs (a firing each
+    // turn: idle low, the red line high), never below pitchLow or above pitchHigh, revsLouder_db louder at the red line,
+    // the loop of it pulling hard mixed in as the throttle opens (all of it at loadFull). The tyres' loop for the ground
+    // under them (tyres: gravel, grass, mud or hard; others hard) plays at its own pitch at tyrePitchSpeed_mps, at full
+    // volume from tyreFull_mps; a tyre scrubbing faster than skidFrom_mps starts the skid (a squeal on hard ground, a
+    // scrub of stones on loose), full at skidFull_mps; the body knocking into something at knockFrom_mps is heard, full
+    // at knockFull_mps.
+    "vehicles": {
+      "rpmAtPitch1": 1920, "pitchLow": 0.45, "pitchHigh": 3.6, "revsLouder_db": 8, "loadFull": 0.7,
+      "tyrePitchSpeed_mps": 8, "tyreFull_mps": 9, "skidFrom_mps": 1.2, "skidFull_mps": 5, "knockFrom_mps": 1.5, "knockFull_mps": 8,
+      "tyres": { "gravel": "gravel", "dirt": "gravel", "turf": "grass", "mud": "mud", "asphalt": "hard", "concrete": "hard", "wood": "hard", "metal": "hard" }
+    },
     "voices": 32,
     "maxSoundsPerFrame": 10,
     "variations": 4,
@@ -1335,13 +1369,14 @@
     "buses": { "master": 0.8, "effects": 1.0, "voices": 1.0, "ambience": 0.8, "menus": 0.7 },
     // How loud each kind of sound plays (dB, on top of volume_db): your shots and others', your loader feeding, gear
     // (dry fire, fire mode, refills), balls breaking and bouncing, footsteps (others', yours), slides and landings,
-    // doors, pickups, being hit, the hit marker on a target; your ball putting someone out (the confirm), bouncing off
+    // doors, a buggy (its engine, the engine pulling, its tyres, a skid, a knock), pickups, being hit, the hit marker on a target; your ball putting someone out (the confirm), bouncing off
     // them, putting out a teammate; a ball bouncing off you, your ears ringing after a hit, a ball whizzing past, your
     // loader rattling and spinning empty; the objectives' cues, the case's beep while it lies about, the breakout horn and
     // the referee's whistle, the soft cue a round starts on, callouts, the referee's voice and the menus' clicks.
     "mix": {
       "shot": -2, "remoteShot": -3, "loader": -20, "gear": -10, "break": -3, "bounce": -12, "footstep": -9,
-      "ownFootstep": -19, "slide": -8, "land": -8, "door": -4, "engine": -12, "pickup": -8, "hitTaken": -1, "hitMarker": -8,
+      "ownFootstep": -19, "slide": -8, "land": -8, "door": -4, "engine": -12, "engineLoad": -13, "tyres": -14, "skid": -12,
+      "knock": -4, "pickup": -8, "hitTaken": -1, "hitMarker": -8,
       "hitConfirm": -7, "hitBounce": -11, "hitTeammate": -9, "bounceOffYou": -5, "earRing": -24, "whizz": -7,
       "loaderRattle": -21, "loaderEmpty": -15,
       "objective": -6, "caseBeep": -18, "horn": -6, "whistle": -8, "roundStart": -16, "callout": 0, "referee": -2, "menu": -14

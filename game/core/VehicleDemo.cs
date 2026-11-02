@@ -31,8 +31,9 @@ public sealed class VehicleDemo : ICommandSource
     private readonly Hud _hud;
     private readonly List<SVector3> _route = new();
     private int _start = -1, _vehicle = -1, _outAt = -1, _routeAt, _inFor;
-    private bool _promptSeen, _wasIn, _failed;
-    private float _fastest, _driven;
+    private bool _promptSeen, _wasIn, _failed, _slung, _raised;
+    private float _fastest, _driven, _leaned, _sprayed;
+    private int _stuck, _backFor;
     private SVector3 _last;
     private string _problems = "";
 
@@ -68,6 +69,27 @@ public sealed class VehicleDemo : ICommandSource
 
         _vehicle = best;
         VehicleState v = vehicles[best];
+        if (Args.Has("--chase"))
+        {
+            // Filmed from behind and beside it, your own body drawn in its seat.
+            var chase = new ChaseCamera { Name = "Chase", Fov = 62f, Target = () => _views.Drawn(_vehicle) };
+            if (Args.Value("--chase") == "near")
+            {
+                chase.Offset = new System.Numerics.Vector3(-2.2f, 1.6f, 1.2f).ToGodot(); // close by the driver's side
+            }
+            else if (Args.Value("--chase") == "side")
+            {
+                chase.Offset = new System.Numerics.Vector3(-3.2f, 1.3f, 0f).ToGodot(); // square to the driver's side
+            }
+
+            _host.AddChild(chase);
+            chase.MakeCurrent();
+            if (_player.Body is { } body)
+            {
+                body.ShadowOnly = false;
+            }
+        }
+
         SVector3 door = VehicleSet.Door(v, v.Params.DriverSeat);
         _player.Teleport(door, MathF.Atan2(-(v.Position.X - door.X), -(v.Position.Z - door.Z)));
 
@@ -131,6 +153,12 @@ public sealed class VehicleDemo : ICommandSource
             _fastest = MathF.Max(_fastest, v.Speed);
             _driven += Flat(v.Position - _last);
             _promptSeen |= _hud.PromptText.Contains("km/h", StringComparison.Ordinal);
+            // The body leans and pitches as it drives; the tyres throw up the ground; driving, the marker's on its sling,
+            // and comes up when the trigger's pulled.
+            _leaned = MathF.Max(_leaned, MathF.Acos(Math.Clamp(v.Up.Y, -1f, 1f)) * 180f / MathF.PI);
+            _sprayed = MathF.Max(_sprayed, _views.Spraying(_vehicle));
+            _slung |= state.Sling >= 1f;
+            _raised |= _slung && state.Sling <= 0f;
             // The body is put in the seat as its move comes round each tick (a tick behind the seat at most; the tick it got
             // in, it's still at the door).
             Check(++_inFor < 3 || Flat(_player.GlobalPosition.ToSim() - state.Position) < MathF.Abs(v.Speed) * _sim.Dt + 0.05f,
@@ -165,10 +193,34 @@ public sealed class VehicleDemo : ICommandSource
             SVector3 f = v.Forward;
             float angle = MathF.Atan2(f.X * to.Z - f.Z * to.X, f.X * to.X + f.Z * to.Z);
             float wheel = Math.Clamp(-angle / v.Params.MaxSteer * 1.4f, -1f, 1f);
-            float want = MathF.Min(10f, MathF.Sqrt(2f * v.Params.Brake * 0.5f * MathF.Max(0f, left - 4f)));
-            float pedal = left < 5f ? (v.Speed > 0.2f ? -1f : 0f) : Math.Clamp((want - v.Speed) * 0.8f, -1f, 1f);
+            // As fast as the bend ahead allows (a bend taken too fast runs wide: the tyres only grip so much), and slowing
+            // to stop at the end.
+            float bend = MathF.Min(1f, MathF.Abs(angle) / (MathF.PI * 0.5f));
+            float want = MathF.Min(3.5f + 6.5f * (1f - bend), MathF.Sqrt(2f * v.StopDecel * 0.5f * MathF.Max(0f, left - 4f)));
+            float pedal = left < 5f ? (v.Speed > 0.5f ? -1f : 0f) : Math.Clamp((want - v.Speed) * 0.8f, -1f, 1f);
+            // Stuck against something: back off a little, the wheel the other way, then on.
+            _stuck = pedal > 0.3f && MathF.Abs(v.Speed) < 0.3f ? _stuck + 1 : 0;
+            if (_stuck > 180)
+            {
+                _backFor = 150;
+                _stuck = 0;
+            }
+
+            if (_backFor > 0)
+            {
+                _backFor--;
+                wheel = -wheel;
+                pedal = -1f;
+            }
+
             cmd.Move = new System.Numerics.Vector2(-wheel, pedal);
             cmd.Yaw = v.Yaw + angle * 0.3f;
+            // A burst from the wheel along the way: the marker comes up off its sling one-handed, and goes back after.
+            int driving = tick - _start - InAt;
+            if (driving is > 8 * 120 and < 9 * 120 && (tick / 12) % 2 == 0)
+            {
+                cmd.Buttons |= InputButtons.Fire;
+            }
             if (left < 5f && MathF.Abs(v.Speed) < 0.5f && tick % 2 == 0)
             {
                 cmd.Buttons = InputButtons.Interact;
@@ -198,6 +250,9 @@ public sealed class VehicleDemo : ICommandSource
             Check(_fastest > 6f, $"it never got going ({_fastest:0.0} m/s)");
             Check(_driven > 40f, $"it drove only {_driven:0} m");
             Check(_promptSeen, "the HUD never showed the buggy's speed");
+            Check(_leaned > 0.5f, $"its body never leaned or pitched ({_leaned:0.0}°)");
+            Check(_sprayed > 0.05f, "its tyres never threw anything up");
+            Check(_slung && _raised, "the marker never went onto its sling and came up again");
             Finish(null);
         }
 
@@ -220,8 +275,9 @@ public sealed class VehicleDemo : ICommandSource
             Check(false, problem);
         }
 
-        GD.Print($"SMOKE {(_failed ? "FAIL" : "PASS")}: vehicle demo: in at the door, drove {_driven:0} m (fastest {_fastest:0.0} m/s) along the tracks, " +
-                 $"out beside it{(_failed ? $": {_problems}" : "")}");
+        GD.Print($"SMOKE {(_failed ? "FAIL" : "PASS")}: vehicle demo: in at the door, drove {_driven:0} m (fastest {_fastest:0.0} m/s, leaning up to " +
+                 $"{_leaned:0.0}°, the tyres' spray up to {_sprayed:P0}) along the tracks, the marker up off its sling and back, out beside it" +
+                 $"{(_failed ? $": {_problems}" : "")}");
         _host.GetTree().QuitCleanly(_failed ? 1 : 0);
     }
 

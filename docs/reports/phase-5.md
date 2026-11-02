@@ -497,3 +497,113 @@ New tests:
 
 PR F: the buggy's handling, sound, camera and seated animation, and the joined driver's prediction.
 
+
+## M5.7 (F) — The buggy's handling
+
+**Branch:** `claude/eager-cannon-c05kkv-handling` (on E's)
+
+### What was built
+
+Tim's call on C2: much more realistic buggies, and online driving that doesn't lag.
+
+- **A buggy is a rigid body on four sprung wheels** (`VehicleDynamics`). Each wheel's spring and damper push the body up
+  from where a ray from its mount meets the ground. Anti-roll bars share the load across each axle. Each tyre grips as
+  hard as its load and the ground allow: along it for the engine and the brakes, sideways against its slip angle, never
+  more than the two together (the friction circle). So the weight moves the way it should:
+  - pulling away it squats, 1.6° with 61 % of the load on the back wheels;
+  - braking hard it dives, 3.3° with 76 % on the front;
+  - in a 0.65 g corner it leans 4.1° out, with 77 % on the outside wheels.
+- **The ground matters.** Each surface has its own grip and rolling resistance (`tyres` in `vehicles.jsonc`). Gravel and
+  dirt bite, grass is slipperier, and mud is new: it spins the back wheels, slides and stops short of nothing. From the
+  same speed, mud brakes at 3.3 m/s², turf at 5.6 and asphalt at 9.5.
+- **The controls.** W pulls away (or brakes rolling back), S brakes (or backs up from a standstill), and A and D steer
+  (less lock at speed). Space is the handbrake: it locks the back wheels, which then only push back against the way they
+  slide, so the tail comes round. A second of full lock turns it 40° at 10 m/s, and 64° with the handbrake. The gearbox
+  is automatic (three gears and reverse), the revs follow the wheels, and power falls away at the red line, so the top
+  speed is still the site's limit.
+- **It knocks into things.** Six spheres fill the body. Each is swept from where it was to where it is; a hit puts the
+  body back out and takes away its speed into the surface as an impulse on the whole body, so it can spin off a tree.
+  Other buggies and the level's edge work the same way. The people rules stay as they were: it brakes for anyone in its
+  way (judged by the grip under it now), and never comes closer than brushing past.
+- **Over and at rest.** Rolled onto its side or roof, it's set back on its wheels after two seconds. An empty buggy has
+  its brakes on and stays put, on a slope too. Once still, it sleeps and costs nothing until someone gets in or another
+  buggy knocks it.
+- **The driver's marker hangs on its sling.** While you drive, both hands are on the wheel and the marker hangs across
+  your chest (its hitboxes too: gear hits count). Pull the trigger and it comes up to the one-handed aim in 0.3 s and
+  fires; it goes back on the sling 2.5 s after your last shot. Bots do the same.
+- **Online, your own buggy answers at once.** The server sends the whole motion of the buggy you drive with your own
+  state (protocol 6). Your copy drives it itself from your controls, keeps what it predicted each tick, and puts the
+  server's back and replays when they differ, easing the view through it as for your body. Everyone else's buggies are
+  drawn from the server's snapshots, now with their lean, pitch, revs, gear and slides.
+- **Bots** brake for the end by the grip under them, drive slower on slippery ground, and bring their marker up off the
+  sling to fire.
+- **How it looks and sounds.**
+  - *The body* leans and pitches. The wheels ride the ground on their springs, with dampers you can see stretch. The
+    steering wheel turns with the front wheels.
+  - *The tyres* throw up dust off dry gravel and dirt, grass on turf, mud in mud and rubber smoke on hard ground, as
+    they roll and scrub.
+  - *The engine* plays at its revs, with a harder note pulling under throttle. The tyres sound of the ground they're on,
+    with a squeal or a scrub of stones when they slide, and the body knocks when it hits something. All of it is
+    synthesised.
+  - *From the seat* the view leans and pitches with the body, your head sways against the pulls, the engine and rough
+    ground shake it, and the view widens a little at speed. The HUD shows the gear.
+  - *Sitting.* Seated characters sit (new Blender clips, `sit_drive` and `sit_ride`): hips on the seat, feet on the
+    floor, the chest turned toward where they look, swaying out of the turns. A driver's hands are on the wheel and turn
+    with it. Firing, the trigger hand goes to the marker while the other stays on the wheel.
+
+### How it looks
+
+Your buggy in the vehicle demo (`--chase` and `--chase=near`, at 4 frames a second under software rendering):
+
+![Leaning into the first bend, dust off the dirt](phase-5/f-chase.jpg)
+![At the wheel, the marker on its sling; then a burst one-handed, the other hand on the wheel](phase-5/f-driver.jpg)
+![From the seat: the view leaning in a bend; firing from the wheel up the lane](phase-5/f-seat.jpg)
+
+### How to run it
+
+```bash
+godot --path game res://scenes/Level.tscn -- --level=thornwick_woods --mode=teams --size=4
+godot --path game res://scenes/Level.tscn -- --vehicle-demo --level=thornwick_woods --chase=near
+```
+
+Get in a buggy's driver's seat with F. Drive with W/S and A/D, pull the handbrake with Space, and fire as usual.
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `dotnet test tests/Pb.Sim.Tests` | 544 passed (8 new, 3 rewritten) |
+| `dotnet test tests/Pb.Net.Tests` | 73 passed (2 new) |
+| `tools/ci/smoke-test.sh` | The 9 runs F touches passed here: the menu, a 3 v 3, Thornwick Woods' walk-through, its 4 v 4 and its capture the flag (bots took the wheel 3 times, 1 needed), the vehicle demo, the gait check at 120 and 15 fps, and the art-on 5 v 5. CI runs the whole suite on the PR. |
+| `dotnet run -c Release --project tools/Pb.Bench` | A tick with ten players and 1,000 balls is within 0.5 ms on every area (Thornwick Woods 0.49 ms). The server's networked step sits near its 0.5 ms budget on this 4-core container and lands either side of it from run to run: the Hospital Wing was 0.51 ms in this run. C2's code, run straight after for comparison, had the Cold Store at 0.50 ms and the Hospital Wing at 0.36. Parked buggies sleep, so they cost nothing. |
+
+New tests:
+- `VehicleTests`:
+  - it sits still on its springs (each a quarter of its weight) and sleeps;
+  - the weight moves as it pulls away, brakes and corners (the numbers above);
+  - each surface grips as much as it does (stopping distance and wheelspin on mud, turf and asphalt);
+  - the handbrake swings the tail round;
+  - parked on a 12° slope it stays put;
+  - dropped on its roof, it's righted;
+  - driving the marker hangs on its sling and comes up to fire (292 ms);
+  - it drives the same every time and never allocates (ten seconds of slaloming, braking and handbraking on gravel).
+- `ProtocolTests.The_vehicle_you_drive_comes_back_to_the_bit_and_others_lean_as_the_server_has_them`.
+- `NetRoundTests.The_driver_drives_their_own_buggy_at_once_and_it_stays_with_the_servers`: over a 100 ms round trip
+  your buggy answers the pedal in 25 ms, after a slalom with the handbrake it ends 2 µm from the server's, and it needs
+  one correction of 1 mm on the way.
+- `--vehicle-demo` now also checks the body leaning (3.2°), the tyres' spray and the marker going onto its sling and
+  up again.
+
+### Known issues
+
+- The ground is still flat everywhere (the rolling ground comes with G), so the springs mostly show in the weight
+  moving, not in bumps.
+- The marker coming up off its sling blends straight between the two poses, so for a moment mid-raise the gear
+  passes through odd angles.
+- A remote buggy's wheels roll with its speed and spin with its scrub; they don't lock under its handbrake, since the
+  handbrake isn't sent.
+
+### What's next
+
+PR G: rolling ground on Thornwick Woods (hills, dips, banks, a stream bed), bots taking the buggies in plain team rounds,
+and a quicker load.

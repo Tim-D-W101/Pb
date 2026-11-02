@@ -137,6 +137,14 @@ public sealed class PlayerState
     /// </summary>
     public float Tuck { get; set; }
 
+    /// <summary>
+    /// At a buggy's wheel (M5.7): how far the marker has gone onto its sling (0 up and aimed, one-handed; 1 slung across
+    /// the chest, both hands on the wheel), and how long it stays up after the trigger was last held (s).
+    /// </summary>
+    public float Sling { get; set; }
+
+    public float SlingHold { get; set; }
+
     /// <summary>Seconds into the current slide.</summary>
     public float SlideTime { get; set; }
 

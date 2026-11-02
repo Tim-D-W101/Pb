@@ -1512,9 +1512,8 @@ everything else, so the server rules them and bots drive by the same rules and c
   - *Getting in and out.* Interact (on its press, before doors) gets a player into the nearest free seat within
     `enterRadius_m` of its door, or out when the vehicle is below `exitBelow_mps`. They get out beside their seat, or
     on the other side, or behind, whichever is clear. A press while it's too fast is used up.
-  - *Driving.* The driver's move input works the pedal (forward and back) and the wheel (left and right). The vehicle
-    is a bicycle: its back axle rolls along its heading, its front wheels turn it, up to `maxSpeed_mps`
-    (43 km/h, the site's limit) and back at a crawl.
+  - *Driving.* The driver's move input works the pedal (forward and back) and the wheel (left and right). M5.4's
+    vehicle was a bicycle; since M5.7 it's a sprung rigid body (§18.5).
   - *What stops it.* Three spheres along the body are swept against the level's paint colliders; the level's edge and
     other vehicles stop it too. It never hits anyone: it brakes for anyone in the way ahead (or behind, backing) to stop
     `stopShort_m` short of them, and never comes closer than `brush_m` to anyone, whatever the driver does.
@@ -1527,10 +1526,10 @@ everything else, so the server rules them and bots drive by the same rules and c
   - *Cost.* Filed under the whole level, a `VehicleShape` is asked about every ball, so it turns away a sweep that
     passes outside a sphere round the box before testing the box. A tick with 1,000 balls costs 0.25 ms on the site,
     0.4 ms without that check.
-  - *Network.* Each vehicle's position, yaw, speed, wheels and seats travel in the snapshot (`WorldFields`; protocol
-    5), and `VehicleEntered` and `VehicleLeft` travel as events. A joining copy draws the vehicles a little behind the
-    server, like everyone else. Its own player's seat comes from the newest snapshot. While riding, its player isn't
-    predicted: they sit where the drawn vehicle has their seat, and getting out is put right like any correction.
+  - *Network.* Each vehicle's position, turn, speed, wheels, engine and seats travel in the snapshot (`WorldFields`;
+    protocol 6 since M5.7), and `VehicleEntered` and `VehicleLeft` travel as events. A joining copy draws the vehicles a
+    little behind the server, like everyone else, except the one its own player drives, which it predicts (§18.5). Its
+    own player's seat comes from the newest snapshot; getting out is put right like any correction.
 - **Bots** (`BotBrain.Driving.cs`, `RoadGraph`).
   - *When.* A bot setting off for somewhere farther than `driveBeyond_m` considers a buggy standing empty within
     `driveVehicleWithin_m`, with no enemy in sight, if it isn't the VIP or carrying. It boards if walking to the buggy,
@@ -1555,11 +1554,8 @@ everything else, so the server rules them and bots drive by the same rules and c
     that roll with the ground covered and steer as the sim's do. Each is drawn smoothly between ticks, with an
     `AnimatableBody3D` box to walk into. Each draws on a render layer of its own, so paint that hits it stays on it as
     it drives off (`SplatAnchor`).
-  - *You.* The view turns with the buggy. Seated characters sit still with their legs tucked up (the clip blender's
-    crouch, no steps). The HUD shows the buggy's speed, how to drive, and when you can get out, or how to get in beside
-    one.
-  - *Sound.* A synthesised two-stroke loop per buggy, running while someone's at the wheel, pitched by speed and
-    throttle.
+  - *You.* The view turns with the buggy. The HUD shows the buggy's speed and gear, how to drive, and when you can get
+    out, or how to get in beside one. (The seat's view, the seated characters and the sounds are M5.7's, §18.5.)
 - **Checks.**
   - `VehicleTests`: getting in, driving and out; steering; walls and people stopping it; the driver's one-handed
     shots spreading twice the passenger's; someone hit getting out; paint on the body; a new round.
@@ -1570,3 +1566,86 @@ everything else, so the server rules them and bots drive by the same rules and c
   - Smoke runs: the level walk-through, a 4 v 4, a 4 v 4 capture the flag on a fixed seed that must see bots drive
     (`--min-drives`), and `--vehicle-demo`, which drives your own buggy and checks your body, the drawn buggy and the
     HUD.
+
+### 18.5 The buggy's handling (as built, M5.7)
+
+Tim's call on C2: much more realistic buggies, a driver who can shoot (M5.6), and online driving that doesn't lag.
+
+- **The body** (`VehicleDynamics`, `VehicleState`). A rigid body: its place, its turn (a quaternion), its velocity and
+  spin, and a box's inertia for its size and mass. It steps in two substeps a tick, semi-implicit, without allocating.
+  - *Springs.* Each wheel's ray goes down the body's up axis from its mount (`world.SweepSphere` with no radius, the
+    static level only). Its spring and damper come from `suspensionHz` and `suspensionDamping` with a quarter of the
+    mass on each, and the rest length puts the body's own point on level ground at rest. The damping rate is the change
+    in compression since the last substep, or the mount's speed into the ground when a wheel touches down. A bump stop
+    (eight times the spring) takes over past `bumpTravel_m`. Anti-roll bars move `antiRoll_Npm` per metre of difference
+    across each axle. The springs push along the body's up axis; the load on each tyre is what they push.
+  - *Tyres.* Each grips by its load and the surface's `grip` (`tyres` in `vehicles.jsonc`, keyed by the break model's
+    surfaces; mud is new). Along the ground: the engine's push, less rolling resistance, engine braking and the brakes,
+    which only ever stop the wheel, never turn it back. Sideways: against the slip angle (taken against `slipSpeed_mps`
+    at a crawl), `corneringStiffness` per radian of load, levelling off at the grip (a tanh). Together they never pass
+    load × grip (the friction circle); past that the tyre slides, and a driven wheel asked for more spins. The handbrake
+    locks the rear wheels: they push back only against the way they slide, with `handbrakeGrip` of their grip, so the
+    tail comes round. Tyre forces act at the contact points, below the centre of mass, so the weight moves: it squats
+    pulling away, dives braking, leans out in corners.
+  - *Engine.* An automatic: each gear runs up to its speed, pushing its `driveForce_N` (rear-wheel drive) until
+    `powerBand` of the red line, then less, to none at it. It changes up at `shiftUp`, down below `shiftDown`, with no
+    drive for `shift_s`. Reverse is from a standstill. The revs follow the wheels in gear (the clutch slipping at a crawl)
+    and flare as the driven wheels spin. With nobody at the wheel the engine stops.
+  - *The pedal.* Forward pulls away, or brakes while rolling back; back brakes, or reverses from a standstill. Off the
+    pedals and slower than `holdBelow_mps`, the brakes hold it, on a slope too. An empty buggy has its brakes on.
+  - *Knocks.* Six spheres fill the body above the wheels' reach. Each is swept from last tick's pose to this one against
+    the level; a hit puts the body back out and takes away its speed into the surface at that point, bouncing back
+    `bodyBounce` and scraping with `bodyFriction`, as an impulse on the whole rigid body. The level's edge and other
+    vehicles (sphere against sphere, impulses on both) work the same way. `Impact` is the hardest knock a tick, for the
+    sound.
+  - *People.* Unchanged rules on top: it brakes for anyone in the way it's going (the body's reach along its velocity,
+    braking as hard as the ground under it allows, `StopDecel`), and a tick that would bring it closer than brushing past
+    anyone is undone and it stops.
+  - *Over and at rest.* Over (its top more than sideways) and nearly still for `rightAfter_s`, it's set back on its
+    wheels where it lies. An empty buggy still for half a second sleeps and isn't stepped until someone gets in or
+    another vehicle knocks it.
+- **The marker at the wheel** (`HitboxRig`, `PlayerState.Sling`). Driving, the marker hangs on its sling across the chest,
+  with both hands on the wheel. Its hitboxes hang there too, since gear hits count. Pulling the trigger (or refilling)
+  brings it up to the one-handed aim over `wheelSling_s`, and it fires once it's up: the trigger counts from then. It
+  goes back on the sling `wheelUpFor_s` after the last pull. The sling travels with the player (puppet fields, and
+  `PredictedState` for your own).
+- **Network** (protocol 6).
+  - *Everyone's.* `WorldFields` sends each vehicle's position, its heading, pitch and lean (`VehiclePose`), speed, steer,
+    revs, gear, throttle, brakes and how fast its front and back tyres scrub. A joining copy slerps the turn between
+    snapshots.
+  - *The driver's own.* `OwnFields` carries the whole motion of the vehicle you drive (`VehicleMotion`: place, turn,
+    velocity, spin, steer, revs, gear, timers, springs) to the bit. The joining copy steps that vehicle itself each tick
+    by your controls (`SimWorld.PredictedVehicle`, `VehicleSet.Predict`; the others stay where the server has them and
+    don't give way). It keeps its motion each tick and checks the server's against it. If they differ, it puts the
+    server's back and replays the driving since (`SimWorld.ReplayVehicle`), and the drawn buggy and your view ease out
+    of the jump (`CorrectionOffset`). Who's in it still comes from the server.
+- **Bots.** They brake for the end at half what the ground under them allows (`StopDecel`), and drive slower on ground
+  that grips less than `driveGripFull`. Off the pedals they wait for a crawl before getting out. A bot at the wheel
+  pulls the trigger to bring its marker up and fires once it's up.
+- **Presentation.**
+  - *The buggies* (`VehicleViews`). Posed with their whole turn. Each wheel rides the ground under it on its spring
+    (a ray from the drawn pose, so wheels never float or sink) with a damper to its arch. Wheels turn as the sim has
+    them; one drawn from the server's rolls with the ground and spins with its scrub. The steering wheel turns
+    `steeringRatio` times as far as the front wheels.
+  - *Spray.* Each back tyre throws dust off dry loose ground as it rolls, and dust, grass, mud or rubber smoke as it
+    scrubs (`vehicleView.spray`), from two GPU particle emitters whose amount follows the speed and the scrub.
+  - *Sound* (`AudioDirector.Engines`). Per buggy: the engine loop at its revs, louder up them, with a harder loop of it
+    pulling mixed in as the throttle opens. Under it, the tyres' loop for the ground under them (gravel, grass, mud or
+    hard) by speed, a squeal (hard ground) or a scrub of stones (loose) as they slide, and a knock when the body hits
+    something. All are synthesised in `SoundBank`.
+  - *The seat* (`PlayerController.Seat`). The view is at the seat as the body's drawn and takes `seatTilt` of its lean
+    and pitch. The head sways against the pulls of driving on a spring, the engine and rough ground shake it, and the
+    view widens `fovAtSpeed_deg` at the top speed. With the marker on its sling the first-person marker is out of view.
+  - *Sitting* (`CharacterPoser.Seat`, `ClipBlender.Seated`, `sit_drive` and `sit_ride` in `tools/anim/build_clips.py`).
+    The sitting clips set the body; the poser puts the hips on the seat and the feet flat on the floor ahead. The chest
+    turns toward the look, the body sways out of the turns, and the hands go on the steering wheel at ten to two,
+    turning with it. As the marker comes up, the trigger hand goes to it and the upper body blends to the riding clip's;
+    the other hand stays on the wheel.
+- **Checks.**
+  - `VehicleTests` (new): it sits still on its springs and sleeps; the weight moves (it squats, dives and leans);
+    each surface grips as much as it does; the handbrake swings the tail; parked on a 12° slope it stays put; turned
+    over, it's righted; it drives the same every time and never allocates; the marker's sling.
+  - `ProtocolTests`: the driven vehicle's motion to the bit, and the pose's angles.
+  - `NetRoundTests`: over a 100 ms round trip the driver's buggy answers the pedal in 25 ms and ends where the server's
+    does.
+  - `--vehicle-demo`: the body leans, the tyres throw spray, and the marker goes onto its sling and up again.

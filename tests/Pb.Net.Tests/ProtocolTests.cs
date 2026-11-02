@@ -188,6 +188,53 @@ public class ProtocolTests
     }
 
     [Fact]
+    public void The_vehicle_you_drive_comes_back_to_the_bit_and_others_lean_as_the_server_has_them()
+    {
+        // A buggy mid-slide on a joining copy's own: its whole motion, to the bit, in your own state.
+        var rig = new NetRig { Buggy = true };
+        var sim = new SimWorld(TestData.Config);
+        rig.GroundFor(sim);
+        PlayerState you = sim.AddPlayer(0, 0, Vector3.Zero, 0f);
+        Pb.Sim.Vehicles.VehicleState v = sim.Vehicles[0];
+        sim.Vehicles.GetIn(sim, v, v.Params.DriverSeat, you);
+        v.Position = new Vector3(3.5f, 0.02f, -7.25f);
+        v.Orientation = Quaternion.Normalize(new Quaternion(0.03f, 0.4f, -0.05f, 0.91f));
+        v.Velocity = new Vector3(4.1f, 0.2f, -6.3f);
+        v.AngularVelocity = new Vector3(0.1f, 0.8f, -0.2f);
+        v.Gear = 2;
+        v.Rpm = 5123.5f;
+        v.Compression[2] = 0.141f;
+        Pb.Sim.Vehicles.VehicleMotion motion = v.Capture();
+        var fields = new uint[OwnFields.Count];
+        OwnFields.CaptureVehicle(sim, you, fields);
+        var w = new BitWriter();
+        Delta.Write(w, fields, new uint[OwnFields.Count], OwnFields.Widths);
+        var read = new uint[OwnFields.Count];
+        var r = new BitReader(w.Finish());
+        Delta.Read(ref r, read, OwnFields.Widths);
+        Assert.Equal(0, OwnFields.ReadVehicle(read, out Pb.Sim.Vehicles.VehicleMotion back));
+        Assert.True(back.Matches(motion, 0f, 0f));
+        Assert.Equal(motion.Compression[2], back.Compression[2]);
+        Assert.Equal(motion.Rpm, back.Rpm);
+
+        // A passenger doesn't drive it: nothing to predict.
+        sim.Vehicles.GetOut(sim, v, you);
+        OwnFields.CaptureVehicle(sim, you, fields);
+        Assert.Equal(-1, OwnFields.ReadVehicle(fields, out _));
+
+        // Its lean and pitch, as three angles and back, within a degree, any way up.
+        var random = new Random(7);
+        for (int i = 0; i < 200; i++)
+        {
+            var q = Quaternion.Normalize(new Quaternion(random.NextSingle() - 0.5f, random.NextSingle() - 0.5f, random.NextSingle() - 0.5f,
+                random.NextSingle() - 0.5f));
+            Pb.Sim.Vehicles.VehiclePose.Angles(q, out float yaw, out float pitch, out float roll);
+            Quaternion again = Pb.Sim.Vehicles.VehiclePose.FromAngles(yaw, pitch, roll);
+            Assert.True(MathF.Abs(Quaternion.Dot(q, again)) > 0.99996f, $"{q} came back as {again}");
+        }
+    }
+
+    [Fact]
     public void Others_come_back_within_their_steps()
     {
         var sim = new SimWorld(TestData.Config);

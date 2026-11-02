@@ -880,6 +880,22 @@ public sealed class HitboxesDef : IValidatable
 
     public float SlungRoll_deg { get; set; }
 
+    public float WheelArmsPitch_deg { get; set; }
+
+    public float WheelSlungBelowEye_m { get; set; }
+
+    public float WheelSlungAhead_m { get; set; }
+
+    public float WheelSlungRight_m { get; set; }
+
+    public float WheelSlungPitch_deg { get; set; }
+
+    public float WheelSlungYaw_deg { get; set; }
+
+    public float WheelSling_s { get; set; }
+
+    public float WheelUpFor_s { get; set; }
+
     public HitboxPart[] LethalParts { get; set; } = Array.Empty<HitboxPart>();
 
     public bool BallsInFlightCount { get; set; }
@@ -911,6 +927,14 @@ public sealed class HitboxesDef : IValidatable
         v.InRange(nameof(SlungBehind_m), SlungBehind_m, 0, 0.6);
         v.InRange(nameof(SlungPitch_deg), SlungPitch_deg, -90, 90);
         v.InRange(nameof(SlungRoll_deg), SlungRoll_deg, -90, 90);
+        v.InRange(nameof(WheelArmsPitch_deg), WheelArmsPitch_deg, -90, 45);
+        v.InRange(nameof(WheelSlungBelowEye_m), WheelSlungBelowEye_m, 0, 1);
+        v.InRange(nameof(WheelSlungAhead_m), WheelSlungAhead_m, -0.3, 0.6);
+        v.InRange(nameof(WheelSlungRight_m), WheelSlungRight_m, -0.4, 0.4);
+        v.InRange(nameof(WheelSlungPitch_deg), WheelSlungPitch_deg, -90, 90);
+        v.InRange(nameof(WheelSlungYaw_deg), WheelSlungYaw_deg, -90, 90);
+        v.InRange(nameof(WheelSling_s), WheelSling_s, 0.02, 2);
+        v.InRange(nameof(WheelUpFor_s), WheelUpFor_s, 0, 30);
         if (LethalParts.Contains(HitboxPart.Body))
         {
             v.Error(nameof(LethalParts), "'body' is for range targets; players have head, torso, arms and legs");

@@ -739,8 +739,10 @@ public partial class AudioDirector : Node, ISimEventListener
     }
 
     /// <summary>
-    /// The vehicles' engines: running while someone's at the wheel, higher the faster it goes and the harder it's pushed
-    /// (a loop on a player of its own, following the vehicle).
+    /// The vehicles' sounds (M5.7), each on players of its own following the vehicle: the engine at its revs, louder up
+    /// them, with the loop of it pulling hard mixed in as the throttle opens (it stops when nobody's at the wheel); the
+    /// tyres rolling on the ground under them, by its kind and the speed; a skid (a squeal on hard ground, stones
+    /// scrubbing on loose) as they slide; and a knock when the body hits something.
     /// </summary>
     private void Engines()
     {
@@ -750,44 +752,144 @@ public partial class AudioDirector : Node, ISimEventListener
             return;
         }
 
-        if (_engines.Length != vehicles.Count)
+        VehicleSoundDef sound = _def.Vehicles;
+        if (_engines.Length != vehicles.Count * VehicleVoices)
         {
             foreach (AudioStreamPlayer3D old in _engines)
             {
                 old.QueueFree();
             }
 
-            _engines = new AudioStreamPlayer3D[vehicles.Count];
+            _engines = new AudioStreamPlayer3D[vehicles.Count * VehicleVoices];
+            _vehicleSpeeds = new float[vehicles.Count];
+            _tyreSounds = new Sfx[vehicles.Count * 2];
             for (int i = 0; i < _engines.Length; i++)
             {
                 _engines[i] = Player3D(AudioBuses.Effects, _def.UnitSize_m, _def.MaxDistance_m);
-                _engines[i].Stream = _set.Get(Sfx.Engine, 0);
+            }
+
+            for (int i = 0; i < vehicles.Count; i++)
+            {
+                _engines[i * VehicleVoices].Stream = _set.Get(Sfx.Engine, 0);
+                _engines[i * VehicleVoices + 1].Stream = _set.Get(Sfx.EngineLoad, 0);
             }
         }
 
-        for (int i = 0; i < _engines.Length; i++)
+        float dt = (float)GetProcessDeltaTime();
+        for (int i = 0; i < vehicles.Count; i++)
         {
             Pb.Sim.Vehicles.VehicleState v = vehicles[i];
-            AudioStreamPlayer3D engine = _engines[i];
-            bool running = v.Driver >= 0 || MathF.Abs(v.Speed) > 0.3f;
-            if (running != engine.Playing && !AudioBuses.Silent)
+            Vector3 at = v.Position.ToGodot() + Vector3.Up * 0.6f;
+            Span<AudioStreamPlayer3D> voices = _engines.AsSpan(i * VehicleVoices, VehicleVoices);
+            foreach (AudioStreamPlayer3D voice in voices)
             {
-                if (running)
-                {
-                    engine.Play();
-                }
-                else
-                {
-                    engine.Stop();
-                }
+                voice.GlobalPosition = at;
             }
 
-            float pace = MathF.Abs(v.Speed) / MathF.Max(v.Params.MaxSpeed, 1f);
-            engine.GlobalPosition = v.Position.ToGodot() + Vector3.Up * 0.6f;
-            engine.PitchScale = 0.8f + 1.1f * pace + 0.2f * MathF.Abs(v.Throttle);
-            engine.VolumeDb = _def.Volume_db + _mix.Engine + 3f * MathF.Abs(v.Throttle) + 3f * pace;
+            // The engine: at its revs (off when there's nobody at the wheel and it's run down), the load under it.
+            float revs = MathF.Max(0f, (v.Rpm - v.Params.IdleRpm) / MathF.Max(1f, v.Params.MaxRpm - v.Params.IdleRpm));
+            float pitch = Math.Clamp(v.Rpm / sound.RpmAtPitch1, sound.PitchLow, sound.PitchHigh);
+            float load = Math.Clamp(v.Drive / sound.LoadFull, 0f, 1f);
+            bool running = v.Rpm > v.Params.IdleRpm * 0.5f;
+            Loop(voices[0], running, pitch, _mix.Engine + sound.RevsLouder_db * revs + Db(1f - 0.7f * load));
+            Loop(voices[1], running && load > 0.02f, pitch, _mix.EngineLoad + sound.RevsLouder_db * revs + Db(load));
+
+            // The tyres: the ground under them, as fast as it goes by.
+            float speed = MathF.Abs(v.Speed);
+            Sfx tyre = TyreSound(v, sound);
+            if (_tyreSounds[i * 2] != tyre)
+            {
+                _tyreSounds[i * 2] = tyre;
+                voices[2].Stream = _set.Get(tyre, 0);
+                voices[2].Stop();
+            }
+
+            float rolling = Math.Clamp(speed / sound.TyreFull_mps, 0f, 1f);
+            Loop(voices[2], rolling > 0.02f, Math.Clamp(0.6f + 0.4f * speed / sound.TyrePitchSpeed_mps, 0.5f, 1.8f), _mix.Tyres + Db(rolling));
+
+            // Sliding: the hardest any tyre scrubs.
+            float slide = 0f;
+            for (int w = 0; w < Pb.Sim.Vehicles.VehicleState.WheelCount; w++)
+            {
+                slide = MathF.Max(slide, v.Slide[w]);
+            }
+
+            float skid = Math.Clamp((slide - sound.SkidFrom_mps) / (sound.SkidFull_mps - sound.SkidFrom_mps), 0f, 1f);
+            Sfx skidSound = tyre == Sfx.TyreHard ? Sfx.TyreSkid : Sfx.TyreScrub;
+            if (_tyreSounds[i * 2 + 1] != skidSound)
+            {
+                _tyreSounds[i * 2 + 1] = skidSound;
+                voices[3].Stream = _set.Get(skidSound, 0);
+                voices[3].Stop();
+            }
+
+            Loop(voices[3], skid > 0.02f, skidSound == Sfx.TyreSkid ? 0.9f + 0.25f * skid : 0.8f + 0.4f * skid, _mix.Skid + Db(skid));
+
+            // A knock: the sim's (where it decides it), or a drop in speed faster than any brakes manage.
+            float drop = MathF.Max(0f, MathF.Abs(_vehicleSpeeds[i]) - speed - 15f * dt);
+            _vehicleSpeeds[i] = v.Speed;
+            float knock = MathF.Max(v.Impact, drop);
+            if (knock > sound.KnockFrom_mps && _knockWait <= 0f)
+            {
+                float hard = Math.Clamp((knock - sound.KnockFrom_mps) / (sound.KnockFull_mps - sound.KnockFrom_mps), 0f, 1f);
+                Play3D(Sfx.VehicleKnock, at, _mix.Knock + Db(0.25f + 0.75f * hard), 0.9f + 0.2f * (float)_random.NextDouble(), _def.MaxDistance_m);
+                _knockWait = 0.15f;
+            }
         }
+
+        _knockWait -= dt;
     }
+
+    private const int VehicleVoices = 4;
+    private float[] _vehicleSpeeds = Array.Empty<float>();
+    private Sfx[] _tyreSounds = Array.Empty<Sfx>();
+    private float _knockWait;
+
+    /// <summary>Which tyre loop the ground under <paramref name="v"/> plays (its wheels' surfaces, or straight down from it).</summary>
+    private Sfx TyreSound(Pb.Sim.Vehicles.VehicleState v, VehicleSoundDef sound)
+    {
+        int surface = -1;
+        for (int w = 0; w < Pb.Sim.Vehicles.VehicleState.WheelCount && surface < 0; w++)
+        {
+            if (v.Touches(w) && _sim.Role != Pb.Sim.SimRole.Client)
+            {
+                surface = v.Surface[w].Value;
+            }
+        }
+
+        if (surface < 0 && _sim.Collision.SweepSphere(v.Position + System.Numerics.Vector3.UnitY * 0.5f, v.Position - System.Numerics.Vector3.UnitY * 0.5f,
+                0f, out Pb.Sim.Collision.SweepHit hit, includeDynamic: false))
+        {
+            surface = hit.Surface.Value;
+        }
+
+        string name = surface >= 0 && surface < _sim.Config.Surfaces.Count ? _sim.Config.Surfaces.Names[surface] : "";
+        return sound.Tyres.TryGetValue(name, out string? kind)
+            ? kind switch { "gravel" => Sfx.TyreGravel, "grass" => Sfx.TyreGrass, "mud" => Sfx.TyreMud, _ => Sfx.TyreHard }
+            : Sfx.TyreHard;
+    }
+
+    /// <summary>A looping voice on or off, at <paramref name="pitch"/> and <paramref name="db"/> (over the volume).</summary>
+    private void Loop(AudioStreamPlayer3D voice, bool on, float pitch, float db)
+    {
+        if (on != voice.Playing && !AudioBuses.Silent)
+        {
+            if (on)
+            {
+                voice.Play();
+            }
+            else
+            {
+                voice.Stop();
+            }
+        }
+
+        voice.PitchScale = pitch;
+        voice.VolumeDb = _def.Volume_db + db;
+    }
+
+    /// <summary>A share of full volume (0 … 1) in decibels.</summary>
+    private static float Db(float share) => 20f * MathF.Log10(MathF.Max(share, 0.001f));
 
     /// <summary>A free player from the pool, else the next in turn (cutting off the oldest sound).</summary>
     private AudioStreamPlayer3D NextVoice()

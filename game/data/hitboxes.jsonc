@@ -47,6 +47,21 @@
   "slungPitch_deg": -78,
   "slungRoll_deg": 25,
 
+  // At a buggy's wheel (M5.7) both hands are on it: the arms reach forward and down to it, pitched wheelArmsPitch_deg,
+  // and the marker hangs on its sling across the chest, clear of the wheel: its back end at the right hip,
+  // wheelSlungBelowEye_m below, wheelSlungAhead_m ahead of and wheelSlungRight_m right of the eye, its barrel pitched up
+  // wheelSlungPitch_deg and turned wheelSlungYaw_deg to the left, up across the chest to the left shoulder. Pulling the
+  // trigger brings it up to the one-handed aim (over wheelSling_s, firing once it's up); it goes back on the sling
+  // wheelUpFor_s after the last pull.
+  "wheelArmsPitch_deg": -32,
+  "wheelSlungBelowEye_m": 0.5,
+  "wheelSlungAhead_m": 0.14,
+  "wheelSlungRight_m": 0.13,
+  "wheelSlungPitch_deg": 52,
+  "wheelSlungYaw_deg": 72,
+  "wheelSling_s": 0.3,
+  "wheelUpFor_s": 2.5,
+
   // A break on any of these parts eliminates (spec: all of them). Take out marker, loader and tank
   // for "gun hits don't count" rules.
   "lethalParts": ["mask", "head", "torso", "arms", "legs", "marker", "loader", "tank"],
