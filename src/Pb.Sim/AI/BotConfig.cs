@@ -120,6 +120,12 @@ public sealed class BrainParams
 
     public required float DriveVehicleWithin { get; init; }
 
+    /// <summary>A buggy is taken when the way by it takes at most this many times as long as going on foot.</summary>
+    public required float DriveFavour { get; init; }
+
+    /// <summary>Walking a long way, a bot looks for a buggy it's come near this often (s).</summary>
+    public required float DriveLookEvery { get; init; }
+
     public required float DriveLookAhead { get; init; }
 
     public required float DriveLookAheadPerSpeed { get; init; }
@@ -385,6 +391,8 @@ public sealed class BotConfig
             StrollPace = brain.StrollPace,
             DriveBeyond = brain.DriveBeyond_m,
             DriveVehicleWithin = brain.DriveVehicleWithin_m,
+            DriveFavour = brain.DriveFavour,
+            DriveLookEvery = brain.DriveLookEvery_s,
             DriveLookAhead = brain.DriveLookAhead_m,
             DriveLookAheadPerSpeed = brain.DriveLookAheadPerSpeed_s,
             DriveSpeedShare = brain.DriveSpeedShare,
