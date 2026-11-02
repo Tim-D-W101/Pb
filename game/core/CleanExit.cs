@@ -22,6 +22,13 @@ public static class CleanExit
         }
 
         _quitting = true;
+        if (!string.IsNullOrEmpty(Engine.GetWriteMoviePath()))
+        {
+            // Writing a movie (a capture): quit on the scene as it is, so the last frame isn't the empty one after it's gone.
+            tree.Quit(code);
+            return;
+        }
+
         tree.CurrentScene?.QueueFree();
         int frames = 0;
         tree.ProcessFrame += Step;

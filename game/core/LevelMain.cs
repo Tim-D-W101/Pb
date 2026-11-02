@@ -146,6 +146,9 @@ public partial class LevelMain : Node3D, ISimEventListener
     private int _rides, _drivers;
     private string? _hitBy;
     private bool _scripted;
+
+    // The duel demo (--duel-demo, --round-tour), which reports once the spectator view has shown who got you.
+    private DuelDemo? _duel;
     private bool _botMatch;
     private SpawnPlan? _starts;
     private SpawnPoint _start;
@@ -602,9 +605,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (Args.Has("--splat-demo"))
         {
-            var demo = new SplatDemo(this, _sim);
+            var demo = new SplatDemo(this, _sim, _splats);
             demo.Setup(_player);
             _player.AutoPilot = demo;
+            _driver.AddListener(demo);
             _hud.ShowHelp = false;
             _hud.ShowPerf = false;
         }
@@ -637,7 +641,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (Args.Has("--duel-demo"))
         {
-            var demo = new DuelDemo(this, _sim, _pawns);
+            var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud);
             demo.Setup(_player);
             _player.AutoPilot = demo;
             _hud.ShowHelp = false;
@@ -729,7 +733,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(tour);
             tour.Start(() =>
             {
-                var demo = new DuelDemo(this, _sim, _pawns);
+                var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud);
                 demo.Setup(_player);
                 _player.AutoPilot = demo;
                 BeginRound();
@@ -1733,7 +1737,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             if (_scripted)
             {
-                if (_smoke is null && !_botMatch)
+                if (_duel is not null)
+                {
+                    _duel.Finish(); // its report, then it quits
+                }
+                else if (_smoke is null && !_botMatch)
                 {
                     GetTree().QuitCleanly();
                 }
