@@ -325,6 +325,46 @@ public class DoorTests
     }
 
     [Fact]
+    public void A_bot_tucked_behind_a_leaf_standing_open_walks_round_its_end()
+    {
+        // The guardhouse door standing open into the room, and a bot in the corner between it and the wall it opened
+        // toward, with a shot to look into out in the yard. Stepping straight off the leaf only pressed it into the
+        // wall, and it planned through the leaf again for the rest of the round: the way out is round the leaf's end.
+        BotArena arena = BotArena.Create("normal");
+        int leaf = LeafAt(arena.Sim, Doorway);
+        arena.Sim.Doors.SetOpen(leaf, 1f);
+        DoorSpec s = arena.Sim.Doors[leaf];
+        DoorShape shape = arena.Sim.Doors.Shape(leaf);
+        float radius = TestData.Data.Bots.Navigation.AgentRadius;
+        // The leaf's face toward the wall beyond its hinge (away from the doorway), and the spot nearest the hinge on that
+        // side where a bot can stand.
+        Vector3 wallward = Vector3.Dot(shape.AxisZ, s.Across) < 0f ? shape.AxisZ : -shape.AxisZ;
+        Vector3 corner = default;
+        bool found = false;
+        for (float along = 0.2f; along <= s.Width && !found; along += 0.05f)
+        {
+            for (float off = radius + 0.05f; off <= radius + 0.3f && !found; off += 0.05f)
+            {
+                corner = (s.Hinge + shape.AxisX * along + wallward * off) with { Y = 0f };
+                found = arena.Squad.Grid.SpanAt(corner) >= 0 && shape.DistanceTo(corner + new Vector3(0f, 1f, 0f), out _) > radius &&
+                        !arena.Sim.Collision.SweepSphere(corner + new Vector3(0f, 1f, 0f), corner + new Vector3(0f, 1.01f, 0f), radius, out _);
+            }
+        }
+
+        Assert.True(found, "nowhere to stand behind the leaf");
+        var tucked = new OpponentSpawn { Id = "tucked", Position = corner, Yaw = 0f, Roles = new[] { "sentry" } };
+        BotBrain bot = arena.AddBotAt(tucked, team: 1, "sentry");
+        arena.Start();
+        arena.Sim.Doors.SetOpen(leaf, 1f);
+        arena.PlaceHero(new Vector3(13f, 0f, 33f), new Vector3(20f, 0f, 33f));
+        arena.HeroScript = (tick, me) => new InputCommand { Tick = tick, Yaw = me.Yaw, Pitch = -0.6f, Buttons = tick == 30 ? InputButtons.Fire : InputButtons.None };
+        bool outside = false;
+        arena.Run(25 * Second, () => outside |= bot.Self.Position.X > Doorway.X + 0.2f);
+        _out.WriteLine($"tucked in at {corner}; door at {arena.Sim.Doors.Open(leaf):0.00}; bot at {bot.Self.Position}, {bot.Mode}");
+        Assert.True(outside, "the bot never got out from behind the leaf");
+    }
+
+    [Fact]
     public void Doors_start_the_same_from_the_same_seed_and_differently_from_another()
     {
         float[] Starts(ulong seed)

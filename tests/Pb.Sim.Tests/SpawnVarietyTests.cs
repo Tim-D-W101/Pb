@@ -215,5 +215,48 @@ public class SpawnVarietyTests
         }
     }
 
+    /// <summary>
+    /// A bot started on top of a boiler in the hospital's boiler house had no way down, and held the room contested until
+    /// the clock ran out: cover up there (or anywhere off the grid's main piece) is stranded, and nobody starts on it.
+    /// </summary>
+    [Theory]
+    [InlineData("hospital_wing")]
+    [InlineData("oxbarrow_works")]
+    [InlineData("rail_yard")]
+    [InlineData("cold_store")]
+    public void Nobody_starts_somewhere_with_no_way_off(string levelId)
+    {
+        (LevelLayout level, NavGrid grid, CoverSet cover) = BotArena.SharedFor(levelId);
+        var sim = new SimWorld(TestData.Config);
+        sim.LoadLevel(level);
+        int stranded = cover.Points.Count(p => p.Stranded);
+        // The rest all stand on one piece of the grid, the one with most of them.
+        int main = Assert.Single(cover.Points.Where(p => !p.Stranded).Select(p => grid.PieceAt(p.Position)).Distinct());
+        Assert.True(cover.Points.Count(p => !p.Stranded) > cover.Points.Count / 2);
+        if (levelId == "hospital_wing")
+        {
+            // The boilers' tops (in the boiler house, three metres up).
+            Assert.Contains(cover.Points, p => p.Stranded && p.Position.Y > 2.5f && p.Position.X > 18f && p.Position.Z < -25f);
+        }
+
+        int starts = 0;
+        foreach (string modeId in new[] { "solo", "teams", "ffa" })
+        {
+            GameMode mode = TestData.Config.Rules.FindMode(modeId)!;
+            for (ulong seed = 1; seed <= 25; seed++)
+            {
+                SpawnPlan plan = SpawnPlanner.Plan(level, cover, sim.Collision, TestData.Config.Rules.Spawning, TestData.Data.Bots,
+                    RoundShape.Of(mode, modeId == "ffa" ? 10 : 5), TestData.Config.Movement.StandEyeHeight, seed);
+                foreach (Vector3 start in plan.Opponents.Concat(plan.Teammates).Select(o => o.Position).Append(plan.You.Position))
+                {
+                    Assert.True(grid.PieceAt(start) == main, $"{levelId} {modeId} seed {seed}: a start at {start} has no way off");
+                    starts++;
+                }
+            }
+        }
+
+        _out.WriteLine($"{levelId}: {stranded} of {cover.Points.Count} cover points stranded; {starts} starts, all on the main piece");
+    }
+
     private static float Flat(Vector3 v) => MathF.Sqrt(v.X * v.X + v.Z * v.Z);
 }

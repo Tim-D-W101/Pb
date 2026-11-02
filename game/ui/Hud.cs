@@ -78,6 +78,12 @@ public partial class Hud : CanvasLayer, ISimEventListener
     /// <summary>The incoming-fire arcs added so far, by kind (<see cref="IncomingKind"/>).</summary>
     public int[] IncomingArcsAdded => _ring.Added;
 
+    /// <summary>The incoming-fire arcs as drawn (for the duel demo's check that they show).</summary>
+    public IncomingFireRing IncomingArcs => _ring;
+
+    /// <summary>The arcs' canvas layer: over the mask spray (5) and the hit moment (6), under the round's screens (8).</summary>
+    private const int ArcLayer = 7;
+
     /// <summary>Paint passed close by your head (a <see cref="Ballistics.FlybyWatch"/> found it): an arc that way.</summary>
     public void Flyby(System.Numerics.Vector3 velocity, float distance)
     {
@@ -94,7 +100,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
     {
         foreach (Node child in GetNode<Control>("Root").GetChildren())
         {
-            if (child is CanvasItem item && child != _ring)
+            if (child is CanvasItem item)
             {
                 item.Visible = false;
             }
@@ -120,9 +126,14 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _crosshair = new CrosshairControl { MouseFilter = Control.MouseFilterEnum.Ignore };
         _crosshair.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(_crosshair);
+        // The incoming-fire arcs on a layer of their own, over the paint on your mask and the moment you're hit (layers 5
+        // and 6): under them, the arc pointing back at the ball that got you was all but hidden. It shows and hides with the HUD.
+        var arcs = new CanvasLayer { Name = "IncomingFireLayer", Layer = ArcLayer };
+        AddChild(arcs);
+        VisibilityChanged += () => arcs.Visible = Visible;
         _ring = new IncomingFireRing { Name = "IncomingFire" };
         _ring.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        root.AddChild(_ring);
+        arcs.AddChild(_ring);
         _markers = new HitMarkers { Name = "HitMarkers" };
         _markers.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(_markers);
