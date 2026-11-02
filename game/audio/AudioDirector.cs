@@ -791,8 +791,8 @@ public partial class AudioDirector : Node, ISimEventListener
             float pitch = Math.Clamp(v.Rpm / sound.RpmAtPitch1, sound.PitchLow, sound.PitchHigh);
             float load = Math.Clamp(v.Drive / sound.LoadFull, 0f, 1f);
             bool running = v.Rpm > v.Params.IdleRpm * 0.5f;
-            Loop(voices[0], running, pitch, _mix.Engine + sound.RevsLouder_db * revs + Db(1f - 0.7f * load));
-            Loop(voices[1], running && load > 0.02f, pitch, _mix.EngineLoad + sound.RevsLouder_db * revs + Db(load));
+            Loop(voices[0], Sfx.Engine, running, pitch, _mix.Engine + sound.RevsLouder_db * revs + Db(1f - 0.7f * load), dt);
+            Loop(voices[1], Sfx.EngineLoad, running && load > 0.02f, pitch, _mix.EngineLoad + sound.RevsLouder_db * revs + Db(load), dt);
 
             // The tyres: the ground under them, as fast as it goes by.
             float speed = MathF.Abs(v.Speed);
@@ -805,7 +805,7 @@ public partial class AudioDirector : Node, ISimEventListener
             }
 
             float rolling = Math.Clamp(speed / sound.TyreFull_mps, 0f, 1f);
-            Loop(voices[2], rolling > 0.02f, Math.Clamp(0.6f + 0.4f * speed / sound.TyrePitchSpeed_mps, 0.5f, 1.8f), _mix.Tyres + Db(rolling));
+            Loop(voices[2], tyre, rolling > 0.02f, Math.Clamp(0.6f + 0.4f * speed / sound.TyrePitchSpeed_mps, 0.5f, 1.8f), _mix.Tyres + Db(rolling), dt);
 
             // Sliding: the hardest any tyre scrubs.
             float slide = 0f;
@@ -823,7 +823,7 @@ public partial class AudioDirector : Node, ISimEventListener
                 voices[3].Stop();
             }
 
-            Loop(voices[3], skid > 0.02f, skidSound == Sfx.TyreSkid ? 0.9f + 0.25f * skid : 0.8f + 0.4f * skid, _mix.Skid + Db(skid));
+            Loop(voices[3], skidSound, skid > 0.02f, skidSound == Sfx.TyreSkid ? 0.9f + 0.25f * skid : 0.8f + 0.4f * skid, _mix.Skid + Db(skid), dt);
 
             // A knock: the sim's (where it decides it), or a drop in speed faster than any brakes manage.
             float drop = MathF.Max(0f, MathF.Abs(_vehicleSpeeds[i]) - speed - 15f * dt);
@@ -832,7 +832,7 @@ public partial class AudioDirector : Node, ISimEventListener
             if (knock > sound.KnockFrom_mps && _knockWait <= 0f)
             {
                 float hard = Math.Clamp((knock - sound.KnockFrom_mps) / (sound.KnockFull_mps - sound.KnockFrom_mps), 0f, 1f);
-                Play3D(Sfx.VehicleKnock, at, _mix.Knock + Db(0.25f + 0.75f * hard), 0.9f + 0.2f * (float)_random.NextDouble(), _def.MaxDistance_m);
+                Knocks += Play3D(Sfx.VehicleKnock, at, _mix.Knock + Db(0.25f + 0.75f * hard), 0.9f + 0.2f * (float)_random.NextDouble(), _def.MaxDistance_m) ? 1 : 0;
                 _knockWait = 0.15f;
             }
         }
@@ -869,8 +869,11 @@ public partial class AudioDirector : Node, ISimEventListener
             : Sfx.TyreHard;
     }
 
-    /// <summary>A looping voice on or off, at <paramref name="pitch"/> and <paramref name="db"/> (over the volume).</summary>
-    private void Loop(AudioStreamPlayer3D voice, bool on, float pitch, float db)
+    /// <summary>
+    /// A vehicle's looping voice (playing <paramref name="sfx"/>) on or off, at <paramref name="pitch"/> and
+    /// <paramref name="db"/> (over the volume), its time on counted (<see cref="VehicleLoopsOn"/>).
+    /// </summary>
+    private void Loop(AudioStreamPlayer3D voice, Sfx sfx, bool on, float pitch, float db, float dt)
     {
         if (on != voice.Playing && !AudioBuses.Silent)
         {
@@ -886,6 +889,36 @@ public partial class AudioDirector : Node, ISimEventListener
 
         voice.PitchScale = pitch;
         voice.VolumeDb = _def.Volume_db + db;
+        if (on)
+        {
+            VehicleLoopsOn[sfx] = VehicleLoopsOn.GetValueOrDefault(sfx) + dt;
+            if (voice.Playing)
+            {
+                VehicleLoopsPlaying[sfx] = VehicleLoopsPlaying.GetValueOrDefault(sfx) + dt;
+            }
+        }
+    }
+
+    /// <summary>
+    /// How long each of the vehicles' loops has been on (s), by its sound: the engine and its load, the tyres on each
+    /// kind of ground, the skid's squeal and scrub. For the smoke tests, as the shots and steps are counted.
+    /// </summary>
+    public Dictionary<Sfx, float> VehicleLoopsOn { get; } = new();
+
+    /// <summary>Of <see cref="VehicleLoopsOn"/>, how long each was really playing (none where nothing can be heard).</summary>
+    public Dictionary<Sfx, float> VehicleLoopsPlaying { get; } = new();
+
+    /// <summary>Knocks heard: a vehicle's body hitting something.</summary>
+    public int Knocks { get; private set; }
+
+    /// <summary>The vehicles' sounds so far, in a line: each loop's time on (and playing), and the knocks.</summary>
+    public string VehicleSoundLine()
+    {
+        string Of(Sfx sfx, string name) =>
+            $"{name} {VehicleLoopsOn.GetValueOrDefault(sfx):0.0} s{(AudioBuses.Silent ? "" : $" ({VehicleLoopsPlaying.GetValueOrDefault(sfx):0.0} s playing)")}";
+        return $"{Of(Sfx.Engine, "engine")}, {Of(Sfx.EngineLoad, "under load")}; tyres on {Of(Sfx.TyreGravel, "gravel")}, " +
+               $"{Of(Sfx.TyreGrass, "grass")}, {Of(Sfx.TyreMud, "mud")}, {Of(Sfx.TyreHard, "hard ground")}; {Of(Sfx.TyreSkid, "squealing")}, " +
+               $"{Of(Sfx.TyreScrub, "scrubbing")}; {Knocks} knocks{(AudioBuses.Silent ? " (nothing can be heard here: counted, not played)" : "")}";
     }
 
     /// <summary>A share of full volume (0 … 1) in decibels.</summary>

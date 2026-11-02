@@ -603,6 +603,17 @@ New tests:
 - A remote buggy's wheels roll with its speed and spin with its scrub; they don't lock under its handbrake, since the
   handbrake isn't sent.
 
+### After Tim's check of the stack
+
+The buggy's engine and tyre sounds were in the code and the data, but nothing showed them playing: a capture's sound
+was silent (fixed on A: the game started no sounds under the dummy driver Movie Maker runs), and no check counted them.
+- The audio director counts how long each of the vehicles' loops is on, and of that how long it's really playing: the
+  engine and its load, the tyres on gravel, grass, mud and hard ground, the squeal and the scrub of a skid; and the
+  knocks (`AudioDirector.VehicleLoopsOn`, `VehicleLoopsPlaying`, `VehicleSoundLine`).
+- The vehicle demo pulls the handbrake once at speed, and fails unless the engine was on over 5 s, the tyres over 3 s
+  and the skid at all; where anything can be heard, unless they were playing too. Headless (CI), here: the engine
+  23.2 s (19.2 s under load), the tyres on gravel 21.1 s and grass 2.1 s, scrubbing 3.9 s.
+
 ### What's next
 
 PR G: rolling ground on Thornwick Woods (hills, dips, banks, a stream bed), bots taking the buggies in plain team rounds,

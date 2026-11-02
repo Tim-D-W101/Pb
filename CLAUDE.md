@@ -146,7 +146,8 @@ nearest that point); it runs headless too, for the numbers alone. `-- --ladder-d
 tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
 Oxbarrow Works and `--level=rail_yard` have ladders).
 `-- --vehicle-demo --level=thornwick_woods` gets you into a buggy at its driver's door, drives it along the tracks round
-the crossroads (a burst fired from the wheel on the way) and gets you out to look back at it (`--vehicle=N` for another;
+the crossroads (a burst fired from the wheel and a pull on the handbrake on the way) and gets you out to look back at it,
+failing it if the engine, the tyres or the skid weren't heard (it prints each sound's time on; `--vehicle=N` for another;
 it runs headless too, as CI's smoke test, and `--fast` at a low `--fixed-fps` films it in few frames; `--chase` films it
 from behind and beside instead, `--chase=near` close by the driver, `--chase=side` square to their side); a bot match's `--min-drives=N` fails it if bots took
 the wheel fewer than N times.

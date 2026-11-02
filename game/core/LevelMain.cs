@@ -617,7 +617,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (Args.Has("--vehicle-demo"))
         {
-            var demo = new VehicleDemo(this, _sim, _player, _vehicles, _hud,
+            var demo = new VehicleDemo(this, _sim, _player, _vehicles, _hud, _audio,
                 (state, at) => _pawns.FirstOrDefault(p => p.State == state)?.Teleport(at, state.Yaw));
             demo.Setup(int.TryParse(Args.Value("--vehicle"), out int which) ? which : null);
             _player.AutoPilot = demo;
