@@ -477,6 +477,28 @@ New tests and runs:
   the tracks, the fence and the yards, the cracks, the splats) 7 s. The other areas take 3–5 s. Fewer tufts, or tufts
   grown after the round starts, would bring it down.
 
+### After Tim's check of the stack
+
+A's fixes changed which cover each seed's starts come from. CI's seeded capture the flag round on Thornwick
+(`--seed=7 --min-drives=1`) then had no drives, and so did three of four nearby seeds. Drives had been luck:
+- A flag attacker from the south gate would drive only if it started within 30 m of a buggy, and only when the tracks'
+  long way round was strictly quicker than running straight: about 46.5 s against 45 s for seed 7's.
+- CI also plays a seeded round a little differently from this container (seed 7 ended at 113 s there, 88 s here), so
+  no one seed could be relied on.
+- A bot that did try from a buggy's far side stood at it for the rest of the round (seed 8).
+
+The driving fixes G had made for its team rounds now come with the buggies here, where bots first drive:
+- A buggy within 70 m is considered (`driveVehicleWithin_m`, was 30; each gate has one that near).
+- It's taken when the way by it takes at most 15 % longer than going on foot (`driveFavour`).
+- From a buggy's far side, a bot walks round its nose or tail to the door, and after giving up on one it stays on foot
+  for 30 s.
+- New: on a long way on foot, a bot looks again every 2 s for a buggy it's come near (`driveLookEvery_s`). It used to
+  look only as it set off, and walked on past buggies a few metres off its way.
+
+Seeds 7 to 14 of that round each had 1–5 drives here, and the 4 v 4 had 3. New tests in `ThornwickWoodsTests`:
+- a bot boarding from a buggy's far side walks round it to the door;
+- a bot on a long walk takes a buggy it comes near (fails without the look again).
+
 ### What's next
 
 PR D: the Windows build to share.

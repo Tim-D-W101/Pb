@@ -74,7 +74,9 @@
 
   // Driving (Phase 5: the buggies on Thornwick Woods; vehicles.jsonc has the field's rules). A bot going farther than
   // driveBeyond_m, with a buggy standing empty within driveVehicleWithin_m of it and no enemy in sight, walks to it,
-  // drives the tracks to the point on them nearest where it's going, and gets out within driveGetOutWithin_m of it. It
+  // drives the tracks to the point on them nearest where it's going, and gets out within driveGetOutWithin_m of it; on its
+  // way on foot it looks again every driveLookEvery_s, for one it's come near (it used to look only when it set off, and
+  // walked on past buggies a few metres off its way). It
   // steers for the point driveLookAhead_m along the track (plus driveLookAheadPerSpeed_s of its speed), at
   // driveSpeedShare of the buggy's top speed on the straight, slowing to driveCornerSpeed_mps for the sharpest bends, and
   // slower again on ground that grips less than driveGripFull (as braking in g: mud, wet grass), as the square root of
@@ -87,6 +89,7 @@
   "driveFavour": 1.15,
   "driveBeyond_m": 90,
   "driveVehicleWithin_m": 70,
+  "driveLookEvery_s": 2,
   "driveLookAhead_m": 4,
   "driveLookAheadPerSpeed_s": 0.6,
   "driveSpeedShare": 0.9,

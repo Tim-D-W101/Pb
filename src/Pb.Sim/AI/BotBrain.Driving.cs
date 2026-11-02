@@ -43,6 +43,7 @@ public sealed partial class BotBrain
     private int _backUps;
     private float _boardingFor;
     private int _noRideUntil;
+    private int _lookForRideAt;
 
     /// <summary>Where this bot is with a ride.</summary>
     public RideState Ride => _ride;
