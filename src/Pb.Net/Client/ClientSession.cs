@@ -4,6 +4,7 @@ using Pb.Net.Server;
 using Pb.Sim;
 using Pb.Sim.Events;
 using Pb.Sim.Players;
+using Pb.Sim.Vehicles;
 
 namespace Pb.Net.Client;
 
@@ -34,6 +35,8 @@ public sealed class ClientSession
     private readonly double[] _t0 = new double[History];
     private readonly PredictedState[] _states = new PredictedState[History];
     private readonly int[] _seqs = new int[History];
+    private readonly VehicleMotion[] _vehicleStates = new VehicleMotion[History];
+    private readonly int[] _vehicleOf = new int[History];
     private readonly int[] _causes = new int[Enum.GetValues<PredictionDifference>().Length];
     private readonly (uint Seq, int Target)[] _ownHits = new (uint, int)[OwnHits];
     private int _ownHitNext;
@@ -52,6 +55,7 @@ public sealed class ClientSession
         Local = sim.FindPlayer(localPlayerId);
         Fields = new WorldFields(sim.Players.Count, sim.Doors.Count, NetServer.Grid(sim), sim.Vehicles.All);
         Array.Fill(_seqs, -1);
+        Array.Fill(_vehicleOf, -1);
         client.BeginRound(round, Fields);
     }
 
@@ -82,10 +86,17 @@ public sealed class ClientSession
     public bool Following { get; private set; }
 
     /// <summary>
-    /// This copy's own player is in a vehicle (as the server last had them): the server drives it, so they sit in their
-    /// seat where it's drawn, not predicted.
+    /// This copy's own player is in a vehicle (as the server last had them): they sit in their seat, moving with it. A
+    /// passenger's vehicle is drawn where the server has it; the driver's, this copy moves itself by their controls
+    /// (<see cref="SimWorld.PredictedVehicle"/>), and puts right when the server's differs.
     /// </summary>
     public bool Riding => Local is { Vehicle: >= 0 };
+
+    /// <summary>Times the server's motion for the vehicle this copy drives was put back and the driving since replayed.</summary>
+    public int VehicleCorrections { get; private set; }
+
+    /// <summary>How far the last of those moved it (m).</summary>
+    public float LastVehicleCorrection { get; private set; }
 
     /// <summary>
     /// Where the last small correction moved this copy's own player from, less where it moved it to: the camera and body
@@ -99,6 +110,10 @@ public sealed class ClientSession
         Client.Poll();
         Client.AdvanceClock(dt);
         SeatLocal();
+        Sim.PredictedVehicle = Local is { Vehicle: >= 0, Alive: true } driver && driver.Vehicle < Sim.Vehicles.Count &&
+                               driver.Seat == Sim.Vehicles[driver.Vehicle].Params.DriverSeat
+            ? driver.Vehicle
+            : -1;
         Reconcile(dt);
         PoseOthers();
         _tickStart = Sim.Time;
@@ -137,6 +152,11 @@ public sealed class ClientSession
             _t0[slot] = _tickStart;
             _states[slot] = PredictedState.Capture(Local, Sim.Time);
             _seqs[slot] = seq;
+            _vehicleOf[slot] = Sim.PredictedVehicle;
+            if (Sim.PredictedVehicle >= 0)
+            {
+                _vehicleStates[slot] = Sim.Vehicles[Sim.PredictedVehicle].Capture();
+            }
             Client.SendCommand(seq, _pending, (int)Math.Floor(Client.RenderTick));
             _predictedShots = Math.Max(_predictedShots, Local.Marker.ShotSequence);
             NoteOwnHits();
@@ -167,9 +187,10 @@ public sealed class ClientSession
 
         if (Riding)
         {
-            // In a vehicle the server drives: nothing of this copy's to check. Getting out, the server's state (beside the
-            // seat) differs from the seat this copy had, and is put back here as any correction is.
-            CorrectionOffset = Vector3.Zero;
+            // In a vehicle: the one this copy drives is checked against the server's; a passenger has nothing of this
+            // copy's to check. Getting out, the server's state (beside the seat) differs from the seat this copy had, and is
+            // put back here as any correction is.
+            ReconcileVehicle(lastRun, fields);
             return;
         }
 
@@ -224,6 +245,59 @@ public sealed class ClientSession
         CorrectionOffset = LastCorrection < Client.Settings.CorrectionSnap ? CorrectionOffset + moved : Vector3.Zero;
     }
 
+    /// <summary>
+    /// The vehicle this copy drives, as the server had it after <paramref name="lastRun"/>: if this copy had it elsewhere
+    /// (or hadn't been driving it), the server's motion back, then this copy's driving since, again.
+    /// </summary>
+    private void ReconcileVehicle(int lastRun, ReadOnlySpan<uint> fields)
+    {
+        int vehicle = OwnFields.ReadVehicle(fields, out VehicleMotion server);
+        if (vehicle < 0 || vehicle != Sim.PredictedVehicle || Local is null)
+        {
+            CorrectionOffset = Vector3.Zero;
+            return;
+        }
+
+        int slot = lastRun & (History - 1);
+        bool ran = lastRun >= 0 && _seqs[slot] == lastRun;
+        if (ran && _vehicleOf[slot] == vehicle &&
+            _vehicleStates[slot].Matches(server, Client.Settings.CorrectionTolerance, Client.Settings.CorrectionTolerance * 4f))
+        {
+            return;
+        }
+
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        VehicleState v = Sim.Vehicles[vehicle];
+        Vector3 was = v.Position;
+        Sim.Vehicles.Restore(vehicle, server);
+        if (ran)
+        {
+            _vehicleStates[slot] = server;
+            _vehicleOf[slot] = vehicle;
+        }
+
+        for (int seq = lastRun + 1; lastRun >= 0; seq++)
+        {
+            int s = seq & (History - 1);
+            if (_seqs[s] != seq)
+            {
+                break;
+            }
+
+            Sim.ReplayVehicle(Local, _commands[s]);
+            _vehicleStates[s] = v.Capture();
+            _vehicleOf[s] = vehicle;
+            ReplayedTicks++;
+        }
+
+        ReplayTime += System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalSeconds;
+        VehicleCorrections++;
+        Vector3 moved = was - v.Position;
+        LastVehicleCorrection = moved.Length();
+        CorrectionOffset = LastVehicleCorrection < Client.Settings.CorrectionSnap ? CorrectionOffset + moved : Vector3.Zero;
+        Sim.Vehicles.SeatFromServer(Local, vehicle, Local.Seat); // in their seat where it is now
+    }
+
     private void PoseOthers()
     {
         if (!Client.Bracket(Client.RenderTick, out ReceivedSnapshot a, out ReceivedSnapshot b, out float t))
@@ -247,7 +321,7 @@ public sealed class ClientSession
         }
 
         Fields.ApplyDoors(Sim, (t < 0.5f ? a : b).World);
-        Fields.ApplyVehicles(Sim, a.World, b.World, t);
+        Fields.ApplyVehicles(Sim, a.World, b.World, t, Client.Newest is { } last ? last.World : default, Sim.PredictedVehicle);
         if (Client.Newest is { } newest)
         {
             Fields.ApplyRound(Sim, newest.World);

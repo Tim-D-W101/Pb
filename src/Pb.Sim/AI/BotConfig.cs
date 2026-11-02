@@ -128,6 +128,9 @@ public sealed class BrainParams
 
     public required float DriveCornerSpeed { get; init; }
 
+    /// <summary>The grip (as braking in g) at and above which it drives at its usual pace; on less (mud, wet grass) slower.</summary>
+    public required float DriveGripFull { get; init; }
+
     /// <summary>The fastest it drives with an enemy in sight (steadier to fire from the wheel), m/s.</summary>
     public required float DriveFightSpeed { get; init; }
 
@@ -386,6 +389,7 @@ public sealed class BotConfig
             DriveLookAheadPerSpeed = brain.DriveLookAheadPerSpeed_s,
             DriveSpeedShare = brain.DriveSpeedShare,
             DriveCornerSpeed = brain.DriveCornerSpeed_mps,
+            DriveGripFull = brain.DriveGripFull,
             DriveFightSpeed = brain.DriveFightSpeed_mps,
             DriveFightOutWithin = brain.DriveFightOutWithin_m,
             DriveStuck = brain.DriveStuck_s,

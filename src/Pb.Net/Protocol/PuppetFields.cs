@@ -11,10 +11,10 @@ namespace Pb.Net.Protocol;
 /// </summary>
 public static class PuppetFields
 {
-    public const int Count = 20;
+    public const int Count = 21;
 
     private const int X = 0, Y = 1, Z = 2, VX = 3, VY = 4, VZ = 5, Yaw = 6, Pitch = 7, Head = 8, Stance = 9, Eye = 10, Lean = 11,
-        Shoulder = 12, Tuck = 13, Flags = 14, Ladder = 15, Phase = 16, Refill = 17, Eliminations = 18, Hits = 19;
+        Shoulder = 12, Tuck = 13, Flags = 14, Ladder = 15, Phase = 16, Refill = 17, Eliminations = 18, Hits = 19, Sling = 20;
 
     private const float MaxSpeed = 16f;
     private const float HalfTurn = MathF.PI * 0.5f;
@@ -41,6 +41,7 @@ public static class PuppetFields
         into[Refill] = 8;
         into[Eliminations] = 7;
         into[Hits] = 8;
+        into[Sling] = 6;
     }
 
     public static void Capture(PlayerState p, in PositionQuant grid, Span<uint> into)
@@ -65,6 +66,7 @@ public static class PuppetFields
         into[Refill] = refilling ? Quant.Range(p.Marker.Refill.Progress(p.Marker.Paint.Params), 0f, 1f, 8) : 0;
         into[Eliminations] = (uint)Math.Clamp(p.Eliminations, 0, 127);
         into[Hits] = (uint)Math.Clamp(p.Hits, 0, 255);
+        into[Sling] = Quant.Range(p.Sling, 0f, 1f, 6);
     }
 
     /// <summary>A player's state, as a joining copy draws them, from two snapshots' fields <paramref name="t"/> of the way from a to b.</summary>
@@ -83,6 +85,7 @@ public static class PuppetFields
         p.Shoulder = Lerp(Quant.FromRange(a[Shoulder], -1f, 1f, 8), Quant.FromRange(b[Shoulder], -1f, 1f, 8), t);
         p.ShoulderTarget = p.Shoulder >= 0f ? 1f : -1f;
         p.Tuck = Lerp(Quant.FromRange(a[Tuck], 0f, HalfTurn, 8), Quant.FromRange(b[Tuck], 0f, HalfTurn, 8), t);
+        p.Sling = Lerp(Quant.FromRange(a[Sling], 0f, 1f, 6), Quant.FromRange(b[Sling], 0f, 1f, 6), t);
         p.LeanRoll = p.Lean * move.LeanAngle;
         p.LeanOffset = PlayerPose.LeanOffset(p.LeanRoll, p.Yaw, move.LeanPivotBelowEye);
 

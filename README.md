@@ -43,8 +43,12 @@ shaft open through every floor and the end of one wing fallen in. And the bigges
 woodsball site on old farmland, 344 × 244 m inside its timber fence (seven times Oxbarrow Works), with four woods of
 trees close enough to hide behind, hedged fields with cover scattered over them, a timber fort with a lookout tower, a
 farm, a camp of containers and huts and a scrapyard, and gravel tracks between them, with five **buggies** to drive
-along them. Get in at a buggy's door with F (the driver's seat or the passenger's), drive with W/S and A/D, and get out
-with F once it's nearly stopped. The driver can fire one-handed, so less accurately; the passenger fires as usual.
+along them. Get in at a buggy's door with F (the driver's seat or the passenger's), drive with W/S and A/D (Space
+pulls the handbrake), and get out with F once it's nearly stopped. A buggy rides on springs and grips as the ground lets
+it: it squats pulling away, dives braking and leans in the corners, grips on the gravel tracks, drifts on grass and slides
+in mud, with the engine and tyres to match and dust, grass and mud flying off the wheels. The driver can fire
+one-handed, so less accurately: the marker hangs on its sling while you drive and comes up when you pull the trigger;
+the passenger fires as usual.
 Paint breaks on a buggy and never counts,
 someone hit in one gets out and walks off, and a buggy never runs anyone down: it stops short of them. The ladders up the water towers (to a railed catwalk
 12 m up, and on up the tank to its roof) and up the tank wagons' sides can be climbed, by you and by the bots, whose
@@ -142,7 +146,7 @@ The export presets already include the data files. The editor's F5 run uses a De
 | Get on the ladder you're facing (or, facing out over its top, get on to climb down) | F | X / Square, facing a ladder |
 | On a ladder: climb up / down; let go | W / S; Space | Left stick up / down; A / Cross |
 | Get in a buggy at its door (driver's or passenger's seat), or out once it's nearly stopped | F | X / Square, beside one |
-| Driving: go and brake (then reverse) / steer | W / S; A / D | Left stick |
+| Driving: go and brake (then reverse) / steer / handbrake | W / S; A / D; Space | Left stick; A / Cross |
 | Semi ↔ ramping | B | Y / Triangle |
 | Pause menu (settings, restart, quit) | Esc | Start / Options |
 

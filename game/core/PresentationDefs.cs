@@ -109,6 +109,8 @@ public sealed class PresentationDef : IValidatable
 
     public WoodsDef Woods { get; set; } = new();
 
+    public VehicleViewDef VehicleView { get; set; } = new();
+
     public YardFittingsDef YardFittings { get; set; } = new();
 
     public PlaceBoundaryDef PlaceBoundary { get; set; } = new();
@@ -211,6 +213,7 @@ public sealed class PresentationDef : IValidatable
         RunOff.Validate(v.Scope(nameof(RunOff)));
         FloorDebris.Validate(v.Scope(nameof(FloorDebris)));
         Woods.Validate(v.Scope(nameof(Woods)));
+        VehicleView.Validate(v.Scope(nameof(VehicleView)));
         YardFittings.Validate(v.Scope(nameof(YardFittings)));
         PlaceBoundary.Validate(v.Scope(nameof(PlaceBoundary)));
         WallHangings.Validate(v.Scope(nameof(WallHangings)));
@@ -577,6 +580,8 @@ public sealed class AudioDef : IValidatable
     /// <summary>The voices bots speak in, by character model.</summary>
     public CastVoiceDef[] Cast { get; set; } = System.Array.Empty<CastVoiceDef>();
 
+    public VehicleSoundDef Vehicles { get; set; } = new();
+
     public string RefereeVoice { get; set; } = "";
 
     /// <summary>A callout is at full volume this close.</summary>
@@ -611,6 +616,7 @@ public sealed class AudioDef : IValidatable
 
         Reverb.Validate(v.Scope(nameof(Reverb)));
         Ambience.Validate(v.Scope(nameof(Ambience)));
+        Vehicles.Validate(v.Scope(nameof(Vehicles)));
         for (int i = 0; i < Cast.Length; i++)
         {
             Cast[i].Validate(v.Item(nameof(Cast), i));
@@ -687,6 +693,63 @@ public sealed class BusVolumesDef : IValidatable
     }
 }
 
+/// <summary>How a buggy sounds (M5.7): its engine by the revs and the throttle, its tyres by the ground and how they slide.</summary>
+public sealed class VehicleSoundDef : IValidatable
+{
+    /// <summary>The engine loop (32 firings a second) plays at its own pitch at these revs: a firing each turn.</summary>
+    public float RpmAtPitch1 { get; set; }
+
+    /// <summary>The engine's pitch never below or above these.</summary>
+    public float PitchLow { get; set; }
+
+    public float PitchHigh { get; set; }
+
+    /// <summary>The engine louder by this at the red line than at idle (dB), and the load layer fully in at this much throttle.</summary>
+    public float RevsLouder_db { get; set; }
+
+    public float LoadFull { get; set; }
+
+    /// <summary>The tyres' loops play at their own pitch at this speed (slower lower), and at full volume from this speed.</summary>
+    public float TyrePitchSpeed_mps { get; set; }
+
+    public float TyreFull_mps { get; set; }
+
+    /// <summary>A tyre scrubbing over the ground faster than this starts the skid (or the scrub, on loose ground), full at the next.</summary>
+    public float SkidFrom_mps { get; set; }
+
+    public float SkidFull_mps { get; set; }
+
+    /// <summary>A knock this hard (m/s into it) is heard, full at the next.</summary>
+    public float KnockFrom_mps { get; set; }
+
+    public float KnockFull_mps { get; set; }
+
+    /// <summary>How each surface (break_model.jsonc) sounds under a tyre: gravel, grass, mud or hard; others are hard.</summary>
+    public Dictionary<string, string> Tyres { get; set; } = new();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(RpmAtPitch1), RpmAtPitch1, 100, 20000);
+        v.InRange(nameof(PitchLow), PitchLow, 0.05, 4);
+        v.InRange(nameof(PitchHigh), PitchHigh, PitchLow, 4);
+        v.InRange(nameof(RevsLouder_db), RevsLouder_db, 0, 30);
+        v.InRange(nameof(LoadFull), LoadFull, 0.05, 1);
+        v.InRange(nameof(TyrePitchSpeed_mps), TyrePitchSpeed_mps, 0.5, 50);
+        v.InRange(nameof(TyreFull_mps), TyreFull_mps, 0.5, 50);
+        v.InRange(nameof(SkidFrom_mps), SkidFrom_mps, 0, 20);
+        v.InRange(nameof(SkidFull_mps), SkidFull_mps, SkidFrom_mps + 0.1, 40);
+        v.InRange(nameof(KnockFrom_mps), KnockFrom_mps, 0, 20);
+        v.InRange(nameof(KnockFull_mps), KnockFull_mps, KnockFrom_mps + 0.1, 40);
+        foreach ((string surface, string sound) in Tyres)
+        {
+            if (sound is not ("gravel" or "grass" or "mud" or "hard"))
+            {
+                v.Error(nameof(Tyres), $"{surface}: '{sound}' is not gravel, grass, mud or hard");
+            }
+        }
+    }
+}
+
 /// <summary>How loud each kind of sound plays (dB, added to the audio's volume).</summary>
 public sealed class MixDef : IValidatable
 {
@@ -713,6 +776,15 @@ public sealed class MixDef : IValidatable
     public float Door { get; set; }
 
     public float Engine { get; set; }
+
+    /// <summary>A buggy's engine under load (mixed in over its engine as the throttle opens), its tyres rolling, skidding and scrubbing, and its body knocking.</summary>
+    public float EngineLoad { get; set; }
+
+    public float Tyres { get; set; }
+
+    public float Skid { get; set; }
+
+    public float Knock { get; set; }
 
     public float Pickup { get; set; }
 
@@ -4697,5 +4769,101 @@ public sealed class DummyViewDef : IValidatable
         v.NotEmpty(nameof(Base), Base);
         v.NotEmpty(nameof(Fill), Fill);
         TrainingGroundDef.Colour(v, nameof(FlashColor), FlashColor);
+    }
+}
+
+/// <summary>
+/// How the buggies look and feel from the seat (M5.7): the seat camera leaning and pitching with the body, the head
+/// swaying with the pulls of driving and shaken by the ground and the engine, the view widening at speed; the steering
+/// wheel turning with the front wheels; and what the tyres throw up off each kind of ground.
+/// </summary>
+public sealed class VehicleViewDef : IValidatable
+{
+    /// <summary>How much of the body's lean and pitch the seat view takes (0 the horizon stays level, 1 all of it).</summary>
+    public float SeatTilt { get; set; }
+
+    /// <summary>The head swaying against the pulls: so far per m/s² (m), at most so far, springing back at so many Hz, damped so.</summary>
+    public float HeadLag_mpmps2 { get; set; }
+
+    public float HeadLagMax_m { get; set; }
+
+    public float HeadLag_hz { get; set; }
+
+    public float HeadLagDamping { get; set; }
+
+    /// <summary>The view this much wider at the top speed (deg).</summary>
+    public float FovAtSpeed_deg { get; set; }
+
+    /// <summary>Someone seated sways out of the vehicle's turns by this much per m/s² it pulls them sideways (deg).</summary>
+    public float BodySway_degpmps2 { get; set; }
+
+    /// <summary>The seat shaking: by the engine at the red line (m), and by rough ground at the top speed (m).</summary>
+    public float EngineShake_m { get; set; }
+
+    public float GroundShake_m { get; set; }
+
+    /// <summary>The steering wheel turns this many times as far as the front wheels do.</summary>
+    public float SteeringRatio { get; set; }
+
+    /// <summary>The tyres' spray: so many bits at most from each back wheel at once, each lasting so long (s).</summary>
+    public int SprayAmount { get; set; }
+
+    public float SprayLifetime_s { get; set; }
+
+    /// <summary>A tyre throws dust off dry loose ground from this speed (m/s), full at the next; scrubbing (sliding, spinning) at this, full at the next.</summary>
+    public float DustFrom_mps { get; set; }
+
+    public float DustFull_mps { get; set; }
+
+    public float ScrubFrom_mps { get; set; }
+
+    public float ScrubFull_mps { get; set; }
+
+    /// <summary>What each surface throws up: "dust", "grass", "mud" or "smoke" (rubber off hard ground); others nothing.</summary>
+    public Dictionary<string, string> Spray { get; set; } = new();
+
+    /// <summary>The colours of each spray (dust, grass bits, mud, tyre smoke).</summary>
+    public string DustColor { get; set; } = "#b8a68a";
+
+    public string GrassColor { get; set; } = "#5d7a2e";
+
+    public string MudColor { get; set; } = "#4a3a28";
+
+    public string SmokeColor { get; set; } = "#d8d6d0";
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(SeatTilt), SeatTilt, 0, 1);
+        v.InRange(nameof(HeadLag_mpmps2), HeadLag_mpmps2, 0, 0.05);
+        v.InRange(nameof(HeadLagMax_m), HeadLagMax_m, 0, 0.3);
+        v.InRange(nameof(HeadLag_hz), HeadLag_hz, 0.5, 20);
+        v.InRange(nameof(HeadLagDamping), HeadLagDamping, 0.05, 2);
+        v.InRange(nameof(FovAtSpeed_deg), FovAtSpeed_deg, 0, 30);
+        v.InRange(nameof(BodySway_degpmps2), BodySway_degpmps2, 0, 10);
+        v.InRange(nameof(EngineShake_m), EngineShake_m, 0, 0.02);
+        v.InRange(nameof(GroundShake_m), GroundShake_m, 0, 0.05);
+        v.InRange(nameof(SteeringRatio), SteeringRatio, 1, 20);
+        v.InRange(nameof(SprayAmount), SprayAmount, 1, 512);
+        v.InRange(nameof(SprayLifetime_s), SprayLifetime_s, 0.1, 10);
+        v.InRange(nameof(DustFrom_mps), DustFrom_mps, 0, 50);
+        v.InRange(nameof(DustFull_mps), DustFull_mps, DustFrom_mps + 0.1, 60);
+        v.InRange(nameof(ScrubFrom_mps), ScrubFrom_mps, 0, 50);
+        v.InRange(nameof(ScrubFull_mps), ScrubFull_mps, ScrubFrom_mps + 0.1, 60);
+        foreach ((string surface, string spray) in Spray)
+        {
+            if (spray is not ("dust" or "grass" or "mud" or "smoke"))
+            {
+                v.Error(nameof(Spray), $"{surface}: '{spray}' is not dust, grass, mud or smoke");
+            }
+        }
+
+        foreach ((string name, string color) in new[] { (nameof(DustColor), DustColor), (nameof(GrassColor), GrassColor), (nameof(MudColor), MudColor),
+                     (nameof(SmokeColor), SmokeColor) })
+        {
+            if (!Godot.Color.HtmlIsValid(color))
+            {
+                v.Error(name, $"'{color}' isn't a colour");
+            }
+        }
     }
 }

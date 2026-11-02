@@ -520,6 +520,52 @@ def flinch(rig, seconds=0.4):
     return out, seconds
 
 
+# Sitting in a buggy (M5.7): the hips this high over the floor the feet rest on (m), the feet this far ahead of them (m)
+# and apart, the back leaning back against the seat (deg); driving, the steering wheel's middle this far ahead of and
+# above the hips (m), the hands on it this far out to each side.
+SEAT_HIPS = 0.25
+SEAT_FEET_AHEAD = 0.50
+SEAT_FEET_APART = 0.26
+SEAT_LEAN_BACK = 10.0
+WHEEL_AHEAD = 0.52
+WHEEL_ABOVE = 0.36
+WHEEL_GRIP = 0.16
+
+
+def sit(rig, drive, seconds=3.0):
+    """
+    Sitting in a buggy's seat: the hips down on the seat, the thighs out to the knees, the shins down to the feet flat on
+    the floor ahead, the back leaning back against the seat, the head level. Driving, both arms forward to the wheel at
+    ten to two (the game keeps the hands on it by IK, turning with it); riding, the marker held at the chest. A slow sway
+    with the ride.
+    """
+    frames = round(seconds * FPS)
+    out = []
+    for f in range(frames + 1):
+        t = f / frames
+        sway = math.sin(2.0 * math.pi * t)
+        pose = Pose(rig)
+        drop = (rig.hips.z - SEAT_HIPS * 100.0) / 100.0
+        standing_base(pose, drop=drop, lean=-SEAT_LEAN_BACK + 1.5 * sway)
+        pose.turn("Hips", rot(FWD, deg(1.2 * sway)))
+        pose.turn("neck", rot(RIGHT, deg(SEAT_LEAN_BACK * 0.35)))
+        pose.solve()
+        top, turn = chest_frame(pose)
+        if drive:
+            wheel = pose.hips + FWD * (WHEEL_AHEAD * 100.0) + UP * (WHEEL_ABOVE * 100.0)
+            for side, sign in (("Left", -1.0), ("Right", 1.0)):
+                grip = wheel + RIGHT * (sign * WHEEL_GRIP * 100.0) + UP * (4.0 + 0.6 * sway * sign)
+                arm_ik(pose, side, grip, turn @ (RIGHT * (0.7 * sign) + UP * -1.0 + FWD * -0.3))
+        else:
+            carry_arms(pose)
+        for side, sign in (("Left", -1.0), ("Right", 1.0)):
+            ankle = Vector((rig.hips.x, rig.hips.y, 0.0)) + RIGHT * (sign * SEAT_FEET_APART * 50.0) + FWD * (SEAT_FEET_AHEAD * 100.0) \
+                + UP * rig.ankle_height
+            leg_ik(pose, side, ankle, FWD * 0.5 + UP * 0.8, 0.0, 0.0)
+        out.append(pose)
+    return out, seconds
+
+
 def clips(rig):
     """Every clip: name -> (frames, length in seconds, loops)."""
     made = {}
@@ -536,6 +582,8 @@ def clips(rig):
     made["refill"] = (*refill(rig), False)
     made["hit"] = (*flinch(rig), False)
     made["hands_up"] = (*hands_up(rig), True)
+    made["sit_drive"] = (*sit(rig, True), True)
+    made["sit_ride"] = (*sit(rig, False), True)
     return made
 
 

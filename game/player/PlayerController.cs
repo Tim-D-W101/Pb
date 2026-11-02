@@ -25,6 +25,11 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
     private Vector3 _currentEye;
     private float _previousRoll;
     private float _currentRoll;
+
+    // The seat (M5.7): the head's sway against the pulls of driving (in the body's frame) and how fast it's going, the
+    // seat's velocity at the last two ticks (its pulls), and the clock the shaking runs on.
+    private Vector3 _seatLag, _seatLagSpeed, _seatVelocity, _seatPull;
+    private float _shakeClock;
     private float _bobPhase;
 
     public Camera3D Camera { get; private set; } = null!;
@@ -136,6 +141,10 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         _currentEye = State.EyePosition.ToGodot();
         _previousRoll = _currentRoll;
         _currentRoll = State.LeanRoll;
+        // In a vehicle, the pull on the seat this tick (its change of velocity), which the head sways against.
+        Vector3 seatVelocity = State.Vehicle >= 0 ? State.Velocity.ToGodot() : Vector3.Zero;
+        _seatPull = State.Vehicle >= 0 && _seatVelocity != Vector3.Zero ? (seatVelocity - _seatVelocity) / dt : Vector3.Zero;
+        _seatVelocity = seatVelocity;
         return cmd;
     }
 
@@ -188,7 +197,8 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         }
 
         ViewModel.Side = State.Shoulder;
-        ViewModel.Lowered = State.OnLadder;
+        // On a ladder, and at a buggy's wheel with the marker on its sling, it's out of sight.
+        ViewModel.Lowered = State.OnLadder || State.Sling > 0.5f;
         ViewModel.RefillProgress = State.Marker.Refill.Active ? State.Marker.Refill.Progress(State.Marker.Paint.Params) : -1f;
         int capacity = State.Marker.Paint.Params.Capacity;
         ViewModel.LoaderFill = capacity > 0 ? (float)State.Marker.Paint.Loader / capacity : 0f;
@@ -231,11 +241,73 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         _head.GlobalPosition += _joltPush * (_view.Camera.HitJolt_m * _joltStrength * jolt);
         roll += _joltRoll * Mathf.DegToRad(_view.Camera.HitJolt_deg) * _joltStrength * jolt;
         _head.Rotation = new Vector3(_pitch, _yaw, -roll);
+        float wider = Seat(eye) is { } seat ? seat : 0f;
 
         // Settings store horizontal FOV at 16:9; Godot's camera FOV is vertical. Wider screens gain width (Hor+).
-        float horizontal = Mathf.DegToRad(_settings.FovDeg);
+        float horizontal = Mathf.DegToRad(_settings.FovDeg + wider);
         Camera.Fov = Mathf.RadToDeg(2f * Mathf.Atan(Mathf.Tan(horizontal * 0.5f) * 9f / 16f));
     }
+
+    /// <summary>
+    /// In a vehicle (M5.7): the view from the seat as the body's drawn, taking its lean and pitch; the head swaying
+    /// against the pulls of driving on a spring, and shaken by the engine and rough ground. Returns how much wider the view
+    /// is at its speed (deg), or null out of a vehicle.
+    /// </summary>
+    private float? Seat(Vector3 eye)
+    {
+        float dt = (float)GetProcessDeltaTime();
+        if (Sim.Vehicles.Of(State) is not { } ride || State.Seat < 0 || World.VehicleViews.Current is not { } views)
+        {
+            _seatLag = _seatLagSpeed = Vector3.Zero;
+            return null;
+        }
+
+        VehicleViewDef def = views.Def;
+        Transform3D drawn = views.Drawn(ride.Id, (float)Engine.GetPhysicsInterpolationFraction());
+        Basis body = drawn.Basis.Orthonormalized();
+        System.Numerics.Vector3 at = ride.Params.Seats[State.Seat].At;
+        Vector3 seatEye = drawn * new Vector3(at.X, at.Y + ride.Params.SeatedEyeHeight, -at.Z);
+
+        // The head against the pulls (a spring in the body's frame), held to its reach.
+        Vector3 target = (body.Inverse() * -_seatPull * def.HeadLag_mpmps2).LimitLength(def.HeadLagMax_m);
+        float w = Mathf.Tau * def.HeadLag_hz;
+        _seatLagSpeed += ((target - _seatLag) * (w * w) - _seatLagSpeed * (2f * def.HeadLagDamping * w)) * dt;
+        _seatLag = (_seatLag + _seatLagSpeed * dt).LimitLength(def.HeadLagMax_m * 1.5f);
+
+        // Shaken: by the engine as it revs, and by the ground as it goes (rough on loose stuff).
+        _shakeClock += dt;
+        float revs = Mathf.Clamp(ride.Rpm / Mathf.Max(ride.Params.MaxRpm, 1f), 0f, 1f);
+        float pace = Mathf.Clamp(Mathf.Abs(ride.Speed) / Mathf.Max(ride.Params.MaxSpeed, 1f), 0f, 1f);
+        float rough = Roughness(ride, views);
+        Vector3 shake = Wobble(_shakeClock * 40f) * (def.EngineShake_m * revs) + Wobble(_shakeClock * 13f + 7f) * (def.GroundShake_m * rough * pace);
+        _head.GlobalPosition += seatEye - eye + body * (_seatLag + shake);
+
+        // The view takes part of the body's lean and pitch (its turn about its own heading).
+        Vector3 f = -body.Z;
+        Basis heading = new(Vector3.Up, Mathf.Atan2(-f.X, -f.Z));
+        Basis tilt = Basis.Identity.Slerp(body * heading.Inverse(), def.SeatTilt);
+        _head.GlobalBasis = tilt * _head.GlobalBasis;
+        return def.FovAtSpeed_deg * pace;
+    }
+
+    /// <summary>How rough the ground under the vehicle rides (1 loose stones and dirt, a half grass and mud, little on hard ground).</summary>
+    private float Roughness(Pb.Sim.Vehicles.VehicleState ride, World.VehicleViews views)
+    {
+        if (!ride.Touches(2) || Sim.Role == SimRole.Client && Sim.PredictedVehicle != ride.Id)
+        {
+            return 0.5f;
+        }
+
+        int surface = ride.Surface[2].Value;
+        string name = surface < Sim.Config.Surfaces.Count ? Sim.Config.Surfaces.Names[surface] : "";
+        return views.Def.Spray.TryGetValue(name, out string? kind) ? kind switch { "dust" => 1f, "smoke" => 0.15f, _ => 0.5f } : 0.5f;
+    }
+
+    /// <summary>A smooth wander in each axis, about −1 … 1, at <paramref name="t"/> (sines at unrelated rates).</summary>
+    private static Vector3 Wobble(float t) => new(
+        0.5f * Mathf.Sin(t * 1.00f) + 0.3f * Mathf.Sin(t * 2.31f + 1.3f) + 0.2f * Mathf.Sin(t * 5.17f + 2.1f),
+        0.5f * Mathf.Sin(t * 1.13f + 0.7f) + 0.3f * Mathf.Sin(t * 2.71f + 2.9f) + 0.2f * Mathf.Sin(t * 4.63f + 0.4f),
+        0.5f * Mathf.Sin(t * 0.91f + 2.2f) + 0.3f * Mathf.Sin(t * 2.07f + 0.2f) + 0.2f * Mathf.Sin(t * 5.71f + 1.7f));
 
     private InputCommand SampleDevices(int tick)
     {

@@ -76,7 +76,9 @@
   // driveBeyond_m, with a buggy standing empty within driveVehicleWithin_m of it and no enemy in sight, walks to it,
   // drives the tracks to the point on them nearest where it's going, and gets out within driveGetOutWithin_m of it. It
   // steers for the point driveLookAhead_m along the track (plus driveLookAheadPerSpeed_s of its speed), at
-  // driveSpeedShare of the buggy's top speed on the straight, slowing to driveCornerSpeed_mps for the sharpest bends.
+  // driveSpeedShare of the buggy's top speed on the straight, slowing to driveCornerSpeed_mps for the sharpest bends, and
+  // slower again on ground that grips less than driveGripFull (as braking in g: mud, wet grass), as the square root of
+  // the share it grips; it brakes for the end at half what the ground under it allows.
   // With an enemy in sight it fires from the wheel (one-handed: vehicles.jsonc) and drives on at no more than
   // driveFightSpeed_mps, steadier to shoot from; an enemy within driveFightOutWithin_m gets it out to fight on foot, and
   // so does getting nowhere for driveStuck_s after backing up twice.
@@ -86,6 +88,7 @@
   "driveLookAheadPerSpeed_s": 0.6,
   "driveSpeedShare": 0.9,
   "driveCornerSpeed_mps": 3.5,
+  "driveGripFull": 0.7,
   "driveFightSpeed_mps": 5,
   "driveFightOutWithin_m": 14,
   "driveStuck_s": 2.5,

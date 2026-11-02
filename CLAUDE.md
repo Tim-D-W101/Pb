@@ -146,9 +146,10 @@ nearest that point); it runs headless too, for the numbers alone. `-- --ladder-d
 tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
 Oxbarrow Works and `--level=rail_yard` have ladders).
 `-- --vehicle-demo --level=thornwick_woods` gets you into a buggy at its driver's door, drives it along the tracks round
-the crossroads and gets you out to look back at it (`--vehicle=N` for another; it runs headless too, as CI's smoke test,
-and `--fast` at a low `--fixed-fps` films it in few frames); a bot match's `--min-drives=N` fails it if bots took the
-wheel fewer than N times.
+the crossroads (a burst fired from the wheel on the way) and gets you out to look back at it (`--vehicle=N` for another;
+it runs headless too, as CI's smoke test, and `--fast` at a low `--fixed-fps` films it in few frames; `--chase` films it
+from behind and beside instead, `--chase=near` close by the driver, `--chase=side` square to their side); a bot match's `--min-drives=N` fails it if bots took
+the wheel fewer than N times.
 `-- --role-demo=marksman` (on `--level=rail_yard`) and `-- --role-demo=flanker` (on `--level=hospital_wing`) show a
 Marksman or a Flanker at work with the F3 overlay; they run on the sim's clock, so capture them at `--fixed-fps 6` for
 fewer frames. `-- --bot-match` (CI) has a bot play your slot until

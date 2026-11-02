@@ -355,6 +355,7 @@ public sealed class NetServer : IDisposable
         {
             PredictedState state = PredictedState.Capture(own, sim.Time);
             OwnFields.Capture(state, record.Own);
+            OwnFields.CaptureVehicle(sim, own, record.Own);
         }
 
         BitWriter w = _writer;

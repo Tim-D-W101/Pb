@@ -572,9 +572,10 @@ public partial class Hud : CanvasLayer, ISimEventListener
             Pb.Sim.Vehicles.VehicleParams kind = vehicle.Params;
             bool driving = vehicle.Driver == _player.Id;
             bool slow = MathF.Abs(vehicle.Speed) <= kind.ExitBelow;
-            string speed = $"{MathF.Abs(vehicle.Speed) * 3.6f:0} km/h";
+            string gear = vehicle.Gear < 0 ? "R" : vehicle.Gear.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string speed = $"{MathF.Abs(vehicle.Speed) * 3.6f:0} km/h · {gear}";
             string how = driving
-                ? $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · go and brake · {InputSetup.KeyName("move_left")} / {InputSetup.KeyName("move_right")} · steer · you fire one-handed (wider)"
+                ? $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · go and brake · {InputSetup.KeyName("move_left")} / {InputSetup.KeyName("move_right")} · steer · {InputSetup.KeyName("jump")} · handbrake · fire one-handed"
                 : "you can fire from your seat";
             string exit = slow ? $"{InputSetup.KeyName("interact")} · get out" : "slow down to get out";
             _prompt.Visible = true;
