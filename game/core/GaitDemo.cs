@@ -12,9 +12,9 @@ namespace Pb.Game.Core;
 
 /// <summary>
 /// <c>-- --gait-demo</c>: one opponent stands, walks, runs, sprints, pulls up, strafes, backs off, walks
-/// crouched and stands looking round along a clear lane while a camera tracks them from the side (from
-/// in front for the look round), for checking the movement clips (or the steps without them) by eye or
-/// capturing them with <c>--write-movie</c>. <c>--gait-only=NAME</c> plays only the moves whose names start
+/// crouched, turns on the spot both ways and stands looking round along a clear lane while a camera tracks them
+/// from the side (from in front for the look round), for checking the animation set (or the steps or the old
+/// movement clips) by eye or capturing them with <c>--write-movie</c>. <c>--gait-only=NAME</c> plays only the moves whose names start
 /// with NAME (after a second's stand), to film one quickly. The moves run by sim ticks, so they play out
 /// the same at any rendering speed; each is printed as it starts, and the game quits after the last.
 /// </summary>
@@ -35,6 +35,8 @@ public partial class GaitDemo : Node, ICommandSource
         new("back off", 2.0f, 0f, -1f, InputButtons.Walk),
         new("crouched walk", 2.4f, 0f, 1f, InputButtons.Crouch),
         new("stand", 1.5f, 0f, 0f, InputButtons.None),
+        new("turn left", 1.6f, 0f, 0f, InputButtons.None, TurnDeg: 120f),
+        new("turn right", 1.6f, 0f, 0f, InputButtons.None, TurnDeg: -120f),
         new("look round", 6f, 0f, 0f, InputButtons.None, Look: true),
     };
 
@@ -146,6 +148,7 @@ public partial class GaitDemo : Node, ICommandSource
     private string _changeAt = "";
     private string _jerkBone = "";
     private int _measured = -1;
+    private int _standingSteps;
     private float _settledAt;
 
     /// <summary>Each move is measured from this long after it starts.</summary>
@@ -168,8 +171,10 @@ public partial class GaitDemo : Node, ICommandSource
                 GD.Print($"GAIT DEMO   {_moves[_measured].Name}: {_steps / Mathf.Max(_time - _settledAt, 0.01f):0.0} steps/s, feet slide {slide:0.000} m/s while down, " +
                          $"hips {_hipsLow:0.00}–{_hipsHigh:0.00} m up, ankles up to {poser.CheckMiss * 100f:0.0} cm off their marks, " +
                          $"head/hands/hips jump up to {_jump * 100f:0.0} cm a frame, jerk up to {_jerk * 100f:0.0} cm ({_jerkBone}), " +
-                         $"{_changeJerk * 100f:0.0} cm going into it ({_changeAt}), wrists up to {poser.CheckHandMiss * 100f:0.0} cm off the marker");
-                poser.CheckSlide = poser.CheckDown = poser.CheckMiss = poser.CheckHandMiss = 0f;
+                         $"{_changeJerk * 100f:0.0} cm going into it ({_changeAt}), wrists up to {poser.CheckHandMiss * 100f:0.0} cm off the marker, " +
+                         $"feet held up to {poser.CheckLock * 100f:0.0} cm off their clips' paths, {poser.StandingSteps - _standingSteps} steps standing");
+                _standingSteps = poser.StandingSteps;
+                poser.CheckSlide = poser.CheckDown = poser.CheckMiss = poser.CheckHandMiss = poser.CheckLock = 0f;
             }
 
             _measured = _current;
@@ -187,7 +192,7 @@ public partial class GaitDemo : Node, ICommandSource
         if (_time - delta < Settle && _time >= Settle)
         {
             // Measured once the move has settled in (not the start, the turn or the stop).
-            model.Poser.CheckSlide = model.Poser.CheckDown = model.Poser.CheckMiss = model.Poser.CheckHandMiss = 0f;
+            model.Poser.CheckSlide = model.Poser.CheckDown = model.Poser.CheckMiss = model.Poser.CheckHandMiss = model.Poser.CheckLock = 0f;
             _steps = 0;
             _settledAt = _time;
         }
@@ -276,6 +281,8 @@ public partial class GaitDemo : Node, ICommandSource
             {
                 yaw += Mathf.Pi;
             }
+
+            yaw += Mathf.DegToRad(_moves[index].TurnDeg);
         }
 
         if (index != _current)
@@ -408,5 +415,6 @@ public partial class GaitDemo : Node, ICommandSource
     }
 
     /// <summary>One move: how long, the stick (right and forward), the buttons, whether it turns round first, and whether it's the look round.</summary>
-    private readonly record struct Move(string Name, float Seconds, float Right, float Forward, InputButtons Buttons, bool Turn = false, bool Look = false);
+    private readonly record struct Move(string Name, float Seconds, float Right, float Forward, InputButtons Buttons, bool Turn = false, bool Look = false,
+        float TurnDeg = 0f);
 }

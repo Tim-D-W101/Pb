@@ -83,6 +83,9 @@ How I've read it:
   grips by IK.
 - The procedural steps (`StepGait`) and their fixes are retired; ladders keep their own limbs.
 - **Checks**: the gait demo and the pop check at 120, 30 and 15 fps, with before/after captures.
+- *As built* (architecture §18.2): the blend is `ClipBlender`, in code rather than an `AnimationTree` (one phase
+  across every pace and direction, matched to the stride); planted feet are held in the world (turning, between
+  strides) and step round when standing; the steps stay as the fallback when the set is missing.
 
 ### M5.3 (PR C1) — Capture the flag and VIP escort
 

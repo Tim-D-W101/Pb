@@ -16,7 +16,9 @@ every round, bots that move about, objective rounds that play out, and no hitche
 ([report](docs/reports/play-test-fixes.md)).** **Phase 5 is under way ([plan](docs/phase-5.md), [report](docs/reports/phase-5.md)):
 the feel of it first: a marker that sounds like one, balls whizzing past your head, hit markers that say what your ball
 did, arcs that show where paint is coming from, and a moment when you're hit (HIT!, the screen, the ringing, then
-watching yourself walk off with your hand up).** Phase 2 is built
+watching yourself walk off with your hand up); then the characters' own animation set (walking, jogging, running,
+sprinting and crouched each way, leaning, refilling, flinching, hands up), blended from how they move, their feet
+held where they land.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a
@@ -209,8 +211,11 @@ defenders keep near it, and a room both sides are in but neither can see the oth
 The case goes out only through a way out well away from where it lay, the HUD shows the case once you're inside its
 building, and the marker says which floor an objective is on.
 
-They're drawn by one of three rigged character models, posed every frame to match their hitboxes:
-crouching, leaning, aiming, walking and running with movement clips, both hands on the marker (the
+They're drawn by one of three rigged character models, posed every frame to match their hitboxes. Since Phase 5 they
+move with an animation set made for them by script in Blender (`tools/anim/build_clips.py`): idle, walk, jog, run and
+crouched walk each four ways, sprint, the lean's brace, the refill, a flinch and hands up, blended every frame from
+their speed and direction, each clip at the speed it was made for so planted feet don't skate, and every foot that's
+down held where it landed (turning on the spot, they step round). Both hands stay on the marker (the
 same generated one you hold), one hand off it while they refill. Each
 wears an armband in their team colour and a slightly different tint, and flinches when a ball hits.
 Paint splats stick where the ball hit and move with them.
@@ -252,7 +257,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 479 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes…) and 69 network tests — no Godot needed
+dotnet test                                          # 482 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes, the animation set…) and 69 network tests — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost (each slowest tick's own CPU time beside its wall-clock time)
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches (a new seed each run, printed), the characters' gait check and a match with the art on (at 120, 30 and 15 fps), and the art import (Linux/macOS)
 ```

@@ -63,6 +63,7 @@ public partial class CharacterVisual : Node3D
     private MarkerModelDef? _markerDef;
     private readonly System.Collections.Generic.Dictionary<GeometryInstance3D, (GeometryInstance3D.ShadowCastingSetting Cast, bool Visible)> _drawn = new();
     private StepGait.GroundQuery _ground = null!;
+    private Vector3 _velocityShown;
 
     public bool HasModel => _model is not null;
 
@@ -393,7 +394,25 @@ public partial class CharacterVisual : Node3D
             poser.ElbowsOut = _elbowsOut = Mathf.Lerp(_elbowsOut, elbows, ease);
         }
 
-        if (_model.Steps is { } steps)
+        if (_model.Blender is { } blender)
+        {
+            // The animation set: the body's velocity in its own frame (followed a little, as the steps did), how far it's
+            // crouched as drawn, sprinting, the lean as drawn, the refill, out; and the ground under the feet, for stairs.
+            Vector3 velocity = _state.Velocity.ToGodot() with { Y = 0f };
+            _velocityShown = _velocityShown.Lerp(velocity, 1f - Mathf.Exp(-delta / 0.08f));
+            blender.Velocity = new Vector2(_velocityShown.Dot(poser.Right), _velocityShown.Dot(poser.Forward));
+            blender.Crouch = Mathf.Clamp(crouch, 0f, 1f);
+            blender.Sprinting = _state.Sprinting;
+            float most = _sim.Config.Movement.LeanAngle;
+            blender.Lean = most > 1e-4f ? _leanShown / most : 0f;
+            Pb.Sim.Gear.Marker gear = _state.Marker;
+            blender.Refill = gear.Refill.Active && _state.Alive && !_shadowOnly ? gear.Refill.Progress(gear.Paint.Params) : -1f;
+            blender.Out = !_poseNow.Alive;
+            blender.Stepping = _state.Grounded && _state.Stance != Stance.Sliding && !_state.OnLadder;
+            poser.Ground = _ground;
+            poser.FloorHeight = feet.Y;
+        }
+        else if (_model.Steps is { } steps)
         {
             steps.KneesOut = _kneesOut;
             steps.Update(feet, yaw, crouch, poser.HipDrop, _shoulderShown, _state.Stance == Stance.Sliding,
@@ -437,6 +456,7 @@ public partial class CharacterVisual : Node3D
         _flinchPush = flat.Normalized();
         _flinchStrength = Mathf.Clamp(speed / 90f, 0.3f, 1f) * Mathf.DegToRad(_look.Flinch_deg);
         _flinchAge = 0f;
+        _model?.Blender?.Hit(Mathf.Clamp(speed / 90f, 0.3f, 1f));
     }
 
     /// <summary>

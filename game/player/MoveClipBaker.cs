@@ -12,7 +12,7 @@ namespace Pb.Game.Player;
 /// turns it from its own rest pose, and the hips' sway is scaled by the two rigs' leg lengths. The
 /// baked clip's feet then give its ground speed and phase. Baked once per clip and model.
 /// </summary>
-public static class MoveClipBaker
+public static partial class MoveClipBaker
 {
     /// <summary>Baked frames per second of clip.</summary>
     private const float Rate = 30f;
