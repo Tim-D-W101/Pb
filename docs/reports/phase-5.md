@@ -440,3 +440,60 @@ New tests and runs:
 ### What's next
 
 PR D: the Windows build to share.
+
+## M5.6 (E) — Firing from the wheel
+
+**Branch:** `claude/eager-cannon-c05kkv-drive-fire` (on C2's)
+
+### What was built
+
+Tim's call on C2: the driver must be able to shoot while driving, players and bots alike.
+
+- **The rule.** The driver's seat fires, one-handed, with the other hand on the wheel. Shots take the marker's spread,
+  already wider at the buggy's speed, times the seat's `spreadScale` (2, in `vehicles.jsonc`). A passenger fires as
+  before. Paint on a buggy still never counts, and everyone in it can be hit and put out as before.
+- **Bots fire from the wheel.**
+  - With an enemy in sight, a driving bot looks at it to make it out. Once it has engaged, it aims and fires as on
+    foot.
+  - It drives on at no more than 5 m/s (`driveFightSpeed_mps`), steadier to shoot from. Where to stand or take cover
+    means nothing in a vehicle, so goals the fight sets are ignored.
+  - An enemy within 14 m (`driveFightOutWithin_m`) gets it out to fight on foot. Before, any enemy in sight within 70 m
+    did.
+- **Two bugs fixed on the way.**
+  - A bot's trigger waited for it to be nearly still unless its archetype fires on the move, so a seated bot never
+    fired. Riding isn't walking, so a seated bot now fires.
+  - The moment an enemy came into view, its last-known spot was still unset (the origin). A bot driving within the old
+    range of the origin got out for an enemy that was 45 m away. The range is now measured to where the enemy is.
+- **The HUD.** At the wheel it says "you fire one-handed (wider)".
+
+### How to run it
+
+```bash
+godot --path game res://scenes/Level.tscn -- --level=thornwick_woods --mode=teams --size=4
+```
+
+Get in a buggy's driver's seat with F and fire as usual.
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `dotnet test tests/Pb.Sim.Tests` | 536 passed (1 new, 1 rewritten) |
+| `dotnet test tests/Pb.Net.Tests` | 71 passed |
+| `tools/ci/smoke-test.sh` | The runs E touches passed here: the four on Thornwick Woods (a 4 v 4 saw 2 drives; capture the flag ended in a capture after 148 s), a 3 v 3 and the menu. CI runs the whole suite on the PR. |
+
+New tests:
+- `VehicleTests.The_driver_fires_one_handed_and_wider_a_passenger_as_usual`: both seats fire. Over eight seconds of
+  fire, sitting still, the driver's shots spread 0.82° on average against the passenger's 0.40°.
+- `ThornwickWoodsTests.A_driving_bot_shoots_from_the_wheel_and_drives_on`: a bot driving up the lane passes an enemy
+  24 m off it. It sees, spots and engages it, fires 8 shots from the wheel, puts it out, and drives on (211 m in all).
+
+### Known issues
+
+- The seated characters still crouch with the marker up; the seated driving clips (hands on the wheel, one hand up to
+  aim) come with F.
+
+### What's next
+
+PR F: the buggy's handling, sound, camera and seated animation, and the joined driver's prediction.
+

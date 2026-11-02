@@ -124,7 +124,9 @@ public sealed class BrainDef : IValidatable
 
     public float DriveCornerSpeed_mps { get; set; }
 
-    public float DriveContactRange_m { get; set; }
+    public float DriveFightSpeed_mps { get; set; }
+
+    public float DriveFightOutWithin_m { get; set; }
 
     public float DriveStuck_s { get; set; }
 
@@ -253,7 +255,8 @@ public sealed class BrainDef : IValidatable
         v.InRange(nameof(DriveLookAheadPerSpeed_s), DriveLookAheadPerSpeed_s, 0, 3);
         v.InRange(nameof(DriveSpeedShare), DriveSpeedShare, 0.2, 1);
         v.InRange(nameof(DriveCornerSpeed_mps), DriveCornerSpeed_mps, 0.5, 20);
-        v.InRange(nameof(DriveContactRange_m), DriveContactRange_m, 0, 500);
+        v.InRange(nameof(DriveFightSpeed_mps), DriveFightSpeed_mps, 1, 30);
+        v.InRange(nameof(DriveFightOutWithin_m), DriveFightOutWithin_m, 0, 200);
         v.InRange(nameof(DriveStuck_s), DriveStuck_s, 0.5, 20);
         v.InRange(nameof(DriveGetOutWithin_m), DriveGetOutWithin_m, 1, 30);
     }

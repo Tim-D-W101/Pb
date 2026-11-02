@@ -115,9 +115,14 @@ public sealed class SeatDef : IValidatable
 
     public bool Fires { get; set; }
 
+    /// <summary>How much wider the one in it fires than standing (a driver's one-handed aim); 1 for none.</summary>
+    [Optional]
+    public float SpreadScale { get; set; } = 1f;
+
     public void Validate(Validator v)
     {
         v.NotEmpty(nameof(Id), Id);
         v.Vector(nameof(At_m), At_m);
+        v.InRange(nameof(SpreadScale), SpreadScale, 1, 10);
     }
 }

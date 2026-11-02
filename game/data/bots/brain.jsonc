@@ -77,15 +77,17 @@
   // drives the tracks to the point on them nearest where it's going, and gets out within driveGetOutWithin_m of it. It
   // steers for the point driveLookAhead_m along the track (plus driveLookAheadPerSpeed_s of its speed), at
   // driveSpeedShare of the buggy's top speed on the straight, slowing to driveCornerSpeed_mps for the sharpest bends.
-  // An enemy seen within driveContactRange_m stops it and gets it out to fight on foot (the driver can't fire); so does
-  // getting nowhere for driveStuck_s after backing up once.
+  // With an enemy in sight it fires from the wheel (one-handed: vehicles.jsonc) and drives on at no more than
+  // driveFightSpeed_mps, steadier to shoot from; an enemy within driveFightOutWithin_m gets it out to fight on foot, and
+  // so does getting nowhere for driveStuck_s after backing up twice.
   "driveBeyond_m": 90,
   "driveVehicleWithin_m": 30,
   "driveLookAhead_m": 4,
   "driveLookAheadPerSpeed_s": 0.6,
   "driveSpeedShare": 0.9,
   "driveCornerSpeed_mps": 3.5,
-  "driveContactRange_m": 70,
+  "driveFightSpeed_mps": 5,
+  "driveFightOutWithin_m": 14,
   "driveStuck_s": 2.5,
   "driveGetOutWithin_m": 5,
 

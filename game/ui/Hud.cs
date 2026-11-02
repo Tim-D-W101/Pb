@@ -574,7 +574,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
             bool slow = MathF.Abs(vehicle.Speed) <= kind.ExitBelow;
             string speed = $"{MathF.Abs(vehicle.Speed) * 3.6f:0} km/h";
             string how = driving
-                ? $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · go and brake · {InputSetup.KeyName("move_left")} / {InputSetup.KeyName("move_right")} · steer (no firing at the wheel)"
+                ? $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · go and brake · {InputSetup.KeyName("move_left")} / {InputSetup.KeyName("move_right")} · steer · you fire one-handed (wider)"
                 : "you can fire from your seat";
             string exit = slow ? $"{InputSetup.KeyName("interact")} · get out" : "slow down to get out";
             _prompt.Visible = true;

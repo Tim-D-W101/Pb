@@ -44,7 +44,8 @@ woodsball site on old farmland, 344 × 244 m inside its timber fence (seven time
 trees close enough to hide behind, hedged fields with cover scattered over them, a timber fort with a lookout tower, a
 farm, a camp of containers and huts and a scrapyard, and gravel tracks between them, with five **buggies** to drive
 along them. Get in at a buggy's door with F (the driver's seat or the passenger's), drive with W/S and A/D, and get out
-with F once it's nearly stopped. The driver can't fire; the passenger can. Paint breaks on a buggy and never counts,
+with F once it's nearly stopped. The driver can fire one-handed, so less accurately; the passenger fires as usual.
+Paint breaks on a buggy and never counts,
 someone hit in one gets out and walks off, and a buggy never runs anyone down: it stops short of them. The ladders up the water towers (to a railed catwalk
 12 m up, and on up the tank to its roof) and up the tank wagons' sides can be climbed, by you and by the bots, whose
 paths go up them. The bots hold posts, patrol, hunt and rush, notice you by sight
@@ -223,8 +224,8 @@ the rest for the other flag; they carry it home or cover whoever has it, send th
 whoever took it. In VIP escort the escorts lead the VIP to a far way out, the VIP keeps behind them and takes cover when
 it's shot at, and the defenders guard the ways out from the start and hunt the VIP once they hear where it is. On
 Thornwick Woods a bot with a long way to go (their flag, a case or a room across the site) takes a buggy standing empty
-nearby when that's quicker, drives the tracks and gets out near where it's going; seeing an enemy close, it stops and
-gets out to fight (nobody fires from the wheel). In the
+nearby when that's quicker, drives the tracks and gets out near where it's going. It fires from the wheel at enemies
+it passes, slowing to aim, and gets out to fight one that comes close. In the
 others, attackers make for the case or the room (opening doors on the way),
 defenders keep near it, and a room both sides are in but neither can see the other in doesn't stay contested for long.
 The case goes out only through a way out well away from where it lay, the HUD shows the case once you're inside its
