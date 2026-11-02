@@ -30,6 +30,10 @@
 #          fails if any character's head or hands pop further than --max-pop cm in a frame (likewise allowed for below 30
 #          fps), bot teammates' contacts don't reach your HUD, or no incoming-fire arc or hit marker shows; at 120 and at 15
 #          fps. Every bot match also fails if your bot was put out by a ball and the hit moment didn't play.
+#   splat  (--splat-demo): shots at a wall at a glance and square on; fails unless they break on it, the glancing ones
+#          streak and a splat is placed for each (drawn, it also looks for them on the screen)
+#   duel   (--duel-demo): you put an opponent out, then paint comes at you (past your head, breaking close by, on your
+#          mask); fails unless each shows its incoming-fire arc (drawn, it also looks for each on the screen)
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -91,6 +95,8 @@ run level-thornwick-woods res://scenes/Level.tscn -- "--smoke-test=$level_ticks"
 run match-thornwick-woods res://scenes/Level.tscn -- --bot-match --time-limit=180 --no-art --mode=teams --size=4 --level=thornwick_woods --min-drives=1
 run match-thornwick-woods-flag res://scenes/Level.tscn -- --bot-match --time-limit=240 --no-art --mode=teams --size=4 --objective=flag --level=thornwick_woods --seed=7 --min-drives=1
 run vehicle res://scenes/Level.tscn -- --vehicle-demo --level=thornwick_woods --no-art
+run splat res://scenes/Level.tscn -- --splat-demo --no-art
+run duel res://scenes/Level.tscn -- --duel-demo --no-art
 run gait res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=30 run gait-30fps res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=15 run gait-15fps res://scenes/Level.tscn -- --gait-demo --gait-check

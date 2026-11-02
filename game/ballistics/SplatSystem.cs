@@ -15,15 +15,15 @@ namespace Pb.Game.Ballistics;
 public readonly record struct SplatAnchor(Node3D Node, float Reach = 0f, uint CullMask = 0);
 
 /// <summary>
-/// Team-coloured paint splats (spec §1.3): a pool of Decal nodes with a cap. Once full, the
-/// oldest splats fade progressively and are reused first. Splats on moving receivers (targets,
+/// Team-coloured paint splats (spec §1.3): a pool of Decal nodes with a cap (flat cards on the surface where the renderer
+/// draws no decals, <see cref="PaintCards"/>). Once full, the oldest splats fade progressively and are reused first. Splats on moving receivers (targets,
 /// players) are parented to them so they move along. Since Phase 5 a splat takes the shape of how the ball hit: round
 /// head-on, stretched along the ball's travel at a glance (a streak with spatter thrown on ahead from
 /// <see cref="SplatDef.StreakFrom"/>); on a body, less so.
 /// </summary>
 public partial class SplatSystem : Node3D, ISimEventListener
 {
-    private readonly List<Decal> _decals = new();
+    private readonly List<Node3D> _marks = new();
     private readonly RandomNumberGenerator _rng = new();
     private ImageTexture[] _textures = Array.Empty<ImageTexture>();
     private ImageTexture[] _streaks = Array.Empty<ImageTexture>();
@@ -32,8 +32,15 @@ public partial class SplatSystem : Node3D, ISimEventListener
     private Func<int, SplatAnchor?>? _colliderNode;
     private SplatDef _def = null!;
     private int _next;
+    private bool _cards;
 
-    public int ActiveCount => _decals.Count;
+    public int ActiveCount => _marks.Count;
+
+    /// <summary>Whether the splats are drawn as cards (the renderer draws no decals).</summary>
+    public bool Cards => _cards;
+
+    /// <summary>The paint's colour for <paramref name="team"/>.</summary>
+    public Color TeamColor(int team) => _teamColors[team % _teamColors.Length];
 
     public int Capacity => _def?.Cap ?? 0;
 
@@ -47,6 +54,7 @@ public partial class SplatSystem : Node3D, ISimEventListener
         _receiverNode = receiverNode;
         _colliderNode = colliderNode;
         _rng.Seed = 1234;
+        _cards = !PaintCards.DecalsDrawn;
         _textures = SplatTextures.Create(variants: 6, size: 128, seed: 777);
         _streaks = SplatTextures.CreateStreaks(variants: 4, size: 128, seed: 778);
         ApplyView(view);
@@ -61,13 +69,13 @@ public partial class SplatSystem : Node3D, ISimEventListener
             _teamColors[i] = Color.FromHtml(view.TeamColors[i]);
         }
 
-        while (_decals.Count > _def.Cap)
+        while (_marks.Count > _def.Cap)
         {
-            _decals[^1].QueueFree();
-            _decals.RemoveAt(_decals.Count - 1);
+            _marks[^1].QueueFree();
+            _marks.RemoveAt(_marks.Count - 1);
         }
 
-        _next %= Math.Max(1, _decals.Count);
+        _next %= Math.Max(1, _marks.Count);
     }
 
     public void OnSimEvent(in SimEvent e)
@@ -110,22 +118,22 @@ public partial class SplatSystem : Node3D, ISimEventListener
 
     public void ClearAll()
     {
-        foreach (Decal decal in _decals)
+        foreach (Node3D mark in _marks)
         {
-            decal.QueueFree();
+            mark.QueueFree();
         }
 
-        _decals.Clear();
+        _marks.Clear();
         _next = 0;
     }
 
     private void Spawn(Vector3 position, Vector3 normal, Vector3 velocity, Color color, SplatAnchor anchor)
     {
         Node3D parent = anchor.Node;
-        Decal decal;
-        if (_decals.Count < _def.Cap)
+        Node3D mark;
+        if (_marks.Count < _def.Cap)
         {
-            decal = new Decal
+            mark = _cards ? PaintCards.Create(_def.DistanceFadeBegin_m + _def.DistanceFadeLength_m) : new Decal
             {
                 CullMask = WorldMask,
                 NormalFade = _def.NormalFade,
@@ -135,22 +143,19 @@ public partial class SplatSystem : Node3D, ISimEventListener
                 DistanceFadeBegin = _def.DistanceFadeBegin_m,
                 DistanceFadeLength = _def.DistanceFadeLength_m,
             };
-            parent.AddChild(decal);
-            _decals.Add(decal);
+            parent.AddChild(mark);
+            _marks.Add(mark);
         }
         else
         {
-            decal = _decals[_next];
-            _next = (_next + 1) % _decals.Count;
-            if (decal.GetParent() != parent)
+            mark = _marks[_next];
+            _next = (_next + 1) % _marks.Count;
+            if (mark.GetParent() != parent)
             {
-                decal.Reparent(parent, keepGlobalTransform: false);
+                mark.Reparent(parent, keepGlobalTransform: false);
             }
         }
 
-        // The box straddles the hit point, deeper by the anchor's reach each way; normal fade keeps
-        // the paint off the far side.
-        decal.CullMask = anchor.CullMask != 0 ? anchor.CullMask : WorldMask;
         float size = _rng.RandfRange(_def.SizeMin_m, _def.SizeMax_m);
         // On a body (a model round its hitboxes) a splat wraps a curved surface, so it's stretched less.
         float stretch = Stretch(velocity, normal, anchor.Reach > 0f ? Mathf.Min(_def.StretchMax, 1.6f) : _def.StretchMax);
@@ -158,12 +163,24 @@ public partial class SplatSystem : Node3D, ISimEventListener
         Streaks += streak ? 1 : 0;
         // Longer along the travel, a little narrower across it.
         float along = Mathf.Pow(stretch, 0.75f), across = Mathf.Pow(stretch, -0.25f);
-        decal.Size = new Vector3(size * along, _def.Depth_m + 2f * anchor.Reach, size * across);
-        decal.TextureAlbedo = streak ? _streaks[_rng.RandiRange(0, _streaks.Length - 1)] : _textures[_rng.RandiRange(0, _textures.Length - 1)];
-        decal.Modulate = color;
-        decal.GlobalTransform = new Transform3D(SplatBasis(normal, velocity, stretch > 1.05f), position);
+        // The box straddles the hit point, deeper by the anchor's reach each way; normal fade keeps the paint off the far side.
+        var box = new Vector3(size * along, _def.Depth_m + 2f * anchor.Reach, size * across);
+        ImageTexture texture = streak ? _streaks[_rng.RandiRange(0, _streaks.Length - 1)] : _textures[_rng.RandiRange(0, _textures.Length - 1)];
+        var frame = new Transform3D(SplatBasis(normal, velocity, stretch > 1.05f), position);
+        if (mark is Decal decal)
+        {
+            decal.CullMask = anchor.CullMask != 0 ? anchor.CullMask : WorldMask;
+            decal.Size = box;
+            decal.TextureAlbedo = texture;
+            decal.Modulate = color;
+            decal.GlobalTransform = frame;
+        }
+        else
+        {
+            PaintCards.Place((MeshInstance3D)mark, frame, box, texture, color);
+        }
 
-        if (_decals.Count == _def.Cap)
+        if (_marks.Count == _def.Cap)
         {
             FadeOldest();
         }
@@ -189,19 +206,25 @@ public partial class SplatSystem : Node3D, ISimEventListener
     /// <summary>Oldest splats (next in line for reuse) fade linearly across the fade window.</summary>
     private void FadeOldest()
     {
-        int window = Math.Min(_def.FadeWindow, _decals.Count);
+        int window = Math.Min(_def.FadeWindow, _marks.Count);
         for (int k = 0; k < window; k++)
         {
-            Decal decal = _decals[(_next + k) % _decals.Count];
-            Color c = decal.Modulate;
-            c.A = (k + 1f) / (window + 1f);
-            decal.Modulate = c;
+            SetAlpha(_marks[(_next + k) % _marks.Count], (k + 1f) / (window + 1f));
         }
 
         // The splat just placed is fully opaque.
-        Decal newest = _decals[(_next - 1 + _decals.Count) % _decals.Count];
-        Color n = newest.Modulate;
-        n.A = 1f;
-        newest.Modulate = n;
+        SetAlpha(_marks[(_next - 1 + _marks.Count) % _marks.Count], 1f);
+    }
+
+    private static void SetAlpha(Node3D mark, float alpha)
+    {
+        if (mark is Decal decal)
+        {
+            decal.Modulate = decal.Modulate with { A = alpha };
+        }
+        else
+        {
+            PaintCards.SetAlpha((MeshInstance3D)mark, alpha);
+        }
     }
 }

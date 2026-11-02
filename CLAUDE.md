@@ -135,9 +135,11 @@ The main scene is the menu (`scenes/Main.tscn`), so name the scene for anything 
 live in the level file (`viewpoints`), and the range's in `ranges/phase1.jsonc`; `--views="x,y,z>tx,ty,tz;…"` (or `x,y,z,yaw,pitch`) replaces them
 for close-ups of anything in the level. On `Level.tscn`, through the player's own camera,
 `-- --posture-demo` runs a short scripted shoulder swap / lean / muzzle-in-cover sequence,
-`-- --duel-demo` an elimination each way (callout, splat on a character, hit marker, mask spray, the hit moment and
-walking off; add `--duel-distance=2` for a close-up), `-- --splat-demo` shots at the nearest wall at a glance (streaks)
-and square on (round splats), `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
+`-- --duel-demo` an elimination each way (callout, splat on a character, hit marker, a ball past your head, one breaking
+close by, mask spray, the hit moment and walking off; add `--duel-distance=2` for a close-up), `-- --splat-demo` shots at
+the nearest long enough wall at a glance (streaks) and square on (round splats); both print SMOKE PASS or FAIL (CI runs
+them headless) and, drawn, look on the screen for each incoming-fire arc and splat. A capture's sound (Movie Maker's
+`f.wav`) has the game's sounds in it. `-- --round-tour` a round's screens from briefing to summary, and `-- --bot-demo` bots
 fighting you from cover with the F3 overlay, and `-- --gait-demo` one opponent standing, walking, running,
 sprinting, pulling up, strafing, backing off, walking crouched, turning on the spot both ways and looking round, seen from
 the side (the animation set; the planted steps with `characters.legs` = `"steps"`, the old movement clips with
@@ -150,7 +152,8 @@ nearest that point); it runs headless too, for the numbers alone. `-- --ladder-d
 tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
 Oxbarrow Works and `--level=rail_yard` have ladders).
 `-- --vehicle-demo --level=thornwick_woods` gets you into a buggy at its driver's door, drives it along the tracks round
-the crossroads (a burst fired from the wheel on the way) and gets you out to look back at it (`--vehicle=N` for another;
+the crossroads (a burst fired from the wheel and a pull on the handbrake on the way) and gets you out to look back at it,
+failing it if the engine, the tyres or the skid weren't heard (it prints each sound's time on; `--vehicle=N` for another;
 it runs headless too, as CI's smoke test, and `--fast` at a low `--fixed-fps` films it in few frames; `--chase` films it
 from behind and beside instead, `--chase=near` close by the driver, `--chase=side` square to their side); a bot match's `--min-drives=N` fails it if bots took
 the wheel fewer than N times.

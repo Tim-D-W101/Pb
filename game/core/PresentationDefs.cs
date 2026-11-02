@@ -2625,6 +2625,9 @@ public sealed class HitMomentDef : IValidatable
 
     public float TextSize_px { get; set; }
 
+    /// <summary>How far down the screen HIT! sits (its middle, a share of the screen's height).</summary>
+    public float TextAt { get; set; } = 0.2f;
+
     public float MuffleCutoff_hz { get; set; }
 
     public float MuffleRecover_s { get; set; }
@@ -2639,6 +2642,7 @@ public sealed class HitMomentDef : IValidatable
         v.InRange(nameof(Vignette), Vignette, 0, 1);
         v.InRange(nameof(Residual), Residual, 0, 1);
         v.InRange(nameof(TextSize_px), TextSize_px, 20, 400);
+        v.InRange(nameof(TextAt), TextAt, 0.05, 0.95);
         v.InRange(nameof(MuffleCutoff_hz), MuffleCutoff_hz, 100, 20000);
         v.InRange(nameof(MuffleRecover_s), MuffleRecover_s, 0.05, 10);
     }

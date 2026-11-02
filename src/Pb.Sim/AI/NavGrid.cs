@@ -149,6 +149,17 @@ public sealed class NavGrid : IBotNavigation
         return sa != None && sb != None && _component[sa] == _component[sb];
     }
 
+    /// <summary>
+    /// Which connected piece of the grid <paramref name="position"/> is on (−1 off it): a bot can walk (and climb) between
+    /// any two places on one piece, and never from one piece to another. The top of a boiler or a stack of crates that
+    /// nothing climbs to is a piece of its own.
+    /// </summary>
+    public int PieceAt(Vector3 position)
+    {
+        int s = SpanAt(position);
+        return s == None ? None : _component[s];
+    }
+
     /// <summary>Places joined to at least one neighbour (for stats and tests).</summary>
     public int LinkedSpanCount { get; private set; }
 
