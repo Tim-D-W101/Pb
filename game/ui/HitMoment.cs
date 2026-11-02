@@ -27,6 +27,12 @@ public partial class HitMoment : CanvasLayer
     /// <summary>How many times it has played (for the smoke tests' report).</summary>
     public int Played { get; private set; }
 
+    /// <summary>
+    /// Whether HIT! is up (from the hit until its words have faded): the others' calls of "HIT!" over their heads are
+    /// hidden meanwhile, so it's never drawn twice at once.
+    /// </summary>
+    public bool Words => _age >= 0f && _hit.Modulate.A > 0.01f;
+
     public void Initialize(HitMomentDef def)
     {
         _def = def;
@@ -70,6 +76,7 @@ public partial class HitMoment : CanvasLayer
         _material.SetShaderParameter("seed", (float)(Played * 3.7 % 11.0));
         _material.SetShaderParameter("from_dir", float.IsNaN(screenAngle) ? Vector2.Zero : new Vector2(Mathf.Sin(screenAngle), -Mathf.Cos(screenAngle)));
         _hit.LabelSettings.FontColor = paint.Lightened(0.25f);
+        _hit.Modulate = Colors.White;
         _detail.Text = detail;
         Layout();
     }

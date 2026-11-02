@@ -867,6 +867,44 @@ Checks after the fixes: `dotnet test` passes, 567 sim tests and 73 network tests
 4 v 4 (5 drives) and capture the flag (3 drives), the vehicle demo with its sounds, the splat and duel demos, the gait
 demo and the art-on match. CI runs the whole suite on the PR.
 
+### After Tim's second check
+
+- **The buggy's squeal never played.** The squeal is the sound of tyres sliding on hard ground (on gravel, grass and mud
+  they scrub instead), and nowhere on Thornwick Woods was hard. The tracks and the scrapyard are gravel, and the
+  farmyard, the camp and the fort's yard are dirt. So in the rendered vehicle demo the squeal and the hard-ground tyres
+  were on for 0.0 s, and its skid check passed on the scrub.
+  - *Hard ground.* The farmyard has concrete now, from the barn to the farmhouse (`concrete_floor`). Its ground patch is
+    `paved`: the lane and the farm track give way to it, as they do to a ford's mud, so the wheels are on the concrete
+    there.
+  - *The sim already slid the tyres enough.* On concrete, a full-lock corner at 8–12 m/s slides the front tyres
+    3.0–3.9 m/s, and the squeal starts at 1.2 m/s. The handbrake locks the back ones at the buggy's own speed.
+  - *The vehicle demo* pulls the handbrake on the farmyard's concrete at 7.5 m/s, and again later on gravel. It fails
+    unless the tyres were heard on hard ground, squealing there and scrubbing on the gravel: each is checked on its own
+    now, and where anything can be heard, playing too.
+    - The nearest buggy's way has to cross hard ground (it has 45 m of it).
+    - Another buggy's (`--vehicle`) is checked for a squeal only if its way has some.
+    - Rendered, with its sound: the tyres on hard ground for 8.2 s, the squeal 0.8 s and the scrub 3.7 s, each playing
+      the whole time.
+    - Headless: 8.3 s, 0.9 s and 3.3 s.
+    - `g-buggy-sounds.ogg` above is this film's sound now, the squeal on the concrete in it.
+  - *New check* in `TerrainTests.Paint_and_sight_meet_it_with_its_surfaces`: concrete under the lane and the farm track
+    in the farmyard, the yard's dirt round it, and gravel on the lane beyond.
+- **HIT! drawn twice.** On the duel demo's hit frame, your own HIT! came up over the "HIT!" that the bot you'd just put
+  out was still calling over its head, and the two overlapped. The call lasts 2 s, and the ball that puts you out comes
+  1.25 s after. In play it happened whenever you were put out within 2 s of someone in front of you.
+  - While your own HIT! is up, the calls over the others' heads are hidden now (`HitMoment.Words`,
+    `OpponentPawn.HushCall`).
+  - The duel demo counts the HIT!s drawn on every frame from the ball that puts you out, and fails if there's more than
+    one. With the hiding taken out again it fails ("HIT! was drawn 2 times at once"); with it, it passes headless and
+    rendered.
+
+![The duel's hit frame now: one HIT!, the arcs over it](phase-5/g-fix-hit-once.jpg)
+![The farmyard's concrete from above: from the south-east, the lane's gravel stopping at it and the buggies by the gate; from the north-west, past the trailer](phase-5/g-fix-farmyard.jpg)
+
+The six menu pictures of Thornwick Woods are retaken, for the farm's concrete.
+
+Checks: `dotnet test` passes, 567 sim tests and 73 network tests. The vehicle and duel demos pass headless (as CI runs them) and rendered.
+
 ### What's next
 
 Tim's call: anything from the play-test of E, F and G.

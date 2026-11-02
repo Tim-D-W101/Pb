@@ -114,6 +114,9 @@ public partial class LevelMain : Node3D, ISimEventListener
     private LevelSmokeTest? _smoke;
     private SpectatorView? _spectator;
     private HitMoment _hitMoment = null!;
+
+    /// <summary>Whether your own HIT! is up (the others' calls of it over their heads wait).</summary>
+    private bool HitWordsUp() => _hitMoment is { Words: true };
     private System.Numerics.Vector3? _lastHitTravel;
     private ViewModelPaint _markerPaint = null!;
     private MaskSprayOverlay _maskSpray = null!;
@@ -690,7 +693,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (Args.Has("--duel-demo"))
         {
-            var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud);
+            var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud, _hitMoment);
             demo.Setup(_player);
             _player.AutoPilot = demo;
             _hud.ShowHelp = false;
@@ -782,7 +785,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(tour);
             tour.Start(() =>
             {
-                var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud);
+                var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud, _hitMoment);
                 demo.Setup(_player);
                 _player.AutoPilot = demo;
                 BeginRound();
@@ -934,6 +937,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             var pawn = new OpponentPawn { Name = $"{(team == 0 ? "Teammate" : "Opponent")}_{spawn.Id}" };
             parent.AddChild(pawn);
             pawn.Initialize(_sim, state, TeamColor(team), new BotPilot(brain), _view.Characters, i, _view.MarkerModel);
+            pawn.HushCall = HitWordsUp;
             _pawns.Add(pawn);
             _bots.Add(brain);
         }
@@ -1052,6 +1056,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             var pawn = new OpponentPawn { Name = $"{kind}_{entry.PlayerId}", Puppet = server is null };
             parent.AddChild(pawn);
             pawn.Initialize(_sim, state, TeamColor(state.Team), pilot, _view.Characters, entry.Look, _view.MarkerModel);
+            pawn.HushCall = HitWordsUp;
             _pawns.Add(pawn);
         }
 
@@ -1768,6 +1773,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         Color paint = TeamColor(shooter?.Team ?? (victim.Team == 0 ? 1 : 0));
         float angle = _lastHitTravel is { } travel ? IncomingFire.ScreenAngle(IncomingFire.BearingOf(-travel), _player.Yaw) : float.NaN;
         _hitMoment.Start(paint, angle, detail, _settings.HitEffect);
+        foreach (OpponentPawn pawn in _pawns)
+        {
+            pawn.RefreshCall(); // the others' calls of "HIT!" go while yours is up: it's drawn once
+        }
+
         _hud.OutOfTheRound();
         Input.MouseMode = Input.MouseModeEnum.Visible;
         _spectator = new SpectatorView { Name = "Spectator" };

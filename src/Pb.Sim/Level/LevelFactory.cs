@@ -257,6 +257,19 @@ public static class LevelFactory
         }
 
         // Roads: strips on the ground (paint sees their surface, as with ground patches), a disc at each bend.
+        bool OnPaved(Vector3 p)
+        {
+            for (int i = 0; def.GroundPatches is not null && i < def.GroundPatches.Length; i++)
+            {
+                if (def.GroundPatches[i] is { Paved: true, Rect_m: { Length: 4 } r } && p.X >= r[0] && p.X <= r[2] && p.Z >= r[1] && p.Z <= r[3])
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         var roads = new List<RoadSpec>();
         for (int i = 0; def.Roads is not null && i < def.Roads.Length; i++)
         {
@@ -287,9 +300,10 @@ public static class LevelFactory
                         continue;
                     }
 
-                    // Where it fords a stream, none: the wheels go through the bed's mud.
+                    // Where it fords a stream, none: the wheels go through the bed's mud. Nor across a paved yard: the
+                    // wheels are on its concrete.
                     Vector3 middle = (a + b) * 0.5f;
-                    if (terrain is not null && terrain.InBedAt(middle.X, middle.Z))
+                    if ((terrain is not null && terrain.InBedAt(middle.X, middle.Z)) || OnPaved(middle))
                     {
                         continue;
                     }
@@ -315,7 +329,7 @@ public static class LevelFactory
 
             for (int k = 1; k + 1 < points.Length; k++)
             {
-                if (terrain is not null && terrain.InBedAt(points[k].X, points[k].Z))
+                if ((terrain is not null && terrain.InBedAt(points[k].X, points[k].Z)) || OnPaved(points[k]))
                 {
                     continue;
                 }

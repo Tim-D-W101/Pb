@@ -81,12 +81,24 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
     /// <summary>Hands the opponent to another pilot (a scripted scene's).</summary>
     public void Steer(ICommandSource pilot) => _pilot = pilot;
 
+    /// <summary>
+    /// While this says so (your own HIT! is up, <see cref="Pb.Game.Ui.HitMoment.Words"/>), the "HIT!" call over the
+    /// head is hidden, so HIT! is never drawn twice at once.
+    /// </summary>
+    public System.Func<bool>? HushCall { get; set; }
+
+    /// <summary>Whether the "HIT!" call is showing over the head.</summary>
+    public bool CallingHit => _callout.Visible;
+
     /// <summary>Shows the "Hit!" call above the head for a couple of seconds.</summary>
     public void CallHit()
     {
-        _callout.Visible = true;
         _calloutLeft = 2f;
+        RefreshCall();
     }
+
+    /// <summary>Shows or hides the call by the time it has left and whether it's hushed (at once when HIT! comes up).</summary>
+    public void RefreshCall() => _callout.Visible = _calloutLeft > 0f && State.Present && HushCall?.Invoke() != true;
 
     public InputCommand Step(int tick, float dt)
     {
@@ -146,7 +158,7 @@ public partial class OpponentPawn : PawnBody, IPlayerDriver
         if (_calloutLeft > 0f)
         {
             _calloutLeft -= (float)delta;
-            _callout.Visible = _calloutLeft > 0f && State.Present;
+            RefreshCall();
             _callout.GlobalPosition = (State.Position + new System.Numerics.Vector3(0f, State.EyeHeight + 0.75f, 0f)).ToGodot();
         }
     }

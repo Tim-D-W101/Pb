@@ -317,10 +317,16 @@ public class TerrainTests
         SurfaceAt(sim, On(-30f, 40.7f), "mud");    // the brook's bed
         SurfaceAt(sim, On(30f, -20f), "turf");     // the middle field
         SurfaceAt(sim, On(-110f, -100f), "dirt");  // leaf litter in Blackthorn Wood
-        Vector3 lane = On(0f, 60f);
+        Vector3 lane = On(0f, 104f);               // the lane, south of the farmyard
         Assert.True(sim.Collision.SweepSphere(lane + new Vector3(0f, 3f, 0f), lane - new Vector3(0f, 3f, 0f), 0f, out SweepHit onLane));
         Assert.Equal(TestData.Config.Surfaces.Get("gravel"), onLane.Surface);
         Assert.InRange(onLane.Point.Y - lane.Y, -0.01f, 0.03f);
+
+        // The farmyard's concrete is paved: the lane and the farm track give way to it, so wheels (and paint) meet hard
+        // ground there, where a buggy's tyres squeal; round it, the yard's dirt.
+        SurfaceAt(sim, On(0f, 75f), "concrete");   // the lane across it
+        SurfaceAt(sim, On(-8f, 68f), "concrete");  // the farm track
+        SurfaceAt(sim, On(-36f, 90f), "dirt");     // the yard beyond it
 
         // Over the north field's rise: crouched either side, the rise hides one from the other; standing, they see over it.
         Vector3 west = On(-60f, -98f), east = On(-16f, -98f);

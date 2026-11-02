@@ -520,6 +520,9 @@ body = {
     "groundPatches": [
     ] + [{"rect_m": w["rect_m"], "material": "leaf_litter"} for w in WOODS] + [
         {"rect_m": [-54, 50, 44, 98], "material": "dirt"},        # the farmyard
+        # Its concrete, from the barn to the farmhouse: the lane and the farm track give way to it, so a buggy's tyres
+        # are on hard ground there (and squeal when they slide).
+        {"rect_m": [-18, 52, 12, 97], "material": "concrete_floor", "paved": True},
         {"rect_m": [-150, 8, -92, 64], "material": "dirt"},       # the camp
         {"rect_m": [92, 22, 152, 84], "material": "gravel"},      # the scrapyard
         {"rect_m": [16.2, -101.8, 43.8, -74.2], "material": "dirt"},  # inside the fort
@@ -610,6 +613,8 @@ HEADER = """// Level 5: Thornwick Woods (Phase 5), a woodsball site on old farml
 // (each trunk paint, sight and walking meet; the crowns are looks only), clear of the tracks, hedges and cover.
 // The ground rolls ("terrain"): hills, banks, a hollow and a brook with fords; every height below (spawns, props,
 // patrols, pickups, viewpoints) is above the ground at that spot, and the ground is level under buildings and yards.
+// The farmyard has concrete between the barn and the farmhouse (its ground patch "paved": the tracks give way to it, so
+// a buggy's tyres are on hard ground there).
 // Perimeter fence segments: 0 north (x -172->172, at_m = x + 172), 1 east (z -122->122, at_m = z + 122),
 // 2 south (x 172->-172, at_m = 172 - x), 3 west (z 122->-122, at_m = 122 - z)."""
 

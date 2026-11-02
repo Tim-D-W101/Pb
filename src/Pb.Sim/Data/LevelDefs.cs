@@ -1320,6 +1320,13 @@ public sealed class GroundPatchDef : IValidatable
 
     public string Material { get; set; } = "";
 
+    /// <summary>
+    /// A yard laid hard (concrete, asphalt): a track crossing it gives way to it, so wheels and paint meet the yard's
+    /// own surface there (a farm lane running into a concrete farmyard).
+    /// </summary>
+    [Optional]
+    public bool Paved { get; set; }
+
     public void Validate(Validator v)
     {
         LevelDefChecks.Rect(v, nameof(Rect_m), Rect_m);

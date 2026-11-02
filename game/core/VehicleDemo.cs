@@ -16,10 +16,12 @@ namespace Pb.Game.Core;
 /// <summary>
 /// <c>-- --vehicle-demo</c> (on a level with vehicles: <c>--level=thornwick_woods</c>; <c>--vehicle=N</c> picks one, else
 /// the nearest): you get into a buggy at its driver's door, drive it along the tracks to the farthest point on them within
-/// reach (pulling the handbrake once at speed, to skid), stop and get out, and look back at it; through your own eyes,
-/// for screenshots, with the opponents quiet. It checks the game's side of it: your body in the seat and out beside it,
-/// the buggy drawn where the sim has it, the HUD's prompt, and its sounds (the engine, the tyres on the ground and the
-/// skid: on, and where anything can be heard, playing); prints SMOKE PASS or FAIL and quits.
+/// reach, stop and get out, and look back at it; through your own eyes, for screenshots, with the opponents quiet. On the
+/// way it pulls the handbrake at speed twice: on hard ground (the farmyard's concrete), where the tyres squeal, and later
+/// on loose ground, where they scrub. It checks the game's side of it: your body in the seat and out beside it, the buggy
+/// drawn where the sim has it, the HUD's prompt, and its sounds (the engine, the tyres on each kind of ground on the way,
+/// the squeal and the scrub: on, and where anything can be heard, playing); prints SMOKE PASS or FAIL and quits. The
+/// nearest buggy's way has to cross hard ground, so the squeal is always checked; another's (<c>--vehicle</c>) may not.
 /// </summary>
 public sealed class VehicleDemo : ICommandSource
 {
@@ -34,6 +36,8 @@ public sealed class VehicleDemo : ICommandSource
     private readonly AudioDirector _audio;
     private readonly List<SVector3> _route = new();
     private bool _fords;
+    private float _hardOnWay = -1f;
+    private int _squealFrom = -1, _scrubFrom = -1;
     private int _start = -1, _vehicle = -1, _outAt = -1, _routeAt, _inFor;
     private bool _promptSeen, _wasIn, _failed, _slung, _raised;
     private float _fastest, _driven, _leaned, _sprayed;
@@ -162,6 +166,22 @@ public sealed class VehicleDemo : ICommandSource
         _start = _start < 0 ? tick : _start;
         int t = tick - _start;
         VehicleState v = _sim.Vehicles[_vehicle];
+        if (_hardOnWay < 0f)
+        {
+            // How much of the way is on hard ground (where the handbrake will make the tyres squeal).
+            _hardOnWay = 0f;
+            for (int k = 0; k + 1 < _route.Count; k++)
+            {
+                float length = Flat(_route[k + 1] - _route[k]);
+                for (float s = 0f; s < length; s += 0.5f)
+                {
+                    _hardOnWay += _audio.TyresAt(SVector3.Lerp(_route[k], _route[k + 1], s / length)) == Sfx.TyreHard ? 0.5f : 0f;
+                }
+            }
+
+            GD.Print($"VEHICLE DEMO: {_hardOnWay:0} m of the way on hard ground{(_fords ? ", and it fords a stream" : "")}");
+        }
+
         bool inside = state.Vehicle == _vehicle;
         if (inside)
         {
@@ -238,8 +258,23 @@ public sealed class VehicleDemo : ICommandSource
                 cmd.Buttons |= InputButtons.Fire;
             }
 
-            // A pull on the handbrake at speed: the back wheels lock and slide (the tyres' skid).
-            if (driving is > 11 * 120 and < 11 * 120 + 70 && v.Speed > 4f)
+            // The handbrake at speed, twice, and the back wheels lock and slide: first on hard ground, where they squeal;
+            // later on loose ground, where they scrub.
+            bool hard = _audio.TyresUnder(_vehicle) == Sfx.TyreHard;
+            if (_squealFrom < 0 && hard && v.Speed > 7.5f)
+            {
+                _squealFrom = driving;
+                GD.Print($"VEHICLE DEMO: the handbrake on hard ground at {v.Position}, {v.Speed:0.0} m/s");
+            }
+
+            if (_scrubFrom < 0 && !hard && driving > 11 * 120 && v.Speed > 4f)
+            {
+                _scrubFrom = driving;
+                GD.Print($"VEHICLE DEMO: the handbrake on loose ground at {v.Position}, {v.Speed:0.0} m/s");
+            }
+
+            bool pull = (_squealFrom >= 0 && driving < _squealFrom + 60) || (_scrubFrom >= 0 && driving < _scrubFrom + 70);
+            if (pull && v.Speed > 2f)
             {
                 cmd.Buttons |= InputButtons.Jump;
             }
@@ -282,9 +317,17 @@ public sealed class VehicleDemo : ICommandSource
             Check(On(Sfx.Engine) > 5f, $"the engine was on only {On(Sfx.Engine):0.0} s");
             Check(tyres > 3f, $"the tyres were heard only {tyres:0.0} s");
             Check(!_fords || On(Sfx.TyreMud) > 0.1f, "the tyres weren't heard in the ford's mud");
-            Check(On(Sfx.TyreSkid) + On(Sfx.TyreScrub) > 0.1f, "the handbrake never made the tyres skid");
+            // The squeal itself on hard ground (the nearest buggy's way always crosses some), and the scrub on loose.
+            bool squeals = _hardOnWay > 5f || !Args.Has("--vehicle");
+            Check(_hardOnWay > 5f || Args.Has("--vehicle"), $"its way has only {_hardOnWay:0} m of hard ground, too little to squeal on");
+            Check(!squeals || On(Sfx.TyreHard) > 0.5f, $"the tyres were heard on hard ground only {On(Sfx.TyreHard):0.0} s");
+            Check(!squeals || _squealFrom >= 0, "it was never going fast enough on hard ground to pull the handbrake there");
+            Check(!squeals || On(Sfx.TyreSkid) > 0.1f, $"the handbrake on hard ground never made the tyres squeal ({On(Sfx.TyreSkid):0.0} s)");
+            Check(On(Sfx.TyreScrub) > 0.1f, $"the handbrake on loose ground never made the tyres scrub ({On(Sfx.TyreScrub):0.0} s)");
             Check(AudioBuses.Silent || (Playing(Sfx.Engine) > 0.9f * On(Sfx.Engine) && tyresPlaying > 0.9f * tyres),
                 "the engine or the tyres were on but not playing");
+            Check(AudioBuses.Silent || (Playing(Sfx.TyreSkid) >= 0.9f * On(Sfx.TyreSkid) && Playing(Sfx.TyreScrub) >= 0.9f * On(Sfx.TyreScrub)),
+                "the squeal or the scrub was on but not playing");
             Finish(null);
         }
 

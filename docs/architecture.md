@@ -1324,7 +1324,9 @@ collection under memory pressure. That made the allocation test fail at random o
   and behind you; your body is drawn and the marker in your hands hidden once it's 0.6 m out of your head. You stand for
   the hit (the out pose blends in, hand and marker up), and once the camera is out you walk off to the dead zone like
   every bot (`WalkOffPilot`, offline as well as hosting now; joined, the host walks you off), the camera following you
-  and keeping whoever got you in view. The settings' hit effect scales the screen's part.
+  and keeping whoever got you in view. The settings' hit effect scales the screen's part. While your HIT! is up
+  (`HitMoment.Words`), the "HIT!" others call over their heads (`OpponentPawn.CallHit`) is hidden, so it's never drawn
+  twice at once (`OpponentPawn.HushCall`); the duel demo counts them on every frame.
 - **Settings.** Gameplay: "Incoming fire arcs" (`GameSettings.IncomingFire`) and "Hit effect" (`HitEffect`, 0-1).
 - **Checks.** `FeedbackTests` (the arcs' directions, turning, merging, expiry and the full ring; the near-miss scan on
   hand-made moves and a real shot), `SoundTests`, `SettingsTests`. The bot match prints a feedback line (markers by kind,
@@ -1687,7 +1689,8 @@ time near the other areas'.
   ground under their placement (on their flats). Props stand at the lowest ground under their footprint (a little into
   a slope, never floating), and trees 15 cm into it. Walls run from the lowest ground along them, as tall above the
   highest. Tracks are laid in pieces of at most 1 m, each sloping as the ground does and raised by however far the ground
-  bulges above it, so none shows through on a crest; none in a stream bed, so wheels and paint meet a ford's mud.
+  bulges above it, so none shows through on a crest; none in a stream bed, so wheels and paint meet a ford's mud; and
+  none across a ground patch marked `paved` (Thornwick's farmyard concrete), whose hard ground the tyres squeal on.
   Spawns, patrols, pickups, case spots, ways out, the hold rooms' middles, viewpoints, the dead zones and the buggies'
   spots are all lifted onto it, and the areas' heights reach over it.
 - **Bots** (`NavGrid`): a column's ground floor is the ground's height there, and the places under it are left out, so
