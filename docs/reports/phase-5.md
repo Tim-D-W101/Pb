@@ -947,7 +947,9 @@ demo and the art-on match. CI runs the whole suite on the PR.
 
 The six menu pictures of Thornwick Woods are retaken, for the farm's concrete.
 
-Checks: `dotnet test` passes, 567 sim tests and 73 network tests. The vehicle and duel demos pass headless (as CI runs them) and rendered.
+Checks: `dotnet test` passes, 567 sim tests and 73 network tests. The vehicle and duel demos pass headless (as CI runs
+them) and rendered. The other smoke runs these touch pass here: the menu, Thornwick's walk-through, its 4 v 4 (4
+drives) and capture the flag (3 drives), and the splat demo. CI runs the whole suite on the PR.
 
 ### What's next
 
