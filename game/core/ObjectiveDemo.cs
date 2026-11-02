@@ -13,11 +13,14 @@ using SVector3 = System.Numerics.Vector3;
 namespace Pb.Game.Core;
 
 /// <summary>
-/// <c>-- --objective-demo</c> (with <c>--objective=retrieve</c> or <c>hold</c>): a short scripted look at the objective
-/// through your own eyes, for screenshots, with the opponents quiet. Retrieve: from where you come in, the marker on the
-/// case's building; then a few metres from the case (its light blinking, the marker on the case itself); then you pick it
-/// up and turn to the nearest way out (its beam, the marker on it). Hold: the marker on the room from outside, then
-/// inside it, its outline on the floor and the hold clock running. Prints what it does and quits.
+/// <c>-- --objective-demo</c> (with <c>--objective=retrieve</c>, <c>hold</c>, <c>flag</c> or <c>escort</c>, the last two
+/// with <c>--mode=teams</c>): a short scripted look at the objective through your own eyes, for screenshots, with the
+/// opponents quiet. Retrieve: from where you come in, the marker on the case's building; then a few metres from the case
+/// (its light blinking, the marker on the case itself); then you pick it up and turn to the nearest way out (its beam, the
+/// marker on it). Hold: the marker on the room from outside, then inside it, its outline on the floor and the hold clock
+/// running. Capture the flag: their flag from where you start, then close to it at their base; then you take it and turn
+/// for home. VIP escort: your VIP from where you start, then close by them (the marker over their head), then the way out
+/// they're making for. Prints what it does and quits.
 /// </summary>
 public sealed class ObjectiveDemo : ICommandSource
 {
@@ -46,7 +49,7 @@ public sealed class ObjectiveDemo : ICommandSource
         ObjectiveState? objective = _sim.Match?.Objective;
         if (objective is null)
         {
-            GD.PushError("--objective-demo needs --objective=retrieve or --objective=hold");
+            GD.PushError("--objective-demo needs --objective=retrieve, hold, flag or escort");
             _host.GetTree().QuitCleanly(1);
             return new InputCommand { Tick = tick };
         }
@@ -54,7 +57,13 @@ public sealed class ObjectiveDemo : ICommandSource
         if (_start < 0)
         {
             _start = tick;
-            _look = objective.Kind == ObjectiveKind.Hold ? objective.Room!.Centre : Middle(objective.Spot.AreaBox);
+            _look = objective.Kind switch
+            {
+                ObjectiveKind.Hold => objective.Room!.Centre,
+                ObjectiveKind.Flag => objective.TheirFlag(state.Team)!.Home,
+                ObjectiveKind.Escort => objective.VipStart,
+                _ => Middle(objective.Spot.AreaBox),
+            };
             GD.Print($"OBJECTIVE DEMO {objective.Kind}: from where you come in, close up at {CloseAt}, " +
                      (objective.Kind == ObjectiveKind.Retrieve ? $"picked up at {TakeAt}, the way out from {TurnAt}" : "") + $", ends at {EndAt} (ticks)");
         }
@@ -62,8 +71,14 @@ public sealed class ObjectiveDemo : ICommandSource
         int t = tick - _start;
         if (t == CloseAt)
         {
-            SVector3 target = objective.Kind == ObjectiveKind.Hold ? objective.Room!.Centre : objective.CasePosition;
-            SVector3 spot = objective.Kind == ObjectiveKind.Hold ? Inside(objective.Room!) : Near(target, 4.5f);
+            SVector3 target = objective.Kind switch
+            {
+                ObjectiveKind.Hold => objective.Room!.Centre,
+                ObjectiveKind.Flag => objective.TheirFlag(state.Team)!.Position + new SVector3(0f, 1.2f, 0f),
+                ObjectiveKind.Escort => (_sim.FindPlayer(objective.Vip)?.EyePosition ?? objective.CasePosition) - new SVector3(0f, 0.6f, 0f),
+                _ => objective.CasePosition,
+            };
+            SVector3 spot = objective.Kind == ObjectiveKind.Hold ? Inside(objective.Room!) : Near(target with { Y = target.Y - (objective.Kind == ObjectiveKind.Flag ? 1.2f : 0f) }, 4.5f);
             _player.Teleport(spot, YawTo(spot, target));
             _look = target;
             GD.Print($"OBJECTIVE DEMO t={t}: at {spot}, looking at {target}");
@@ -74,12 +89,30 @@ public sealed class ObjectiveDemo : ICommandSource
             _player.Teleport(objective.CasePosition, state.Yaw);
         }
 
+        if (objective.Kind == ObjectiveKind.Flag && t == TakeAt)
+        {
+            _player.Teleport(objective.TheirFlag(state.Team)!.Home, state.Yaw);
+        }
+
         if (objective.Kind == ObjectiveKind.Retrieve && t == TurnAt)
         {
             ExitSpec exit = objective.NearestExit(state.Position);
 
             _look = exit.Position + new SVector3(0f, 4f, 0f);
             GD.Print($"OBJECTIVE DEMO t={t}: carrier={objective.Carrier}, looking at {exit.Name}");
+        }
+
+        if (objective.Kind == ObjectiveKind.Flag && t == TurnAt)
+        {
+            _look = objective.FlagOf(state.Team)!.Home + new SVector3(0f, 1.5f, 0f);
+            GD.Print($"OBJECTIVE DEMO t={t}: carrying {objective.CarriedBy(state.Id)?.Team.ToString() ?? "nothing"}, looking home");
+        }
+
+        if (objective.Kind == ObjectiveKind.Escort && t == TurnAt && objective.CountingExits.Count > 0)
+        {
+            ExitSpec exit = objective.NearestExit(objective.CasePosition);
+            _look = exit.Position + new SVector3(0f, 4f, 0f);
+            GD.Print($"OBJECTIVE DEMO t={t}: the VIP makes for {exit.Name}");
         }
 
         if (t >= EndAt)

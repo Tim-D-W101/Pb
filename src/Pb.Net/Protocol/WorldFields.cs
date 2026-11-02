@@ -14,7 +14,10 @@ public sealed class WorldFields
     public const int DoorBits = 10;
     public const int MaxPickups = 64;
 
-    private const int MatchCount = 17;
+    private const int MatchCount = 29;
+
+    /// <summary>Where capture the flag's flags start among the round's fields (after the pickups), five fields each.</summary>
+    private const int FlagsAt = 19;
 
     private readonly byte[] _widths;
 
@@ -42,7 +45,7 @@ public sealed class WorldFields
         m[1] = 32; // live from tick
         m[2] = 32; // end tick
         m[3] = 32; // elapsed (float)
-        m[4] = 3; // why it ended
+        m[4] = 4; // why it ended
         m[5] = 5; // winner + 1
         m[6] = 1; // objective done
         m[7] = (byte)grid.BitsX;
@@ -55,6 +58,16 @@ public sealed class WorldFields
         m[14] = 2; // hold status
         m[15] = 32; // pickups taken 0–31
         m[16] = 32; // pickups taken 32–63
+        m[17] = 5; // capture the flag: the side that captured + 1
+        m[18] = 1; // VIP escort: the VIP is out
+        for (int f = 0; f < 2; f++)
+        {
+            m[FlagsAt + f * 5] = (byte)grid.BitsX;
+            m[FlagsAt + f * 5 + 1] = (byte)grid.BitsY;
+            m[FlagsAt + f * 5 + 2] = (byte)grid.BitsZ;
+            m[FlagsAt + f * 5 + 3] = 5; // carrier + 1
+            m[FlagsAt + f * 5 + 4] = 1; // at home
+        }
     }
 
     public int Players { get; }
@@ -107,6 +120,15 @@ public sealed class WorldFields
                 m[12] = (uint)(o.ExitUsed + 1);
                 m[13] = BitConverter.SingleToUInt32Bits(o.Held);
                 m[14] = (uint)o.Status;
+                m[17] = (uint)(o.CapturedBy + 1);
+                m[18] = o.VipOut ? 1u : 0;
+                for (int f = 0; f < o.Flags.Count && f < 2; f++)
+                {
+                    FlagState flag = o.Flags[f];
+                    Grid.Quantize(flag.Position, out m[FlagsAt + f * 5], out m[FlagsAt + f * 5 + 1], out m[FlagsAt + f * 5 + 2]);
+                    m[FlagsAt + f * 5 + 3] = (uint)(flag.Carrier + 1);
+                    m[FlagsAt + f * 5 + 4] = flag.AtHome ? 1u : 0;
+                }
             }
         }
 
@@ -143,6 +165,14 @@ public sealed class WorldFields
                 new MatchResult((RoundEnd)m[4], (int)m[5] - 1));
             match.Objective?.ApplyServer(m[6] != 0, Grid.Dequantize(m[7], m[8], m[9]), (int)m[10] - 1, m[11] != 0, (int)m[12] - 1,
                 BitConverter.UInt32BitsToSingle(m[13]), (HoldStatus)m[14]);
+            Span<(System.Numerics.Vector3, int, bool)> flags = stackalloc (System.Numerics.Vector3, int, bool)[2];
+            for (int f = 0; f < 2; f++)
+            {
+                flags[f] = (Grid.Dequantize(m[FlagsAt + f * 5], m[FlagsAt + f * 5 + 1], m[FlagsAt + f * 5 + 2]), (int)m[FlagsAt + f * 5 + 3] - 1,
+                    m[FlagsAt + f * 5 + 4] != 0);
+            }
+
+            match.Objective?.ApplyServerExtra((int)m[17] - 1, m[18] != 0, flags);
         }
 
         PickupSet pickups = sim.Pickups;

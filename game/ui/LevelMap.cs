@@ -36,6 +36,8 @@ public partial class LevelMap : Control
     private readonly List<Vector2> _team = new();
     private readonly List<Rect2> _objectiveAreas = new();
     private readonly List<Vector2> _exits = new();
+    private readonly List<(Vector2 At, Color Colour)> _flags = new();
+    private Vector2? _vip;
     private Color _accent = UiKit.Accent;
     private Color _objectiveColour = UiKit.Accent;
 
@@ -114,12 +116,33 @@ public partial class LevelMap : Control
         QueueRedraw();
     }
 
-    /// <summary>Marks the objective: the case's building and the ways out (Retrieve), or the room's parts (Hold).</summary>
-    public void MarkObjective(ObjectiveState objective, Color colour)
+    /// <summary>
+    /// Marks the objective: the case's building and the ways out (Retrieve), the room's parts (Hold), each side's base in
+    /// its colour (capture the flag), or where the VIP starts and the ways out that count (VIP escort).
+    /// </summary>
+    public void MarkObjective(ObjectiveState objective, Color colour, string[]? teamColors = null)
     {
         _objectiveColour = colour;
         _objectiveAreas.Clear();
         _exits.Clear();
+        _flags.Clear();
+        _vip = null;
+        foreach (FlagState flag in objective.Flags)
+        {
+            Color side = teamColors is { Length: > 0 } ? Color.FromHtml(teamColors[flag.Team % teamColors.Length]) : colour;
+            _flags.Add((new Vector2(flag.Home.X, flag.Home.Z), side));
+        }
+
+        if (objective.Kind == ObjectiveKind.Escort)
+        {
+            _vip = new Vector2(objective.VipStart.X, objective.VipStart.Z);
+            foreach (int i in objective.CountingExits)
+            {
+                ExitSpec exit = objective.Level.Exits[i];
+                _exits.Add(new Vector2(exit.Position.X, exit.Position.Z));
+            }
+        }
+
         static Rect2 Plan(Pb.Sim.Collision.Aabb box) => new(box.Min.X, box.Min.Z, box.Max.X - box.Min.X, box.Max.Z - box.Min.Z);
         if (objective.Kind == ObjectiveKind.Retrieve)
         {
@@ -207,6 +230,24 @@ public partial class LevelMap : Control
         {
             DrawArc(Map(exit), 7f, 0f, Mathf.Tau, 20, _objectiveColour, 2.5f, antialiased: true);
             DrawCircle(Map(exit), 2.5f, _objectiveColour);
+        }
+
+        // The flags' bases: a ring in each side's colour with a flag on a pole in it.
+        foreach ((Vector2 at, Color side) in _flags)
+        {
+            Vector2 p = Map(at);
+            DrawArc(p, 9f, 0f, Mathf.Tau, 24, side, 2.5f, antialiased: true);
+            DrawLine(p + new Vector2(-2f, 6f), p + new Vector2(-2f, -7f), Colors.White, 1.5f, antialiased: true);
+            DrawColoredPolygon(new[] { p + new Vector2(-2f, -7f), p + new Vector2(6f, -4.5f), p + new Vector2(-2f, -2f) }, side);
+        }
+
+        // Where the VIP starts: a diamond.
+        if (_vip is { } vip)
+        {
+            Vector2 p = Map(vip);
+            var diamond = new[] { p + new Vector2(0f, -7f), p + new Vector2(7f, 0f), p + new Vector2(0f, 7f), p + new Vector2(-7f, 0f) };
+            DrawColoredPolygon(diamond, _objectiveColour);
+            DrawPolyline(new[] { diamond[0], diamond[1], diamond[2], diamond[3], diamond[0] }, new Color(0f, 0f, 0f, 0.7f), 1.5f, antialiased: true);
         }
 
         // Teammates, then you: an arrow the way you face.

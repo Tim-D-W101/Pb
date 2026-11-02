@@ -158,6 +158,15 @@
       {
         "id": "hold", "displayName": "Hold",
         "description": "Take the marked room and hold it for a minute in all. The clock only runs while your side is in it and theirs isn't."
+      },
+      // Capture the flag and VIP escort are played by two teams (the menu offers them in teams only).
+      {
+        "id": "flag", "displayName": "Capture the flag", "teamsOnly": true,
+        "description": "Each side's flag stands at its base. Take theirs and carry it back to yours, and don't let them take yours. Hit while carrying it, you drop it."
+      },
+      {
+        "id": "escort", "displayName": "VIP escort", "teamsOnly": true,
+        "description": "One of your side is the VIP: unarmed and slower. Bring them out through a marked way out. If the VIP is hit, or the time runs out, the other side wins."
       }
     ],
     // The guards who start right at the objective play this behaviour (bots/archetypes.jsonc): they hold their post.
@@ -196,6 +205,50 @@
       // Contested for stalemateAfter_s without a break (both sides in the room, neither seeing the other round a
       // partition), your side's bots in the room learn where theirs are and go for them, so it gets settled.
       "stalemateAfter_s": 6
+    },
+    "flag": {
+      // Each side's flag stands at its base: where that side starts (the start nearest the middle of theirs, so it's
+      // somewhere they can all reach). Walk within pickupRadius_m of theirs to take it; carried within captureRadius_m
+      // of your own base, it's captured and your side wins. The carrier can't sprint (unless carrierCanSprint).
+      "pickupRadius_m": 1.2,
+      "captureRadius_m": 3,
+      "carrierCanSprint": false,
+      // Hit while carrying it, the carrier drops it where they fell: its own side touching it sends it home at once
+      // (returnOnTouch), and left lying it goes home by itself after returnAfter_s (0: never); the other side can pick
+      // it up again. With needOwnFlagHome you can only capture theirs while yours is at home.
+      "returnOnTouch": true,
+      "returnAfter_s": 30,
+      "needOwnFlagHome": false,
+      // Bots: defendShare of each side (at least one) stays to guard its flag and the rest go for theirs. While a
+      // side's flag is carried off, the chasers of that side nearest it go after the carrier, told where they are
+      // every alarmInterval_s.
+      "defendShare": 0.4,
+      "chasers": 2,
+      "alarmInterval_s": 4
+    },
+    "escort": {
+      // One of the attacking side is the VIP (a bot when there's one, so offline you escort them): unarmed, moving at
+      // speedShare of everyone else's speed and never sprinting. Brought within exitRadius_m of a way out that counts,
+      // the VIP is out safe and the attackers win; the VIP hit, or the time out, the defenders win. A way out counts if
+      // it's at least minExitDistance_m from where the VIP starts and at least farShare of the farthest one's distance
+      // (a side's starts are often by a gate: the far ways out make them cross the area, past the other side).
+      "speedShare": 0.8,
+      "exitRadius_m": 4,
+      "minExitDistance_m": 45,
+      "farShare": 0.75,
+      // Bots defending know the ways out that count: exitGuardShare of them (at least one) make for those from the
+      // start and guard them, spread across them; the rest hunt as usual. From alarmAfter_s into the round they learn
+      // where the VIP is every alarmInterval_s: the chasers nearest go after the VIP, the rest make for the way out
+      // nearest them and wait there.
+      "exitGuardShare": 0.5,
+      // Bots escorting keep lead_m ahead of the VIP on the way out (to within 1.5 m), clearing it; a VIP bot waits,
+      // crouched, while none of its escorts still in is within waitFor_m (alone, it goes anyway): more than lead_m and
+      // the 1.5, or they'd wait on each other.
+      "lead_m": 7,
+      "waitFor_m": 10,
+      "alarmAfter_s": 25,
+      "alarmInterval_s": 6,
+      "chasers": 2
     }
   }
 }

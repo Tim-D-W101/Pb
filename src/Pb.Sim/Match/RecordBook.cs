@@ -136,6 +136,8 @@ public sealed class RecordBook
     {
         ObjectiveKind.Retrieve => "retrieve",
         ObjectiveKind.Hold => "hold",
+        ObjectiveKind.Flag => "flag",
+        ObjectiveKind.Escort => "escort",
         _ => Eliminate,
     };
 

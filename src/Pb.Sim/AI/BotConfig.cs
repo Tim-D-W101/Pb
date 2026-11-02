@@ -18,6 +18,11 @@ public sealed class NavParams
 
     public required float StuckTime { get; init; }
 
+    /// <summary>Someone standing in the way within this, a bot that's stopped getting anywhere for <see cref="StepRoundAfter"/> steps round them (m).</summary>
+    public required float StepRound { get; init; }
+
+    public required float StepRoundAfter { get; init; }
+
     public required int SearchesPerTick { get; init; }
 
     public required int MaxSearchNodes { get; init; }
@@ -375,6 +380,8 @@ public sealed class BotConfig
             StepHeight = nav.StepHeight_m,
             WaypointRadius = nav.WaypointRadius_m,
             StuckTime = nav.StuckTime_s,
+            StepRound = nav.StepRound_m,
+            StepRoundAfter = nav.StepRoundAfter_s,
             SearchesPerTick = nav.SearchesPerTick,
             MaxSearchNodes = nav.MaxSearchNodes,
             SearchNodesPerTick = nav.SearchNodesPerTick,

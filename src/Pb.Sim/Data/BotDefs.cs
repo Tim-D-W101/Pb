@@ -15,6 +15,11 @@ public sealed class NavigationDef : IValidatable
 
     public float StuckTime_s { get; set; }
 
+    /// <summary>Someone standing in the way within this, a bot that's stopped getting anywhere for <see cref="StepRoundAfter_s"/> steps round them (m).</summary>
+    public float StepRound_m { get; set; }
+
+    public float StepRoundAfter_s { get; set; }
+
     public int SearchesPerTick { get; set; }
 
     public int MaxSearchNodes { get; set; }
@@ -36,6 +41,8 @@ public sealed class NavigationDef : IValidatable
         v.InRange(nameof(StepHeight_m), StepHeight_m, 0.05, 1);
         v.InRange(nameof(WaypointRadius_m), WaypointRadius_m, 0.1, 3);
         v.InRange(nameof(StuckTime_s), StuckTime_s, 0.1, 10);
+        v.InRange(nameof(StepRound_m), StepRound_m, 0, 5);
+        v.InRange(nameof(StepRoundAfter_s), StepRoundAfter_s, 0, 5);
         v.InRange(nameof(SearchesPerTick), SearchesPerTick, 1, 64);
         v.InRange(nameof(MaxSearchNodes), MaxSearchNodes, 1000, 10_000_000);
         v.InRange(nameof(SearchNodesPerTick), SearchNodesPerTick, 100, 10_000_000);

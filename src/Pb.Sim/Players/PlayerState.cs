@@ -59,8 +59,17 @@ public sealed class PlayerState
 
     internal double CalledOutAt { get; set; } = double.NegativeInfinity;
 
-    /// <summary>Can't sprint (carrying the case, when the rules say a carrier can't).</summary>
+    /// <summary>Can't sprint (carrying the case or a flag, when the rules say a carrier can't; the VIP).</summary>
     public bool SprintBlocked { get; set; }
+
+    /// <summary>
+    /// The VIP (escort): no marker to fire. Set the same on every copy of the round when it starts (from the roster and
+    /// the seed), so it isn't sent.
+    /// </summary>
+    public bool Unarmed { get; set; }
+
+    /// <summary>Share of the usual speeds this player moves at (the VIP's is the rules' speed share; everyone else's 1).</summary>
+    public float SpeedScale { get; set; } = 1f;
 
     /// <summary>Who eliminated this player (−1 = nobody yet), when, and where the ball broke.</summary>
     public int EliminatedBy { get; set; } = -1;

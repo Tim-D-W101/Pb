@@ -137,7 +137,7 @@ public sealed class GameData
                 },
                 Objectives = new ObjectiveRules
                 {
-                    Kinds = rules.Objectives.Kinds.Select(k => new ObjectiveChoice(k.Id, k.DisplayName, k.Description)).ToArray(),
+                    Kinds = rules.Objectives.Kinds.Select(k => new ObjectiveChoice(k.Id, k.DisplayName, k.Description, k.TeamsOnly)).ToArray(),
                     GuardRole = rules.Objectives.GuardRole,
                     DefendWithin = rules.Objectives.DefendWithin_m,
                     Retrieve = new RetrieveRules
@@ -160,6 +160,31 @@ public sealed class GameData
                         Near = rules.Objectives.Hold.Near_m,
                         AlarmInterval = rules.Objectives.Hold.AlarmInterval_s,
                         StalemateAfter = rules.Objectives.Hold.StalemateAfter_s,
+                    },
+                    Flag = new FlagRules
+                    {
+                        PickupRadius = rules.Objectives.Flag.PickupRadius_m,
+                        CaptureRadius = rules.Objectives.Flag.CaptureRadius_m,
+                        CarrierCanSprint = rules.Objectives.Flag.CarrierCanSprint,
+                        ReturnOnTouch = rules.Objectives.Flag.ReturnOnTouch,
+                        ReturnAfter = rules.Objectives.Flag.ReturnAfter_s,
+                        NeedOwnFlagHome = rules.Objectives.Flag.NeedOwnFlagHome,
+                        DefendShare = rules.Objectives.Flag.DefendShare,
+                        Chasers = rules.Objectives.Flag.Chasers,
+                        AlarmInterval = rules.Objectives.Flag.AlarmInterval_s,
+                    },
+                    Escort = new EscortRules
+                    {
+                        SpeedShare = rules.Objectives.Escort.SpeedShare,
+                        ExitRadius = rules.Objectives.Escort.ExitRadius_m,
+                        MinExitDistance = rules.Objectives.Escort.MinExitDistance_m,
+                        FarShare = rules.Objectives.Escort.FarShare,
+                        ExitGuardShare = rules.Objectives.Escort.ExitGuardShare,
+                        Lead = rules.Objectives.Escort.Lead_m,
+                        WaitFor = rules.Objectives.Escort.WaitFor_m,
+                        AlarmAfter = rules.Objectives.Escort.AlarmAfter_s,
+                        AlarmInterval = rules.Objectives.Escort.AlarmInterval_s,
+                        Chasers = rules.Objectives.Escort.Chasers,
                     },
                 },
             },

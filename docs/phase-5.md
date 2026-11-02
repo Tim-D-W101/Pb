@@ -97,6 +97,9 @@ How I've read it:
 - Every area offers both in teams (flag bases and extraction points in the level files, or worked out from the starts
   and ways out); bots attack, defend, carry, escort and hunt; the HUD, briefing map, referee and network play them.
 - **Checks**: match-rule tests for both, bot rounds of both on every area in the sim tests, smoke runs.
+- *As built* (architecture §18.3): the bases come from each side's starts and the VIP's ways out from the level's
+  (the far ones), so no level file changed; the modes are `ObjectiveKind.Flag` and `Escort` beside retrieve and hold;
+  bot rounds of both run in the smoke tests on three areas, and the sim tests on Oxbarrow Works.
 
 ### M5.4 (PR C2) — The woodsball site, with buggies
 

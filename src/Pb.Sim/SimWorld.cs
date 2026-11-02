@@ -225,13 +225,27 @@ public sealed class SimWorld
             }
 
             objective = new ObjectiveState(kind, attackers, places, Config.Rules.Objectives, MatchSeed);
-            mode = kind == ObjectiveKind.Retrieve ? RetrieveMode.Instance : HoldMode.Instance;
+            mode = kind switch
+            {
+                ObjectiveKind.Retrieve => RetrieveMode.Instance,
+                ObjectiveKind.Flag => FlagMode.Instance,
+                ObjectiveKind.Escort => EscortMode.Instance,
+                _ => HoldMode.Instance,
+            };
         }
 
-        Match = new MatchState(setup, Config.Rules, mode, attackers, heroTeam, objective);
         foreach (PlayerState p in _players)
         {
             p.SprintBlocked = false;
+            p.Unarmed = false;
+            p.SpeedScale = 1f;
+        }
+
+        // Capture the flag's bases and the VIP come from where everyone starts (and the seed).
+        objective?.SetUp(_players, setup, MatchSeed);
+        Match = new MatchState(setup, Config.Rules, mode, attackers, heroTeam, objective);
+        foreach (PlayerState p in _players)
+        {
             p.Marker.ResetGear();
             p.Marker.Paint.FillWith(setup.IsPerson(p.Id) ? setup.StartPods : setup.BotPods);
             Match.AddPlayer(p.Id);
@@ -440,8 +454,9 @@ public sealed class SimWorld
     private int MarkerStep(PlayerState player, in InputCommand cmd, double t0, float dt, bool climbing, SimEventQueue events)
     {
         bool live = IsLive;
+        bool armed = live && !climbing && !player.Unarmed;
         var input = new MarkerInput(
-            live && !climbing && cmd.Has(InputButtons.Fire), live && !climbing && cmd.Has(InputButtons.Refill),
+            armed && cmd.Has(InputButtons.Fire), armed && cmd.Has(InputButtons.Refill),
             cmd.Has(InputButtons.ToggleFireMode), player.Sprinting, player.Alive, player.MarkerReady);
         return player.Marker.Update(t0, dt, input, _shots, events, player.Id, player.Team, Tick);
     }

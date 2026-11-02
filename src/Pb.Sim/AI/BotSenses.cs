@@ -166,7 +166,7 @@ public sealed class BotSenses
             a.FromContact = a.HasLead && a.SinceContact <= contactMemory;
 
             highest = MathF.Max(highest, a.Meter);
-            if (focus is null || Pressing(a) > Pressing(focus))
+            if (focus is null || Pressing(a) + KeyBonus(a) > Pressing(focus) + KeyBonus(focus))
             {
                 focus = a;
             }
@@ -175,6 +175,13 @@ public sealed class BotSenses
         HighestMeter = highest;
         Focus = focus is not null && (focus.HasLead || focus.Meter > 0f) ? focus : null;
     }
+
+    /// <summary>
+    /// Someone in sight whose going out decides the round (the VIP, a flag's or the case's carrier) comes first: worth more
+    /// than any other in sight.
+    /// </summary>
+    private float KeyBonus(Awareness a) =>
+        a.Spotted && a.Visible && _sim.Match?.Objective is { } objective && objective.IsKeyPlayer(a.TargetId) ? 4f : 0f;
 
     private static float Pressing(Awareness a) =>
         (a.Spotted && a.Visible ? 3f : 0f) + (a.Visible ? 1f : 0f) + (a.HasLead ? 1f / (1f + a.SinceLead) : 0f) + a.Meter;

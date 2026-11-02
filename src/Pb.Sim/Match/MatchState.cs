@@ -34,13 +34,26 @@ public enum RoundOutcome : byte
     CaseLost,
     /// <summary>Hold, defending: the other side held the room.</summary>
     RoomLost,
+    /// <summary>Capture the flag: your side carried their flag home.</summary>
+    Captured,
+    /// <summary>Capture the flag: they carried yours home.</summary>
+    FlagLost,
+    /// <summary>VIP escort: your VIP got out safe.</summary>
+    Escorted,
+    /// <summary>VIP escort, defending: their VIP got out.</summary>
+    VipEscaped,
+    /// <summary>VIP escort, defending: you put their VIP out.</summary>
+    VipStopped,
+    /// <summary>VIP escort: your VIP was put out.</summary>
+    VipLost,
 }
 
 public static class RoundOutcomes
 {
     /// <summary>The round was won from your side: the last one standing, the objective done, or defended to the end.</summary>
     public static bool IsWin(this RoundOutcome outcome) =>
-        outcome is RoundOutcome.Cleared or RoundOutcome.Extracted or RoundOutcome.Held or RoundOutcome.HeldOff;
+        outcome is RoundOutcome.Cleared or RoundOutcome.Extracted or RoundOutcome.Held or RoundOutcome.HeldOff or RoundOutcome.Captured
+            or RoundOutcome.Escorted or RoundOutcome.VipStopped;
 }
 
 /// <summary>Why a round ended: the same for everyone in it.</summary>
@@ -62,6 +75,12 @@ public enum RoundEnd : byte
     /// for. The team with the most players still in wins; a tie, nobody.
     /// </summary>
     PeopleOut,
+    /// <summary>Capture the flag: <see cref="MatchResult.Winner"/> carried the other side's flag home.</summary>
+    Captured,
+    /// <summary>VIP escort: the attackers brought the VIP out.</summary>
+    Escorted,
+    /// <summary>VIP escort: the defenders put the VIP out.</summary>
+    VipOut,
 }
 
 /// <summary>How a round stands, or how it ended, from nobody's side: why, and the winning team (−1 for none).</summary>
@@ -456,6 +475,9 @@ public sealed class MatchState
         RoundEnd.TimeUp => Objective is not null && team == Result.Winner ? RoundOutcome.HeldOff : RoundOutcome.TimeUp,
         RoundEnd.Extracted => team == Attackers ? RoundOutcome.Extracted : RoundOutcome.CaseLost,
         RoundEnd.Held => team == Attackers ? RoundOutcome.Held : RoundOutcome.RoomLost,
+        RoundEnd.Captured => team == Result.Winner ? RoundOutcome.Captured : RoundOutcome.FlagLost,
+        RoundEnd.Escorted => team == Attackers ? RoundOutcome.Escorted : RoundOutcome.VipEscaped,
+        RoundEnd.VipOut => team == Attackers ? RoundOutcome.VipLost : RoundOutcome.VipStopped,
         _ => RoundOutcome.None,
     };
 
@@ -563,8 +585,8 @@ public sealed class MatchState
         Objective?.Update(sim, dt);
         if (Elapsed >= Setup.TimeLimit && Objective is not { Done: true })
         {
-            // Without an objective nobody wins on time; with one, its defenders do.
-            End(sim, new MatchResult(RoundEnd.TimeUp, Objective is null ? -1 : DefendingTeam(sim)));
+            // Without an objective nobody wins on time; with one, its defenders do (capture the flag has none: nobody).
+            End(sim, new MatchResult(RoundEnd.TimeUp, Objective is null or { Kind: ObjectiveKind.Flag } ? -1 : DefendingTeamOf(sim)));
             return;
         }
 
@@ -631,7 +653,7 @@ public sealed class MatchState
     }
 
     /// <summary>The team defending the objective: the first team in the round that isn't the attackers (−1 if none).</summary>
-    private int DefendingTeam(SimWorld sim)
+    internal int DefendingTeamOf(SimWorld sim)
     {
         IReadOnlyList<PlayerState> players = sim.Players;
         for (int i = 0; i < players.Count; i++)

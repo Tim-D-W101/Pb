@@ -13,8 +13,10 @@ namespace Pb.Game.World;
 /// <summary>
 /// The objective in the world, looks only (presentation.jsonc "objectives"). Retrieve: the case, a hard case built in
 /// code, lying where the sim says (with a small blinking light) or hanging at its carrier's side, smoothly between ticks;
-/// and a beam of light over each way out. Hold: the room's outline on its floor. The sim decides everything: who carries
-/// the case, where it lies, who holds the room.
+/// and a beam of light over each way out. Hold: the room's outline on its floor. Capture the flag: each side's flag on its
+/// pole in its colour, standing at its base (a ring on the ground in its colour, there whether the flag is or not),
+/// strapped to its carrier's back, or fallen where they were hit. VIP escort: a marker over the VIP's head, and the
+/// beams over the ways out that count. The sim decides everything: who carries what, where it lies, who holds the room.
 /// </summary>
 public partial class ObjectiveViews : Node3D
 {
@@ -26,8 +28,12 @@ public partial class ObjectiveViews : Node3D
     private Transform3D _previous;
     private Transform3D _current;
     private float _blink;
+    private Node3D[] _flags = Array.Empty<Node3D>();
+    private Transform3D[] _flagPrevious = Array.Empty<Transform3D>();
+    private Transform3D[] _flagCurrent = Array.Empty<Transform3D>();
+    private Node3D? _vipMarker;
 
-    public void Build(SimWorld sim, ObjectivesViewDef view)
+    public void Build(SimWorld sim, ObjectivesViewDef view, string[] teamColors)
     {
         _sim = sim;
         _view = view;
@@ -38,7 +44,31 @@ public partial class ObjectiveViews : Node3D
         }
 
         var colour = Color.FromHtml(view.Color);
-        if (_objective.Kind == ObjectiveKind.Retrieve)
+        if (_objective.Kind == ObjectiveKind.Flag)
+        {
+            int n = _objective.Flags.Count;
+            _flags = new Node3D[n];
+            _flagPrevious = new Transform3D[n];
+            _flagCurrent = new Transform3D[n];
+            for (int i = 0; i < n; i++)
+            {
+                FlagState flag = _objective.Flags[i];
+                var team = Color.FromHtml(teamColors[flag.Team % teamColors.Length]);
+                _flags[i] = BuildFlag(view, team);
+                AddChild(_flags[i]);
+                AddChild(BaseRing(flag, team, view));
+            }
+        }
+        else if (_objective.Kind == ObjectiveKind.Escort)
+        {
+            _vipMarker = BuildVipMarker(colour, view);
+            AddChild(_vipMarker);
+            foreach (int i in _objective.CountingExits)
+            {
+                AddChild(Beam(_objective.Level.Exits[i], colour, view));
+            }
+        }
+        else if (_objective.Kind == ObjectiveKind.Retrieve)
         {
             _case = BuildCase(view);
             AddChild(_case);
@@ -62,10 +92,21 @@ public partial class ObjectiveViews : Node3D
         Capture();
     }
 
-    /// <summary>After each sim step: where the case will be drawn towards.</summary>
+    /// <summary>After each sim step: where the case (the flags) will be drawn towards.</summary>
     public void Capture()
     {
-        if (_objective is null || _case is null)
+        if (_objective is null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < _flags.Length; i++)
+        {
+            _flagPrevious[i] = _flagCurrent[i];
+            _flagCurrent[i] = FlagPose(_objective.Flags[i]);
+        }
+
+        if (_case is null)
         {
             return;
         }
@@ -76,12 +117,36 @@ public partial class ObjectiveViews : Node3D
 
     public override void _Process(double delta)
     {
-        if (_objective is null || _case is null)
+        if (_objective is null)
         {
             return;
         }
 
         float alpha = (float)Engine.GetPhysicsInterpolationFraction();
+        for (int i = 0; i < _flags.Length; i++)
+        {
+            _flags[i].GlobalTransform = _flagPrevious[i].InterpolateWith(_flagCurrent[i], alpha);
+        }
+
+        if (_vipMarker is not null)
+        {
+            // Over the VIP's head, turning slowly; gone once they're out (either way).
+            _blink += (float)delta;
+            bool shown = _objective.Vip >= 0 && !_objective.Done && !_objective.VipOut && _sim.FindPlayer(_objective.Vip) is { Alive: true };
+            _vipMarker.Visible = shown;
+            if (shown && _sim.FindPlayer(_objective.Vip) is { } vip)
+            {
+                Vector3 head = vip.EyePosition.ToGodot();
+                _vipMarker.GlobalTransform = new Transform3D(new Basis(Vector3.Up, _blink * 1.5f),
+                    head + new Vector3(0f, _view.VipMarkerAbove_m + 0.05f * Mathf.Sin(_blink * 3f), 0f));
+            }
+        }
+
+        if (_case is null)
+        {
+            return;
+        }
+
         Transform3D pose = _previous.InterpolateWith(_current, alpha);
         _case.GlobalTransform = pose;
         _case.Visible = !_objective.Done;
@@ -95,6 +160,82 @@ public partial class ObjectiveViews : Node3D
             _light.GlobalPosition = pose.Origin + new Vector3(0f, 0.35f, 0f);
             _light.LightEnergy = 0.25f + 0.75f * (0.5f + 0.5f * Mathf.Cos(_blink * Mathf.Tau / _view.CaseLightBlink_s));
         }
+    }
+
+    /// <summary>
+    /// Standing at its base or wherever it was sent home to; strapped to the carrier's back, leaning back a little; or
+    /// fallen where its carrier was hit, lying over on its side.
+    /// </summary>
+    private Transform3D FlagPose(FlagState flag)
+    {
+        if (flag.Carrier >= 0 && _sim.FindPlayer(flag.Carrier) is { } carrier)
+        {
+            float yaw = carrier.Yaw;
+            var back = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+            Vector3 at = carrier.Position.ToGodot() + back * 0.2f + Vector3.Up * 0.75f;
+            return new Transform3D(new Basis(Vector3.Up, yaw) * new Basis(Vector3.Right, -0.25f), at);
+        }
+
+        Vector3 ground = flag.Position.ToGodot();
+        return flag.AtHome
+            ? new Transform3D(Basis.Identity, ground)
+            : new Transform3D(new Basis(Vector3.Up, 0.7f) * new Basis(Vector3.Forward, 1.35f), ground + new Vector3(0f, 0.05f, 0f));
+    }
+
+    /// <summary>A flag on its pole, the pole's foot at the origin: a cloth in its side's colour near the top.</summary>
+    private static Node3D BuildFlag(ObjectivesViewDef view, Color team)
+    {
+        var root = new Node3D { Name = "Flag" };
+        float height = view.FlagPoleHeight_m;
+        var pole = new StandardMaterial3D { AlbedoColor = new Color(0.82f, 0.8f, 0.74f), Roughness = 0.4f, Metallic = 0.5f };
+        var cloth = new StandardMaterial3D { AlbedoColor = team, Roughness = 0.8f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+        root.AddChild(new MeshInstance3D
+        {
+            Mesh = new CylinderMesh { TopRadius = 0.018f, BottomRadius = 0.022f, Height = height, RadialSegments = 8, Material = pole },
+            Position = new Vector3(0f, height * 0.5f, 0f),
+        });
+        float w = view.FlagSize_m[0], h = view.FlagSize_m[1];
+        root.AddChild(new MeshInstance3D
+        {
+            Mesh = new BoxMesh { Size = new Vector3(w, h, 0.01f), Material = cloth },
+            Position = new Vector3(w * 0.5f + 0.02f, height - h * 0.5f - 0.05f, 0f),
+        });
+        root.AddChild(new MeshInstance3D
+        {
+            Mesh = new SphereMesh { Radius = 0.04f, Height = 0.08f, RadialSegments = 8, Rings = 4, Material = pole },
+            Position = new Vector3(0f, height, 0f),
+        });
+        return root;
+    }
+
+    /// <summary>A side's base: a ring on the ground round its flag's home, in its colour.</summary>
+    private static MeshInstance3D BaseRing(FlagState flag, Color team, ObjectivesViewDef view)
+    {
+        var material = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            AlbedoColor = team with { A = 0.8f },
+        };
+        float r = view.FlagBaseRadius_m;
+        return new MeshInstance3D
+        {
+            Name = $"Base {flag.Team}",
+            Mesh = new TorusMesh { InnerRadius = r - 0.06f, OuterRadius = r, Rings = 32, RingSegments = 4, Material = material },
+            Position = flag.Home.ToGodot() + new Vector3(0f, 0.03f, 0f), Scale = new Vector3(1f, 0.2f, 1f),
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+    }
+
+    /// <summary>The VIP's marker: a small point-down pyramid in the objective's colour, lit by itself.</summary>
+    private static MeshInstance3D BuildVipMarker(Color colour, ObjectivesViewDef view)
+    {
+        var material = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = colour };
+        return new MeshInstance3D
+        {
+            Name = "VipMarker",
+            Mesh = new CylinderMesh { TopRadius = view.VipMarkerSize_m, BottomRadius = 0f, Height = view.VipMarkerSize_m * 1.4f, RadialSegments = 4, Material = material },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
     }
 
     /// <summary>Lying flat where it is, or upright at the carrier's right side, handle up, about hip high.</summary>

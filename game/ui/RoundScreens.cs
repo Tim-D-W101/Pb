@@ -292,6 +292,22 @@ public static class RoundScreens
             return ("ROOM HELD", UiKit.Good, f.ObjectiveLine ?? "The room is yours.");
         }
 
+        switch (outcome)
+        {
+            case RoundOutcome.Captured:
+                return ("FLAG CAPTURED", UiKit.Good, f.ObjectiveLine ?? "Your side carried their flag home.");
+            case RoundOutcome.FlagLost:
+                return ("FLAG LOST", UiKit.Bad, f.ObjectiveLine ?? "They carried your flag home.");
+            case RoundOutcome.Escorted:
+                return ("VIP OUT SAFE", UiKit.Good, f.ObjectiveLine ?? "The VIP got out.");
+            case RoundOutcome.VipEscaped:
+                return ("THEIR VIP GOT OUT", UiKit.Bad, f.ObjectiveLine ?? "The other side brought their VIP out.");
+            case RoundOutcome.VipStopped:
+                return ("VIP STOPPED", UiKit.Good, f.ObjectiveLine ?? "Your side put their VIP out.");
+            case RoundOutcome.VipLost:
+                return ("VIP DOWN", UiKit.Bad, f.ObjectiveLine ?? "Your VIP was put out.");
+        }
+
         if (outcome == RoundOutcome.TimeUp && f.ObjectiveLine is { } how)
         {
             return ("TIME UP", UiKit.Bad, how);

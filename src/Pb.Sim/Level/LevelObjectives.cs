@@ -54,6 +54,8 @@ public sealed class LevelObjectives
     {
         ObjectiveKind.Retrieve => CaseSpots.Count > 0 && Exits.Count > 0,
         ObjectiveKind.Hold => Rooms.Count > 0,
+        // The flags' bases are where each side starts, so every area has them; the VIP needs a way out.
+        ObjectiveKind.Escort => Exits.Count > 0,
         _ => true,
     };
 }

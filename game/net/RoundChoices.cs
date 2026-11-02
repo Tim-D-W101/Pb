@@ -61,7 +61,7 @@ public static class RoundChoices
         int size = c.Size >= smallest && mode.PlayersFor(c.Size) <= rules.MaxPlayers ? c.Size : mode.DefaultSize;
         ObjectiveChoice eliminate = rules.Objectives.Find(ObjectiveKind.Eliminate)!;
         ObjectiveChoice objective = rules.Objectives.Kinds.FirstOrDefault(k => RecordBook.IdOf(k.Kind) == c.ObjectiveId) ?? eliminate;
-        if (mode.Kind == MatchModeKind.FreeForAll || (objective.Kind != ObjectiveKind.Eliminate && !area.ForPlace(place).Objectives.Offers(objective.Kind)))
+        if (!objective.PlayableIn(mode.Kind) || (objective.Kind != ObjectiveKind.Eliminate && !area.ForPlace(place).Objectives.Offers(objective.Kind)))
         {
             objective = eliminate;
         }
@@ -70,11 +70,12 @@ public static class RoundChoices
         return new ChosenRound(entry, area, place, mode, size, objective, tier);
     }
 
-    /// <summary>The objectives a place has room for (eliminate always).</summary>
-    public static ObjectiveChoice[] Offered(GameData data, LevelLayout area, PlaceSpec place)
+    /// <summary>The objectives a place has room for and <paramref name="mode"/> plays (eliminate always).</summary>
+    public static ObjectiveChoice[] Offered(GameData data, LevelLayout area, PlaceSpec place, MatchModeKind mode)
     {
         LevelLayout layout = area.ForPlace(place);
-        return data.Config.Rules.Objectives.Kinds.Where(k => k.Kind == ObjectiveKind.Eliminate || layout.Objectives.Offers(k.Kind)).ToArray();
+        return data.Config.Rules.Objectives.Kinds
+            .Where(k => k.Kind == ObjectiveKind.Eliminate || (layout.Objectives.Offers(k.Kind) && k.PlayableIn(mode))).ToArray();
     }
 
     /// <summary>
