@@ -26,7 +26,8 @@ does the collide-and-slide for walking, and renders. Presentation systems implem
 `ISimEventListener` and never change outcomes. Bots (Phase 2) and network clients (Phase 4)
 produce the same `InputCommand`s as humans. Since Phase 2 the game is explorable compound levels
 (see `docs/architecture.md` §14): levels are built from a data kit of analytic primitives, so paint
-collision never needs engine meshes.
+collision never needs engine meshes. A level can have rolling ground (`terrain`, §18.7): one height field that paint,
+sight, wheels, the bots' grid, walking and the drawn ground all share; heights in the level file are above it.
 
 ## Commands
 
@@ -46,6 +47,9 @@ python3 tools/levels/hospital_wings.py game/data/kit/buildings   # regenerate th
 python3 tools/levels/thornwick_woods.py game/data/levels        # regenerate Thornwick Woods, the big woodsball site (likewise)
 blender -b --factory-startup -P tools/anim/build_clips.py -- game/art/models/clip_walk.glb game/art/models/anim_set.glb   # the characters' animation set (Blender 4.2), then godot --import
 ```
+
+Every level load prints a `Load:` line with each part's time (the data, the bots' grid, the world's meshes, the
+dressing, the rest), to tell a slow load apart.
 
 The menu's picture of each place (`game/ui/places/LEVEL_PLACE.jpg`) is taken in the game, from the viewpoint the level
 file's place names in `"still"`; retake a level's after changing it (under lavapipe, below), then import:
@@ -149,8 +153,9 @@ nearest that point); it runs headless too, for the numbers alone. `-- --ladder-d
 tallest ladder, step off at the top, turn round and climb down, filmed from behind and to the side (`--ladder=N` for another;
 Oxbarrow Works and `--level=rail_yard` have ladders).
 `-- --vehicle-demo --level=thornwick_woods` gets you into a buggy at its driver's door, drives it along the tracks round
-the crossroads (a burst fired from the wheel and a pull on the handbrake on the way) and gets you out to look back at it,
-failing it if the engine, the tyres or the skid weren't heard (it prints each sound's time on; `--vehicle=N` for another;
+the crossroads (a burst fired from the wheel, and the handbrake pulled on the farmyard's concrete and again on gravel) and
+gets you out to look back at it, failing it if the engine, the tyres, the squeal on hard ground or the scrub on loose
+weren't heard (it prints each sound's time on; `--vehicle=N` for another, checked for a squeal only if its way has hard ground;
 it runs headless too, as CI's smoke test, and `--fast` at a low `--fixed-fps` films it in few frames; `--chase` films it
 from behind and beside instead, `--chase=near` close by the driver, `--chase=side` square to their side); a bot match's `--min-drives=N` fails it if bots took
 the wheel fewer than N times.

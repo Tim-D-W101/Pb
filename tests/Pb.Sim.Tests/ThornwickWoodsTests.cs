@@ -25,7 +25,8 @@ public class ThornwickWoodsTests
 
     private static LevelLayout Level => TestData.Data.Levels["thornwick_woods"];
 
-    private static Vector3 On(float x, float z) => new(x, 0f, z);
+    /// <summary>A point on the rolling ground (M5.8).</summary>
+    private static Vector3 On(float x, float z) => new(x, Level.GroundAt(x, z), z);
 
     [Fact]
     public void It_is_several_times_the_works_with_woods_tracks_and_buggies()
@@ -46,9 +47,9 @@ public class ThornwickWoodsTests
         BotArena arena = BotArena.Create("normal", level: "thornwick_woods");
         BotBrain bot = arena.AddBotAt(arena.Level.OpponentSpawns.First(s => s.Id == "farmyard"), team: 0, archetype: "sentry");
         arena.AddBotAt(arena.Level.OpponentSpawns.First(s => s.Id == "scrapyard"), team: 1).Passive = true;
-        arena.Hero.Position = new Vector3(-150f, 0f, 110f); // you, out of the way in the far corner
+        arena.Hero.Position = On(-150f, 110f); // you, out of the way in the far corner
         arena.Start(mode: MatchModeKind.Teams);
-        var goal = new Vector3(6f, 0f, -104f); // by the north lane, up by the north gate
+        var goal = On(6f, -104f); // by the north lane, up by the north gate
         bot.Guard(goal, 0f, shout: false);
         float fastest = 0f, drove = 0f;
         int satAt = -1, outAt = -1;
@@ -94,11 +95,11 @@ public class ThornwickWoodsTests
         // An enemy standing out in the farm, well off the lane: in sight as the buggy goes by, too far to get out for.
         BotBrain enemy = arena.AddBotAt(arena.Level.OpponentSpawns.First(s => s.Id == "scrapyard"), team: 1);
         enemy.Passive = true;
-        enemy.Self.Position = new Vector3(24f, 0f, -24f);
+        enemy.Self.Position = On(24f, -24f);
         arena.AddBotAt(arena.Level.OpponentSpawns.First(s => s.Id == "hazel_copse"), team: 1).Passive = true; // keeps the round going
-        arena.Hero.Position = new Vector3(-150f, 0f, 110f);
+        arena.Hero.Position = On(-150f, 110f);
         arena.Start(mode: MatchModeKind.Teams);
-        var goal = new Vector3(6f, 0f, -104f);
+        var goal = On(6f, -104f);
         bot.Guard(goal, 0f, shout: false);
         int fromTheWheel = 0, seen = 0;
         float drove = 0f;
@@ -123,6 +124,44 @@ public class ThornwickWoodsTests
         _out.WriteLine($"drove {drove:0} m, {fromTheWheel} shots from the wheel; the enemy is {(enemy.Self.Alive ? "still in" : "out")}");
         Assert.True(fromTheWheel > 0, "it never fired from the wheel");
         Assert.True(drove > 150f, $"it stopped driving after {drove:0} m");
+    }
+
+    [Fact]
+    public void In_a_team_round_hunters_drive_toward_the_other_end()
+    {
+        // Two a side, starting at the north and the south gates, each end with a buggy near it (M5.8): with nothing to go
+        // on, a hunt heads for the other side's end of the site, far enough that the buggy's the quicker way.
+        BotArena arena = BotArena.Create("normal", level: "thornwick_woods");
+        arena.Hero.Position = On(0f, -128f);
+        OpponentSpawn At(string id, float x, float z, float yaw) => new() { Id = id, Position = On(x, z), Yaw = yaw, Roles = new[] { "hunter" } };
+        BotBrain[] north = { arena.AddBotAt(At("north1", -6f, -120f, MathF.PI), 0, "hunter"), arena.AddBotAt(At("north2", 6f, -118f, MathF.PI), 0, "hunter") };
+        BotBrain[] south = { arena.AddBotAt(At("south1", -4f, 116f, 0f), 1, "hunter"), arena.AddBotAt(At("south2", 6f, 114f, 0f), 1, "hunter") };
+        arena.Start(mode: MatchModeKind.Teams);
+        var drove = new Dictionary<BotBrain, float>();
+        var last = arena.Bots.ToDictionary(b => b, b => b.Self.Position);
+        arena.Run(60 * 120, () =>
+        {
+            foreach (BotBrain b in arena.Bots)
+            {
+                if (arena.Sim.Vehicles.Of(b.Self) is { } v && v.Driver == b.Self.Id)
+                {
+                    drove[b] = drove.GetValueOrDefault(b) + Flat(b.Self.Position - last[b]);
+                }
+
+                last[b] = b.Self.Position;
+            }
+
+            return north.Any(b => drove.GetValueOrDefault(b) > 60f) && south.Any(b => drove.GetValueOrDefault(b) > 60f);
+        });
+
+        foreach (BotBrain b in arena.Bots)
+        {
+            _out.WriteLine($"{b.Self.Name} (side {b.Self.Team}): drove {drove.GetValueOrDefault(b):0} m, now at {b.Self.Position} ({b.Ride}, {b.Label})");
+        }
+
+        _out.WriteLine($"after {arena.Sim.Tick / 120f:0} s");
+        Assert.True(north.Any(b => drove.GetValueOrDefault(b) > 60f), "nobody from the north end drove south");
+        Assert.True(south.Any(b => drove.GetValueOrDefault(b) > 60f), "nobody from the south end drove north");
     }
 
     [Fact]
@@ -185,9 +224,9 @@ public class ThornwickWoodsTests
         RoadGraph roads = RoadGraph.Build(Level.Roads);
         var route = new List<Vector3>();
         _out.WriteLine($"{roads.NodeCount} junctions and bends, {roads.SegmentCount} stretches");
-        foreach (Vector3 to in new[] { new Vector3(-160f, 0f, 60f), new Vector3(118f, 0f, 20f), new Vector3(0f, 0f, -118f), new Vector3(-10f, 0f, 68f) })
+        foreach (Vector3 to in new[] { On(-160f, 60f), On(118f, 20f), On(0f, -118f), On(-10f, 68f) })
         {
-            Assert.True(roads.Route(new Vector3(0f, 0f, 118f), to, route, out float length), $"no way by the tracks to {to}");
+            Assert.True(roads.Route(On(0f, 118f), to, route, out float length), $"no way by the tracks to {to}");
             _out.WriteLine($"  to {to}: {length:0} m by {route.Count} points");
         }
     }
@@ -202,7 +241,12 @@ public class ThornwickWoodsTests
         double built = watch.Elapsed.TotalSeconds;
         watch.Restart();
         CoverSet cover = CoverSet.Build(Level, grid, TestData.Config.Movement.StandEyeHeight, TestData.Config.Movement.CrouchEyeHeight);
-        _out.WriteLine($"grid: {grid.SpanCount} places in {built:0.00} s; cover: {cover.Points.Count} points in {watch.Elapsed.TotalSeconds:0.00} s");
+        double covered = watch.Elapsed.TotalSeconds;
+        // The landmarks' walks go on meanwhile, on another thread (M5.8): the first search waits for them.
+        grid.WaitForLandmarks();
+        _out.WriteLine($"grid: {grid.SpanCount} places in {built:0.00} s; cover: {cover.Points.Count} points in {covered:0.00} s; " +
+                       $"the landmarks {built + watch.Elapsed.TotalSeconds:0.00} s after it started");
+        Assert.True(built < 2.5, $"the grid took {built:0.0} s to build");
     }
 
     [Fact]
@@ -213,11 +257,11 @@ public class ThornwickWoodsTests
         double built = watch.Elapsed.TotalSeconds;
         var search = new NavSearch(grid);
         var path = new List<Vector3>();
-        var from = new Vector3(0f, 0f, 118f);
+        var from = On(0f, 118f);
         (Vector3 To, string Name)[] goals =
         {
-            (new Vector3(-104f, 0f, -72f), "Blackthorn glade"), (new Vector3(30f, 0f, -80f), "the fort"),
-            (new Vector3(130f, 0f, 64f), "the scrapyard"), (new Vector3(-136f, 0f, 48f), "the camp"),
+            (On(-104f, -72f), "Blackthorn glade"), (On(30f, -80f), "the fort"),
+            (On(130f, 64f), "the scrapyard"), (On(-136f, 48f), "the camp"),
         };
         foreach ((Vector3 to, string name) in goals)
         {

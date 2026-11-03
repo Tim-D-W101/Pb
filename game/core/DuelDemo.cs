@@ -17,8 +17,10 @@ namespace Pb.Game.Core;
 /// past your head, one breaking close by, and one breaking on your mask: paint sprays your goggles and the spectator
 /// view shows who got you. Each shows an incoming-fire arc pointing back the way it came; drawn (not headless), a
 /// moment after each the demo looks at the screen where the HUD says that arc is, to see it's really there (the arc for
-/// the ball that put you out was once all but hidden under the paint on your mask). Prints the tick of each step and
-/// SMOKE PASS or FAIL, and quits. <c>--duel-distance=M</c> stands you M metres from the bot instead of six, for a close-up.
+/// the ball that put you out was once all but hidden under the paint on your mask). From the ball that puts you out on,
+/// it counts the HIT!s drawn on each frame (yours, and the calls over the others' heads): the bot you put out was still
+/// calling it when yours came up, overlapping it. Prints the tick of each step and SMOKE PASS or FAIL, and quits.
+/// <c>--duel-distance=M</c> stands you M metres from the bot instead of six, for a close-up.
 /// </summary>
 public sealed class DuelDemo : ICommandSource
 {
@@ -35,6 +37,7 @@ public sealed class DuelDemo : ICommandSource
     private readonly SimWorld _sim;
     private readonly IReadOnlyList<OpponentPawn> _opponents;
     private readonly Hud _hud;
+    private readonly HitMoment _hitMoment;
     private readonly List<string> _arcs = new();
     private readonly List<string> _problems = new();
     private PlayerState? _target;
@@ -43,13 +46,16 @@ public sealed class DuelDemo : ICommandSource
     private int _incomingAt = -1;
     private Image? _clear;
     private bool _finished;
+    private bool _counting;
+    private int _mostHits;
 
-    public DuelDemo(Node host, SimWorld sim, IReadOnlyList<OpponentPawn> opponents, Hud hud)
+    public DuelDemo(Node host, SimWorld sim, IReadOnlyList<OpponentPawn> opponents, Hud hud, HitMoment hitMoment)
     {
         _host = host;
         _sim = sim;
         _opponents = opponents;
         _hud = hud;
+        _hitMoment = hitMoment;
     }
 
     /// <summary>Puts <paramref name="player"/> six metres (or <c>--duel-distance</c>) in front of an opponent out in the open, facing them.</summary>
@@ -115,6 +121,8 @@ public sealed class DuelDemo : ICommandSource
             else if (since == IncomingAfterOut)
             {
                 _incomingAt = t;
+                _counting = true;
+                _host.GetTree().ProcessFrame += CountHits;
                 Incoming(me);
                 GD.Print($"DUEL incoming ball at tick {t}");
                 // You're out a moment later, and this stops being asked for your moves: the look at its arc is timed.
@@ -247,6 +255,18 @@ public sealed class DuelDemo : ICommandSource
         }
     }
 
+    /// <summary>The HIT!s up as the frame before this one was drawn: yours, and the calls over anyone's head.</summary>
+    private void CountHits()
+    {
+        int drawn = _hitMoment.Words ? 1 : 0;
+        foreach (OpponentPawn o in _opponents)
+        {
+            drawn += o.CallingHit ? 1 : 0;
+        }
+
+        _mostHits = System.Math.Max(_mostHits, drawn);
+    }
+
     /// <summary>How far one colour is from another (the sum of the channels' differences).</summary>
     private static float Off(Color a, Color b) => System.MathF.Abs(a.R - b.R) + System.MathF.Abs(a.G - b.G) + System.MathF.Abs(a.B - b.B);
 
@@ -259,10 +279,24 @@ public sealed class DuelDemo : ICommandSource
         }
 
         _finished = true;
+        if (_counting)
+        {
+            _host.GetTree().ProcessFrame -= CountHits;
+        }
+
         int[] added = _hud.IncomingArcsAdded;
         if (_outAt < 0)
         {
             _problems.Add("the target was never put out");
+        }
+
+        if (_hitMoment.Played == 0)
+        {
+            _problems.Add("HIT! never came up");
+        }
+        else if (_mostHits > 1)
+        {
+            _problems.Add($"HIT! was drawn {_mostHits} times at once");
         }
 
         foreach (IncomingKind kind in new[] { IncomingKind.Flyby, IncomingKind.NearBreak, IncomingKind.Hit })
@@ -275,7 +309,7 @@ public sealed class DuelDemo : ICommandSource
 
         bool ok = _problems.Count == 0;
         GD.Print($"SMOKE {(ok ? "PASS" : "FAIL")}: duel demo: arcs added {string.Join(", ", System.Linq.Enumerable.Select(new[] { 0, 1, 2, 3 }, k => $"{(IncomingKind)k} {added[k]}"))}; " +
-                 string.Join("; ", _arcs) + (ok ? "" : ": " + string.Join("; ", _problems)));
+                 string.Join("; ", _arcs) + $"; HIT! drawn at most {_mostHits} at once" + (ok ? "" : ": " + string.Join("; ", _problems)));
         _host.GetTree().QuitCleanly(ok ? 0 : 1);
     }
 }

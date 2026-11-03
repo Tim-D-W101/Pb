@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Godot;
 using Pb.Game.Ai;
 using Pb.Game.Audio;
@@ -113,6 +114,9 @@ public partial class LevelMain : Node3D, ISimEventListener
     private LevelSmokeTest? _smoke;
     private SpectatorView? _spectator;
     private HitMoment _hitMoment = null!;
+
+    /// <summary>Whether your own HIT! is up (the others' calls of it over their heads wait).</summary>
+    private bool HitWordsUp() => _hitMoment is { Words: true };
     private System.Numerics.Vector3? _lastHitTravel;
     private ViewModelPaint _markerPaint = null!;
     private MaskSprayOverlay _maskSpray = null!;
@@ -222,6 +226,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         _environment = GetNode<WorldEnvironment>("WorldEnvironment");
         _sun = GetNode<DirectionalLight3D>("Sun");
 
+        var clock = new LoadClock();
+        // The sim's, the network's and the game's own methods compiled while the level loads, rather than on their first
+        // call mid-round (a bot's first flank, the first elimination: each was a stall of a few ms); on another thread,
+        // alongside the rest of the load (M5.8).
+        Task<(int Methods, double Milliseconds)> warming = Task.Run(CompileUpFront);
         try
         {
             var source = new GodotDataSource();
@@ -311,6 +320,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             : seeded ? given
             : repeatable && _net is null ? _data.Config.MatchSeed
             : (ulong)System.Random.Shared.NextInt64();
+        clock.Lap("data");
         _sim = new SimWorld(_data.Config, seed);
         _sim.LoadLevel(_level);
         // Everything built once from the level as it stands (cover, starts, weeds, old paint, light) leaves the doors
@@ -319,9 +329,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         var navWatch = Stopwatch.StartNew();
         _squad = BotSquad.ForLevel(_sim, _data.Bots, _level);
         double navMs = navWatch.Elapsed.TotalMilliseconds;
-        // The sim's, the network's and the game's own methods compiled now, while the level loads, rather than on
-        // their first call mid-round (a bot's first flank, the first elimination): each was a stall of a few ms.
-        (int warmed, double warmMs) = WarmUp();
+        clock.Lap("the bots' grid");
+        HoldOffCollections();
         // With an objective the opponents gather round it, so the starts are always dealt; so they are in part of an area.
         ObjectiveFocus? focus = ObjectiveFocus.For(_objective.Kind, _level.Objectives, _data.Config.Rules.Objectives, seed);
         if (_net is { Hosting: true })
@@ -380,7 +389,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         _teamColor = teamColor;
 
         GraphicsPresetDef preset = _view.Graphics.Effective(Args.Value("--preset") ?? _settings.GraphicsPreset, _settings.Graphics);
-        _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, _view.Woods);
+        clock.Lap("starts");
+        _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, _view.Woods, _view.TerrainView);
+        clock.Lap($"the world ({_world.BuildTimes})");
         _doors = new DoorViews { Name = "Doors" };
         AddChild(_doors);
         _doors.Build(_sim, _world.Materials);
@@ -390,77 +401,115 @@ public partial class LevelMain : Node3D, ISimEventListener
         var tracks = new TrackViews { Name = "Tracks" };
         AddChild(tracks);
         tracks.Build(_level, _world.Materials);
+        clock.Lap("doors and vehicles");
         var dressWatch = Stopwatch.StartNew();
+        // Each part of the dressing that took 50 ms or more, for the line below.
+        var laps = new System.Text.StringBuilder();
+        double lapAt = 0;
+        void Lap(string what)
+        {
+            double now = dressWatch.Elapsed.TotalMilliseconds;
+            if (now - lapAt >= 50)
+            {
+                laps.Append(laps.Length > 0 ? ", " : "").Append(what).Append(' ').Append((now - lapAt).ToString("0")).Append(" ms");
+            }
+
+            lapAt = now;
+        }
+
         // The worn paths first: the weeds keep off them.
         var paths = new WornPaths { Name = "WornPaths" };
         AddChild(paths);
         paths.Plan(_level, _sim.Collision, _view.WornPaths, _squad.Cover.Points);
+        Lap("worn paths");
         _weeds = new WeedField { Name = "Weeds", Wind = _view.GroundWind };
         AddChild(_weeds);
         _weeds.Build(_level, _sim.Collision, _view.Weeds, paths.Clear);
+        Lap("weeds");
         _weeds.Follow(_sim);
         paths.Draw(_level, _sim.Collision, _view.WornPaths);
+        Lap("worn paths drawn");
         var cracks = new Cracks { Name = "Cracks" };
         AddChild(cracks);
         cracks.Build(_level, _sim.Collision, _view.Weeds, _view.Cracks);
+        Lap("cracks");
         _groundDetail = new GroundDetail { Name = "GroundDetail" };
         AddChild(_groundDetail);
         _groundDetail.Build(_level, _sim.Collision, _view.GroundDetail);
+        Lap("ground detail");
         var fittings = new YardFittings { Name = "YardFittings" };
         AddChild(fittings);
         fittings.Build(_level, _sim.Collision, _view.YardFittings, _world.Materials);
+        Lap("drains");
         _floorDebris = new FloorDebris { Name = "FloorDebris" };
         AddChild(_floorDebris);
         _floorDebris.Build(_level, _sim.Collision, _view.FloorDebris);
+        Lap("floor debris");
         _oldPaint = new OldPaint { Name = "OldPaint" };
         AddChild(_oldPaint);
         _oldPaint.Build(_level, _sim.Collision, _squad.Cover.Points, _view.OldPaint);
+        Lap("old paint");
         _creepers = new Creepers { Name = "Creepers" };
         AddChild(_creepers);
         _creepers.Build(_level, _sim.Collision, _view.Creepers);
+        Lap("creepers");
         var runOff = new RunOff { Name = "RunOff" };
         AddChild(runOff);
         runOff.Build(_level, _sim.Collision, _world.Drips, _view.RunOff);
+        Lap("run-off");
         var markings = new Markings { Name = "Markings" };
         AddChild(markings);
         markings.Build(_level, _view.Markings);
+        Lap("markings");
         _contact = new ContactShadows { Name = "ContactShadows" };
         AddChild(_contact);
         _contact.Build(_level, _view.ContactShadows);
+        Lap("contact shadows");
         var cobwebs = new Cobwebs { Name = "Cobwebs" };
         AddChild(cobwebs);
         cobwebs.Build(_level, _view.Cobwebs);
+        Lap("cobwebs");
         var hangings = new WallHangings { Name = "WallHangings" };
         AddChild(hangings);
         hangings.Build(_level, _view.WallHangings);
+        Lap("wall hangings");
         var damp = new Damp { Name = "Damp" };
         AddChild(damp);
         damp.Build(_level, _sim.Collision, _view.Damp);
+        Lap("damp");
         var graffiti = new Graffiti { Name = "Graffiti" };
         AddChild(graffiti);
         graffiti.Build(_level, _view.Graffiti, _world.Piers);
+        Lap("graffiti");
         var bags = new SnaggedBags { Name = "SnaggedBags" };
         AddChild(bags);
         bags.Build(_level, _world.Strands, _view.SnaggedBags, _view.GroundWind);
+        Lap("bags");
         // Round a part of the area: tape wherever a walk could cross its edge.
         var boundary = new PlaceBoundary { Name = "PlaceBoundary" };
         AddChild(boundary);
         boundary.Build(_level, _view.PlaceBoundary, _view.GroundWind);
+        Lap("tape");
         var tatters = new RoofTatters { Name = "RoofTatters" };
         AddChild(tatters);
         tatters.Build(_level, _view.RoofTatters, _view.GroundWind);
+        Lap("tatters");
         var litter = new BlowingLitter { Name = "BlowingLitter" };
         AddChild(litter);
         litter.Build(_level, _sim.Collision, _view.BlowingLitter, _view.GroundWind);
+        Lap("litter");
         _birds = new Birds { Name = "Birds" };
         AddChild(_birds);
         Pb.Sim.Collision.Aabb bounds = _level.Bounds;
         _birds.Build(new Vector3((bounds.Min.X + bounds.Max.X) * 0.5f, 0f, (bounds.Min.Z + bounds.Max.Z) * 0.5f), LevelBuilder.StableHash(_level.Id), _view.Birds, _level, _sim.Collision);
+        Lap("birds");
         _shafts = new LightShafts { Name = "LightShafts" };
         AddChild(_shafts);
         _shafts.Build(_level, _sim.Collision, _view.Lighting, _view.Shafts, _view.Dust, _view.WindowLight);
+        Lap("light");
         GD.Print($"Level dressing: {_weeds.TuftCount} weed tufts, {paths.Count} worn paths ({paths.Length_m:0} m), {cracks.Count} cracks ({cracks.Length_m:0} m), {_groundDetail.CardCount} things on the ground, {_floorDebris.Count} on the floors indoors, {fittings.Count} manholes and drains, {_oldPaint.SplatCount} old paint splats, {_creepers.PatchCount} creepers, {runOff.Count} run-off streaks, {markings.CardCount} marking cards, {_contact.Count} contact shadows, {cobwebs.Count} cobwebs, {hangings.Count} things on the walls, {damp.Count} damp patches, {graffiti.Count} graffiti, {bags.Count} bags on the wire, {boundary.Length_m:0} m of tape on {boundary.PostCount} posts round the place, {litter.Count} bits of litter blowing about, {tatters.Count} tatters under the roof holes, {_birds.Count} birds, {_shafts.BeamCount} sunbeams, {_shafts.LightCount} window and bounce lights " +
-                 $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms");
+                 $"in {dressWatch.Elapsed.TotalMilliseconds:0} ms ({laps})");
+        clock.Lap("dressing");
         Atmosphere.ApplyLighting(_environment, _sun, _view.Lighting);
         ApplyGraphics(preset);
 
@@ -598,6 +647,9 @@ public partial class LevelMain : Node3D, ISimEventListener
             _sim.GoLive();
         }
 
+        (int warmed, double warmMs) = warming.Result;
+        clock.Lap("characters, bots and the rest");
+        GD.Print(clock.Line);
         if (Args.Ticks("--smoke-test", 1800) is { } ticks)
         {
             _smoke = new LevelSmokeTest(this, _sim, _driver, _player, _world, ticks, _pawns, _bots);
@@ -641,7 +693,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (Args.Has("--duel-demo"))
         {
-            var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud);
+            var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud, _hitMoment);
             demo.Setup(_player);
             _player.AutoPilot = demo;
             _hud.ShowHelp = false;
@@ -733,7 +785,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(tour);
             tour.Start(() =>
             {
-                var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud);
+                var demo = _duel = new DuelDemo(this, _sim, _pawns, _hud, _hitMoment);
                 demo.Setup(_player);
                 _player.AutoPilot = demo;
                 BeginRound();
@@ -885,6 +937,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             var pawn = new OpponentPawn { Name = $"{(team == 0 ? "Teammate" : "Opponent")}_{spawn.Id}" };
             parent.AddChild(pawn);
             pawn.Initialize(_sim, state, TeamColor(team), new BotPilot(brain), _view.Characters, i, _view.MarkerModel);
+            pawn.HushCall = HitWordsUp;
             _pawns.Add(pawn);
             _bots.Add(brain);
         }
@@ -1003,6 +1056,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             var pawn = new OpponentPawn { Name = $"{kind}_{entry.PlayerId}", Puppet = server is null };
             parent.AddChild(pawn);
             pawn.Initialize(_sim, state, TeamColor(state.Team), pilot, _view.Characters, entry.Look, _view.MarkerModel);
+            pawn.HushCall = HitWordsUp;
             _pawns.Add(pawn);
         }
 
@@ -1604,7 +1658,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     /// up, has the garbage collector avoid full blocking collections (it collects the old generation in the background
     /// instead): the hitches of a first call or a full collection mid-round.
     /// </summary>
-    private (int Methods, double Milliseconds) WarmUp()
+    private void HoldOffCollections()
     {
         _latencyBefore = System.Runtime.GCSettings.LatencyMode;
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
@@ -1612,6 +1666,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         {
             _collectionsAtLoad[g] = GC.CollectionCount(g);
         }
+    }
+
+    /// <summary>Compiles the sim's, the network's and the game's methods (on a worker thread: it calls nothing of the engine's).</summary>
+    private static (int Methods, double Milliseconds) CompileUpFront()
+    {
         (int sim, double simMs) = Pb.Sim.Core.JitWarmup.PrepareSim();
         (int net, double netMs) = Pb.Sim.Core.JitWarmup.Prepare(typeof(Pb.Net.Server.NetServer).Assembly);
         (int game, double gameMs) = Pb.Sim.Core.JitWarmup.Prepare(typeof(LevelMain).Assembly);
@@ -1714,6 +1773,11 @@ public partial class LevelMain : Node3D, ISimEventListener
         Color paint = TeamColor(shooter?.Team ?? (victim.Team == 0 ? 1 : 0));
         float angle = _lastHitTravel is { } travel ? IncomingFire.ScreenAngle(IncomingFire.BearingOf(-travel), _player.Yaw) : float.NaN;
         _hitMoment.Start(paint, angle, detail, _settings.HitEffect);
+        foreach (OpponentPawn pawn in _pawns)
+        {
+            pawn.RefreshCall(); // the others' calls of "HIT!" go while yours is up: it's drawn once
+        }
+
         _hud.OutOfTheRound();
         Input.MouseMode = Input.MouseModeEnum.Visible;
         _spectator = new SpectatorView { Name = "Spectator" };

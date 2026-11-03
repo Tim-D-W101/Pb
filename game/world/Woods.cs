@@ -204,7 +204,7 @@ public partial class Woods : Node3D
         foreach (((int cx, int cz), (ShapeMesh wood, List<(Transform3D Transform, Color Tint, Color Custom)> clumps)) in chunks)
         {
             var mesh = new ArrayMesh();
-            wood.Commit(mesh, _ => bark);
+            wood.Commit(mesh, _ => bark, tangents: false);
             AddChild(new MeshInstance3D
             {
                 Name = $"Wood_{cx}_{cz}", Mesh = ShapeMesh.WithLods(mesh), VisibilityRangeEnd = def.StandWoodRange_m,

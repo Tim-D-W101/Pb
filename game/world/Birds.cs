@@ -460,7 +460,7 @@ public partial class Birds : Node3D, ISimEventListener
             // A new group now and then, otherwise near the last bird down.
             bool fresh = spots.Count == 0 || _random.NextDouble() < 0.15;
             float x = fresh ? R(b.Min.X, b.Max.X) : last.X + R(-3.5f, 3.5f), z = fresh ? R(b.Min.Z, b.Max.Z) : last.Z + R(-3.5f, 3.5f);
-            if (!on.Contains(survey.SurfaceAt(x, z, out float y)) || y >= GroundSurvey.GroundTop || !survey.OpenGround(x, z, 0.05f, out _)
+            if (!on.Contains(survey.SurfaceAt(x, z, out float y)) || survey.Raised(x, z, y) || !survey.OpenGround(x, z, 0.05f, out _)
                 || world.SweepSphere(new System.Numerics.Vector3(x, 1.6f, z), new System.Numerics.Vector3(x, 0.9f, z), 0.8f, out _))
             {
                 continue;

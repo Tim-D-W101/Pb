@@ -51,7 +51,8 @@ public sealed class MarkingPainter
 
     public ImageTexture Paint()
     {
-        for (int cell = 0; cell < Columns * Columns; cell++)
+        // Each cell from its own seed into its own part of the atlas: painted side by side on the cores (M5.8).
+        System.Threading.Tasks.Parallel.For(0, Columns * Columns, cell =>
         {
             Func<float, float, float>? shape = cell switch
             {
@@ -67,7 +68,7 @@ public sealed class MarkingPainter
             {
                 Fill(cell, shape);
             }
-        }
+        });
 
         Image image = Image.CreateFromData(_size, _size, false, Image.Format.La8, _pixels);
         image.GenerateMipmaps();

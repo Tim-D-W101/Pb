@@ -1324,7 +1324,9 @@ collection under memory pressure. That made the allocation test fail at random o
   and behind you; your body is drawn and the marker in your hands hidden once it's 0.6 m out of your head. You stand for
   the hit (the out pose blends in, hand and marker up), and once the camera is out you walk off to the dead zone like
   every bot (`WalkOffPilot`, offline as well as hosting now; joined, the host walks you off), the camera following you
-  and keeping whoever got you in view. The settings' hit effect scales the screen's part.
+  and keeping whoever got you in view. The settings' hit effect scales the screen's part. While your HIT! is up
+  (`HitMoment.Words`), the "HIT!" others call over their heads (`OpponentPawn.CallHit`) is hidden, so it's never drawn
+  twice at once (`OpponentPawn.HushCall`); the duel demo counts them on every frame.
 - **Settings.** Gameplay: "Incoming fire arcs" (`GameSettings.IncomingFire`) and "Hit effect" (`HitEffect`, 0-1).
 - **Checks.** `FeedbackTests` (the arcs' directions, turning, merging, expiry and the full ring; the near-miss scan on
   hand-made moves and a real shot), `SoundTests`, `SettingsTests`. The bot match prints a feedback line (markers by kind,
@@ -1661,3 +1663,94 @@ Tim's call on C2: much more realistic buggies, a driver who can shoot (M5.6), an
   - `NetRoundTests`: over a 100 ms round trip the driver's buggy answers the pedal in 25 ms and ends where the server's
     does.
   - `--vehicle-demo`: the body leans, the tyres throw spray, and the marker goes onto its sling and up again.
+
+### 18.7 Rolling ground, bots driving in team rounds, a quicker load (as built, M5.8)
+
+Tim's third call on Thornwick Woods: ground that rolls, bots that take the buggies in plain team rounds, and a load
+time near the other areas'.
+
+- **The ground's shape** (`TerrainDef` in the level file, `Terrain`). A height field over the level's bounds, a point
+  every `cell_m` (1 m), built at load the same on every copy (rows in parallel, each on its own). Each grid square is two
+  triangles, split from its (+x, −z) corner to its (−x, +z) corner (the engine's height maps split the same way), and the
+  ground between points is flat on each. The height at a point is, in order:
+  - *Free shape:* layers of smooth value noise (`noise`: the long swells of a field, the bumps a wheel feels), raised-
+    cosine `hills` (a dip below zero) and `ridges` (banks along a line).
+  - *Flats:* held level (at `height_m`, 0 by default, or with `natural` at the free shape's height at the rect's middle)
+    inside each rect, blending back over `flatMargin_m`. Where the margins of flats at different heights meet, their
+    heights blend, each weighted by how near it is (a rect's inside is all its own), so no step opens. Thornwick Woods
+    holds the ground level under every building (the fort's lookout on a 3.2 m knoll), in the yards, round the parked
+    buggies, along the hedges and along the fence, so walls and buildings stand true; and at its own height where tracks
+    meet, so a crossroads on a hillside is level.
+  - *Edge:* back to level over `edge_m` inside the bounds, so the scrubland round it meets it.
+  - *Tracks:* level across each track (at the height its middle line has where it's nearest), blending back to the
+    ground beside it over `roadMargin_m`; along it, they follow the ground. Where tracks meet or a track bends, the
+    levels of every stretch near the point blend, each by how near it is (taking the nearest stretch's level left a step
+    where another took over: half a metre at the crossroads on a hillside's flank).
+  - *Stream beds* (`streams`), cut last: `depth_m` deep, `width_m` wide at the bottom, the banks sloping up over
+    `banks_m`. A track crossing one dips through it: a ford, where the track gives way to the bed's mud.
+  - *Cover:* each point is the level's ground, one of its ground patches (the last one over it: a wood's leaf litter, a
+    yard) or a stream's bed (its own material: Thornwick's brook is `mud`). With rolling ground the ground patches are
+    this cover, not slabs over the ground.
+- **Paint, sight and wheels meet it** (`HeightFieldShape`, in the collision world in place of the ground plane, tested
+  for every sweep). A sweep walks the grid squares its path crosses, nearest first (a 2D DDA), testing each square's
+  two triangles moved out by the sphere's radius along their faces. It skips squares whose 8 × 8 block lies wholly
+  below the path. A sphere starting within its radius of the ground reports t = 0 with the ground's normal. The surface
+  at the hit is the nearest point's cover (`Shape.SurfaceAt`), so paint breaks on mud as mud and tyres grip as the
+  ground under them is.
+- **Everything outdoors stands on it** (`LevelFactory`): a data height is above the ground there. Buildings stand at the
+  ground under their placement (on their flats). Props stand at the lowest ground under their footprint (a little into
+  a slope, never floating), and trees 15 cm into it. Walls run from the lowest ground along them, as tall above the
+  highest. Tracks are laid in pieces of at most 1 m, each sloping as the ground does and raised by however far the ground
+  bulges above it, so none shows through on a crest; none in a stream bed, so wheels and paint meet a ford's mud; and
+  none across a ground patch marked `paved` (Thornwick's farmyard concrete), whose hard ground the tyres squeal on.
+  Spawns, patrols, pickups, case spots, ways out, the hold rooms' middles, viewpoints, the dead zones and the buggies'
+  spots are all lifted onto it, and the areas' heights reach over it.
+- **Bots** (`NavGrid`): a column's ground floor is the ground's height there, and the places under it are left out, so
+  the grid follows the hills, the banks and the brook's bed (walkable everywhere: its banks are at most 17°).
+- **Presentation.**
+  - *The ground's meshes* (`TerrainMesh`). Chunks of 32 × 32 squares, each with a surface per kind of cover, every
+    triangle exactly the sim's. A triangle takes the cover most of its corners have (a bed's when they all differ).
+    Normals are smoothed from the heights round each point, and tangents run along +x as the engine's generator gives
+    them for UV = (x, z). The scrubland round the level is a ring round its bounds, not a plane under it that would
+    show in the dips.
+  - *Walking* (`LevelBuilder.AddGroundBody`, on the game and on the dedicated server): the heights as a
+    `HeightMapShape3D`, with a plane two metres under its lowest point in case anything slips through.
+  - *Dressing* (`GroundSurvey`): the ground's height and cover come from the terrain, "at ground level" means within
+    6 cm of it there, and the slabs lying on it (now hundreds of short track pieces) are filed in 8 m squares, so the
+    weeds and the rest ask only the ones near them. `PlaceBoundary`'s walking world has the terrain too.
+- **Bots drive in team rounds** (`BotSquad.SideStart`, `BotBrain.PickHuntSpot`). The squad notes where each side of a
+  team round started (the middle of its players' places on the round's first tick). A hunting bot (a hunter, or any
+  bot gone restless) farther than `huntTowardEnemyBeyond_m` (200 m) from the other side's start picks its next spot
+  among those nearest that end of the site, not its own nearest. That's only on a big site: Thornwick Woods' gates are
+  215–356 m apart, and no compound is 205 m corner to corner, so the compounds' rounds play as before. On Thornwick Woods
+  it's farther than `driveBeyond_m`, so with a buggy within `driveVehicleWithin_m` (now 70 m: each gate has one that
+  near) it drives the tracks there, as long as walking to it and driving takes at most `driveFavour` (1.15) times as long
+  as going on foot: the tracks rarely run straight there, and a long run is what a player would drive instead. A 4 v 4 had two drives in
+  each of four seeded rounds; the same round before the change had none and ran out of time.
+- **Boarding round the buggy** (`BotBrain.WayToDoor`). The bots' grid doesn't know where the buggies are, and in the game
+  a body can't walk through one. So a bot on the far side from the driver's door first walks along that side to beyond
+  the nearer end, then across in front of it to the door's side, then to the door. Each way-point lies further out than
+  the line that hands on to the next, so it never stops at one. A bot that gives up boarding (30 s, or someone else
+  took it) stays on foot for 30 s, so it doesn't claim the same buggy straight back.
+- **Loading** (`LoadClock` prints each part's time as one `Load:` line once the round is ready). Before, Thornwick Woods
+  took 20.3 s here (Oxbarrow Works 14.7 s); now 12.5 s (11.0 s):
+  - *The bots' landmarks* (eight walks over the whole grid: 3.7 s of Thornwick's 4.4 s grid) are worked out on another
+    thread while the level loads. Every search waits for them before it starts, so each sees the whole table, the same
+    on every run and every copy. The grid's linking pass runs in blocks on the cores.
+  - *The JIT warm-up* (1.2 s) runs on a worker thread from the start of the load; the round waits for it at the end.
+  - *The marking atlas* (1.7 s) paints its cells side by side on the cores; each cell has its own seed, so it's the same.
+  - *The ground survey's index* above (the weeds took 20 s with the track pieces before it, 0.6 s with it).
+  - *The terrain's meshes* are built from arrays with their own tangents, not the engine's generator, and the woods'
+    bark (no normal map) skips tangents altogether.
+- **Checks.**
+  - `TerrainTests` (new): Thornwick rolls (hills, the hollow, the sunken lane, the brook lower than its banks and of
+    mud, the lane dipping through the ford). It's level under the buildings and the fort's knoll. Everything placed
+    stands on it, props a little into slopes at most. Sweeps of radius 0, a ball's and a wheel probe's meet it where a
+    marching reference does (within 1 cm, 1.6 cm for the probe), from 400 random rays. Paint and sight find mud in the
+    brook, turf in the fields, leaf litter in the woods and gravel on the lane, and the north field's rise hides a
+    crouching player. The level builds the same twice. A bot walks down through the brook and over a rise. A buggy dips
+    through the ford (down 1.1 m, 21° at most, at up to 12 m/s) and climbs over Blackthorn hill on the ring, and one parked
+    across a slope stays put.
+  - `ThornwickWoodsTests`: two hunters a side at the north and south gates take a buggy toward the other end; a bot
+    boarding from a buggy's far side walks round it to the door; the grid builds in under 2.5 s (its landmarks after).
+  - The smoke suite's 4 v 4 on Thornwick Woods needs at least one drive (`--min-drives=1`).

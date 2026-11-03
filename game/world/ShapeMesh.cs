@@ -334,7 +334,8 @@ public sealed class ShapeMesh
     }
 
     /// <summary>Adds every surface to <paramref name="mesh"/> with the given materials, tangents generated.</summary>
-    public void Commit(ArrayMesh mesh, Func<int, Material> materials)
+    /// <param name="tangents">False for materials without a normal map (the woods' bark): the engine's tangents are the slow part.</param>
+    public void Commit(ArrayMesh mesh, Func<int, Material> materials, bool tangents = true)
     {
         foreach ((int material, Surface s) in _surfaces)
         {
@@ -353,7 +354,11 @@ public sealed class ShapeMesh
             tool.CreateFromArrays(arrays);
             // Shared corners become one vertex (an index buffer), then tangents for the normal maps.
             tool.Index();
-            tool.GenerateTangents();
+            if (tangents)
+            {
+                tool.GenerateTangents();
+            }
+
             tool.SetMaterial(materials(material));
             tool.Commit(mesh);
         }

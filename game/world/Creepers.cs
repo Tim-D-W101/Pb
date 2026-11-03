@@ -41,7 +41,7 @@ public partial class Creepers : Node3D
         foreach (LevelPrimitive p in level.Primitives)
         {
             Pb.Sim.Collision.Aabb b = p.Bounds;
-            if (p.Role != PrimitiveRole.Wall || p.Kind != PrimitiveKind.Box || b.Min.Y > GroundSurvey.GroundTop || p.Height < def.Height_m[0] + 0.2f ||
+            if (p.Role != PrimitiveRole.Wall || p.Kind != PrimitiveKind.Box || survey.Raised(p.Center.X, p.Center.Z, b.Min.Y) || p.Height < def.Height_m[0] + 0.2f ||
                 !on.Contains(level.Materials[p.Material].Id))
             {
                 continue;

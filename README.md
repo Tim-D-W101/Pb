@@ -64,7 +64,8 @@ shaft open through every floor and the end of one wing fallen in. And the bigges
 woodsball site on old farmland, 344 × 244 m inside its timber fence (seven times Oxbarrow Works), with four woods of
 trees close enough to hide behind, hedged fields with cover scattered over them, a timber fort with a lookout tower, a
 farm, a camp of containers and huts and a scrapyard, and gravel tracks between them, with five **buggies** to drive
-along them. Get in at a buggy's door with F (the driver's seat or the passenger's), drive with W/S and A/D (Space
+along them. The ground rolls: hills in the fields and the woods, the fort on a knoll, a sunken lane between banks, a
+berm across the north field, a hollow in Rookery Wood, and a brook with a muddy bed that the tracks ford. Get in at a buggy's door with F (the driver's seat or the passenger's), drive with W/S and A/D (Space
 pulls the handbrake), and get out with F once it's nearly stopped. A buggy rides on springs and grips as the ground lets
 it: it squats pulling away, dives braking and leans in the corners, grips on the gravel tracks, drifts on grass and slides
 in mud, with the engine and tyres to match and dust, grass and mud flying off the wheels. The driver can fire
@@ -251,7 +252,8 @@ the rest for the other flag; they carry it home or cover whoever has it, send th
 whoever took it. In VIP escort the escorts lead the VIP to a far way out, the VIP keeps behind them and takes cover when
 it's shot at, and the defenders guard the ways out from the start and hunt the VIP once they hear where it is. On
 Thornwick Woods a bot with a long way to go (their flag, a case or a room across the site) takes a buggy standing empty
-nearby when that's quicker, drives the tracks and gets out near where it's going. It fires from the wheel at enemies
+nearby when that's quicker, drives the tracks and gets out near where it's going. In a plain team round, bots with
+nothing to go on head for the other side's end of the site, so they take the buggies there too. It fires from the wheel at enemies
 it passes, slowing to aim, and gets out to fight one that comes close. In the
 others, attackers make for the case or the room (opening doors on the way),
 defenders keep near it, and a room both sides are in but neither can see the other in doesn't stay contested for long.
@@ -304,7 +306,7 @@ reported with the file and key; the game won't silently use a wrong value.
 ## Test it
 
 ```bash
-dotnet test                                          # 535 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes, the animation set, capture the flag and VIP escort, buggies and bots driving them, Thornwick Woods…) and 71 network tests — no Godot needed
+dotnet test                                          # 558 sim tests (ballistics vs spec, collision, gear, level kit, places, movement, hitboxes, rounds, bots, callouts, starts, hit feedback, the sounds' shapes, the animation set, capture the flag and VIP escort, buggies and bots driving them, Thornwick Woods and its rolling ground…) and 73 network tests — no Godot needed
 dotnet run -c Release --project tools/Pb.Bench       # ballistics report, sim cost at 1k/2k/5k live balls and with 10 players, bot cost (each slowest tick's own CPU time beside its wall-clock time)
 tools/ci/smoke-test.sh /path/to/godot                # headless end-to-end runs of the menu, the range, the compound, bot matches (a new seed each run, printed), Thornwick Woods with its buggies (bots driving, and --vehicle-demo), the characters' gait check and a match with the art on (at 120, 30 and 15 fps), and the art import (Linux/macOS)
 ```

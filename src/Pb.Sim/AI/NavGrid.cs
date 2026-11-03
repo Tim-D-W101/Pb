@@ -80,8 +80,13 @@ public sealed class NavGrid : IBotNavigation
     private readonly int _landmarkComponent = None;
     private readonly float[] _landmarkDistance;
 
-    // The grid's own searches (FindPath on the grid, and the landmarks' distances at load). Bots search with their
-    // squad's own (NavSearch), so rounds sharing a grid never share a search's working memory.
+    // The landmarks' walks take seconds on a big level (one walk over the whole grid each), so they're worked out on
+    // another thread while the level finishes loading (M5.8); every search waits for them first, so each one sees the
+    // whole table, the same on every run and every copy.
+    private readonly Task? _landmarks;
+
+    // The grid's own searches (FindPath on the grid). Bots search with their squad's own (NavSearch), so rounds sharing
+    // a grid never share a search's working memory.
     private readonly NavSearch _own;
 
     // Places a door leaf can swing over (null: anywhere, so every place asks a search's Blocked).
@@ -121,9 +126,12 @@ public sealed class NavGrid : IBotNavigation
         if (_landmarkCount > 0)
         {
             _landmarkComponent = _component[biggest];
-            PlaceLandmarks(biggest);
+            _landmarks = Task.Run(() => PlaceLandmarks(biggest));
         }
     }
+
+    /// <summary>Waits until the landmarks' walking distances are worked out (every search does, before it starts).</summary>
+    public void WaitForLandmarks() => _landmarks?.Wait();
 
     public NavParams Params => _p;
 
@@ -216,7 +224,7 @@ public sealed class NavGrid : IBotNavigation
                     float x = bounds.Min.X + (c + 0.5f) * cell;
                     int before = spans.Count;
                     SolidIntervals(index, shapes, x, z, intervals);
-                    FloorsWithHeadroom(intervals, p.AgentHeight, bounds.Max.Y, floors);
+                    FloorsWithHeadroom(intervals, level.GroundAt(x, z), p.AgentHeight, bounds.Max.Y, floors);
                     foreach (float y in floors)
                     {
                         // Clear of walls: a body-height capsule of the agent radius, starting a step above the
@@ -488,6 +496,7 @@ public sealed class NavGrid : IBotNavigation
         q.Goal = goal;
         q.GoalAt = PositionOf(goal);
         q.Expanded = 0;
+        _landmarks?.Wait();
         q.LandmarksOn = _landmarkCount > 0 && _component[goal] == _landmarkComponent;
         if (q.LandmarksOn)
         {
@@ -737,15 +746,17 @@ public sealed class NavGrid : IBotNavigation
         var distance = new float[_spanY.Length];
         var climbing = _ladderLinks.Count > 0 ? new float[_spanY.Length] : distance;
         var nearest = new float[_spanY.Length];
+        // Working memory of its own: no search runs on it meanwhile.
+        var walk = new LandmarkWalk(new SpanHeap(Math.Min(_spanY.Length, 65536) + 16), new int[_spanY.Length]);
         Array.Fill(nearest, float.PositiveInfinity);
-        Distances(seed, distance, ladders: false);
+        Distances(walk, seed, distance, ladders: false);
         int next = Farthest(distance);
         for (int k = 0; k < _landmarkCount; k++)
         {
-            Distances(next, distance, ladders: false);
+            Distances(walk, next, distance, ladders: false);
             if (_ladderLinks.Count > 0)
             {
-                Distances(next, climbing, ladders: true);
+                Distances(walk, next, climbing, ladders: true);
             }
 
             for (int s = 0; s < distance.Length; s++)
@@ -776,12 +787,18 @@ public sealed class NavGrid : IBotNavigation
     }
 
     /// <summary>Walking distance from <paramref name="source"/> to every span (infinite where it can't walk), by Dijkstra.</summary>
-    private void Distances(int source, float[] distance, bool ladders)
+    /// <summary>A landmark walk's working memory: its queue, and each span's last walk that settled it.</summary>
+    private sealed record LandmarkWalk(SpanHeap Open, int[] Closed)
+    {
+        public int Generation { get; set; }
+    }
+
+    private void Distances(LandmarkWalk walk, int source, float[] distance, bool ladders)
     {
         Array.Fill(distance, float.PositiveInfinity);
-        SpanHeap open = _own.Open;
-        int[] closed = _own.Closed;
-        int generation = ++_own.Generation;
+        SpanHeap open = walk.Open;
+        int[] closed = walk.Closed;
+        int generation = ++walk.Generation;
         open.Clear();
         distance[source] = 0f;
         open.Push(source, 0f);
@@ -944,7 +961,22 @@ public sealed class NavGrid : IBotNavigation
     {
         Array.Fill(_links, None);
         int linked = 0;
-        for (int s = 0; s < _spanY.Length; s++)
+        // Each place's links depend on its own alone: in blocks side by side on the cores (M5.8), the same however many.
+        const int Block = 16384;
+        Parallel.For(0, (_spanY.Length + Block - 1) / Block, b =>
+        {
+            int count = LinkRange(b * Block, Math.Min(_spanY.Length, (b + 1) * Block));
+            Interlocked.Add(ref linked, count);
+        });
+
+        LinkedSpanCount = linked;
+    }
+
+    /// <summary>Links the places <paramref name="from"/> to <paramref name="to"/> (not including it); how many got any.</summary>
+    private int LinkRange(int from, int to)
+    {
+        int linked = 0;
+        for (int s = from; s < to; s++)
         {
             int col = _spanColumn[s];
             int c = col % _cols;
@@ -980,7 +1012,7 @@ public sealed class NavGrid : IBotNavigation
             }
         }
 
-        LinkedSpanCount = linked;
+        return linked;
     }
 
     private static int SideIndex(int dx, int dz) => dx switch
@@ -1031,19 +1063,28 @@ public sealed class NavGrid : IBotNavigation
         intervals.RemoveRange(w, intervals.Count - w);
     }
 
-    /// <summary>Floors in a column (the ground, then the top of each solid stretch) with enough headroom above.</summary>
-    private static void FloorsWithHeadroom(List<(float Bottom, float Top)> intervals, float height, float ceilingLimit, List<float> floors)
+    /// <summary>
+    /// Floors in a column (the ground at <paramref name="ground"/>, then the top of each solid stretch above it) with enough
+    /// headroom above. Solid stretches wholly under the ground (the buried foot of something on a slope) are underground.
+    /// </summary>
+    private static void FloorsWithHeadroom(List<(float Bottom, float Top)> intervals, float ground, float height, float ceilingLimit, List<float> floors)
     {
         floors.Clear();
-        bool groundCovered = intervals.Count > 0 && intervals[0].Bottom <= 0.02f;
-        if (!groundCovered)
+        int first = 0;
+        while (first < intervals.Count && intervals[first].Top <= ground + 0.02f)
         {
-            AddIfRoom(0f, intervals, 0, height, ceilingLimit, floors);
+            first++;
         }
 
-        for (int i = 0; i < intervals.Count; i++)
+        bool groundCovered = first < intervals.Count && intervals[first].Bottom <= ground + 0.02f;
+        if (!groundCovered)
         {
-            AddIfRoom(MathF.Max(0f, intervals[i].Top), intervals, i + 1, height, ceilingLimit, floors);
+            AddIfRoom(ground, intervals, first, height, ceilingLimit, floors);
+        }
+
+        for (int i = first; i < intervals.Count; i++)
+        {
+            AddIfRoom(MathF.Max(ground, intervals[i].Top), intervals, i + 1, height, ceilingLimit, floors);
         }
     }
 

@@ -118,7 +118,7 @@ public partial class PlaceBoundary : Node3D
     {
         _walk = new CollisionWorld();
         _floorLike.Clear();
-        _walk.Add(new PlaneShape(SVector3.UnitY, 0f), level.GroundMaterial.Surface, "ground");
+        _walk.Add(level.Terrain is { } terrain ? new HeightFieldShape(terrain) : new PlaneShape(SVector3.UnitY, 0f), level.GroundMaterial.Surface, "ground");
         _floorLike.Add(true);
         foreach (LevelPrimitive p in level.Primitives)
         {

@@ -728,3 +728,229 @@ was silent (fixed on A: the game started no sounds under the dummy driver Movie 
 
 PR G: rolling ground on Thornwick Woods (hills, dips, banks, a stream bed), bots taking the buggies in plain team rounds,
 and a quicker load.
+
+## M5.8 (G) — Rolling ground, bots driving in team rounds, a quicker load
+
+**Branch:** `claude/eager-cannon-c05kkv-terrain` (on F's)
+
+### What was built
+
+Tim's third call on Thornwick Woods: ground that rolls, bots that take the buggies in plain team rounds, and a load
+time near the other areas'.
+
+- **Thornwick Woods rolls** (`terrain` in its level file, made by `tools/levels/thornwick_woods.py`; made bigger after
+  Tim's check, below):
+  - *Hills:* in the fields and the woods, the biggest 7.5 m in Rookery Wood and 7 m in Blackthorn Wood; two across the
+    tracks, Gallows Rise on the lane (3.3 m) and Rook's Rise on the east track (3.8 m), and the ring climbing 4 m in each
+    wood. The fort's lookout and stockade stand on a 3.2 m knoll.
+  - *Banks:* the north lane runs sunk between banks 2.2 m high; another runs along the west track; a berm crosses the
+    north field.
+  - *Dips:* a hollow the west track dips 2.8 m through, a quarry pit 4 m deep by the east fence, and Rookery Wood's
+    hollow.
+  - *The brook:* from the west fence past the farm into Rookery hollow, 1.25 m deep, its bed of mud. The lane, the
+    east track and the ring ford it, through its mud.
+  - *Unevenness everywhere:* long swells over the fields (1.8 m), humps a buggy feels lift it, and small bumps a wheel
+    feels.
+  - *Level ground where it should be:* under the buildings, in the yards, round the parked buggies, along the hedges
+    and along the fence, so walls and buildings stand true.
+  - *Where it's built:* in the sim (`Terrain`), the same on every copy. Paint breaks on it, sight lines stop at it,
+    wheels ride it, bots walk it and players walk on it as a height map, all on the same triangles. Paint and tyres know
+    the brook's mud from the fields' grass and the woods' leaf litter.
+- **Everything outdoors stands on it.** Buildings stand on their level ground. Props stand at the lowest ground under
+  them, a little into a slope rather than floating off it, and trees a little into it. The hedges and the fence run
+  from the ground along them, and the tracks lie on it in pieces of at most 1 m. Starts, patrols, pickups, the case's
+  spots, the ways out, the viewpoints and where the out walk to are all on it.
+- **How it looks.** The ground is drawn in chunks, exactly the sim's triangles, shaded by its slopes. Leaf litter, a yard's
+  dirt and the brook's mud are drawn over the grass with ragged edges that wander like real ones, not the grid's
+  sawtooth. The brook has shallow dark water in it, with a strip of mud showing either side; it's looks only, so paint
+  and people go through to the mud. Weeds, worn paths, ground litter and the rest follow the slopes.
+- **Bots drive in team rounds.** In a team round, a bot with nothing to go on hunts toward the other side's end of the
+  site once it's more than 200 m from it. That only happens on a big site, so the compounds' rounds play as before. On
+  Thornwick Woods it's far enough for a buggy, so with one standing empty within 70 m (it was 30; each gate has one that
+  near) it drives the tracks there, when that's at most 15 % slower than going on foot (`driveFavour`): the tracks rarely
+  run straight there, and a long run is what a player would drive instead. The same 4 v 4 that had no drives and ran out of time
+  before had two drives and was decided in 90 s; three more seeds had two drives each.
+- **Bots walk round a buggy to its door.** The bots' grid doesn't know where the buggies are, and in the game a body
+  can't walk through one. A bot coming from the far side used to push against it and never reach the driver's door.
+  It then claimed the same buggy again when it gave up, and stood there all round. Now it goes round the nose or the
+  tail, and after giving up it stays on foot for 30 s.
+- **A quicker load.** The game prints each part of a level's load as one `Load:` line. Headless on this 4-core container,
+  from the menu's pick to the round being ready:
+
+  | Area | Before | Now |
+  |---|---|---|
+  | Thornwick Woods | 20.3 s | 12.5 s |
+  | Oxbarrow Works | 14.7 s | 11.0 s |
+
+  - *The bots' landmark tables* (3.7 s of Thornwick's 4.4 s grid) are worked out on another thread while the rest
+    loads. Every search waits for them first, so bots decide exactly as before.
+  - *The methods compiled up front* (1.2 s) compile on a worker thread from the start of the load.
+  - *The markings' texture* (1.7 s) paints its cells side by side on the cores.
+  - *The ground survey* finds the slabs near a point without asking them all. The tracks' hundreds of short pieces had
+    the weeds taking 20 s without it.
+  - The terrain's meshes and the woods' bark skip the engine's slow tangent generator.
+
+### How it looks
+
+From a little above eye height, under software rendering, as first made (the pictures after Tim's check are below):
+
+![The brook and the lane's ford from the farmyard, before (flat) and now](phase-5/g-ford.jpg)
+![The sunken north lane; the ring climbing over Blackthorn Wood's hill](phase-5/g-lane-hill.jpg)
+![Rookery Wood's hollow, where the brook ends; the fort on its knoll beyond the hedge](phase-5/g-hollow-fort.jpg)
+
+### How to run it
+
+```bash
+godot --path game res://scenes/Level.tscn -- --level=thornwick_woods --mode=teams --size=4
+godot --path game res://scenes/Level.tscn -- --bot-match --level=thornwick_woods --mode=teams --size=4 --min-drives=1
+python3 tools/levels/thornwick_woods.py game/data/levels    # after changing the hills, banks or brook in the script
+```
+
+### Checks
+
+| Check | Result |
+|---|---|
+| `dotnet test tests/Pb.Sim.Tests` | 558 passed (14 new: 12 in `TerrainTests`, 2 in `ThornwickWoodsTests`) |
+| `dotnet test tests/Pb.Net.Tests` | 73 passed |
+| `tools/ci/smoke-test.sh` | The full run here had 38 of 40 pass. The two that failed, Thornwick Woods' 4 v 4 and its capture the flag, had no drives: bots couldn't get round a buggy to its door, and a straight run looked as quick as the tracks. Fixed, the 4 v 4 had 3–4 drives on four seeds, and capture the flag had 1–2 drives on seeds 7 to 10, so it passes. Also re-run after the fixes and passed: the art-on 5 v 5 and the vehicle demo. CI runs the whole suite on the PR. |
+| `dotnet run -c Release --project tools/Pb.Bench` | Thornwick Woods with ten players and 1,000 balls: 0.495 ms a tick (F: 0.492). 1,000 balls on their own: 0.287 ms (F: 0.304): a sweep that stays above the highest ground in the blocks under it skips the ground. The server's networked step there is 0.507 ms against its 0.5 ms budget (F: 0.493), within the run-to-run spread on this container. Its bots' grid builds in 186 ms, its landmarks ready 1.7 s later alongside the load (F: 1,755 ms in all). |
+
+New tests:
+- `TerrainTests`:
+  - Thornwick rolls: its hills, the hollow, the sunken lane, the brook lower than its banks and of mud, the lane
+    dipping through the ford.
+  - It's level under the buildings and on the fort's knoll, and everything placed stands on it.
+  - Sweeps meet it where its heights say: 400 random rays each with no radius, a ball's and a wheel probe's, against a
+    marching reference (within 1 cm, 1.6 cm for the probe).
+  - Paint and sight find the right surface there: mud, turf, leaf litter and the lane's gravel. The north field's rise
+    hides a crouching player.
+  - It builds the same twice (in 133 ms with the rest of the level).
+  - A bot walks down through the brook and over a rise.
+  - A buggy dips through the ford (1.1 m down, 21° at most, at up to 12 m/s) and climbs over Blackthorn hill on the ring.
+  - One parked across a slope stays put.
+- `ThornwickWoodsTests`:
+  - two hunters a side, at the north and south gates, take a buggy toward the other end;
+  - a bot boarding from the buggy's far side walks round it to the driver's door, never into its tub;
+  - the grid builds in under 2.5 s, its landmarks after.
+
+### Known issues
+
+- Where the grid is coarse for it (1 m), a cover's edge is ragged by design but its line still follows the grid's
+  points: from up high a yard's corner is rounder than its rectangle.
+- Ground cards (leaves, stones) need a nearly level spot, so there are fewer on the slopes than on the flat.
+- The brook's water is a flat strip at each point's height, so it rises and falls a little with the ground along its
+  line rather than running strictly downhill.
+- The engine's own height map for walking (Jolt) may split its squares the other way from the sim; on this ground that's
+  under a centimetre underfoot.
+
+### After Tim's check of the stack
+
+Tim found Thornwick's rolling ground barely there: the vehicle demo's way along the lane and the east track rose and fell
+by about 0.35 m. The hills were mostly off the tracks, and the tracks are level across at their middle line's height.
+
+- **Real hills, dips and banks, on the tracks too** (`tools/levels/thornwick_woods.py`, regenerated):
+  - *Hills across the tracks:* Gallows Rise carries the lane south of the crossroads (3.3 m) and Rook's Rise the east
+    track (3.8 m).
+  - *Dips:* the west track dips 2.8 m through a hollow.
+  - *The ring* climbs 4 m in each wood.
+  - *The woods' hills* are up to 7.5 m.
+  - *Other features:* the quarry is a pit 4 m deep, the north lane runs between banks 2.2 m high, and the brook is
+    1.25 m deep with 7 m banks.
+  - *Swells* of 1.8 m roll over the fields, with humps a buggy feels.
+  - *Overall* the ground runs from −4.1 m to 7.6 m. Along the tracks (every half metre):
+
+    | Track | Lowest | Highest |
+    |---|---|---|
+    | The lane | −1.6 m | 3.4 m |
+    | The east track | −1.1 m | 3.8 m |
+    | The west track | −2.8 m | 1.5 m |
+    | The ring | −1.9 m | 4.0 m |
+
+  - *The vehicle demo's way* now rises and falls 4.9 m, and the buggy's body leans and pitches up to 23° (3° before).
+  - The tracks' grades stay drivable: the steepest is 30%, the pull up Gallows Rise from the crossroads; a fifth on the
+    hills' flanks.
+- **Steps where tracks met.** On a hillside the ground took one track's level or another's, and stepped half a metre at
+  the crossroads. A bot's buggy stopped dead there, and `A_driving_bot_shoots_from_the_wheel_and_drives_on` failed on
+  the new ground.
+  - The levels of every stretch near a point now blend, each by how near it is.
+  - Where tracks meet, the ground is level at its own height (a flat with `natural`: a crossroads on a hillside is
+    level).
+  - New test: `TerrainTests.Its_tracks_have_no_steps_and_stay_drivable` checks every track's surface for nothing
+    steeper than 36%.
+- **Fords through the mud.** The tracks were laid right across the brook's bed, so tyres and paint met gravel there.
+  - No track piece lies in a stream bed now, so wheels meet the mud.
+  - The vehicle demo fails if its way fords and the tyres weren't heard in mud. Headless, its tyres were on gravel
+    21.6 s, grass 1.8 s and mud 0.7 s, and the skid's scrub 4.0 s.
+- **Cover off steep spots.** Stood at the lowest ground under it, a prop on a slope is into the ground at its uphill
+  end: a skip on the fort's 3.2 m knoll went in 0.8 m. The generator now works out the ground as the sim does (its
+  noise too), keeps scattered cover off spots too steep for its footprint, and moved the farm's trailer off the
+  brook's wider bank. Nothing is in more than 0.33 m now.
+- The six menu pictures of Thornwick Woods are retaken, the fort's from further up so it shows on its knoll.
+- A HUD that's only shown (the menu pictures' run) no longer throws on every frame from its hit markers, which weren't
+  set up there. The pictures' run used to go on after its last picture, writing that error every frame (265 MB of log
+  in 16 minutes here); it quits now.
+- **The hills cost the sim nothing measurable.** The benchmark's Thornwick tick with ten players and 1,000 balls came
+  out at 0.512 ms, over its 0.5 ms line, where G's report had 0.495 ms. Measured on Thornwick before and after the
+  hills in alternate runs (six measurements of each), it's the same: 0.53 ms both (1,000 balls on their own, 0.32 and
+  0.34 ms). The other levels move as much from one run to the next on this container (Oxbarrow Works: 0.37 to 0.45 ms),
+  so Thornwick is where it was, at the line. Finer blocks of the ground's highest points, for a ball skimming a slope,
+  made it no quicker, so they aren't in. New test: `TerrainTests.A_ball_skimming_the_ground_meets_it_where_its_heights_say`, 600 short, low,
+  nearly level paths (a ball's in a tick) against the marching reference.
+
+From eye height, under software rendering:
+
+![The lane past the ford toward Gallows Rise; the east track over Rook's Rise from the crossroads; the sunken north lane; the west track through the hollow](phase-5/g-fix-hills-1.jpg)
+![The ring climbing in Blackthorn Wood; the quarry pit; Rookery hollow, where the brook ends; the fort on its knoll from Rook's Rise](phase-5/g-fix-hills-2.jpg)
+
+[g-buggy-sounds.ogg](phase-5/g-buggy-sounds.ogg) is the sound of the vehicle demo filmed over the new ground (24 s): the
+engine and its load, the tyres on gravel and grass and through the ford's mud, and the handbrake's skid. The film counted
+every loop playing for as long as it was on: the engine 24.2 s (19.0 s under load), gravel 21.7 s, grass 1.8 s, mud
+0.8 s, the skid's scrub 4.5 s.
+
+Checks after the fixes: `dotnet test` passes, 567 sim tests and 73 network tests. The smoke runs these touch pass here: the menu, Thornwick's walk-through, its
+4 v 4 (5 drives) and capture the flag (3 drives), the vehicle demo with its sounds, the splat and duel demos, the gait
+demo and the art-on match. CI runs the whole suite on the PR.
+
+### After Tim's second check
+
+- **The buggy's squeal never played.** The squeal is the sound of tyres sliding on hard ground (on gravel, grass and mud
+  they scrub instead), and nowhere on Thornwick Woods was hard. The tracks and the scrapyard are gravel, and the
+  farmyard, the camp and the fort's yard are dirt. So in the rendered vehicle demo the squeal and the hard-ground tyres
+  were on for 0.0 s, and its skid check passed on the scrub.
+  - *Hard ground.* The farmyard has concrete now, from the barn to the farmhouse (`concrete_floor`). Its ground patch is
+    `paved`: the lane and the farm track give way to it, as they do to a ford's mud, so the wheels are on the concrete
+    there.
+  - *The sim already slid the tyres enough.* On concrete, a full-lock corner at 8–12 m/s slides the front tyres
+    3.0–3.9 m/s, and the squeal starts at 1.2 m/s. The handbrake locks the back ones at the buggy's own speed.
+  - *The vehicle demo* pulls the handbrake on the farmyard's concrete at 7.5 m/s, and again later on gravel. It fails
+    unless the tyres were heard on hard ground, squealing there and scrubbing on the gravel: each is checked on its own
+    now, and where anything can be heard, playing too.
+    - The nearest buggy's way has to cross hard ground (it has 45 m of it).
+    - Another buggy's (`--vehicle`) is checked for a squeal only if its way has some.
+    - Rendered, with its sound: the tyres on hard ground for 8.2 s, the squeal 0.8 s and the scrub 3.7 s, each playing
+      the whole time.
+    - Headless: 8.3 s, 0.9 s and 3.3 s.
+    - `g-buggy-sounds.ogg` above is this film's sound now, the squeal on the concrete in it.
+  - *New check* in `TerrainTests.Paint_and_sight_meet_it_with_its_surfaces`: concrete under the lane and the farm track
+    in the farmyard, the yard's dirt round it, and gravel on the lane beyond.
+- **HIT! drawn twice.** On the duel demo's hit frame, your own HIT! came up over the "HIT!" that the bot you'd just put
+  out was still calling over its head, and the two overlapped. The call lasts 2 s, and the ball that puts you out comes
+  1.25 s after. In play it happened whenever you were put out within 2 s of someone in front of you.
+  - While your own HIT! is up, the calls over the others' heads are hidden now (`HitMoment.Words`,
+    `OpponentPawn.HushCall`).
+  - The duel demo counts the HIT!s drawn on every frame from the ball that puts you out, and fails if there's more than
+    one. With the hiding taken out again it fails ("HIT! was drawn 2 times at once"); with it, it passes headless and
+    rendered.
+
+![The duel's hit frame now: one HIT!, the arcs over it](phase-5/g-fix-hit-once.jpg)
+![The farmyard's concrete from above: from the south-east, the lane's gravel stopping at it and the buggies by the gate; from the north-west, past the trailer](phase-5/g-fix-farmyard.jpg)
+
+The six menu pictures of Thornwick Woods are retaken, for the farm's concrete.
+
+Checks: `dotnet test` passes, 567 sim tests and 73 network tests. The vehicle and duel demos pass headless (as CI runs
+them) and rendered. The other smoke runs these touch pass here: the menu, Thornwick's walk-through, its 4 v 4 (4
+drives) and capture the flag (3 drives), and the splat demo. CI runs the whole suite on the PR.
+
+### What's next
+
+Tim's call: anything from the play-test of E, F and G.

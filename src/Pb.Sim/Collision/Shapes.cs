@@ -13,7 +13,13 @@ public abstract class Shape
 {
     public abstract Aabb Bounds { get; }
 
+    /// <summary>Everywhere (the ground): tested for every sweep rather than filed in the grid.</summary>
+    public virtual bool Everywhere => false;
+
     public abstract bool Sweep(Vector3 p0, Vector3 d, float r, out float t, out Vector3 normal);
+
+    /// <summary>The surface at <paramref name="point"/> on it: its collider's own (<paramref name="own"/>) unless it varies.</summary>
+    public virtual SurfaceId SurfaceAt(Vector3 point, SurfaceId own) => own;
 
     protected static Vector3 Backwards(Vector3 d) => VectorMath.NormalizeOr(-d, Vector3.UnitY);
 }
@@ -32,6 +38,8 @@ public sealed class PlaneShape : Shape
     public float Offset { get; }
 
     public override Aabb Bounds => new(new Vector3(float.MinValue), new Vector3(float.MaxValue));
+
+    public override bool Everywhere => true;
 
     public override bool Sweep(Vector3 p0, Vector3 d, float r, out float t, out Vector3 normal)
     {

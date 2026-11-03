@@ -163,6 +163,12 @@ public sealed class BrainDef : IValidatable
 
     public float HuntLookAround_s { get; set; }
 
+    /// <summary>
+    /// In a team round, a hunting bot farther than this from where the other team started picks its next spot among those
+    /// nearest their end of the site (M5.8); 0: always among its own nearest.
+    /// </summary>
+    public float HuntTowardEnemyBeyond_m { get; set; }
+
     /// <summary>A bot that spots someone shouts it: teammates within this (halved through walls) get where they are.</summary>
     public float CalloutRange_m { get; set; }
 
@@ -224,6 +230,7 @@ public sealed class BrainDef : IValidatable
         v.InRange(nameof(VantageHeightBonus_perM), VantageHeightBonus_perM, 0, 1);
         v.InRange(nameof(HuntChoices), HuntChoices, 1, 8);
         v.InRange(nameof(HuntLookAround_s), HuntLookAround_s, 0, 30);
+        v.InRange(nameof(HuntTowardEnemyBeyond_m), HuntTowardEnemyBeyond_m, 0, 2000);
         v.InRange(nameof(SuspiciousTime_s), SuspiciousTime_s, 0, 30);
         v.InRange(nameof(CalloutCooldown_s), CalloutCooldown_s, 0, 120);
         v.InRange(nameof(CalloutRepeat_s), CalloutRepeat_s, 0, 600);

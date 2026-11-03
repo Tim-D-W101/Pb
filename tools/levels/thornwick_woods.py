@@ -142,6 +142,84 @@ PICKUPS = [
 ]
 
 # ---------------------------------------------------------------------------------------------------------------------
+# The rolling ground (M5.8; made bigger after Tim's play-test, when the vehicle demo's route rose and fell by 0.35 m):
+# hills in the fields and the woods up to 7.5 m, two of them across the tracks (Gallows Rise on the lane, Rook's Rise on
+# the east track) and others on the ring; a hollow the west track dips through; a sunken north lane between banks taller
+# than a man, a bank along the west track and a berm across the north field; a knoll under the fort; the quarry pit and
+# Rookery hollow; and a brook from the west fence past the farm into the hollow, its bed of mud, with fords where the
+# tracks cross it. The tracks' grades stay under a fifth, a buggy's and a walker's. The ground is held level under the
+# buildings, in the yards, round the parked buggies, along the hedges and the fence.
+FORT_KNOLL = 3.2
+BROOK = [[-180, 69], [-150, 69], [-128, 70], [-100, 68], [-82, 60], [-70, 48], [-44, 41], [-12, 41], [20, 40], [48, 42],
+         [70, 38], [80, 24], [82, 6], [80, -14], [84, -30], [88, -44]]
+BROOK_WIDTH, BROOK_DEPTH, BROOK_BANKS = 4.0, 1.25, 7.0
+
+HILLS = [
+    {"at_m": [30, -88], "radius_m": 42, "height_m": 3.6},      # under the fort's knoll
+    {"at_m": [-38, -98], "radius_m": 26, "height_m": 4.0},     # the north field's rise
+    {"at_m": [-4, 3], "radius_m": 22, "height_m": 3.0},        # Gallows Rise, across the lane south of the crossroads
+    {"at_m": [33, -22], "radius_m": 36, "height_m": 4.6},      # Rook's Rise, across the east track
+    {"at_m": [-36, -10], "radius_m": 22, "height_m": -2.6},    # the hollow the west track dips through
+    {"at_m": [-29, -38], "radius_m": 20, "height_m": 3.0},     # the middle copse's knoll
+    {"at_m": [-142, -52], "radius_m": 38, "height_m": 7.0},    # Blackthorn Wood's hill
+    {"at_m": [-92, -102], "radius_m": 24, "height_m": 4.0},
+    {"at_m": [-156, -88], "radius_m": 30, "height_m": 4.0},    # the ring's climb in Blackthorn Wood
+    {"at_m": [140, -92], "radius_m": 34, "height_m": 7.5},     # Rookery Wood's hill
+    {"at_m": [156, -56], "radius_m": 30, "height_m": 4.2},     # the ring's climb in Rookery Wood
+    {"at_m": [88, -44], "radius_m": 18, "height_m": -2.8},     # Rookery hollow, where the brook ends
+    {"at_m": [144, 2], "radius_m": 16, "height_m": -4.0},      # the quarry pit
+    {"at_m": [-118, 100], "radius_m": 26, "height_m": 4.5},    # Hazel Copse's hill
+    {"at_m": [128, 104], "radius_m": 22, "height_m": 3.5},     # Long Spinney's
+    {"at_m": [-80, 26], "radius_m": 16, "height_m": 2.4},      # a rise east of the camp
+    {"at_m": [-156, 97], "radius_m": 16, "height_m": 2.8},     # the ring's hump in Hazel Copse
+]
+
+RIDGES = [
+    {"points_m": [[6.5, -22], [6.5, -54]], "width_m": 9, "height_m": 2.2},    # the north lane's banks: a sunken lane
+    {"points_m": [[-6.5, -22], [-6.5, -54]], "width_m": 9, "height_m": 2.2},
+    {"points_m": [[-72, -17.5], [-150, -17.5]], "width_m": 8, "height_m": 1.8},  # a bank along the west track
+    {"points_m": [[-56, -74], [-22, -74]], "width_m": 10, "height_m": 2.0},  # a berm across the north field
+]
+
+def flats():
+    out = []
+    for (b, x, z, w, d) in BUILDINGS:
+        if b != "signal_box":   # the lookout stands on the fort's knoll
+            out.append({"rect_m": [x - 4, z - 4, x + w + 4, z + d + 4]})
+    x0, z0, x1, z1 = FORT
+    out.append({"rect_m": [x0 - 4, z0 - 4, x1 + 4, z1 + 4], "height_m": FORT_KNOLL})
+    out += [{"rect_m": [-54, 50, 44, 98]}, {"rect_m": [-150, 8, -92, 64]}, {"rect_m": [92, 22, 152, 84]}]   # the yards
+    for v in VEHICLES:
+        x, z = v["position_m"][0], v["position_m"][2]
+        out.append({"rect_m": [x - 6, z - 6, x + 6, z + 6]})
+    for (a, b) in HEDGES:
+        out.append({"rect_m": [min(a[0], b[0]) - 1.5, min(a[1], b[1]) - 1.5, max(a[0], b[0]) + 1.5, max(a[1], b[1]) + 1.5]})
+    out += [{"rect_m": [-FX - 4, -FZ - 3, FX + 4, -FZ + 3]}, {"rect_m": [-FX - 4, FZ - 3, FX + 4, FZ + 3]},
+            {"rect_m": [-FX - 3, -FZ - 4, -FX + 3, FZ + 4]}, {"rect_m": [FX - 3, -FZ - 4, FX + 3, FZ + 4]}]   # the fence
+    # Where tracks meet, level at the ground's own height there: on a hillside, each track's level across met the others'
+    # in a slope too steep to drive at the corners.
+    for (x, z) in JUNCTIONS:
+        out.append({"rect_m": [x - 5, z - 5, x + 5, z + 5], "natural": True})
+    return out
+
+# Where a track ends on another.
+JUNCTIONS = [CROSS, [-160, -8], [160, -14], [118, -14], [0, 112], [0, -112], [0, 68]]
+
+TERRAIN = {
+    "cell_m": 1.0,
+    "hills": HILLS,
+    "ridges": RIDGES,
+    "streams": [{"name": "the brook", "points_m": BROOK, "width_m": BROOK_WIDTH, "depth_m": BROOK_DEPTH, "banks_m": BROOK_BANKS,
+                 "material": "mud"}],
+    "flats": flats(),
+    "flatMargin_m": 9,
+    "edge_m": 16,
+    "roadMargin_m": 3,
+    # The long swells of the fields, the humps a buggy feels lift it, and the small bumps under a wheel.
+    "noise": [{"size_m": 60, "height_m": 1.8, "seed": 5}, {"size_m": 18, "height_m": 0.45, "seed": 7}, {"size_m": 7, "height_m": 0.1, "seed": 9}],
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
 # Keeping things apart.
 
 def seg_dist(p, a, b):
@@ -158,6 +236,9 @@ def near_road(p, margin):
             if seg_dist(p, pts[i], pts[i + 1]) < r["width_m"] / 2 + margin:
                 return True
     return False
+
+def near_brook(p, margin):
+    return any(seg_dist(p, BROOK[i], BROOK[i + 1]) < BROOK_WIDTH / 2 + BROOK_BANKS + margin for i in range(len(BROOK) - 1))
 
 def near_hedge(p, margin):
     return any(seg_dist(p, h[0], h[1]) < 0.45 + margin for h in HEDGES)
@@ -198,7 +279,7 @@ P("tyre_stack", 108, 30); P("tyre_stack", 108.8, 30.4); P("tyre_stack", 146, 70)
 P("skip_bin", 112, 60, 0); P("container_red", 146, 26, 90); P("chimney", 126.5, 45.5); P("oil_drum_tipped", 104, 54, 40)
 P("lorry_cab", 132, 58, 200)
 # The farm: a trailer and stacks in the yard, crates and tyres by the barn and the farmhouse.
-P("lorry_trailer", -30, 56, 90); P("pallet_stack", -44, 80); P("pallet_stack_tall", -42.6, 80.4, 8); P("crate_large", -20, 82, 20)
+P("lorry_trailer", -30, 58, 90); P("pallet_stack", -44, 80); P("pallet_stack_tall", -42.6, 80.4, 8); P("crate_large", -20, 82, 20)
 P("crate_small", -18.8, 82.6); P("tyre_stack", 30, 66); P("tyre_stack", 30.7, 66.4); P("cable_reel", 44, 76, 15)
 P("oil_drum", 8, 88); P("oil_drum_rust", 8.6, 88.5); P("forklift", -50, 92, 70); P("generator", 26, 94)
 P("sandbag_wall", -30, 96, 0); P("concrete_barrier", 18, 100, 0); P("concrete_barrier", 22, 100, 0)
@@ -218,7 +299,7 @@ for d in FIXED:
 def free(p, r, placed, spacing):
     if not in_rect(p, [-FX + 4, -FZ + 4, FX - 4, FZ - 4]):
         return False
-    if near_road(p, r + 2.0) or near_hedge(p, r + 1.5) or near_building(p, r + 3.0) or near_fort_walls(p, r + 2.0):
+    if near_road(p, r + 2.0) or near_hedge(p, r + 1.5) or near_building(p, r + 3.0) or near_fort_walls(p, r + 2.0) or near_brook(p, r + 1.0):
         return False
     for s in PLAYER_SPAWNS:
         if math.hypot(p[0] - s["position_m"][0], p[1] - s["position_m"][2]) < 12:
@@ -233,6 +314,76 @@ def free(p, r, placed, spacing):
         if math.hypot(p[0] - q[0], p[1] - q[1]) < spacing + r + q[2]:
             return False
     return True
+
+# The ground as the sim shapes it (Pb.Sim/Level/Terrain.cs, less the tracks' levelling): swells, hills, banks, flats and
+# the brook. Cover is kept off ground too steep for its footprint: standing at the lowest ground under it, a skip on the
+# fort's knoll went 0.8 m into the slope at its uphill end.
+def _smooth(a, b, x):
+    t = max(0.0, min(1.0, (x - a) / max(b - a, 1e-6)))
+    return t * t * (3 - 2 * t)
+
+_M32 = 0xFFFFFFFF
+
+def _lattice(x, z, seed):
+    h = (((x & _M32) * 0x8DA6B343) & _M32) ^ (((z & _M32) * 0xD8163841) & _M32) ^ ((seed * 0xCB1AB31F) & _M32)
+    h ^= h >> 13
+    h = (h * 0x5BD1E995) & _M32
+    h ^= h >> 15
+    return (h & 0xFFFFFF) / 0xFFFFFF * 2 - 1
+
+def _value_noise(x, z, seed):
+    ix, iz = math.floor(x), math.floor(z)
+    fx, fz = x - ix, z - iz
+    u, v = fx * fx * (3 - 2 * fx), fz * fz * (3 - 2 * fz)
+    a, b, c, d = _lattice(ix, iz, seed), _lattice(ix + 1, iz, seed), _lattice(ix, iz + 1, seed), _lattice(ix + 1, iz + 1, seed)
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v
+
+def _raw(x, z):
+    h = 0.0
+    for n in TERRAIN["noise"]:
+        size = n["size_m"]
+        h += n["height_m"] * (0.65 * _value_noise(x / size, z / size, n["seed"]) +
+                              0.35 * _value_noise(x / (size * 0.43), z / (size * 0.43), n["seed"] + 101))
+    for hl in HILLS:
+        d = math.hypot(x - hl["at_m"][0], z - hl["at_m"][1])
+        if d < hl["radius_m"]:
+            h += hl["height_m"] * 0.5 * (1 + math.cos(math.pi * d / hl["radius_m"]))
+    for rg in RIDGES:
+        pts, half = rg["points_m"], rg["width_m"] / 2
+        d = min(seg_dist([x, z], pts[i], pts[i + 1]) for i in range(len(pts) - 1))
+        if d < half:
+            h += rg["height_m"] * 0.5 * (1 + math.cos(math.pi * d / half))
+    return h
+
+_FLAT_HEIGHTS = [_raw((f["rect_m"][0] + f["rect_m"][2]) / 2, (f["rect_m"][1] + f["rect_m"][3]) / 2) if f.get("natural")
+                 else f.get("height_m", 0.0) for f in TERRAIN["flats"]]
+
+def ground(x, z):
+    h = _raw(x, z)
+    weight, hsum, ssum = 0.0, 0.0, 0.0
+    for f, fh in zip(TERRAIN["flats"], _FLAT_HEIGHTS):
+        r = f["rect_m"]
+        dx = max(0.0, min(r[0], r[2]) - x, x - max(r[0], r[2]))
+        dz = max(0.0, min(r[1], r[3]) - z, z - max(r[1], r[3]))
+        out = math.hypot(dx, dz)
+        w = 1.0 if out <= 0 else 1 - _smooth(0.0, TERRAIN["flatMargin_m"], out)
+        if w <= 0:
+            continue
+        share = w / (1 - w + 1e-5)
+        hsum, ssum, weight = hsum + share * fh, ssum + share, max(weight, w)
+    if ssum > 0:
+        h += (hsum / ssum - h) * weight
+    d = min(seg_dist([x, z], BROOK[i], BROOK[i + 1]) for i in range(len(BROOK) - 1))
+    half = BROOK_WIDTH / 2
+    return h - BROOK_DEPTH * (1.0 if d <= half else 1 - _smooth(half, half + BROOK_BANKS, d))
+
+def sink(p, r):
+    """How far a prop r across stood at the lowest ground under it (its middle and eight points round it) is into the
+    ground at its middle."""
+    middle = ground(p[0], p[1])
+    return middle - min([middle] + [ground(p[0] + r * math.cos(k * math.pi / 4), p[1] + r * math.sin(k * math.pi / 4)) for k in range(8)])
+
+STEEPEST_SINK = 0.4
 
 # How much room each kind of cover takes (m, a rough radius).
 SIZE = {"tyre_stack": 0.7, "pallet_stack": 0.8, "pallet_stack_tall": 0.8, "cable_reel": 1.1, "sandbag_wall": 1.7,
@@ -251,7 +402,7 @@ def scatter(rect, count, kinds, spacing, avoid=()):
         kind = rng.choice(kinds)
         r = SIZE.get(kind, 1.0)
         p = [round(rng.uniform(rect[0], rect[2]), 1), round(rng.uniform(rect[1], rect[3]), 1)]
-        if any(in_rect(p, a, r + 1.0) for a in avoid) or not free(p, r, placed, spacing):
+        if any(in_rect(p, a, r + 1.0) for a in avoid) or not free(p, r, placed, spacing) or sink(p, r) > STEEPEST_SINK:
             continue
         yaw = rng.choice([0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165])
         P(kind, p[0], p[1], yaw)
@@ -311,6 +462,15 @@ def clearings(wood):
         x, z = v["position_m"][0], v["position_m"][2]
         if in_rect([x, z], wood["rect_m"], 5):
             out.append([x - 4, z - 4, x + 4, z + 4])
+    # The brook's bed, in boxes along it.
+    reach = BROOK_WIDTH / 2 + 1.5
+    for i in range(len(BROOK) - 1):
+        (ax, az), (bx, bz) = BROOK[i], BROOK[i + 1]
+        steps = max(1, int(math.ceil(math.hypot(bx - ax, bz - az) / 3.0)))
+        for k in range(steps + 1):
+            x, z = ax + (bx - ax) * k / steps, az + (bz - az) * k / steps
+            if in_rect([x, z], wood["rect_m"], reach):
+                out.append([x - reach, z - reach, x + reach, z + reach])
     return [[round(c, 1) for c in box] for box in out]
 
 def woods():
@@ -352,7 +512,7 @@ body = {
     "id": "thornwick_woods",
     "displayName": "Thornwick Woods",
     "description": "A woodsball site on old farmland, seven times the size of the works: four woods, hedged fields, a timber fort with a lookout, a farm, a camp of containers and huts, a scrapyard, and gravel tracks to drive the site's buggies along.",
-    "boundsMin_m": [-185, -2, -135],
+    "boundsMin_m": [-185, -6, -135],
     "boundsMax_m": [185, 40, 135],
     "groundMaterial": "grass_field",
     # The bots' grid, a little coarser than the other levels' (the kit's doors still fit): it loads in half the time.
@@ -360,6 +520,9 @@ body = {
     "groundPatches": [
     ] + [{"rect_m": w["rect_m"], "material": "leaf_litter"} for w in WOODS] + [
         {"rect_m": [-54, 50, 44, 98], "material": "dirt"},        # the farmyard
+        # Its concrete, from the barn to the farmhouse: the lane and the farm track give way to it, so a buggy's tyres
+        # are on hard ground there (and squeal when they slide).
+        {"rect_m": [-18, 52, 12, 97], "material": "concrete_floor", "paved": True},
         {"rect_m": [-150, 8, -92, 64], "material": "dirt"},       # the camp
         {"rect_m": [92, 22, 152, 84], "material": "gravel"},      # the scrapyard
         {"rect_m": [16.2, -101.8, 43.8, -74.2], "material": "dirt"},  # inside the fort
@@ -376,6 +539,7 @@ body = {
     "buildings": [{"building": b[0], "position_m": [b[1], 0, b[2]]} for b in BUILDINGS],
     "walls": [fence(), fort_walls()] + hedges(),
     "roads": ROADS,
+    "terrain": TERRAIN,
     "woods": woods(),
     "vehicles": VEHICLES,
     "props": PROPS,
@@ -422,7 +586,7 @@ body = {
         {"name": "the south gate", "position_m": [0, 1.7, 126], "yaw_deg": 0, "pitch_deg": -2},
         {"name": "the crossroads", "position_m": [6, 1.7, 6], "yaw_deg": 25, "pitch_deg": 0},
         {"name": "in Blackthorn Wood", "position_m": [-96, 1.7, -46], "yaw_deg": 40, "pitch_deg": 3},
-        {"name": "the fort", "position_m": [24, 1.7, -60], "yaw_deg": -10, "pitch_deg": 3},
+        {"name": "the fort", "position_m": [24, 4.0, -60], "yaw_deg": -10, "pitch_deg": -2},
         {"name": "from the lookout", "position_m": [30, 4.9, -89], "yaw_deg": 180, "pitch_deg": -8},
         {"name": "the farmyard", "position_m": [34, 1.7, 54], "yaw_deg": 104, "pitch_deg": 0},
         {"name": "the camp", "position_m": [-92, 1.7, 26], "yaw_deg": 106, "pitch_deg": 0},
@@ -447,6 +611,10 @@ HEADER = """// Level 5: Thornwick Woods (Phase 5), a woodsball site on old farml
 // crossroads (0, -10) and a dirt ring runs inside the fence; buggies (vehicles.jsonc) stand at the south gate, the camp,
 // the scrapyard and in the north field, and bots drive them along the tracks. The woods are grown from their seeds
 // (each trunk paint, sight and walking meet; the crowns are looks only), clear of the tracks, hedges and cover.
+// The ground rolls ("terrain"): hills, banks, a hollow and a brook with fords; every height below (spawns, props,
+// patrols, pickups, viewpoints) is above the ground at that spot, and the ground is level under buildings and yards.
+// The farmyard has concrete between the barn and the farmhouse (its ground patch "paved": the tracks give way to it, so
+// a buggy's tyres are on hard ground there).
 // Perimeter fence segments: 0 north (x -172->172, at_m = x + 172), 1 east (z -122->122, at_m = z + 122),
 // 2 south (x 172->-172, at_m = 172 - x), 3 west (z 122->-122, at_m = 122 - z)."""
 
@@ -472,6 +640,8 @@ def write(path):
                     for m, item in enumerate(sv):
                         lines.append("      " + obj(item) + ("," if m + 1 < len(sv) else ""))
                     lines.append("    ]" + c2)
+                elif isinstance(sv, list) and sv and isinstance(sv[0], list) and sk == "points_m":
+                    lines.append(f'    "{sk}": ' + arr(sv) + c2)
                 else:
                     lines.append(f'    "{sk}": ' + (arr(sv) if isinstance(sv, list) else (obj(sv) if isinstance(sv, dict) else fmt(sv))) + c2)
             lines.append("  }" + comma)

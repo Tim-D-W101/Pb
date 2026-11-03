@@ -845,6 +845,20 @@ public partial class AudioDirector : Node, ISimEventListener
     private Sfx[] _tyreSounds = Array.Empty<Sfx>();
     private float _knockWait;
 
+    /// <summary>
+    /// Which tyre loop the ground under vehicle <paramref name="vehicle"/> plays: <see cref="Sfx.TyreHard"/> on hard
+    /// ground (where a slide squeals), else gravel, grass or mud (where it scrubs).
+    /// </summary>
+    public Sfx TyresUnder(int vehicle) => TyreSound(_sim.Vehicles[vehicle], _def.Vehicles);
+
+    /// <summary>Which tyre loop the ground at <paramref name="point"/> (within 2 m above or below it) plays.</summary>
+    public Sfx TyresAt(System.Numerics.Vector3 point)
+    {
+        bool hit = _sim.Collision.SweepSphere(point + System.Numerics.Vector3.UnitY * 2f, point - System.Numerics.Vector3.UnitY * 2f, 0f,
+            out Pb.Sim.Collision.SweepHit ground, includeDynamic: false);
+        return TyreKind(hit ? ground.Surface.Value : -1, _def.Vehicles);
+    }
+
     /// <summary>Which tyre loop the ground under <paramref name="v"/> plays (its wheels' surfaces, or straight down from it).</summary>
     private Sfx TyreSound(Pb.Sim.Vehicles.VehicleState v, VehicleSoundDef sound)
     {
@@ -863,6 +877,12 @@ public partial class AudioDirector : Node, ISimEventListener
             surface = hit.Surface.Value;
         }
 
+        return TyreKind(surface, sound);
+    }
+
+    /// <summary>The tyre loop for the surface numbered <paramref name="surface"/> (presentation.jsonc, <c>tyres</c>).</summary>
+    private Sfx TyreKind(int surface, VehicleSoundDef sound)
+    {
         string name = surface >= 0 && surface < _sim.Config.Surfaces.Count ? _sim.Config.Surfaces.Names[surface] : "";
         return sound.Tyres.TryGetValue(name, out string? kind)
             ? kind switch { "gravel" => Sfx.TyreGravel, "grass" => Sfx.TyreGrass, "mud" => Sfx.TyreMud, _ => Sfx.TyreHard }

@@ -81,6 +81,7 @@ public sealed class LevelSmokeTest
     private int _breaks;
     private int _bounces;
     private float _travelled;
+    // The lowest you've been on the walk, below the ground under you (m).
     private float _lowestY = float.MaxValue;
     private int _climb = -1;
     private float _climbHighest;
@@ -161,7 +162,9 @@ public sealed class LevelSmokeTest
         {
             case Phase.Walk:
                 _travelled = System.MathF.Max(_travelled, SVector3.Distance(new SVector3(p.X, 0f, p.Z), new SVector3(_start.X, 0f, _start.Z)));
-                _lowestY = System.MathF.Min(_lowestY, p.Y);
+                // How far below the ground under you (the level datum where there's no rolling ground): falling through the
+                // world. (Below the datum alone, the walk down through Thornwick's ford, 0.8 m under it, failed it.)
+                _lowestY = System.MathF.Min(_lowestY, p.Y - (_sim.Level?.Terrain?.HeightAt(p.X, p.Z) ?? 0f));
                 if (t >= _walkTicks)
                 {
                     NextLadder();

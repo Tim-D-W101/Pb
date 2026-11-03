@@ -72,8 +72,11 @@ public partial class LevelBuilder : Node3D
     /// Builds the level: its primitives, the props, and the buildings' frames and details from their
     /// templates (<see cref="LevelLayout.Buildings"/>).
     /// </summary>
-    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null, WoodsDef? woods = null)
+    public void Build(LevelLayout level, MaterialLibrary materials, bool ambientProbes = true, HorizonDef? horizon = null, WoodsDef? woods = null,
+        TerrainViewDef? terrainView = null)
     {
+        _terrainView = terrainView;
+        var clock = new Pb.Game.Core.LoadClock();
         foreach (Node child in GetChildren())
         {
             child.QueueFree();
@@ -125,6 +128,7 @@ public partial class LevelBuilder : Node3D
             }
         }
 
+        clock.Lap("props");
         int glass = materialIds.TryGetValue(GlassMaterial, out int g) ? g : -1;
         FramedOpenings = OpeningFrames.Build(level, owner => frames.TryGetValue(owner, out int m) ? m : -1, glass, at => ChunkMesh(shapes, at.X, at.Z));
         DressedBuildings = BuildingDetails.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z), Drips);
@@ -132,6 +136,7 @@ public partial class LevelBuilder : Node3D
         SkirtedFaces = Skirting.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
         SceneryCount = Scenery.Build(level, id => materialIds.TryGetValue(id, out int index) ? index : -1, at => ChunkMesh(shapes, at.X, at.Z));
 
+        clock.Lap("details");
         foreach (((int cx, int cz), ShapeMesh shape) in shapes)
         {
             var mesh = new ArrayMesh();
@@ -150,7 +155,9 @@ public partial class LevelBuilder : Node3D
             }
         }
 
+        clock.Lap("shape meshes");
         BuildGround(level);
+        clock.Lap("ground");
         if (horizon is not null)
         {
             Pb.Sim.Collision.Aabb b = level.Bounds;
@@ -175,14 +182,22 @@ public partial class LevelBuilder : Node3D
             }
         }
 
+        clock.Lap("horizon and woods");
         BuildMeshes(render);
+        clock.Lap("meshes");
         BuildCollision(level);
         BuildOccluders(level);
         if (ambientProbes)
         {
             BuildAmbientProbes(level);
         }
+
+        clock.Lap("colliders");
+        BuildTimes = clock.Parts;
     }
+
+    /// <summary>How long each part of the last <see cref="Build"/> took.</summary>
+    public string BuildTimes { get; private set; } = "";
 
     /// <summary>The dedicated server: only what walking needs (the level's walking colliders and the ground), nothing drawn.</summary>
     public void BuildWalking(LevelLayout level)
@@ -193,11 +208,14 @@ public partial class LevelBuilder : Node3D
         }
 
         ColliderCount = 0;
-        var body = new StaticBody3D { Name = "GroundBody" };
-        body.AddChild(new CollisionShape3D { Shape = new WorldBoundaryShape3D() });
-        AddChild(body);
+        AddGroundBody(level);
         BuildCollision(level);
     }
+
+    /// <summary>Triangles in the rolling ground's meshes (M5.8), when the level has one.</summary>
+    public int TerrainTriangles { get; private set; }
+
+    private TerrainViewDef? _terrainView;
 
     private void BuildGround(LevelLayout level)
     {
@@ -207,25 +225,73 @@ public partial class LevelBuilder : Node3D
 
         // The playable ground, plus scrubland reaching well past where fog swallows it (the sky below
         // the horizon is fog-coloured, so there's no visible edge).
-        AddChild(new MeshInstance3D
-        {
-            Name = "Ground",
-            Mesh = GroundMesh(size, center),
-            MaterialOverride = _materials[level.GroundMaterial.Index],
-        });
-
         int grass = FindMaterial(level, SurroundingsMaterial, level.GroundMaterial.Index);
-        AddChild(new MeshInstance3D
+        if (level.Terrain is { } terrain)
         {
-            Name = "Surroundings",
-            Mesh = GroundMesh(new Vector2(SurroundingsSize, SurroundingsSize), center),
-            MaterialOverride = _materials[grass],
-            Position = new Vector3(0f, -0.03f, 0f),
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-        });
+            // The rolling ground over the level, and the scrubland round it (not under it, where it would show in the dips).
+            var ground = new Node3D { Name = "Ground" };
+            AddChild(ground);
+            TerrainTriangles = TerrainMesh.Build(ground, terrain, m => _materials[m], (m, order) => _materials.EdgeVariant(m, order));
+            TerrainMesh.Water(ground, terrain, _terrainView ?? new TerrainViewDef());
+            float h = SurroundingsSize * 0.5f;
+            foreach ((string name, Vector2 from, Vector2 to) in new[]
+                     {
+                         ("North", new Vector2(center.X - h, center.Z - h), new Vector2(center.X + h, b.Min.Z)),
+                         ("South", new Vector2(center.X - h, b.Max.Z), new Vector2(center.X + h, center.Z + h)),
+                         ("West", new Vector2(center.X - h, b.Min.Z), new Vector2(b.Min.X, b.Max.Z)),
+                         ("East", new Vector2(b.Max.X, b.Min.Z), new Vector2(center.X + h, b.Max.Z)),
+                     })
+            {
+                AddChild(new MeshInstance3D
+                {
+                    Name = $"Surroundings{name}",
+                    Mesh = GroundMesh(to - from, new Vector3((from.X + to.X) * 0.5f, 0f, (from.Y + to.Y) * 0.5f)),
+                    MaterialOverride = _materials[grass],
+                    Position = new Vector3(0f, -0.03f, 0f),
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                });
+            }
+        }
+        else
+        {
+            AddChild(new MeshInstance3D
+            {
+                Name = "Ground",
+                Mesh = GroundMesh(size, center),
+                MaterialOverride = _materials[level.GroundMaterial.Index],
+            });
 
+            AddChild(new MeshInstance3D
+            {
+                Name = "Surroundings",
+                Mesh = GroundMesh(new Vector2(SurroundingsSize, SurroundingsSize), center),
+                MaterialOverride = _materials[grass],
+                Position = new Vector3(0f, -0.03f, 0f),
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
+        }
+
+        AddGroundBody(level);
+    }
+
+    /// <summary>What the feet stand on: the rolling ground's height map (with a plane well under it, just in case), or level ground.</summary>
+    private void AddGroundBody(LevelLayout level)
+    {
         var body = new StaticBody3D { Name = "GroundBody" };
-        body.AddChild(new CollisionShape3D { Shape = new WorldBoundaryShape3D() });
+        if (level.Terrain is { } terrain)
+        {
+            (HeightMapShape3D shape, Transform3D at) = TerrainMesh.Collider(terrain);
+            body.AddChild(new CollisionShape3D { Shape = shape, Transform = at });
+            body.AddChild(new CollisionShape3D
+            {
+                Shape = new WorldBoundaryShape3D(), Position = new Vector3(0f, terrain.MinHeight - 2f, 0f),
+            });
+        }
+        else
+        {
+            body.AddChild(new CollisionShape3D { Shape = new WorldBoundaryShape3D() });
+        }
+
         AddChild(body);
     }
 

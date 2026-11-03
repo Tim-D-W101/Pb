@@ -207,6 +207,12 @@ public sealed class LevelLayout
     /// <summary>Where the vehicles stand when a round starts (in a place, those inside it).</summary>
     public IReadOnlyList<VehicleSpot> VehicleSpots { get; init; } = Array.Empty<VehicleSpot>();
 
+    /// <summary>The rolling ground (M5.8), or null where the ground is level at 0.</summary>
+    public Terrain? Terrain { get; init; }
+
+    /// <summary>The ground's height at (<paramref name="x"/>, <paramref name="z"/>): the terrain's, or 0.</summary>
+    public float GroundAt(float x, float z) => Terrain?.HeightAt(x, z) ?? 0f;
+
     /// <summary>The bots' grid spacing on this level (0: navigation.jsonc's); a big level's is coarser.</summary>
     public float NavCellSize { get; init; }
 
@@ -320,17 +326,18 @@ public sealed class LevelLayout
             Trees = Trees,
             Roads = Roads,
             VehicleSpots = VehicleSpots.Where(v => place.Contains(v.Position)).ToArray(),
+            Terrain = Terrain,
             NavCellSize = NavCellSize,
             Places = Places,
             Place = place,
         };
     }
 
-    /// <summary>Adds the ground plane and every paint primitive to <paramref name="world"/>.</summary>
+    /// <summary>Adds the ground (the plane, or the rolling ground) and every paint primitive to <paramref name="world"/>.</summary>
     public void BuildCollision(CollisionWorld world)
     {
         world.Clear();
-        world.Add(new PlaneShape(Vector3.UnitY, 0f), GroundMaterial.Surface, "ground");
+        world.Add(Terrain is { } terrain ? new HeightFieldShape(terrain) : new PlaneShape(Vector3.UnitY, 0f), GroundMaterial.Surface, "ground");
         for (int i = 0; i < Primitives.Count; i++)
         {
             LevelPrimitive p = Primitives[i];

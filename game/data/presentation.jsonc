@@ -703,6 +703,11 @@
   // A level's own woods (Thornwick Woods: its trees are in the level file, their trunks in the sim) are grown the same
   // way, in squares standChunk_m on a side: each square's wood is drawn out to standWoodRange_m and its leaves out to
   // standLeafRange_m (fading over the last standFade_m), so a big site's far woods cost little.
+  // The rolling ground (M5.8): water in its stream beds (Thornwick Woods' brook), waterDepth_m over the bed's bottom and
+  // waterInset_m in from the foot of each bank, so a strip of mud shows either side; dark (waterColor, sRGB), smooth
+  // (waterRoughness) and reflecting (waterSpecular). Looks only: paint and people go through it to the mud.
+  "terrainView": { "waterDepth_m": 0.1, "waterInset_m": 0.3, "waterColor": "#1d2018", "waterRoughness": 0.24, "waterSpecular": 0.22 },
+
   // The buggies (M5.7). From the seat the view takes seatTilt of the body's lean and pitch; the head sways against the
   // pulls of driving (headLag_mpmps2 metres per m/s² of them, at most headLagMax_m, springing back at headLag_hz damped
   // to headLagDamping of critical) and shakes with the engine (engineShake_m at the red line) and rough ground
