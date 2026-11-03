@@ -5,7 +5,7 @@ using Pb.Sim.Data;
 namespace Pb.Sim.Vehicles;
 
 /// <summary>One seat: where it is in the vehicle's frame (x right, y up, z ahead), and whether its occupant drives or fires.</summary>
-public readonly record struct SeatParams(string Id, Vector3 At, bool Drives, bool Fires);
+public readonly record struct SeatParams(string Id, Vector3 At, bool Drives, bool Fires, float SpreadScale = 1f);
 
 /// <summary>A kind of vehicle (SI), from vehicles.jsonc.</summary>
 public sealed class VehicleParams
@@ -88,6 +88,6 @@ public sealed class VehicleParams
         SeatedEyeHeight = d.SeatedEyeHeight_m,
         StopShort = d.StopShort_m,
         Brush = d.Brush_m,
-        Seats = d.Seats.Select(s => new SeatParams(s.Id, new Vector3(s.At_m[0], s.At_m[1], s.At_m[2]), s.Drives, s.Fires)).ToArray(),
+        Seats = d.Seats.Select(s => new SeatParams(s.Id, new Vector3(s.At_m[0], s.At_m[1], s.At_m[2]), s.Drives, s.Fires, s.SpreadScale)).ToArray(),
     };
 }

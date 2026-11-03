@@ -160,17 +160,30 @@ public class VehicleTests
     }
 
     [Fact]
-    public void The_driver_cant_fire_a_passenger_can()
+    public void The_driver_fires_one_handed_and_wider_a_passenger_as_usual()
     {
         (SimWorld sim, PlayerState you, PlayerState mate, _) = Field();
         Press(sim, you);
         Press(sim, mate);
         Assert.Equal(1 - Buggy.DriverSeat, mate.Seat);
-        Assert.False(sim.Vehicles.MayFire(you));
+        Assert.True(sim.Vehicles.MayFire(you));
         Assert.True(sim.Vehicles.MayFire(mate));
-        List<SimEvent> events = Step(sim, Second, p => new InputCommand { Yaw = p.Yaw, Buttons = sim.Tick % 20 < 10 ? InputButtons.Fire : InputButtons.None });
-        Assert.DoesNotContain(events, e => e.Type == SimEventType.ShotFired && e.PlayerId == you.Id);
-        Assert.Contains(events, e => e.Type == SimEventType.ShotFired && e.PlayerId == mate.Id);
+        Assert.Equal(Buggy.Seats[Buggy.DriverSeat].SpreadScale, sim.Vehicles.SpreadScale(you));
+        Assert.Equal(1f, sim.Vehicles.SpreadScale(mate));
+
+        // Both pull the trigger for eight seconds, sitting still, aiming the same way: the driver's shots spread wider.
+        List<SimEvent> events = Step(sim, 8 * Second, p => new InputCommand { Yaw = 0f, Buttons = sim.Tick % 20 < 10 ? InputButtons.Fire : InputButtons.None });
+        float Spread(PlayerState who)
+        {
+            Vector3[] shots = events.Where(e => e.Type == SimEventType.ShotFired && e.PlayerId == who.Id).Select(e => Vector3.Normalize(e.Velocity)).ToArray();
+            Assert.True(shots.Length > 20, $"{who.Name} fired only {shots.Length} shots");
+            Vector3 mean = Vector3.Normalize(shots.Aggregate(Vector3.Zero, (a, b) => a + b));
+            return shots.Average(d => MathF.Acos(Math.Clamp(Vector3.Dot(d, mean), -1f, 1f))) * 180f / MathF.PI;
+        }
+
+        float driver = Spread(you), passenger = Spread(mate);
+        _out.WriteLine($"mean spread: driver {driver:0.00}°, passenger {passenger:0.00}°");
+        Assert.True(driver > passenger * 1.5f, "the driver's one-handed shots aren't wider");
     }
 
     [Fact]

@@ -32,6 +32,25 @@ And Tim's addition for C, the same day:
 > vehicles). Keep performance and bot pathfinding solid at that size (streaming/LOD as needed). Plan it as its own PR
 > if it's large.
 
+Tim's follow-up, after C2 (2026-11-02), building on its PR:
+
+> 1. The driver must be able to shoot while driving (one-handed / reduced accuracy is fine, his call is that it must be
+> possible), for players and bots. Update the vehicle rules: paint on a buggy still shouldn't count, but drivers and
+> passengers can be hit and eliminated as now.
+> 2. Much more realistic buggy handling: proper suspension and weight transfer, wheel grip/slide on gravel vs grass vs
+> mud, throttle/brake/handbrake, body roll, engine and tyre sounds that follow revs and surface, dust/mud particles,
+> camera that feels like you're in the seat, a real seated driving animation (hands on wheel, aiming pose when
+> shooting). Predict the joined driver's buggy on their own copy so online driving doesn't lag.
+> 3. Thornwick Woods: add rolling ground (hills, dips, banks, a stream bed) that works with buggies and bot pathfinding;
+> get bots to use buggies in normal team rounds too; cut the ~11 s load time (weed tufts via multimesh/streaming/LOD) to
+> near the other maps.
+> Do these as new PRs stacked on #14 (or update #14 if cleaner), keep all tests, smoke suite and CI green, and summarise
+> when done.
+
+That's three more PRs, each on the one before, the first on C2's: **E** firing from the wheel (M5.6), **F** the
+buggy's handling, sound, camera and animation, and the joined driver's prediction (M5.7), and **G** rolling ground,
+bots driving in team rounds and a quicker load (M5.8).
+
 How I've read it:
 
 | You said | What it becomes |
@@ -122,6 +141,31 @@ How I've read it:
   - *Bots.* They drive along a road graph, keeping to it round corners.
   - *Size.* Instead of a coarse path map, the level's own coarser grid (0.35 m) and a grid build spread over threads
     were enough. The grid builds in 3 s, and searches across the site take at most 12 ms, spread over ticks.
+
+### M5.6 (PR E) — Firing from the wheel
+
+- The driver's seat fires, one-handed: the marker's spread (already wider at speed) times the seat's `spreadScale`
+  (2, `vehicles.jsonc`). Paint on a buggy still never counts; everyone in it can be hit and put out as before.
+- Bots fire from the wheel too: with an enemy in sight they look at it, aim and fire as on foot, and drive on at no more
+  than `driveFightSpeed_mps`; an enemy within `driveFightOutWithin_m` gets them out to fight on foot.
+- **Checks**: the driver's shots spread twice the passenger's; a bot driving up the lane past an enemy fires from the
+  wheel and drives on.
+
+### M5.7 (PR F) — The buggy's handling
+
+- A rigid body on four sprung wheels (raycast suspension, weight transfer, body roll and pitch), tyre grip and slides by
+  surface (gravel, grass, dirt, mud), throttle, brake and handbrake, an engine with revs and gears.
+- Engine and tyre sounds from the revs, the load, the surface and the slip; dust, grass and mud thrown from the wheels;
+  a seat camera that moves with the body; seated clips (hands on the wheel, one hand up to aim when firing).
+- A joined driver's buggy predicted on their own copy and put right from the server's, like their own body.
+
+### M5.8 (PR G) — Rolling ground, bots driving, a quicker load
+
+- Thornwick Woods gets rolling ground: hills, dips, banks and a stream bed, a height field the sim's paint, sight,
+  walking, the bots' grid and the buggies' wheels all meet.
+- Bots take the buggies in plain team rounds too, pushing toward the other side's end of the site.
+- The load cut toward the other areas': the weeds built in chunks off the main thread, the grid built while the level
+  dresses.
 
 ### M5.5 (PR D) — A build to share
 
