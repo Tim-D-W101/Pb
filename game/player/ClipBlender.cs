@@ -17,6 +17,8 @@ namespace Pb.Game.Player;
 /// <item><b>Refilling</b>: the refill's body, in step with the sim's refill (its hands are the poser's IK, on the pod).</item>
 /// <item><b>Out</b>: hands up, standing tall, over whatever the legs are doing (walking off).</item>
 /// <item><b>Hit</b>: the flinch, added on top for its length.</item>
+/// <item><b>Seated</b> (M5.7): in a buggy's seat, the sitting clips over everything — driving, the arms to the wheel;
+/// riding (or the driver's marker up off its sling), holding the marker.</item>
 /// </list>
 /// Everything moves on by the frame's time and every weight follows its target at a capped rate, so it looks the same at
 /// any frame rate.
@@ -46,7 +48,8 @@ public partial class ClipBlender : SkeletonModifier3D
     private float _layerWeight;
     private readonly BakedClip?[,] _moves = new BakedClip?[3, 4];
     private readonly BakedClip?[] _crouches = new BakedClip?[4];
-    private BakedClip? _sprint, _idle, _crouchIdle, _leanLeft, _leanRight, _refill, _hit, _handsUp;
+    private BakedClip? _sprint, _idle, _crouchIdle, _leanLeft, _leanRight, _refill, _hit, _handsUp, _sitDrive, _sitRide;
+    private float _seatW, _seatSpeed, _seatAimW, _seatAimSpeed;
     private readonly float[] _paceSpeeds = { 1.65f, 3f, 5.5f };
     private float _sprintPace = 7f;
     private float _paceFollow = 200f;
@@ -88,6 +91,12 @@ public partial class ClipBlender : SkeletonModifier3D
 
     /// <summary>Out of the round (hands up).</summary>
     public bool Out { get; set; }
+
+    /// <summary>In a vehicle's seat: 1 at its wheel, 2 riding; 0 out of one.</summary>
+    public int Seated { get; set; }
+
+    /// <summary>At the wheel, how far the marker's up off its sling (0 slung … 1 up): the upper body holds it as riding does.</summary>
+    public float SeatAim { get; set; }
 
     /// <summary>On the ground (in the air, sliding or on a ladder the step cycle holds where it is).</summary>
     public bool Stepping { get; set; } = true;
@@ -162,6 +171,8 @@ public partial class ClipBlender : SkeletonModifier3D
         _refill = set["refill"];
         _hit = set["hit"];
         _handsUp = set["hands_up"];
+        _sitDrive = set["sit_drive"];
+        _sitRide = set["sit_ride"];
         _pose = new Quaternion[_bones];
         _layer = new Quaternion[_bones];
         _upper = new bool[_bones];
@@ -259,6 +270,10 @@ public partial class ClipBlender : SkeletonModifier3D
         _refillW = Mathf.Clamp(_refillW, 0f, 1f);
         Follow.Toward(ref _outW, ref _outSpeed, Out ? 1f : 0f, _blend.Out_ps2, dt);
         _outW = Mathf.Clamp(_outW, 0f, 1f);
+        Follow.Toward(ref _seatW, ref _seatSpeed, Seated > 0 ? 1f : 0f, _blend.Crouch_ps2, dt);
+        _seatW = Mathf.Clamp(_seatW, 0f, 1f);
+        Follow.Toward(ref _seatAimW, ref _seatAimSpeed, Seated == 1 ? Mathf.Clamp(SeatAim, 0f, 1f) : 0f, _blend.Crouch_ps2, dt);
+        _seatAimW = Mathf.Clamp(_seatAimW, 0f, 1f);
     }
 
     /// <summary>The ground one cycle covers for the clips blended at this speed and direction (m).</summary>
@@ -450,6 +465,20 @@ public partial class ClipBlender : SkeletonModifier3D
         if (Debug && (_debugFrame++ % 6) == 0)
         {
             GD.Print($"ANIM v=({Velocity.X:0.00},{Velocity.Y:0.00}) crouch {_crouchW:0.00} moving {_moving:0.00} phase {Phase:0.000} pace {_pace:0.00} stride {Stride(_pace):0.00} down {left}/{right} drop {drop:0.00}");
+        }
+
+        // Seated: sitting, over everything below (the hips, legs and hands are then put on the seat, floor and wheel by
+        // the poser); at the wheel with the marker up, the upper body holds it as a passenger does.
+        BakedClip? sit = Seated == 2 ? _sitRide : _sitDrive;
+        if (sit is not null && _seatW > 0.001f)
+        {
+            Sample(sit, sit.At(_idleTime / sit.Length_s), _layer, out _layerHips, _layerAnkles, _layerBalls);
+            Mix(_layer, _layerHips, _seatW, null);
+            if (_sitRide is not null && _seatAimW > 0.001f)
+            {
+                Sample(_sitRide, _sitRide.At(_idleTime / _sitRide.Length_s), _layer, out _layerHips, _layerAnkles, _layerBalls);
+                Mix(_layer, _layerHips, _seatW * _seatAimW, _upper);
+            }
         }
 
         // Leaning: the legs and hips brace, mostly standing still.

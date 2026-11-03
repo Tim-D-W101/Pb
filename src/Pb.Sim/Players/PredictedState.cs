@@ -35,6 +35,10 @@ public struct PredictedState
 
     public float Tuck;
 
+    public float Sling;
+
+    public float SlingHold;
+
     public float SlideTime;
 
     public float SlideCooldown;
@@ -80,6 +84,8 @@ public struct PredictedState
         Shoulder = player.Shoulder,
         ShoulderTarget = player.ShoulderTarget,
         Tuck = player.Tuck,
+        Sling = player.Sling,
+        SlingHold = player.SlingHold,
         SlideTime = player.SlideTime,
         SlideCooldown = player.SlideCooldown,
         JumpCooldown = player.JumpCooldown,
@@ -112,6 +118,8 @@ public struct PredictedState
         player.Shoulder = Shoulder;
         player.ShoulderTarget = ShoulderTarget;
         player.Tuck = Tuck;
+        player.Sling = Sling;
+        player.SlingHold = SlingHold;
         player.SlideTime = SlideTime;
         player.SlideCooldown = SlideCooldown;
         player.JumpCooldown = JumpCooldown;
@@ -141,7 +149,8 @@ public struct PredictedState
             : Alive != server.Alive || Present != server.Present ? PredictionDifference.Alive
             : PreviousButtons != server.PreviousButtons ? PredictionDifference.Buttons
             : MathF.Abs(EyeHeight - server.EyeHeight) >= Small || MathF.Abs(Lean - server.Lean) >= Small || MathF.Abs(Shoulder - server.Shoulder) >= Small
-              || ShoulderTarget != server.ShoulderTarget || MathF.Abs(Tuck - server.Tuck) >= Small ? PredictionDifference.Pose
+              || ShoulderTarget != server.ShoulderTarget || MathF.Abs(Tuck - server.Tuck) >= Small || MathF.Abs(Sling - server.Sling) >= Small
+              || MathF.Abs(SlingHold - server.SlingHold) >= Small ? PredictionDifference.Pose
             : MathF.Abs(SlideTime - server.SlideTime) >= Small || MathF.Abs(SlideCooldown - server.SlideCooldown) >= Small
               || MathF.Abs(JumpCooldown - server.JumpCooldown) >= Small || MathF.Abs(SprintRecovery - server.SprintRecovery) >= Small
               || MathF.Abs(LadderTime - server.LadderTime) >= Small ? PredictionDifference.Timers
@@ -163,7 +172,8 @@ public struct PredictedState
                PreviousButtons == server.PreviousButtons &&
                MathF.Abs(EyeHeight - server.EyeHeight) < Small && MathF.Abs(Lean - server.Lean) < Small &&
                MathF.Abs(Shoulder - server.Shoulder) < Small && ShoulderTarget == server.ShoulderTarget &&
-               MathF.Abs(Tuck - server.Tuck) < Small && MathF.Abs(SlideTime - server.SlideTime) < Small &&
+               MathF.Abs(Tuck - server.Tuck) < Small && MathF.Abs(Sling - server.Sling) < Small && MathF.Abs(SlingHold - server.SlingHold) < Small &&
+               MathF.Abs(SlideTime - server.SlideTime) < Small &&
                MathF.Abs(SlideCooldown - server.SlideCooldown) < Small && MathF.Abs(JumpCooldown - server.JumpCooldown) < Small &&
                MathF.Abs(SprintRecovery - server.SprintRecovery) < Small && MathF.Abs(LadderTime - server.LadderTime) < Small &&
                Marker.SameAs(server.Marker);

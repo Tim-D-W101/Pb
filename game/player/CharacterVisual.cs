@@ -267,7 +267,7 @@ public partial class CharacterVisual : Node3D
         var drawn = new HitboxPose(System.Numerics.Vector3.Lerp(_poseBefore.Position, _poseNow.Position, alpha), LerpAngle(_poseBefore.Yaw, _poseNow.Yaw, alpha),
             Mathf.Lerp(_poseBefore.Pitch, _poseNow.Pitch, alpha), _eyeShown, _leanShown, _shoulderShown,
             _poseNow.Alive, _poseNow.Present, Mathf.Lerp(_poseBefore.Tuck, _poseNow.Tuck, alpha), LerpAngle(_poseBefore.HeadYaw, _poseNow.HeadYaw, alpha),
-            _poseNow.Climbing);
+            _poseNow.Climbing, Mathf.Lerp(_poseBefore.Sling, _poseNow.Sling, alpha));
         HitboxRig.Pose(drawn, _sim.Config.Hitboxes, _sim.Config.Movement.LeanPivotBelowEye, _drawnBoxes);
         // Just out, the gear comes up over the head over a moment (the sim has it up at once; nothing counts on it now).
         float raise = Raise();
@@ -362,6 +362,8 @@ public partial class CharacterVisual : Node3D
             poser.SupportHand = poser.SupportHand.Lerp(up, poser.SupportRaise);
         }
 
+        Seated(poser, alpha);
+
         // On a ladder: hands and feet on the rungs (the gear's slung on the back, by its hitboxes).
         if (_state.Ladder >= 0 && _state.Ladder < _sim.Ladders.Count && _state.LadderPhase == LadderPhase.Climbing)
         {
@@ -403,13 +405,16 @@ public partial class CharacterVisual : Node3D
             Vector3 velocity = seated ? Vector3.Zero : _state.Velocity.ToGodot() with { Y = 0f };
             _velocityShown = _velocityShown.Lerp(velocity, 1f - Mathf.Exp(-delta / 0.08f));
             blender.Velocity = new Vector2(_velocityShown.Dot(poser.Right), _velocityShown.Dot(poser.Forward));
-            blender.Crouch = seated ? 1f : Mathf.Clamp(crouch, 0f, 1f);
+            blender.Crouch = seated ? 0f : Mathf.Clamp(crouch, 0f, 1f);
             blender.Sprinting = _state.Sprinting && !seated;
             float most = _sim.Config.Movement.LeanAngle;
             blender.Lean = most > 1e-4f ? _leanShown / most : 0f;
             Pb.Sim.Gear.Marker gear = _state.Marker;
             blender.Refill = gear.Refill.Active && _state.Alive && !_shadowOnly ? gear.Refill.Progress(gear.Paint.Params) : -1f;
             blender.Out = !_poseNow.Alive;
+            blender.Seated = !seated || _state.Seat < 0 || _sim.Vehicles.Of(_state) is not { } ride ? 0
+                : ride.Params.Seats[System.Math.Min(_state.Seat, ride.Params.Seats.Count - 1)].Drives ? 1 : 2;
+            blender.SeatAim = 1f - _poseNow.Sling;
             blender.Stepping = _state.Grounded && _state.Stance != Stance.Sliding && !_state.OnLadder && !seated;
             poser.Ground = _ground;
             poser.FloorHeight = feet.Y;
@@ -426,6 +431,66 @@ public partial class CharacterVisual : Node3D
                 _state.Grounded || seated, delta);
         }
     }
+
+    /// <summary>
+    /// In a vehicle's seat (M5.7): the body sits square to it, leaning and pitching with it as it's drawn, the hips on the
+    /// seat and the feet on the floor ahead, the chest turned toward where the eyes look; swaying against the vehicle's turn.
+    /// The driver's hands are on the steering wheel, turning with it, the marker on its sling; pulling the trigger brings
+    /// the trigger hand up to it while the other stays on the wheel. A passenger holds the marker as anywhere else.
+    /// </summary>
+    private void Seated(CharacterPoser poser, float alpha)
+    {
+        if (_state.Vehicle < 0 || _state.Seat < 0 || _sim.Vehicles.Of(_state) is not { } ride || World.VehicleViews.Current is not { } views ||
+            _state.Seat >= ride.Params.Seats.Count)
+        {
+            poser.Seat = null;
+            poser.SeatTwist = 0f;
+            _seatYaw = null;
+            return;
+        }
+
+        Transform3D drawn = views.Drawn(ride.Id, alpha);
+        Basis body = drawn.Basis.Orthonormalized();
+        Vector3 forward = -body.Z, up = body.Y, right = body.X;
+        System.Numerics.Vector3 at = ride.Params.Seats[_state.Seat].At;
+        var seat = new Vector3(at.X, at.Y, -at.Z);
+        _model!.GlobalTransform = new Transform3D(body, drawn * seat);
+        poser.Forward = forward;
+        poser.Right = right;
+        poser.HipDrop = 0f;
+
+        // The chest turns toward the look (the rest is the neck's), and the body sways out of the vehicle's turn.
+        float vehicleYaw = Mathf.Atan2(-forward.X, -forward.Z);
+        float look = Mathf.LerpAngle(_poseBefore.Yaw, _poseNow.Yaw, alpha);
+        float turn = Mathf.Clamp(Mathf.AngleDifference(vehicleYaw, look), -1.6f, 1.6f);
+        poser.SeatTwist = turn * 0.6f;
+        poser.HeadYaw += turn * 0.4f;
+        float dt = Mathf.Max((float)GetProcessDeltaTime(), 1e-4f);
+        float yawRate = _seatYaw is { } last ? Mathf.AngleDifference(last, vehicleYaw) / dt : 0f;
+        _seatYaw = vehicleYaw;
+        _seatTurnRate = Mathf.Lerp(_seatTurnRate, yawRate, 1f - Mathf.Exp(-dt / 0.15f));
+        poser.LeanRoll = Mathf.Clamp(-ride.Speed * _seatTurnRate * Mathf.DegToRad(views.Def.BodySway_degpmps2), -0.25f, 0.25f);
+
+        float floor = ride.Params.Floor + 0.03f;
+        poser.Seat = new CharacterPoser.SeatGrip(
+            drawn * (seat + new Vector3(0f, 0.1f, 0.06f)),
+            drawn * new Vector3(seat.X - 0.11f, floor, seat.Z - 0.5f),
+            drawn * new Vector3(seat.X + 0.11f, floor, seat.Z - 0.5f),
+            forward, up);
+
+        // At the wheel: the support hand on it, the trigger hand too as far as the marker's on its sling.
+        if (ride.Params.Seats[_state.Seat].Drives && views.Grips(ride.Id, alpha, out Vector3 left,
+                out Vector3 rightGrip, out _))
+        {
+            float sling = Mathf.Lerp(_poseBefore.Sling, _poseNow.Sling, alpha);
+            Vector3 triggerSide = poser.RightHanded ? rightGrip : left, supportSide = poser.RightHanded ? left : rightGrip;
+            poser.SupportHand = supportSide;
+            poser.TriggerHand = poser.TriggerHand.Lerp(triggerSide, Mathf.SmoothStep(0f, 1f, sling));
+        }
+    }
+
+    private float? _seatYaw;
+    private float _seatTurnRate;
 
     /// <summary>
     /// The breath this frame (rad): slow at rest, quicker and deeper just after running hard, easing back.

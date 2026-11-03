@@ -2,14 +2,18 @@
 // rules as people. Keys carry their unit; code converts to SI once on load.
 //
 // The field's rules for vehicles (paintball sites that use them run much the same):
-//   - paint on a vehicle doesn't count: it's cover, and balls break on its body; the people in it are as exposed as
-//     their seats leave them (their own hitboxes, sitting up above the sides);
+//   - paint on a vehicle doesn't count: it's cover, and balls break on its body;
 //   - whoever drives can fire one-handed, the other hand on the wheel, so less accurately (the seat's spreadScale
 //     times the marker's spread, which already widens with the buggy's speed); a passenger fires as usual;
 //   - everyone in it can be hit and put out as anywhere else (their own hitboxes, sitting up above the sides);
 //   - a vehicle never hits anyone: it stops for anyone in its way;
 //   - the field's speed limit is the vehicle's top speed;
 //   - you get in and out only when it's (nearly) stopped, and someone in it who's hit gets out and walks off.
+//
+// How it drives (M5.7): a rigid body on four sprung wheels. Each wheel's spring and damper push the body up from where a
+// ray down from its mount meets the ground; each tyre grips the ground sideways and along its heading as hard as the
+// load on it and the surface allow (tyres, below), sliding when asked for more. So it squats as it pulls away, dives
+// when it brakes, leans out in a corner, slides on mud and wet grass and bites on the tracks.
 {
   "vehicles": [
     {
@@ -21,17 +25,69 @@
       "width_m": 1.75,
       "sideHeight_m": 1.05,
       "floor_m": 0.4,
-      // From the back axle to the front: how tight it turns (with maxSteer_deg).
+      // Between the axles, and between the wheels across; the wheels' radius.
       "wheelbase_m": 2.2,
-      // 43 km/h forward is the site's limit (a sprint is 25: worth walking to one for a long way); a crawl backwards.
-      "maxSpeed_mps": 12.0,
+      "track_m": 1.5,
+      "wheelRadius_m": 0.34,
+      // With two aboard. The centre of mass this far above the body's point on the ground (low: it's mostly frame and
+      // engine).
+      "mass_kg": 520,
+      "comHeight_m": 0.48,
+      // The suspension meets the body this far up. Its springs bounce at suspensionHz with the body's weight on them
+      // (soft, long-travel: it leans and pitches you can see), damped to this share of critical; a wheel can rise
+      // bumpTravel_m above where it sits at rest before the bump stop. Anti-roll bars resist the body leaning over by
+      // this much force per metre of difference across an axle.
+      "mountHeight_m": 0.6,
+      "suspensionHz": 1.4,
+      "suspensionDamping": 0.45,
+      "bumpTravel_m": 0.16,
+      "antiRoll_Npm": 1500,
+      // An automatic gearbox: each gear runs up to its speed, pushing at its force at full throttle; the push holds to
+      // powerBand of the red line and falls away to none at it. It changes up at shiftUp of a gear's top speed and down
+      // below shiftDown of the one under it, each change taking shift_s with no drive. Idle to the red line. 43 km/h in
+      // top is the site's limit (a sprint is 25). A crawl back, pushing at reverseForce_N. Rear-wheel drive (frontDrive
+      // is the front's share).
+      "gearSpeeds_mps": [4.5, 8.0, 12.0],
+      "driveForce_N": [2700, 1800, 1250],
+      "powerBand": 0.8,
+      "shiftUp": 0.92,
+      "shiftDown": 0.5,
+      "shift_s": 0.18,
+      "frontDrive": 0.0,
       "reverseSpeed_mps": 3.0,
-      "accel_mps2": 4.5,
-      "brake_mps2": 8.0,
-      // Off the pedals it rolls to a stop at this rate.
-      "coast_mps2": 1.8,
-      "maxSteer_deg": 30,
-      "steerRate_degps": 75,
+      "reverseForce_N": 1500,
+      "idleRpm": 1100,
+      "maxRpm": 6800,
+      // How fast the revs rise and fall.
+      "revRate_rpmps": 20000,
+      // Off the throttle the engine holds it back with this much force. Off the pedals and slower than holdBelow_mps,
+      // the brakes hold it still, on a slope too; an empty one has its brakes on (parked). The brakes,
+      // brakeFront of them on the front wheels, never lock (each wheel brakes as hard as its grip allows); the handbrake
+      // (the jump key) locks the rear wheels: they slide, pushing back with handbrakeGrip of their grip, all of it
+      // against the way they slide, so they hardly hold sideways and the tail comes round. Air drag: ½ρ·Cd·A (N per
+      // (m/s)²).
+      "engineBrake_N": 900,
+      "holdBelow_mps": 0.4,
+      "brakeForce_N": 7600,
+      "brakeFront": 0.6,
+      "handbrakeGrip": 0.7,
+      "drag": 0.42,
+      // How hard a tyre pushes back sideways per radian it slides at, as a share of the load on it (it levels off at the
+      // surface's grip); below slipSpeed_mps the angle is taken against that speed, so a crawl doesn't make it wild.
+      // Steering: so far at a standstill, less at speed (steerAtSpeed of it at the top speed), at steerRate_degps.
+      "corneringStiffness": 8.0,
+      "slipSpeed_mps": 1.5,
+      "maxSteer_deg": 32,
+      "steerAtSpeed": 0.45,
+      "steerRate_degps": 110,
+      // The body hitting something (a tree, a wall, another buggy, the ground when it lands hard or rolls): how much it
+      // bounces back (0 not at all, 1 fully) and the friction scraping along it. An empty buggy slower than
+      // restBelow_mps (and turning slower than as many rad/s) is at rest, and stays put till something moves it.
+      "bodyBounce": 0.15,
+      "bodyFriction": 0.5,
+      "restBelow_mps": 0.05,
+      // Turned over (its top more than sideways) and nearly still for rightAfter_s, it's righted, as marshals would.
+      "rightAfter_s": 2.0,
       // Getting in: standing (or walking) within enterRadius_m of a free seat's side; out again only below
       // exitBelow_mps, beside the seat you were in (or the other side, or behind, whichever's clear).
       "enterRadius_m": 1.8,
@@ -40,13 +96,26 @@
       // of them (between its body and theirs), and never comes closer to anyone than brush_m, whatever the driver does.
       "stopShort_m": 0.6,
       "brush_m": 0.15,
-      // Where each seat is (x to the vehicle's right, y up from the ground, z ahead of its centre) and what the one in
-      // it does. Sitting, eyes this far above the seat's point.
+      // Where each seat is (x to the vehicle's right, y up from the body's point on the ground, z ahead of its centre)
+      // and what the one in it does. Sitting, eyes this far above the seat's point.
       "seatedEyeHeight_m": 0.85,
       "seats": [
         { "id": "driver", "at_m": [-0.42, 0.55, -0.1], "drives": true, "fires": true, "spreadScale": 2.0 },
         { "id": "passenger", "at_m": [0.42, 0.55, -0.1], "drives": false, "fires": true }
       ]
     }
+  ],
+  // What each surface (break_model.jsonc) gives a tyre: grip (the friction coefficient: the most it pushes, as a share of
+  // the load on it) and rolling resistance (likewise, always against the way it rolls). Others get "default".
+  "tyres": [
+    { "surface": "default", "grip": 0.75, "rolling": 0.025 },
+    { "surface": "asphalt", "grip": 1.0, "rolling": 0.012 },
+    { "surface": "concrete", "grip": 0.95, "rolling": 0.012 },
+    { "surface": "gravel", "grip": 0.72, "rolling": 0.022 },
+    { "surface": "dirt", "grip": 0.78, "rolling": 0.03 },
+    { "surface": "turf", "grip": 0.62, "rolling": 0.04 },
+    { "surface": "mud", "grip": 0.36, "rolling": 0.09 },
+    { "surface": "wood", "grip": 0.8, "rolling": 0.015 },
+    { "surface": "metal", "grip": 0.7, "rolling": 0.015 }
   ]
 }

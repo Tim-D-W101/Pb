@@ -50,9 +50,10 @@ public static class NetProtocol
 {
     /// <summary>
     /// Bumped whenever a message changes: copies on different versions refuse each other (2: the callout key; 3: who you
-    /// are, in the hello; 4: capture the flag's flags and the VIP; 5: vehicles).
+    /// are, in the hello; 4: capture the flag's flags and the VIP; 5: vehicles; 6: vehicles leaning and pitching, their
+    /// engines, and the driver's own vehicle for them to predict).
     /// </summary>
-    public const int Version = 5;
+    public const int Version = 6;
 
     public static MessageType TypeOf(ReadOnlySpan<byte> packet) => packet.Length > 0 ? (MessageType)packet[0] : MessageType.None;
 }

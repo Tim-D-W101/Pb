@@ -147,6 +147,12 @@ public partial class CharacterPoser : SkeletonModifier3D
     /// <summary>On a ladder: where the balls of the feet and the hands go on the rungs (world); null off one.</summary>
     public LadderGrip? Ladder { get; set; }
 
+    /// <summary>In a vehicle's seat (M5.7): where the hips sit and the feet rest (world); null out of one.</summary>
+    public SeatGrip? Seat { get; set; }
+
+    /// <summary>Seated, how far the chest is turned from the vehicle's heading toward where the eyes look (rad, about up).</summary>
+    public float SeatTwist { get; set; }
+
     /// <summary>On a ladder, the hips this far in towards the rungs and down (m).</summary>
     public float LadderHipsIn { get; set; } = 0.12f;
 
@@ -216,6 +222,14 @@ public partial class CharacterPoser : SkeletonModifier3D
         {
             LadderBody(skeleton, toSkeleton, grip, up, forward, right);
             Record(skeleton, up.Length(), "after a ladder");
+            return;
+        }
+
+        if (Seat is { } seat)
+        {
+            SeatedBody(skeleton, toSkeleton, seat, up, forward, right);
+            Hands(skeleton, toSkeleton, up, right);
+            Record(skeleton, up.Length(), "after getting in or out");
             return;
         }
 
@@ -644,6 +658,27 @@ public partial class CharacterPoser : SkeletonModifier3D
         SolveTwoBone(skeleton, _rightArm, toSkeleton * grip.RightHand, down * 0.6f + side * 0.5f, keepEnd: false);
     }
 
+    /// <summary>
+    /// In a vehicle's seat: the hips on it, square to the vehicle; the spine upright over them, turned toward where the
+    /// eyes look (the rest of the way is the neck's); the knees up and forward, the feet flat on the floor ahead. The hands
+    /// are where <see cref="TriggerHand"/> and <see cref="SupportHand"/> say: on the marker, or the steering wheel.
+    /// </summary>
+    private void SeatedBody(Skeleton3D skeleton, Transform3D toSkeleton, SeatGrip seat, Vector3 up, Vector3 forward, Vector3 right)
+    {
+        // (The hips keep the clip's turn: sitting back in the seat, or square to it without the clips.)
+        Basis turn = Blender is not null ? skeleton.GetBoneGlobalPose(_hips).Basis : skeleton.GetBoneGlobalRest(_hips).Basis;
+        skeleton.SetBoneGlobalPose(_hips, new Transform3D(turn, toSkeleton * seat.Hips));
+        Vector3 axis = up.Normalized();
+        Rotate(skeleton, _spineLow, axis, SeatTwist * 0.3f);
+        Rotate(skeleton, _spineMid, axis, SeatTwist * 0.3f);
+        Rotate(skeleton, _spineTop, axis, SeatTwist * 0.4f);
+        UpperBody(skeleton, up, forward, right, toSkeleton);
+        float ankleHeight = Build.Length > 0f ? Build.AnkleHeight : 0.08f;
+        Vector3 lift = seat.Up * ankleHeight;
+        StepLeg(skeleton, toSkeleton, _leftLeg, _leftToe, _leftRest, seat.LeftFoot + lift, seat.Forward, 0f, -1f, up, 0f, seat.Up);
+        StepLeg(skeleton, toSkeleton, _rightLeg, _rightToe, _rightRest, seat.RightFoot + lift, seat.Forward, 0f, 1f, up, 0f, seat.Up);
+    }
+
     /// <summary>How far the hips must come down (skeleton units) for <paramref name="chain"/> to reach <paramref name="ankle"/> (world).</summary>
     private static float Need(Skeleton3D skeleton, Transform3D toSkeleton, int[] chain, Vector3 ankle, Vector3 axis)
     {
@@ -673,13 +708,16 @@ public partial class CharacterPoser : SkeletonModifier3D
     /// along its heading and pitched for the heel or toe, the toes staying on the ground while the heel is up.
     /// </summary>
     private void StepLeg(Skeleton3D skeleton, Transform3D toSkeleton, int[] chain, int toe, FootRest rest, Vector3 ankle, Vector3 heading,
-        float heel, float side, Vector3 up, float kneesOut)
+        float heel, float side, Vector3 up, float kneesOut, Vector3? kneesUp = null)
     {
         Vector3 target = toSkeleton * ankle;
         Vector3 ahead = (toSkeleton.Basis * heading).Normalized();
         Vector3 upright = up.Normalized();
         Vector3 outward = upright.Cross(ahead).Normalized() * -side;
-        SolveTwoBone(skeleton, chain, target, ahead * (1f - 0.75f * kneesOut) + outward * (0.12f + 0.9f * kneesOut), keepEnd: false);
+        // Sitting, the knees come up and forward over the feet.
+        Vector3 bend = kneesUp is { } lift ? ((toSkeleton.Basis * lift).Normalized() * 0.8f + ahead * 0.5f).Normalized() : ahead;
+
+        SolveTwoBone(skeleton, chain, target, bend * (1f - 0.75f * kneesOut) + outward * (0.12f + 0.9f * kneesOut), keepEnd: false);
 
         // The foot flat on the ground along its heading, then pitched about its own across axis.
         Basis flat = LookFrame(ahead, upright) * rest.Frame.Inverse();
@@ -942,6 +980,9 @@ public partial class CharacterPoser : SkeletonModifier3D
 
     /// <summary>On a ladder, where the balls of the feet and the hands go (world), and which way is into the ladder.</summary>
     public readonly record struct LadderGrip(Vector3 LeftFoot, Vector3 RightFoot, Vector3 LeftHand, Vector3 RightHand, Vector3 Into);
+
+    /// <summary>Seated in a vehicle: where the hips sit and the ankles' feet rest (world), the vehicle's heading and up.</summary>
+    public readonly record struct SeatGrip(Vector3 Hips, Vector3 LeftFoot, Vector3 RightFoot, Vector3 Forward, Vector3 Up);
 
     /// <summary>
     /// A foot at rest, in skeleton space: its bone's and its toes' rest orientations, and the frame of the

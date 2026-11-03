@@ -8,9 +8,9 @@ using Pb.Sim.Players;
 namespace Pb.Sim.Vehicles;
 
 /// <summary>
-/// A vehicle's body as a paint collider: an oriented box from the ground up to its sides' top, following the vehicle,
-/// filed in the collision grid under the whole level's bounds (it can be anywhere), so the broadphase never needs
-/// rebuilding as it moves. Balls break on it and never count.
+/// A vehicle's body as a paint collider: an oriented box from just off the ground up to its sides' top, following the
+/// vehicle (leaning and pitching with it), filed in the collision grid under the whole level's bounds (it can be
+/// anywhere), so the broadphase never needs rebuilding as it moves. Balls break on it and never count.
 /// </summary>
 public sealed class VehicleShape : Shape
 {
@@ -47,126 +47,23 @@ public sealed class VehicleShape : Shape
     }
 }
 
-/// <summary>One vehicle as it stands: where, which way, how fast, its wheels' turn, and who's in each seat.</summary>
-public sealed class VehicleState
-{
-    internal VehicleState(int id, VehicleParams p, Vector3 position, float yaw)
-    {
-        Id = id;
-        Params = p;
-        Home = position;
-        HomeYaw = yaw;
-        Position = PreviousPosition = position;
-        Yaw = PreviousYaw = yaw;
-        Occupants = new int[p.Seats.Count];
-        Array.Fill(Occupants, -1);
-    }
-
-    public int Id { get; }
-
-    public VehicleParams Params { get; }
-
-    /// <summary>Where it stood when the round started.</summary>
-    public Vector3 Home { get; }
-
-    public float HomeYaw { get; }
-
-    /// <summary>Its point on the ground, under the middle of the body.</summary>
-    public Vector3 Position { get; internal set; }
-
-    /// <summary>Which way it faces (the sim's yaw: 0 faces −Z, positive turns left).</summary>
-    public float Yaw { get; internal set; }
-
-    /// <summary>Last tick's, for drawing it smoothly between ticks.</summary>
-    public Vector3 PreviousPosition { get; internal set; }
-
-    public float PreviousYaw { get; internal set; }
-
-    /// <summary>Along its heading (m/s; negative backing up).</summary>
-    public float Speed { get; internal set; }
-
-    /// <summary>The front wheels' turn (rad, positive to the left).</summary>
-    public float Steer { get; internal set; }
-
-    /// <summary>The driver's pedal this tick (−1 brake or reverse … 1 full throttle).</summary>
-    public float Throttle { get; internal set; }
-
-    /// <summary>The driver's wheel this tick (−1 full right … 1 full left).</summary>
-    public float SteerInput { get; internal set; }
-
-    /// <summary>Who's in each seat (player id), or −1.</summary>
-    public int[] Occupants { get; }
-
-    /// <summary>It was stopped by something in its way this tick (a wall, a tree, someone).</summary>
-    public bool Blocked { get; internal set; }
-
-    public Vector3 Forward => ViewAngles.FlatForward(Yaw);
-
-    public Vector3 Right
-    {
-        get
-        {
-            Vector3 f = Forward;
-            return new Vector3(-f.Z, 0f, f.X);
-        }
-    }
-
-    public int Driver => Occupants[Params.DriverSeat];
-
-    /// <summary>Where seat <paramref name="seat"/> is (world): the point the one in it sits on.</summary>
-    public Vector3 Seat(int seat)
-    {
-        Vector3 at = Params.Seats[seat].At;
-        return Position + Right * at.X + new Vector3(0f, at.Y, 0f) + Forward * at.Z;
-    }
-
-    /// <summary>Which seat <paramref name="playerId"/> is in, or −1.</summary>
-    public int SeatOf(int playerId)
-    {
-        for (int i = 0; i < Occupants.Length; i++)
-        {
-            if (Occupants[i] == playerId)
-            {
-                return i;
-            }
-        }
-
-        return -1;
-    }
-
-    /// <summary>A joining copy: the vehicle as the server has it.</summary>
-    internal void ApplyServer(Vector3 position, float yaw, float speed, float steer, ReadOnlySpan<int> occupants)
-    {
-        PreviousPosition = Position;
-        PreviousYaw = Yaw;
-        Position = position;
-        Yaw = yaw;
-        Speed = speed;
-        Steer = steer;
-        for (int i = 0; i < Occupants.Length && i < occupants.Length; i++)
-        {
-            Occupants[i] = occupants[i];
-        }
-    }
-}
-
 /// <summary>
-/// The level's vehicles (Phase 5): where they are, who's in them, and how they drive, decided by the sim so the server
-/// rules and bots drive by the same rules as people (vehicles.jsonc lists the field's rules). Each tick: interact gets
-/// a player in (the nearest free seat in reach, standing still enough) or out (beside their seat, the vehicle nearly
-/// stopped); the driver's move input works the pedal (forward and back) and the wheel (left and right); the vehicle moves
-/// by a bicycle model and stops short of anything in its way — the level's paint colliders, another vehicle, anyone
-/// standing in its path (a vehicle never hits anyone); and whoever's in it sits in their seat, moving with it. Someone
-/// hit gets out. Steps without allocating.
+/// The level's vehicles (Phase 5; M5.7 their handling): where they are, who's in them, and how they drive, decided by the
+/// sim so the server rules and bots drive by the same rules as people (vehicles.jsonc lists the field's rules). Each
+/// tick: interact gets a player in (the nearest free seat in reach, the vehicle near enough stopped) or out (beside their
+/// seat, the vehicle nearly stopped); the driver's move input works the pedal (forward and back: throttle, brake, reverse)
+/// and the wheel (left and right), jump the handbrake; each vehicle moves as a sprung rigid body
+/// (<see cref="VehicleDynamics"/>), knocks against the level, the level's edge and other vehicles, and never touches
+/// anyone standing in its way (it brakes for them, and stops dead rather than come closer than brushing past); whoever's in
+/// it sits in their seat, moving with it. Someone hit gets out. An empty vehicle at rest sleeps. Steps without allocating.
 /// </summary>
 public sealed class VehicleSet
 {
-    /// <summary>Spheres along the body's length that test what it would drive into.</summary>
-    private const int Probes = 3;
+    /// <summary>Empty and still this long (s), a vehicle sleeps till something moves it.</summary>
+    private const float SleepAfter = 0.5f;
 
     private readonly List<VehicleState> _vehicles = new();
     private readonly List<VehicleShape> _shapes = new();
-    private readonly List<VehicleSpot> _spots = new();
     private Aabb _bounds;
 
     public IReadOnlyList<VehicleState> All => _vehicles;
@@ -181,7 +78,6 @@ public sealed class VehicleSet
     {
         _vehicles.Clear();
         _shapes.Clear();
-        _spots.Clear();
         _bounds = bounds;
         foreach (VehicleSpot spot in spots)
         {
@@ -195,7 +91,6 @@ public sealed class VehicleSet
             shape.SetAnywhere(new Aabb(bounds.Min - new Vector3(10f), bounds.Max + new Vector3(10f)));
             _vehicles.Add(vehicle);
             _shapes.Add(shape);
-            _spots.Add(spot);
             Pose(vehicle.Id);
             world.Add(shape, body, $"vehicle#{vehicle.Id}:{p.Id}", dynamic: true);
         }
@@ -207,9 +102,7 @@ public sealed class VehicleSet
         for (int i = 0; i < _vehicles.Count; i++)
         {
             VehicleState v = _vehicles[i];
-            v.Position = v.PreviousPosition = v.Home;
-            v.Yaw = v.PreviousYaw = v.HomeYaw;
-            v.Speed = v.Steer = v.Throttle = v.SteerInput = 0f;
+            v.PutAt(v.Home, v.HomeYaw);
             Array.Fill(v.Occupants, -1);
             Pose(i);
         }
@@ -232,8 +125,8 @@ public sealed class VehicleSet
         Of(player) is { } v && player.Seat >= 0 && player.Seat < v.Params.Seats.Count ? v.Params.Seats[player.Seat].SpreadScale : 1f;
 
     /// <summary>
-    /// The free seat nearest <paramref name="player"/> within reach (of its side of the vehicle), the driver's first among
-    /// equals, or (−1, −1).
+    /// The free seat nearest <paramref name="position"/> within reach (of its side of the vehicle), the driver's first among
+    /// equals, of a vehicle slow enough to get into, or (−1, −1).
     /// </summary>
     public (int Vehicle, int Seat) FreeSeatNear(Vector3 position)
     {
@@ -242,6 +135,11 @@ public sealed class VehicleSet
         for (int i = 0; i < _vehicles.Count; i++)
         {
             VehicleState v = _vehicles[i];
+            if (MathF.Abs(v.Speed) > v.Params.ExitBelow || v.Up.Y < 0.5f)
+            {
+                continue;
+            }
+
             for (int s = 0; s < v.Occupants.Length; s++)
             {
                 if (v.Occupants[s] >= 0)
@@ -305,6 +203,8 @@ public sealed class VehicleSet
     internal void GetIn(SimWorld sim, VehicleState v, int seat, PlayerState player)
     {
         v.Occupants[seat] = player.Id;
+        v.Asleep = false;
+        v.RestFor = 0f;
         player.Vehicle = v.Id;
         player.Seat = seat;
         player.Sprinting = false;
@@ -352,7 +252,7 @@ public sealed class VehicleSet
         });
     }
 
-    /// <summary>The driver's input this tick: forward and back work the pedal, left and right the wheel.</summary>
+    /// <summary>The driver's input this tick: forward and back work the pedal, left and right the wheel, jump the handbrake.</summary>
     internal void Drive(PlayerState player, in InputCommand cmd)
     {
         if (Of(player) is { } v && v.Driver == player.Id)
@@ -360,20 +260,21 @@ public sealed class VehicleSet
             v.Throttle = Math.Clamp(cmd.Move.Y, -1f, 1f);
             // Positive steer turns left (the sim's yaw convention); right on the stick is positive x.
             v.SteerInput = -Math.Clamp(cmd.Move.X, -1f, 1f);
+            v.Handbrake = cmd.Has(InputButtons.Jump);
         }
     }
 
     /// <summary>Moves every vehicle a tick, then seats everyone in them where their seat now is.</summary>
     internal void Step(SimWorld sim, float dt)
     {
-        IReadOnlyList<PlayerState> players = sim.Players;
         for (int i = 0; i < _vehicles.Count; i++)
         {
             VehicleState v = _vehicles[i];
-            v.PreviousPosition = v.Position;
-            v.PreviousYaw = v.Yaw;
+            v.Remember();
+            v.Blocked = false;
+            v.Impact = 0f;
 
-            // Whoever's out gets out (hit, or gone), and a vehicle without a driver rolls to a stop.
+            // Whoever's out gets out (hit, or gone).
             for (int s = 0; s < v.Occupants.Length; s++)
             {
                 if (v.Occupants[s] >= 0 && sim.FindPlayer(v.Occupants[s]) is not { Alive: true, Present: true })
@@ -389,138 +290,330 @@ public sealed class VehicleSet
                 }
             }
 
-            VehicleParams k = v.Params;
-            float throttle = v.Driver >= 0 && sim.IsLive ? v.Throttle : 0f;
-            float steerTarget = v.Driver >= 0 ? v.SteerInput * k.MaxSteer : 0f;
-            v.Steer = MoveToward(v.Steer, steerTarget, k.SteerRate * dt);
-            float speed = v.Speed;
-            if (MathF.Abs(throttle) > 0.05f && SomeoneInTheWay(sim, v, MathF.Abs(speed) > 0.1f ? speed : throttle))
+            Move(sim, v, dt);
+        }
+
+        for (int a = 0; a < _vehicles.Count; a++)
+        {
+            for (int b = a + 1; b < _vehicles.Count; b++)
             {
-                // Someone in the way it's going: it brakes for them, whatever the pedal says.
-                throttle = 0f;
-                speed = MoveToward(speed, 0f, k.Brake * dt);
+                Touch(_vehicles[a], _vehicles[b], moveB: true);
             }
-            else if (throttle > 0.05f)
+        }
+
+        for (int i = 0; i < _vehicles.Count; i++)
+        {
+            Settle(sim, i, dt);
+        }
+    }
+
+    /// <summary>
+    /// A joining copy driving vehicle <paramref name="i"/>: moves it a tick by this copy's own controls, as the server
+    /// will (the others stay where the server has them, and don't give way), and seats everyone in it. Never tells
+    /// anyone anything: getting in and out is the server's to say.
+    /// </summary>
+    public void Predict(SimWorld sim, int i, float dt)
+    {
+        if (i < 0 || i >= _vehicles.Count)
+        {
+            return;
+        }
+
+        VehicleState v = _vehicles[i];
+        v.Remember();
+        v.Blocked = false;
+        v.Impact = 0f;
+        Move(sim, v, dt);
+        for (int o = 0; o < _vehicles.Count; o++)
+        {
+            if (o != i)
             {
-                speed = speed < 0f ? MoveToward(speed, 0f, k.Brake * dt) : MathF.Min(k.MaxSpeed, speed + k.Accel * throttle * dt);
+                Touch(v, _vehicles[o], moveB: false);
             }
-            else if (throttle < -0.05f)
+        }
+
+        Settle(sim, i, dt);
+    }
+
+    /// <summary>The controls (the driver's, as the rules let them have them) and the vehicle moved by them, knocking into the level.</summary>
+    private void Move(SimWorld sim, VehicleState v, float dt)
+    {
+        VehicleParams k = v.Params;
+        bool driven = v.Driver >= 0 && sim.IsLive;
+        if (v.Asleep)
+        {
+            if (!driven)
             {
-                speed = speed > 0f ? MoveToward(speed, 0f, k.Brake * dt) : MathF.Max(-k.ReverseSpeed, speed + k.Accel * throttle * dt);
+                return;
+            }
+
+            v.Asleep = false;
+            v.RestFor = 0f;
+        }
+
+        // The pedal: forward pulls away (or brakes, rolling back), back brakes (or backs up from a standstill); off it a
+        // crawl is held still. Empty (or before the round's on) the brakes are on: it's parked.
+        float pedal = driven ? v.Throttle : 0f;
+        float speed = v.Speed;
+        float drive = 0f, brake = 0f;
+        bool reverse = false;
+        if (!driven)
+        {
+            brake = 1f;
+        }
+        else if (pedal > 0.05f)
+        {
+            if (speed < -0.5f)
+            {
+                brake = pedal;
             }
             else
             {
-                speed = MoveToward(speed, 0f, k.Coast * dt);
-            }
-
-            // A bicycle: the back axle rolls along its heading (half the wheelbase behind the body's middle), the front
-            // wheels turn it.
-            float yaw = v.Yaw + speed * MathF.Tan(v.Steer) / k.Wheelbase * dt;
-            Vector3 back = v.Position - v.Forward * (k.Wheelbase * 0.5f) + ViewAngles.FlatForward((v.Yaw + yaw) * 0.5f) * (speed * dt);
-            Vector3 next = back + ViewAngles.FlatForward(yaw) * (k.Wheelbase * 0.5f);
-            v.Blocked = false;
-            if (MathF.Abs(speed) > 1e-4f && Obstructed(sim, v, next, yaw))
-            {
-                // Something in the way: it stops where it is (no further, and no turning on the spot into it).
-                v.Blocked = true;
-                speed = 0f;
-                next = v.Position;
-                yaw = v.Yaw;
-            }
-
-            v.Speed = speed;
-            v.Position = next;
-            v.Yaw = WrapAngle(yaw);
-            Pose(i);
-
-            // Everyone in it sits in their seat, moving with it.
-            for (int s = 0; s < v.Occupants.Length; s++)
-            {
-                if (v.Occupants[s] >= 0 && sim.FindPlayer(v.Occupants[s]) is { } occupant)
-                {
-                    Seat(v, s, occupant);
-                }
+                drive = pedal;
             }
         }
+        else if (pedal < -0.05f)
+        {
+            if (speed > 0.5f)
+            {
+                brake = -pedal;
+            }
+            else
+            {
+                drive = -pedal;
+                reverse = true;
+            }
+        }
+        else if (MathF.Abs(speed) < k.HoldBelow)
+        {
+            brake = 1f;
+        }
+
+        // Someone in the way it's going (or about to go): it brakes for them, whatever the pedal says.
+        Vector3 flat = v.Velocity with { Y = 0f };
+        float going = flat.Length();
+        Vector3 way = going > 0.1f ? flat / going : (reverse ? -v.Forward : v.Forward);
+        if ((drive > 0f || going > 0.1f) && SomeoneInTheWay(sim, v, way, going))
+        {
+            drive = 0f;
+            brake = 1f;
+            v.Blocked = true;
+        }
+
+        VehicleControls controls = VehicleDynamics.Engine(v, drive, brake, reverse, driven && v.Handbrake, v.Driver >= 0, dt);
+        VehicleDynamics.Step(v, sim.Collision, controls, dt);
+        Collide(sim, v);
+    }
+
+    /// <summary>
+    /// The body's bumps swept from where they were to where they are: knocked back out of the level (and its edge) and no
+    /// longer moving into it.
+    /// </summary>
+    private void Collide(SimWorld sim, VehicleState v)
+    {
+        VehicleParams k = v.Params;
+        float r = k.ProbeRadius;
+        for (int p = 0; p < k.Probes.Length; p++)
+        {
+            Vector3 local = new(k.Probes[p].X, k.Probes[p].Y, -k.Probes[p].Z);
+            Vector3 from = v.PreviousPosition + Vector3.Transform(local, v.PreviousOrientation);
+            Vector3 to = v.Position + Vector3.Transform(local, v.Orientation);
+            if (sim.Collision.SweepSphere(from, to, r, out SweepHit hit, includeDynamic: false))
+            {
+                Vector3 n = hit.Normal;
+                float into = -Vector3.Dot(to - from, n) * (1f - hit.T);
+                if (into > 0f)
+                {
+                    v.Position += n * (into + 1e-3f);
+                    to += n * (into + 1e-3f);
+                }
+
+                Knocked(v, VehicleDynamics.Knock(v, to - n * r, n, k.BodyBounce, k.BodyFriction), n);
+            }
+
+            // The level's edge.
+            Edge(v, ref to, to.X - r - _bounds.Min.X, Vector3.UnitX, r);
+            Edge(v, ref to, _bounds.Max.X - (to.X + r), -Vector3.UnitX, r);
+            Edge(v, ref to, to.Z - r - _bounds.Min.Z, Vector3.UnitZ, r);
+            Edge(v, ref to, _bounds.Max.Z - (to.Z + r), -Vector3.UnitZ, r);
+        }
+
+        v.Settled();
+    }
+
+    private static void Edge(VehicleState v, ref Vector3 probe, float room, Vector3 inward, float r)
+    {
+        if (room >= 0f)
+        {
+            return;
+        }
+
+        v.Position -= inward * room;
+        probe -= inward * room;
+        Knocked(v, VehicleDynamics.Knock(v, probe - inward * r, inward, v.Params.BodyBounce, v.Params.BodyFriction), inward);
+    }
+
+    /// <summary>It hit something going <paramref name="speed"/> into it: the hardest knock this tick, and stopped by it if it was in its way.</summary>
+    private static void Knocked(VehicleState v, float speed, Vector3 normal)
+    {
+        v.Impact = MathF.Max(v.Impact, speed);
+        if (normal.Y < 0.7f && speed > 0f)
+        {
+            v.Blocked = true;
+        }
+    }
+
+    /// <summary>Two vehicles' bumps overlapping: pushed apart and no longer moving into each other (<paramref name="moveB"/> false: only <paramref name="a"/> gives way).</summary>
+    private static void Touch(VehicleState a, VehicleState b, bool moveB)
+    {
+        VehicleParams ka = a.Params, kb = b.Params;
+        float reach = (ka.Length + kb.Length) * 0.5f + 0.5f;
+        if (a.Asleep && b.Asleep || Vector3.DistanceSquared(a.Position, b.Position) > reach * reach)
+        {
+            return;
+        }
+
+        float ra = ka.ProbeRadius, rb = kb.ProbeRadius;
+        float share = moveB ? kb.Mass / (ka.Mass + kb.Mass) : 1f;
+        for (int i = 0; i < ka.Probes.Length; i++)
+        {
+            for (int j = 0; j < kb.Probes.Length; j++)
+            {
+                Vector3 pa = a.ToWorld(ka.Probes[i]), pb = b.ToWorld(kb.Probes[j]);
+                Vector3 d = pa - pb;
+                float distance = d.Length();
+                if (distance >= ra + rb || distance < 1e-4f)
+                {
+                    continue;
+                }
+
+                Vector3 n = d / distance;
+                float depth = ra + rb - distance;
+                a.Position += n * (depth * share);
+                if (moveB)
+                {
+                    b.Position -= n * (depth * (1f - share));
+                }
+
+                Vector3 at = pb + n * rb;
+                float speed = MathF.Max(0f, -Vector3.Dot(a.PointVelocity(at) - b.PointVelocity(at), n));
+                VehicleDynamics.Knock(a, b, at, n, moveB);
+                a.Asleep = b.Asleep = false;
+                a.RestFor = b.RestFor = 0f;
+                Knocked(a, speed, n);
+                Knocked(b, speed, -n);
+            }
+        }
+
+        a.Settled();
+        b.Settled();
+    }
+
+    /// <summary>
+    /// After the move: never closer to anyone than brushing past (back where it was, stopped, if it would be); righted if
+    /// it's over; asleep if it's empty and at rest; its paint collider moved; everyone in it seated.
+    /// </summary>
+    private void Settle(SimWorld sim, int i, float dt)
+    {
+        VehicleState v = _vehicles[i];
+        VehicleParams k = v.Params;
+        if (!v.Asleep)
+        {
+            if (Crowds(sim, v))
+            {
+                v.Position = v.PreviousPosition;
+                v.Orientation = v.PreviousOrientation;
+                v.Velocity = v.AngularVelocity = Vector3.Zero;
+                v.Blocked = true;
+                v.Settled();
+            }
+
+            // Over (on its side or worse) and nearly still: righted, as marshals would.
+            bool over = v.Up.Y < 0.35f && v.Velocity.LengthSquared() < 1f && v.AngularVelocity.LengthSquared() < 1f;
+            v.UpsideDownFor = over ? v.UpsideDownFor + dt : 0f;
+            if (v.UpsideDownFor >= k.RightAfter)
+            {
+                RightOnGround(sim, v);
+            }
+            else if (!float.IsFinite(v.Position.X + v.Position.Y + v.Position.Z + v.Velocity.X + v.AngularVelocity.X + v.Orientation.W) ||
+                     v.Position.Y < _bounds.Min.Y - 1f)
+            {
+                v.PutAt(v.Home, v.HomeYaw); // lost (it never should be): back where it started
+            }
+
+            // Empty and still: asleep till something moves it.
+            float rest = k.RestBelow * k.RestBelow;
+            bool still = v.Velocity.LengthSquared() < rest && v.AngularVelocity.LengthSquared() < rest && v.Contacts == (1 << VehicleState.WheelCount) - 1;
+            v.RestFor = v.Driver < 0 && still ? v.RestFor + dt : 0f;
+            if (v.RestFor >= SleepAfter)
+            {
+                v.Asleep = true;
+                v.Velocity = v.AngularVelocity = Vector3.Zero;
+                v.Rpm = v.Drive = 0f;
+                for (int w = 0; w < VehicleState.WheelCount; w++)
+                {
+                    v.Slide[w] = v.SpinRate[w] = 0f;
+                }
+
+                v.Settled();
+            }
+        }
+
+        Pose(i);
+
+        // Everyone in it sits in their seat, moving with it.
+        for (int s = 0; s < v.Occupants.Length; s++)
+        {
+            if (v.Occupants[s] >= 0 && sim.FindPlayer(v.Occupants[s]) is { } occupant)
+            {
+                Seat(v, s, occupant);
+            }
+        }
+    }
+
+    /// <summary>Back on its wheels where it lies, facing the way it was, a hand's breadth off the ground.</summary>
+    private static void RightOnGround(SimWorld sim, VehicleState v)
+    {
+        Vector3 at = v.Position;
+        float y = at.Y;
+        if (sim.Collision.SweepSphere(at + new Vector3(0f, 3f, 0f), at - new Vector3(0f, 3f, 0f), 0f, out SweepHit hit, includeDynamic: false))
+        {
+            y = hit.Point.Y;
+        }
+
+        v.PutAt(new Vector3(at.X, y + 0.1f, at.Z), v.Yaw); // whoever's in it stays in their seat
     }
 
     /// <summary>Puts <paramref name="player"/> on <paramref name="seat"/> of <paramref name="v"/>, moving with it, eyes at sitting height.</summary>
     private static void Seat(VehicleState v, int seat, PlayerState player)
     {
         player.Position = v.Seat(seat);
-        player.Velocity = v.Forward * v.Speed;
+        player.Velocity = v.PointVelocity(player.Position);
         player.EyeHeight = v.Params.SeatedEyeHeight;
         player.Sprinting = false;
         player.Stance = Stance.Standing;
     }
 
     /// <summary>
-    /// Whether driving to <paramref name="next"/> facing <paramref name="yaw"/> runs into something: the level (a few
-    /// spheres along the body, swept from where they are), the level's edge, another vehicle, or anyone not in this one
-    /// standing where the body would be (with a little room to spare).
+    /// Whether the body (where it's got to) has come closer to anyone not in it than brushing past them, and closer than it
+    /// was: it mustn't.
     /// </summary>
-    private bool Obstructed(SimWorld sim, VehicleState v, Vector3 next, float yaw)
+    private static bool Crowds(SimWorld sim, VehicleState v)
     {
         VehicleParams k = v.Params;
-        float r = k.Width * 0.5f;
-        // The probes reach the body's ends (the corners are rounded off) and skim the ground just under its floor.
-        float probe = r * 0.9f;
-        float reach = MathF.Max(0f, k.Length * 0.5f - probe);
-        Vector3 forwardNow = v.Forward, forwardNext = ViewAngles.FlatForward(yaw);
-        var up = new Vector3(0f, MathF.Max(k.Floor, probe + 0.05f), 0f);
-        for (int p = 0; p < Probes; p++)
-        {
-            float along = -reach + 2f * reach * p / (Probes - 1);
-            Vector3 from = v.Position + forwardNow * along + up;
-            Vector3 to = next + forwardNext * along + up;
-            if (sim.Collision.SweepSphere(from, to, probe, out SweepHit hit, includeDynamic: false) && hit.T < 1f)
-            {
-                return true;
-            }
-        }
-
-        if (next.X < _bounds.Min.X + r || next.X > _bounds.Max.X - r || next.Z < _bounds.Min.Z + r || next.Z > _bounds.Max.Z - r)
-        {
-            return true;
-        }
-
-        // Another vehicle: their bodies, as discs along each, mustn't overlap.
-        for (int i = 0; i < _vehicles.Count; i++)
-        {
-            VehicleState o = _vehicles[i];
-            if (o == v)
-            {
-                continue;
-            }
-
-            float ro = o.Params.Width * 0.5f, reachO = MathF.Max(0f, o.Params.Length * 0.5f - ro);
-            for (int a = 0; a < Probes; a++)
-            {
-                Vector3 pa = next + forwardNext * (-reach + 2f * reach * a / (Probes - 1));
-                for (int b = 0; b < Probes; b++)
-                {
-                    Vector3 pb = o.Position + o.Forward * (-reachO + 2f * reachO * b / (Probes - 1));
-                    if (Flat(pa - pb) < r + ro && Flat(pa - pb) < Flat(v.Position + forwardNow * (-reach + 2f * reach * a / (Probes - 1)) - pb))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        // Anyone it would come closer to than brushing past (not those in it).
         IReadOnlyList<PlayerState> players = sim.Players;
         float near = sim.Config.Movement.CapsuleRadius + k.Brush;
+        Vector3 forwardNow = v.Forward, forwardBefore = ViewAngles.FlatForward(v.PreviousYaw);
         for (int i = 0; i < players.Count; i++)
         {
             PlayerState p = players[i];
-            if (!p.Present || p.Vehicle == v.Id || MathF.Abs(p.Position.Y - next.Y) > 2f)
+            if (!p.Present || p.Vehicle == v.Id || MathF.Abs(p.Position.Y - v.Position.Y) > 2f)
             {
                 continue;
             }
 
-            float then = Clearance(p.Position, next, forwardNext, k);
-            if (then < near && then < Clearance(p.Position, v.Position, forwardNow, k))
+            float then = Clearance(p.Position, v.Position, forwardNow, k);
+            if (then < near && then < Clearance(p.Position, v.PreviousPosition, forwardBefore, k) - 1e-4f)
             {
                 return true;
             }
@@ -543,16 +636,20 @@ public sealed class VehicleSet
     }
 
     /// <summary>
-    /// Whether anyone (not in it) stands in the vehicle's way ahead (or behind it, backing up: the way it's going) within
-    /// the distance it needs to stop <see cref="VehicleParams.StopShort"/> short of them: it brakes for them.
+    /// Whether anyone (not in it) stands in the vehicle's way along <paramref name="way"/> (the way it's sliding or rolling,
+    /// or about to drive) within the distance it needs to stop <see cref="VehicleParams.StopShort"/> short of them, braking
+    /// as hard as the ground under it allows: it brakes for them.
     /// </summary>
-    private static bool SomeoneInTheWay(SimWorld sim, VehicleState v, float speed)
+    private static bool SomeoneInTheWay(SimWorld sim, VehicleState v, Vector3 way, float speed)
     {
         VehicleParams k = v.Params;
         float radius = sim.Config.Movement.CapsuleRadius;
-        float reach = speed * speed / (2f * k.Brake) + k.StopShort + radius + MathF.Abs(speed) * (1f / 60f);
-        float way = speed >= 0f ? 1f : -1f;
+        float reach = speed * speed / (2f * v.StopDecel) + k.StopShort + radius + speed * (2f / 60f);
         Vector3 forward = v.Forward, right = v.Right;
+        var across = new Vector3(-way.Z, 0f, way.X);
+        // The body's reach along the way it's going, and across it.
+        float halfAlong = MathF.Abs(Vector3.Dot(way, forward)) * k.Length * 0.5f + MathF.Abs(Vector3.Dot(way, right)) * k.Width * 0.5f;
+        float halfAcross = MathF.Abs(Vector3.Dot(across, forward)) * k.Length * 0.5f + MathF.Abs(Vector3.Dot(across, right)) * k.Width * 0.5f;
         IReadOnlyList<PlayerState> players = sim.Players;
         for (int i = 0; i < players.Count; i++)
         {
@@ -562,9 +659,9 @@ public sealed class VehicleSet
                 continue;
             }
 
-            Vector3 rel = p.Position - v.Position;
-            float along = Vector3.Dot(rel, forward) * way - k.Length * 0.5f;
-            float aside = MathF.Abs(Vector3.Dot(rel, right)) - k.Width * 0.5f;
+            Vector3 rel = (p.Position - v.Position) with { Y = 0f };
+            float along = Vector3.Dot(rel, way) - halfAlong;
+            float aside = MathF.Abs(Vector3.Dot(rel, across)) - halfAcross;
             if (along > -0.2f && along < reach && aside < radius + k.Brush)
             {
                 return true;
@@ -587,22 +684,23 @@ public sealed class VehicleSet
     {
         VehicleState v = _vehicles[i];
         VehicleShape s = _shapes[i];
-        Vector3 f = v.Forward;
-        s.AxisZ = f;
-        s.AxisX = new Vector3(-f.Z, 0f, f.X);
-        s.AxisY = Vector3.UnitY;
+        s.AxisX = v.BodyRight;
+        s.AxisY = v.Up;
+        s.AxisZ = v.BodyForward;
         // From a little off the ground (balls skim under the floor between the wheels) to the sides' top.
         float bottom = 0.15f, top = v.Params.SideHeight;
         s.Half = new Vector3(v.Params.Width * 0.5f, (top - bottom) * 0.5f, v.Params.Length * 0.5f);
-        s.Center = v.Position + new Vector3(0f, (top + bottom) * 0.5f, 0f);
+        s.Center = v.ToWorld(new Vector3(0f, (top + bottom) * 0.5f, 0f));
     }
 
     /// <summary>
     /// A joining copy: vehicle <paramref name="i"/> as the server has it, and everyone in it but this copy's own player
-    /// (<paramref name="localId"/>, seated by <see cref="SeatFromServer"/>) sitting in their seats.
+    /// (<paramref name="localId"/>, seated by <see cref="SeatFromServer"/>) sitting in their seats. A vehicle this copy is
+    /// driving (<paramref name="predicted"/>) keeps its own motion: only who's in it is the server's.
     /// </summary>
-    public void ApplyServer(int i, Vector3 position, float yaw, float speed, float steer, ReadOnlySpan<int> occupants,
-        IReadOnlyList<PlayerState> players, int localId)
+    public void ApplyServer(int i, Vector3 position, Quaternion orientation, float speed, float steer, float rpm, int gear, float drive,
+        float braking, float slideFront, float slideRear, ReadOnlySpan<int> occupants, IReadOnlyList<PlayerState> players, int localId,
+        bool predicted = false)
     {
         if (i < 0 || i >= _vehicles.Count)
         {
@@ -610,8 +708,19 @@ public sealed class VehicleSet
         }
 
         VehicleState v = _vehicles[i];
-        v.ApplyServer(position, yaw, speed, steer, occupants);
-        Pose(i);
+        if (predicted)
+        {
+            for (int s = 0; s < v.Occupants.Length && s < occupants.Length; s++)
+            {
+                v.Occupants[s] = occupants[s];
+            }
+        }
+        else
+        {
+            v.ApplyServer(position, orientation, speed, steer, rpm, gear, drive, braking, slideFront, slideRear, occupants);
+            Pose(i);
+        }
+
         for (int k = 0; k < players.Count; k++)
         {
             PlayerState p = players[k];
@@ -631,6 +740,10 @@ public sealed class VehicleSet
                 p.Vehicle = v.Id;
                 p.Seat = seat;
                 p.EyeHeight = v.Params.SeatedEyeHeight;
+                if (predicted)
+                {
+                    Seat(v, seat, p); // in the vehicle this copy drives: where this copy has it
+                }
             }
             else if (p.Vehicle == v.Id)
             {
@@ -656,13 +769,14 @@ public sealed class VehicleSet
         }
     }
 
-    private static float MoveToward(float value, float target, float step) =>
-        value < target ? MathF.Min(target, value + step) : MathF.Max(target, value - step);
-
-    private static float WrapAngle(float a)
+    /// <summary>A joining copy driving vehicle <paramref name="i"/>: its motion put back as the server had it.</summary>
+    public void Restore(int i, in VehicleMotion motion)
     {
-        a %= MathF.Tau;
-        return a > MathF.PI ? a - MathF.Tau : a <= -MathF.PI ? a + MathF.Tau : a;
+        if (i >= 0 && i < _vehicles.Count)
+        {
+            _vehicles[i].Restore(motion);
+            Pose(i);
+        }
     }
 
     private static float Flat(Vector3 v) => MathF.Sqrt(v.X * v.X + v.Z * v.Z);

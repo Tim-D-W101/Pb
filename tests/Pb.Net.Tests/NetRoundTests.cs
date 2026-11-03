@@ -415,7 +415,7 @@ public class NetRoundTests
         Assert.Equal(0, server.Driver);
         Assert.True(a.Session!.Riding, "the copy doesn't have you in it");
         Assert.Equal(0, copy.Driver);
-        Assert.True(server.Position.Z < -3f, $"it didn't go north on the server ({server.Position})");
+        Assert.True(server.Position.Z < -2f, $"it didn't go north on the server ({server.Position})");
         Assert.True(copy.Position.Z < -1f, $"it didn't go north on the copy ({copy.Position})");
         Assert.True(Vector3.Distance(you.Position, copy.Seat(copy.Params.DriverSeat)) < 0.01f, "you're not in your seat where it's drawn");
         Assert.Contains(a.Events, e => e.Type == SimEventType.VehicleEntered && e.PlayerId == 0);
@@ -427,6 +427,58 @@ public class NetRoundTests
         Assert.True(Vector3.Distance(copy.Position, server.Position) < 0.05f, "the copy's buggy isn't where the server's stopped");
         Assert.True(Vector3.Distance(you.Position, rig.Sim.FindPlayer(0)!.Position) < 0.3f, "you're not where the server put you out");
         Assert.Contains(a.Events, e => e.Type == SimEventType.VehicleLeft && e.PlayerId == 0);
+    }
+
+    [Fact]
+    public void The_driver_drives_their_own_buggy_at_once_and_it_stays_with_the_servers()
+    {
+        // 100 ms there and back: without its own prediction, a copy's buggy would answer the pedal a good fifth of a second
+        // late. With it, it moves the tick the pedal goes down, and ends where the server's does.
+        var rig = new NetRig { Buggy = true };
+        RigClient a = rig.Join("A", Ping100);
+        rig.Run(30);
+        rig.StartRound("teams", 900f, (0, 0, true, -1.425f, 0.1f), (1, 0, false, 8f, 10f), (2, 1, false, 0f, 40f));
+        rig.GoLive();
+        Pb.Sim.Vehicles.VehicleState server = rig.Sim!.Vehicles[0];
+        int start = rig.Sim.Tick;
+        // In, then a slalom north on the throttle for three seconds (the handbrake pulled a moment), then the brake to a stop.
+        Pb.Sim.Vehicles.VehicleState copy = a.Sim!.Vehicles[0];
+        a.Script = (t, p) =>
+        {
+            float s = (t - start) / (float)Second;
+            InputButtons press = s is > 0.2f and < 0.3f ? InputButtons.Interact : InputButtons.None;
+            press |= s is > 2.6f and < 2.9f ? InputButtons.Jump : InputButtons.None;
+            float pedal = s is > 1f and < 4f ? 1f : s >= 4f && copy.Speed > 0.6f ? -1f : 0f;
+            var move = new Vector2(s is > 1.5f and < 4f ? MathF.Sin(s * 3f) : 0f, pedal);
+            return new InputCommand { Tick = t, Yaw = p.Yaw, Buttons = press, Move = move };
+        };
+        double pressed = -1, answered = -1;
+        for (int t = 0; t < 7 * Second; t++)
+        {
+            rig.Run(1);
+            float s = (a.Sim.Tick - start) / (float)Second;
+            if (pressed < 0 && a.Session!.Riding && a.Sim.PredictedVehicle == 0 && s > 1f)
+            {
+                pressed = a.Sim.Time; // the first tick of throttle this copy drove
+            }
+
+            if (pressed >= 0 && answered < 0 && copy.Speed > 0.05f)
+            {
+                answered = a.Sim.Time;
+            }
+        }
+
+        _out.WriteLine($"the copy's buggy answered the pedal after {(answered - pressed) * 1000:0} ms; {a.Session!.VehicleCorrections} corrections " +
+                       $"(the last {a.Session.LastVehicleCorrection * 100:0.0} cm); stopped at {copy.Position}, the server's at {server.Position}");
+        Assert.True(a.Session.Riding);
+        Assert.Equal(0, a.Sim.PredictedVehicle);
+        Assert.InRange(answered - pressed, 0.0, 0.04);
+        Assert.True(server.Position.Z < -10f, $"it didn't go north on the server ({server.Position})");
+        Assert.True(Vector3.Distance(copy.Position, server.Position) < 0.05f, "the copy's buggy didn't end where the server's did");
+        Assert.True(Quaternion.Dot(copy.Orientation, server.Orientation) is > 0.9999f or < -0.9999f, "the copy's buggy doesn't face the server's way");
+        Assert.True(a.Session.VehicleCorrections <= 3, $"{a.Session.VehicleCorrections} corrections on a clean line");
+        PlayerState you = a.Sim.FindPlayer(0)!;
+        Assert.True(Vector3.Distance(you.Position, copy.Seat(copy.Params.DriverSeat)) < 0.01f, "you're not in your seat where it's drawn");
     }
 
     [Fact]

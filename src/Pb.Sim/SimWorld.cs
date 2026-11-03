@@ -104,6 +104,12 @@ public sealed class SimWorld
     public bool IsLive => Match is null || Match.Phase == MatchPhase.Live;
 
     /// <summary>
+    /// On a joining copy, the vehicle its own player drives (as the server last had them), which it moves itself each step
+    /// by their controls so their driving doesn't wait on the server (M5.7); −1 for none.
+    /// </summary>
+    public int PredictedVehicle { get; set; } = -1;
+
+    /// <summary>
     /// <see cref="SimRole.Authority"/> (the default) decides everything. On a <see cref="SimRole.Client"/> a step runs
     /// only <see cref="LocalPlayerId"/>'s marker and look, everyone's footsteps and the balls, which break on players
     /// without putting anyone out; the host poses everyone else, the doors and the round from the server.
@@ -322,6 +328,11 @@ public sealed class SimWorld
                     FireShot(player, _shots[k], rewind);
                 }
 
+                if (client && player.Id == LocalPlayerId && PredictedVehicle >= 0)
+                {
+                    Vehicles.Drive(player, cmd); // this copy's own driving, predicted
+                }
+
                 if (!client)
                 {
                     // A vehicle (getting in or out) takes a press before a door does; sitting in one, doors are out of reach.
@@ -341,7 +352,8 @@ public sealed class SimWorld
             }
         }
 
-        // A joining copy takes the doors, the vehicles, the pickups and the round from the server.
+        // A joining copy takes the doors, the vehicles, the pickups and the round from the server (but moves the vehicle
+        // its own player drives itself).
         if (!client)
         {
             Doors.Step(this, dt);
@@ -350,6 +362,10 @@ public sealed class SimWorld
             {
                 Pickups.Update(this, Config.Rules);
             }
+        }
+        else if (PredictedVehicle >= 0)
+        {
+            Vehicles.Predict(this, PredictedVehicle, dt);
         }
 
         Stress?.Update(Ballistics, MatchSeed, Config.Shot.MuzzleVelocity, Config.Shot.VelocityVariance, Tick, dt, Events);
@@ -454,6 +470,21 @@ public sealed class SimWorld
         _replayEvents.Clear();
     }
 
+    /// <summary>
+    /// A joining copy correcting the vehicle its own player drives, after the server's motion for it was put back: drives
+    /// it again by <paramref name="cmd"/>, one tick, as its step did the first time.
+    /// </summary>
+    public void ReplayVehicle(PlayerState player, in InputCommand cmd)
+    {
+        if (PredictedVehicle < 0)
+        {
+            return;
+        }
+
+        Vehicles.Drive(player, cmd);
+        Vehicles.Predict(this, PredictedVehicle, Dt);
+    }
+
     /// <summary>The look a command gives (on a ladder the body faces it and the head looks round) and the marker's tuck.</summary>
     private bool Look(PlayerState player, in InputCommand cmd, float dt)
     {
@@ -466,7 +497,28 @@ public sealed class SimWorld
         player.Pitch = Math.Clamp(cmd.Pitch, -Config.Movement.MaxPitch, Config.Movement.MaxPitch);
         player.HeadYaw = player.Alive ? Math.Clamp(head, -Config.Movement.MaxHeadTurn, Config.Movement.MaxHeadTurn) : 0f;
         UpdateTuck(player, dt);
+        UpdateSling(player, cmd, dt);
         return climbing;
+    }
+
+    /// <summary>
+    /// At a buggy's wheel the marker hangs on its sling, both hands on the wheel; pulling the trigger (or refilling)
+    /// brings it up to the one-handed aim, and it goes back a while after the last pull. Anywhere else it's up.
+    /// </summary>
+    private void UpdateSling(PlayerState player, in InputCommand cmd, float dt)
+    {
+        if (!player.Alive || Vehicles.Of(player) is not { } v || v.Driver != player.Id)
+        {
+            player.Sling = player.SlingHold = 0f;
+            return;
+        }
+
+        HitboxParams rig = Config.Hitboxes;
+        bool wanted = cmd.Has(InputButtons.Fire) || cmd.Has(InputButtons.Refill) || player.Marker.Refill.Active;
+        player.SlingHold = wanted ? rig.WheelUpFor : MathF.Max(0f, player.SlingHold - dt);
+        float target = wanted || player.SlingHold > 0f ? 0f : 1f;
+        float step = dt / MathF.Max(rig.WheelSling, 1e-3f);
+        player.Sling = player.Sling < target ? MathF.Min(target, player.Sling + step) : MathF.Max(target, player.Sling - step);
     }
 
     /// <summary>The marker's tick: the shots it fires go in the step's buffer, its events in <paramref name="events"/>.</summary>
@@ -475,8 +527,10 @@ public sealed class SimWorld
         bool live = IsLive;
         // The VIP has nothing to fire; a seat that doesn't fire (vehicles.jsonc) keeps its occupant from it.
         bool armed = live && !climbing && !player.Unarmed && Vehicles.MayFire(player);
+        // Coming up off its sling, the marker fires once it's up (the trigger counts from then).
+        bool up = player.Sling <= 0f;
         var input = new MarkerInput(
-            armed && cmd.Has(InputButtons.Fire), armed && cmd.Has(InputButtons.Refill),
+            armed && up && cmd.Has(InputButtons.Fire), armed && cmd.Has(InputButtons.Refill),
             cmd.Has(InputButtons.ToggleFireMode), player.Sprinting, player.Alive, player.MarkerReady);
         return player.Marker.Update(t0, dt, input, _shots, events, player.Id, player.Team, Tick);
     }

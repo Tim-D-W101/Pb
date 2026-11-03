@@ -78,7 +78,7 @@ public sealed class GameData
         VehiclesDef vehicles = Jsonc.Load<VehiclesDef>(source, files.Vehicles);
         var config = new SimConfig
         {
-            Vehicles = vehicles.Vehicles.ToDictionary(v => v.Id, Vehicles.VehicleParams.From, StringComparer.Ordinal),
+            Vehicles = vehicles.Vehicles.ToDictionary(v => v.Id, d => Vehicles.VehicleParams.From(d, surfaces, vehicles.Tyres), StringComparer.Ordinal),
             TickRate = sim.TickRate_hz,
             MatchSeed = sim.MatchSeed,
             BallPoolCapacity = sim.BallPoolCapacity,
@@ -419,6 +419,14 @@ public sealed class GameData
             SlungBehind = d.SlungBehind_m,
             SlungPitch = d.SlungPitch_deg * Units.DegreesToRadians,
             SlungRoll = d.SlungRoll_deg * Units.DegreesToRadians,
+            WheelArmsPitch = d.WheelArmsPitch_deg * Units.DegreesToRadians,
+            WheelSlungBelowEye = d.WheelSlungBelowEye_m,
+            WheelSlungAhead = d.WheelSlungAhead_m,
+            WheelSlungRight = d.WheelSlungRight_m,
+            WheelSlungPitch = d.WheelSlungPitch_deg * Units.DegreesToRadians,
+            WheelSlungYaw = d.WheelSlungYaw_deg * Units.DegreesToRadians,
+            WheelSling = d.WheelSling_s,
+            WheelUpFor = d.WheelUpFor_s,
             LethalParts = lethal,
             BallsInFlightCount = d.BallsInFlightCount,
             MaskSprayRadius = d.MaskSprayRadius_m,

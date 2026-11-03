@@ -127,8 +127,17 @@ public enum Sfx
     WingFlap,
     Train,
 
-    // Vehicles: a buggy's engine, a loop played faster the faster it goes.
+    // Vehicles: a buggy's engine (a loop played at its revs, off the throttle and under load), its tyres rolling on each
+    // kind of ground, skidding on hard ground and scrubbing on loose, and its body knocking into something.
     Engine,
+    EngineLoad,
+    TyreGravel,
+    TyreGrass,
+    TyreMud,
+    TyreHard,
+    TyreSkid,
+    TyreScrub,
+    VehicleKnock,
 }
 
 /// <summary>
@@ -412,6 +421,14 @@ public sealed class SoundBank
         Sfx.WingFlap => new(0.9f, 2, (s, _) => WingFlap(s)),
         Sfx.Train => new(18f, 1, (s, _) => Train(s)),
         Sfx.Engine => new(2f, 1, (s, _) => Engine(s), Loop: true),
+        Sfx.EngineLoad => new(2f, 1, (s, _) => EngineLoad(s), Loop: true),
+        Sfx.TyreGravel => new(4f, 1, (s, _) => TyreGravel(s, 1f), Loop: true),
+        Sfx.TyreGrass => new(4f, 1, (s, _) => TyreGrass(s), Loop: true),
+        Sfx.TyreMud => new(4f, 1, (s, _) => TyreMud(s), Loop: true),
+        Sfx.TyreHard => new(4f, 1, (s, _) => TyreHard(s), Loop: true),
+        Sfx.TyreSkid => new(3f, 1, (s, _) => TyreSkid(s), Loop: true),
+        Sfx.TyreScrub => new(3f, 1, (s, _) => TyreGravel(s, 2.6f), Loop: true),
+        Sfx.VehicleKnock => new(0.9f, 3, (s, v) => VehicleKnock(s, v)),
         _ => throw new ArgumentOutOfRangeException(nameof(sfx), sfx, null),
     };
 
@@ -1308,6 +1325,129 @@ public sealed class SoundBank
 
         s.Saturate(1.6f);
     }
+
+    /// <summary>
+    /// The same engine pulling hard: each firing a sharper crack with more exhaust rasp and the intake's roar under it,
+    /// driven harder (it's mixed in over the light loop as the throttle opens).
+    /// </summary>
+    private static void EngineLoad(Synth s)
+    {
+        const float Firing = 32f;
+        var body = Biquad.LowPass(s.Rate, 1400f, 1.1f);
+        var rasp = Biquad.BandPass(s.Rate, 2300f, 1.1f);
+        var roar = Biquad.BandPass(s.Rate, 420f, 0.8f);
+        for (int i = 0; i < s.Length; i++)
+        {
+            float phase = s.T(i) * Firing % 1f;
+            float pulse = MathF.Exp(-phase * 15f) * (1f - phase);
+            float thump = MathF.Sin(MathF.Tau * Firing * 2f * s.T(i)) * 0.3f + MathF.Sin(MathF.Tau * Firing * 3f * s.T(i)) * 0.15f + pulse * 1.3f;
+            s.Samples[i] = body.Process(thump + rasp.Process(s.Noise()) * pulse * 1.1f) + roar.Process(s.Noise()) * 0.35f;
+        }
+
+        s.Saturate(2.6f);
+    }
+
+    /// <summary>
+    /// Tyres rolling over gravel: grains of stone crunching and pinging under the tread (denser, a spray of them, for
+    /// <paramref name="density"/> over 1: loose stuff scrubbing as a tyre slides), over a low rumble.
+    /// </summary>
+    private static void TyreGravel(Synth s, float density)
+    {
+        int count = (int)(s.Seconds * 260f * density);
+        s.Grains(0f, s.Seconds, count, 2600f, 0.9f, 0.0016f, 0.55f);
+        s.Grains(0f, s.Seconds, count / 3, 5200f, 1.4f, 0.0008f, 0.3f);
+        var rumble = Biquad.LowPass(s.Rate, 160f, 0.7f);
+        float brown = 0f;
+        for (int i = 0; i < s.Length; i++)
+        {
+            brown = brown * 0.99f + s.Noise() * 0.1f;
+            s.Samples[i] += rumble.Process(brown) * 1.2f;
+        }
+    }
+
+    /// <summary>Tyres through grass: a soft swish, the tread blocks brushing the stems, the turf pressing under it.</summary>
+    private static void TyreGrass(Synth s)
+    {
+        var swish = Biquad.BandPass(s.Rate, 1500f, 0.6f);
+        var thud = Biquad.LowPass(s.Rate, 120f, 0.7f);
+        float brown = 0f;
+        for (int i = 0; i < s.Length; i++)
+        {
+            float t = s.T(i);
+            float blocks = 0.7f + 0.3f * MathF.Sin(MathF.Tau * 9f * t) * MathF.Sin(MathF.Tau * 1.3f * t);
+            brown = brown * 0.99f + s.Noise() * 0.1f;
+            s.Samples[i] = swish.Process(s.Noise()) * blocks * 0.8f + thud.Process(brown) * 0.8f;
+        }
+    }
+
+    /// <summary>Tyres in mud: a wet slurp and squelch, sucking and letting go, low and thick.</summary>
+    private static void TyreMud(Synth s)
+    {
+        var low = Biquad.LowPass(s.Rate, 380f, 0.8f);
+        var suck = Biquad.BandPass(s.Rate, 220f, 4f);
+        float brown = 0f;
+        for (int i = 0; i < s.Length; i++)
+        {
+            brown = brown * 0.995f + s.Noise() * 0.07f;
+            s.Samples[i] = low.Process(brown) * 1.6f;
+        }
+
+        // Squelches: a resonance sweeping down as the tread pulls out of the mud.
+        for (float at = s.Range(0f, 0.1f); at < s.Seconds - 0.2f; at += s.Range(0.07f, 0.16f))
+        {
+            float from = s.Range(380f, 620f), to = s.Range(140f, 220f), length = s.Range(0.06f, 0.12f);
+            for (int i = s.Index(at); i < s.Index(at + length); i++)
+            {
+                float k = (s.T(i) - at) / length;
+                if ((i & 31) == 0)
+                {
+                    suck.TuneBandPass(s.Rate, from + (to - from) * k, 5f);
+                }
+
+                s.Samples[i] += suck.Process(s.Noise()) * MathF.Sin(MathF.PI * k) * 1.8f;
+            }
+        }
+    }
+
+    /// <summary>Tyres on a hard track: a low hum from the tread and a soft roar of the road.</summary>
+    private static void TyreHard(Synth s)
+    {
+        var roar = Biquad.BandPass(s.Rate, 650f, 0.7f);
+        var hum = Biquad.LowPass(s.Rate, 240f, 0.9f);
+        for (int i = 0; i < s.Length; i++)
+        {
+            float t = s.T(i);
+            s.Samples[i] = roar.Process(s.Noise()) * 0.5f + hum.Process(s.Noise()) * 0.9f + MathF.Sin(MathF.Tau * 95f * t) * 0.08f;
+        }
+    }
+
+    /// <summary>Rubber skidding on a hard surface: a squeal that wavers in pitch, with the scrub of the tread under it.</summary>
+    private static void TyreSkid(Synth s)
+    {
+        float phase = 0f;
+        var scrub = Biquad.BandPass(s.Rate, 1800f, 1.2f);
+        for (int i = 0; i < s.Length; i++)
+        {
+            float t = s.T(i);
+            float pitch = 980f + 60f * MathF.Sin(MathF.Tau * 5.3f * t) + 25f * MathF.Sin(MathF.Tau * 13.1f * t);
+            phase += pitch / s.Rate;
+            float squeal = MathF.Sin(MathF.Tau * phase) + 0.35f * MathF.Sin(MathF.Tau * 2f * phase) + 0.15f * MathF.Sin(MathF.Tau * 3f * phase);
+            float flutter = 0.75f + 0.25f * MathF.Sin(MathF.Tau * 21f * t);
+            s.Samples[i] = squeal * flutter * 0.5f + scrub.Process(s.Noise()) * 0.6f;
+        }
+
+        s.Saturate(1.3f);
+    }
+
+    /// <summary>The body knocking into something: a hollow thump of the tub, the frame ringing and loose bits rattling.</summary>
+    private static void VehicleKnock(Synth s, int variation)
+    {
+        s.DullBurst(0f, 160f + 40f * variation, 0.002f, 0.12f, 1.2f);
+        s.Struck(0.004f, 210f + 35f * variation, ClankRatios, 0.35f, 0.5f);
+        s.Grains(0.01f, 0.35f, 40, 3200f, 1.2f, 0.002f, 0.35f);
+    }
+
+    private static readonly float[] ClankRatios = { 1f, 2.32f, 3.86f, 5.4f };
 
     /// <summary>A quiet room: low air, barely there.</summary>
     private static void RoomTone(Synth s, float cutoff, float gain)

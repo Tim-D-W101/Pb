@@ -1,6 +1,8 @@
 using System.Numerics;
+using Pb.Sim;
 using Pb.Sim.Gear;
 using Pb.Sim.Players;
+using Pb.Sim.Vehicles;
 
 namespace Pb.Net.Protocol;
 
@@ -10,12 +12,17 @@ namespace Pb.Net.Protocol;
 /// </summary>
 public static class OwnFields
 {
-    private const int Floats = 23;
+    private const int Floats = 25;
     private const int Small = 5;
     private const int PodFields = PodCounts.MaxPods;
 
-    /// <summary>The floats, the small fields, the marker's own fields, then its pods.</summary>
-    public const int Count = Floats + Small + 19 + PodFields;
+    /// <summary>The vehicle they drive (M5.7): which (+1, 0 for none), its gear (+1), which wheels touch, asleep; then its motion's floats.</summary>
+    private const int VehicleSmall = 4;
+    private const int VehicleFloats = 22;
+    private const int VehicleAt = Floats + Small + 19 + PodFields;
+
+    /// <summary>The floats, the small fields, the marker's own fields, its pods, then the vehicle they drive.</summary>
+    public const int Count = VehicleAt + VehicleSmall + VehicleFloats;
 
     private static readonly byte[] WidthTable = BuildWidths();
 
@@ -42,6 +49,8 @@ public static class OwnFields
         F(f, ref i, s.Shoulder);
         F(f, ref i, s.ShoulderTarget);
         F(f, ref i, s.Tuck);
+        F(f, ref i, s.Sling);
+        F(f, ref i, s.SlingHold);
         F(f, ref i, s.SlideTime);
         F(f, ref i, s.SlideCooldown);
         F(f, ref i, s.JumpCooldown);
@@ -96,6 +105,8 @@ public static class OwnFields
             Shoulder = G(f, ref i),
             ShoulderTarget = G(f, ref i),
             Tuck = G(f, ref i),
+            Sling = G(f, ref i),
+            SlingHold = G(f, ref i),
             SlideTime = G(f, ref i),
             SlideCooldown = G(f, ref i),
             JumpCooldown = G(f, ref i),
@@ -144,6 +155,80 @@ public static class OwnFields
         return s;
     }
 
+    /// <summary>
+    /// The vehicle <paramref name="player"/> drives, if they do: its whole motion, so a joining copy driving it can put it
+    /// back exactly and replay its own driving from it.
+    /// </summary>
+    public static void CaptureVehicle(SimWorld sim, PlayerState player, Span<uint> f)
+    {
+        Span<uint> block = f.Slice(VehicleAt, VehicleSmall + VehicleFloats);
+        block.Clear();
+        if (sim.Vehicles.Of(player) is not { } v || v.Driver != player.Id)
+        {
+            return;
+        }
+
+        VehicleMotion m = v.Capture();
+        int i = VehicleAt;
+        f[i++] = (uint)(v.Id + 1);
+        f[i++] = (uint)(m.Gear + 1);
+        f[i++] = m.Contacts;
+        f[i++] = m.Asleep ? 1u : 0;
+        F(f, ref i, m.Position.X);
+        F(f, ref i, m.Position.Y);
+        F(f, ref i, m.Position.Z);
+        F(f, ref i, m.Orientation.X);
+        F(f, ref i, m.Orientation.Y);
+        F(f, ref i, m.Orientation.Z);
+        F(f, ref i, m.Orientation.W);
+        F(f, ref i, m.Velocity.X);
+        F(f, ref i, m.Velocity.Y);
+        F(f, ref i, m.Velocity.Z);
+        F(f, ref i, m.AngularVelocity.X);
+        F(f, ref i, m.AngularVelocity.Y);
+        F(f, ref i, m.AngularVelocity.Z);
+        F(f, ref i, m.Steer);
+        F(f, ref i, m.Rpm);
+        F(f, ref i, m.ShiftFor);
+        F(f, ref i, m.UpsideDownFor);
+        F(f, ref i, m.RestFor);
+        for (int w = 0; w < VehicleState.WheelCount; w++)
+        {
+            F(f, ref i, m.Compression[w]);
+        }
+    }
+
+    /// <summary>The vehicle the fields have their player driving (−1: none), and its motion.</summary>
+    public static int ReadVehicle(ReadOnlySpan<uint> f, out VehicleMotion m)
+    {
+        m = default;
+        int i = VehicleAt;
+        int vehicle = (int)f[i++] - 1;
+        if (vehicle < 0)
+        {
+            return -1;
+        }
+
+        m.Gear = (int)f[i++] - 1;
+        m.Contacts = (byte)f[i++];
+        m.Asleep = f[i++] != 0;
+        m.Position = new Vector3(G(f, ref i), G(f, ref i), G(f, ref i));
+        m.Orientation = new Quaternion(G(f, ref i), G(f, ref i), G(f, ref i), G(f, ref i));
+        m.Velocity = new Vector3(G(f, ref i), G(f, ref i), G(f, ref i));
+        m.AngularVelocity = new Vector3(G(f, ref i), G(f, ref i), G(f, ref i));
+        m.Steer = G(f, ref i);
+        m.Rpm = G(f, ref i);
+        m.ShiftFor = G(f, ref i);
+        m.UpsideDownFor = G(f, ref i);
+        m.RestFor = G(f, ref i);
+        for (int w = 0; w < VehicleState.WheelCount; w++)
+        {
+            m.Compression[w] = G(f, ref i);
+        }
+
+        return vehicle;
+    }
+
     private static void F(Span<uint> f, ref int i, float value) => f[i++] = BitConverter.SingleToUInt32Bits(value);
 
     private static float G(ReadOnlySpan<uint> f, ref int i) => BitConverter.UInt32BitsToSingle(f[i++]);
@@ -187,6 +272,16 @@ public static class OwnFields
         for (int p = 0; p < PodFields; p++)
         {
             w[i++] = 16;
+        }
+
+        // The vehicle they drive: which (+1), gear (+1), the wheels touching, asleep; its motion's floats.
+        w[i++] = 5;
+        w[i++] = 3;
+        w[i++] = 4;
+        w[i++] = 1;
+        for (int k = 0; k < VehicleFloats; k++)
+        {
+            w[i++] = 32;
         }
 
         return w;

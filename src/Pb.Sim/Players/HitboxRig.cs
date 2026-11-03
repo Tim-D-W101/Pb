@@ -65,6 +65,27 @@ public sealed class HitboxParams
 
     public float SlungRoll { get; init; }
 
+    /// <summary>
+    /// At a buggy's wheel: how far the arms reach down to it (rad), where the marker hangs on its sling across the chest
+    /// (its back end below and ahead of the eye, m; its barrel pitched up and turned left, rad), how long it takes to come
+    /// up or go back (s), and how long it stays up after the last pull (s).
+    /// </summary>
+    public float WheelArmsPitch { get; init; }
+
+    public float WheelSlungBelowEye { get; init; }
+
+    public float WheelSlungAhead { get; init; }
+
+    public float WheelSlungRight { get; init; }
+
+    public float WheelSlungPitch { get; init; }
+
+    public float WheelSlungYaw { get; init; }
+
+    public float WheelSling { get; init; } = 0.3f;
+
+    public float WheelUpFor { get; init; }
+
     /// <summary>Indexed by <see cref="HitboxPart"/>.</summary>
     public required bool[] LethalParts { get; init; }
 
@@ -79,14 +100,15 @@ public sealed class HitboxParams
 /// Everything the rig needs from a player, recorded every tick for the hitbox history. <see cref="Tuck"/>
 /// is how far the gear is pitched up off a wall in front (rad, see <see cref="PlayerState.Tuck"/>), and
 /// <see cref="HeadYaw"/> how far the head is turned from the aim (rad, see <see cref="PlayerState.HeadYaw"/>).
-/// <see cref="Climbing"/>: on a ladder, hands on the rungs and the gear slung.
+/// <see cref="Climbing"/>: on a ladder, hands on the rungs and the gear slung. <see cref="Sling"/>: at a buggy's wheel, how
+/// far the marker's gone onto its sling (0 up and aimed, 1 slung, both hands on the wheel).
 /// </summary>
 public readonly record struct HitboxPose(
     Vector3 Position, float Yaw, float Pitch, float EyeHeight, float LeanRoll, float Shoulder, bool Alive, bool Present, float Tuck = 0f,
-    float HeadYaw = 0f, bool Climbing = false)
+    float HeadYaw = 0f, bool Climbing = false, float Sling = 0f)
 {
     public static HitboxPose Of(PlayerState p) =>
-        new(p.Position, p.Yaw, p.Pitch, p.EyeHeight, p.LeanRoll, p.Shoulder, p.Alive, p.Present, p.Tuck, p.HeadYaw, p.OnLadder);
+        new(p.Position, p.Yaw, p.Pitch, p.EyeHeight, p.LeanRoll, p.Shoulder, p.Alive, p.Present, p.Tuck, p.HeadYaw, p.OnLadder, p.Sling);
 }
 
 /// <summary>One posed hitbox: an oriented box in world space.</summary>
@@ -168,6 +190,33 @@ public static class HitboxRig
         parts[5] = Gear(HitboxPart.Marker, rig.Marker, hands, aim, gear, tilt, back, pose.Shoulder);
         parts[6] = Gear(HitboxPart.Loader, rig.Loader, hands, aim, gear, tilt, back, pose.Shoulder);
         parts[7] = Gear(HitboxPart.Tank, rig.Tank, hands, aim, gear, tilt, back, pose.Shoulder);
+        if (pose.Sling > 0f && pose.Alive)
+        {
+            // At a buggy's wheel: the arms reach down to it and the marker hangs across the chest from the right hip, barrel
+            // up to the left shoulder, so far as it's gone onto its sling.
+            Quaternion reach = Quaternion.CreateFromYawPitchRoll(pose.Yaw, rig.WheelArmsPitch, 0f);
+            Quaternion slung = Quaternion.CreateFromYawPitchRoll(pose.Yaw + rig.WheelSlungYaw, rig.WheelSlungPitch, 0f);
+            Vector3 sling = eye + Vector3.Transform(new Vector3(rig.WheelSlungRight, -rig.WheelSlungBelowEye, -rig.WheelSlungAhead), body);
+            Vector3 marker = sling + Vector3.Transform(new Vector3(0f, 0f, -rig.Marker.HalfExtents.Z), slung);
+            float s = MathF.Min(pose.Sling, 1f);
+            Blend(ref parts[4], FromEye(HitboxPart.Arms, rig.Arms, eye, reach, 1f), s);
+            Blend(ref parts[5], Box(HitboxPart.Marker, marker, slung, rig.Marker.HalfExtents), s);
+            Blend(ref parts[6], OnMarker(HitboxPart.Loader, rig.Loader, rig.Marker, marker, slung), s);
+            Blend(ref parts[7], OnMarker(HitboxPart.Tank, rig.Tank, rig.Marker, marker, slung), s);
+        }
+    }
+
+    /// <summary><paramref name="to"/>'s share <paramref name="t"/> of the way from <paramref name="box"/> to it (centre and turn).</summary>
+    private static void Blend(ref PosedBox box, in PosedBox to, float t)
+    {
+        if (t >= 1f)
+        {
+            box = to;
+            return;
+        }
+
+        Quaternion turn = Quaternion.Slerp(box.Rotation, to.Rotation, t);
+        box = Box(box.Part, Vector3.Lerp(box.Center, to.Center, t), turn, box.HalfExtents);
     }
 
     /// <summary>

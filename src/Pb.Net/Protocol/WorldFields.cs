@@ -17,16 +17,23 @@ public sealed class WorldFields
     public const int DoorBits = 10;
     public const int MaxPickups = 64;
 
-    /// <summary>A vehicle's fields before its seats: x, y, z, yaw, speed, steer.</summary>
-    private const int VehicleHead = 6;
+    /// <summary>
+    /// A vehicle's fields before its seats: x, y, z; its heading, pitch and lean; its speed and the front wheels' turn; the
+    /// engine's revs, gear, throttle and the brakes; how fast the front and back tyres scrub.
+    /// </summary>
+    private const int VehicleHead = 14;
 
-    private const int YawBits = 12, SpeedBits = 10, SteerBits = 8, SeatBits = 5;
+    private const int YawBits = 12, PitchBits = 10, RollBits = 10, SpeedBits = 10, SteerBits = 8, RpmBits = 7, GearBits = 3, DriveBits = 4,
+        SlideBits = 6, SeatBits = 5;
 
     /// <summary>The fastest a vehicle is sent as going, either way (m/s).</summary>
     private const float MaxVehicleSpeed = 16f;
 
     /// <summary>The most a vehicle's wheels are sent as turned, either way (rad).</summary>
     private const float MaxSteer = 1f;
+
+    /// <summary>The highest revs sent (rpm), and the fastest a tyre is sent as scrubbing (m/s).</summary>
+    private const float MaxRpm = 12000f, MaxSlide = 12f;
 
     private const int MatchCount = 29;
 
@@ -72,8 +79,16 @@ public sealed class WorldFields
             w[1] = (byte)grid.BitsY;
             w[2] = (byte)grid.BitsZ;
             w[3] = YawBits;
-            w[4] = SpeedBits;
-            w[5] = SteerBits;
+            w[4] = PitchBits;
+            w[5] = RollBits;
+            w[6] = SpeedBits;
+            w[7] = SteerBits;
+            w[8] = RpmBits;
+            w[9] = GearBits; // gear + 1 (reverse 0)
+            w[10] = DriveBits;
+            w[11] = 1; // braking
+            w[12] = SlideBits;
+            w[13] = SlideBits;
             w[VehicleHead..].Fill(SeatBits); // who's in each seat + 1
         }
 
@@ -147,9 +162,18 @@ public sealed class WorldFields
             VehicleState car = sim.Vehicles[v];
             Span<uint> f = Vehicle(into, v);
             Grid.Quantize(car.Position, out f[0], out f[1], out f[2]);
-            f[3] = Quant.Angle(car.Yaw, YawBits);
-            f[4] = Quant.Range(car.Speed, -MaxVehicleSpeed, MaxVehicleSpeed, SpeedBits);
-            f[5] = Quant.Range(car.Steer, -MaxSteer, MaxSteer, SteerBits);
+            VehiclePose.Angles(car.Orientation, out float yaw, out float pitch, out float roll);
+            f[3] = Quant.Angle(yaw, YawBits);
+            f[4] = Quant.Range(pitch, -MathF.PI * 0.5f, MathF.PI * 0.5f, PitchBits);
+            f[5] = Quant.Angle(roll, RollBits);
+            f[6] = Quant.Range(car.Speed, -MaxVehicleSpeed, MaxVehicleSpeed, SpeedBits);
+            f[7] = Quant.Range(car.Steer, -MaxSteer, MaxSteer, SteerBits);
+            f[8] = Quant.Range(car.Rpm, 0f, MaxRpm, RpmBits);
+            f[9] = (uint)Math.Clamp(car.Gear + 1, 0, (1 << GearBits) - 1);
+            f[10] = Quant.Range(car.Drive, 0f, 1f, DriveBits);
+            f[11] = car.Braking > 0f ? 1u : 0u;
+            f[12] = Quant.Range(MathF.Max(car.Slide[0], car.Slide[1]), 0f, MaxSlide, SlideBits);
+            f[13] = Quant.Range(MathF.Max(car.Slide[2], car.Slide[3]), 0f, MaxSlide, SlideBits);
             for (int s = 0; s < car.Occupants.Length && VehicleHead + s < f.Length; s++)
             {
                 f[VehicleHead + s] = (uint)(car.Occupants[s] + 1);
@@ -213,29 +237,40 @@ public sealed class WorldFields
     /// <summary>
     /// A joining copy: the vehicles <paramref name="t"/> of the way from snapshot <paramref name="a"/> to <paramref name="b"/>
     /// (drawn, like everyone else, a little behind the server), and who's in them as the nearer has it. This copy's own
-    /// player's seat is <see cref="SeatOf"/>'s, from the newest.
+    /// player's seat is <see cref="SeatOf"/>'s, from the newest. The vehicle this copy drives (<paramref name="predicted"/>)
+    /// moves as this copy predicts it: only who's in it comes from the server, as the newest snapshot has it.
     /// </summary>
-    public void ApplyVehicles(SimWorld sim, ReadOnlySpan<uint> a, ReadOnlySpan<uint> b, float t)
+    public void ApplyVehicles(SimWorld sim, ReadOnlySpan<uint> a, ReadOnlySpan<uint> b, float t, ReadOnlySpan<uint> newest = default,
+        int predicted = -1)
     {
         Span<int> occupants = stackalloc int[8];
         for (int v = 0; v < Vehicles && v < sim.Vehicles.Count; v++)
         {
-            ReadOnlySpan<uint> fa = Vehicle(a, v), fb = Vehicle(b, v), near = t < 0.5f ? fa : fb;
+            bool own = v == predicted && newest.Length > 0;
+            ReadOnlySpan<uint> fa = Vehicle(a, v), fb = Vehicle(b, v), near = own ? Vehicle(newest, v) : t < 0.5f ? fa : fb;
             Vector3 position = Vector3.Lerp(Grid.Dequantize(fa[0], fa[1], fa[2]), Grid.Dequantize(fb[0], fb[1], fb[2]), t);
-            float ya = Quant.FromAngle(fa[3], YawBits), yb = Quant.FromAngle(fb[3], YawBits);
-            float turn = MathF.IEEERemainder(yb - ya, MathF.Tau);
-            float speed = Lerp(Quant.FromRange(fa[4], -MaxVehicleSpeed, MaxVehicleSpeed, SpeedBits),
-                Quant.FromRange(fb[4], -MaxVehicleSpeed, MaxVehicleSpeed, SpeedBits), t);
-            float steer = Lerp(Quant.FromRange(fa[5], -MaxSteer, MaxSteer, SteerBits), Quant.FromRange(fb[5], -MaxSteer, MaxSteer, SteerBits), t);
+            Quaternion orientation = Quaternion.Slerp(Orientation(fa), Orientation(fb), t);
+            float speed = Lerp(Quant.FromRange(fa[6], -MaxVehicleSpeed, MaxVehicleSpeed, SpeedBits),
+                Quant.FromRange(fb[6], -MaxVehicleSpeed, MaxVehicleSpeed, SpeedBits), t);
+            float steer = Lerp(Quant.FromRange(fa[7], -MaxSteer, MaxSteer, SteerBits), Quant.FromRange(fb[7], -MaxSteer, MaxSteer, SteerBits), t);
+            float rpm = Lerp(Quant.FromRange(fa[8], 0f, MaxRpm, RpmBits), Quant.FromRange(fb[8], 0f, MaxRpm, RpmBits), t);
+            float drive = Lerp(Quant.FromRange(fa[10], 0f, 1f, DriveBits), Quant.FromRange(fb[10], 0f, 1f, DriveBits), t);
+            float slideFront = Lerp(Quant.FromRange(fa[12], 0f, MaxSlide, SlideBits), Quant.FromRange(fb[12], 0f, MaxSlide, SlideBits), t);
+            float slideRear = Lerp(Quant.FromRange(fa[13], 0f, MaxSlide, SlideBits), Quant.FromRange(fb[13], 0f, MaxSlide, SlideBits), t);
             int seats = Math.Min(occupants.Length, near.Length - VehicleHead);
             for (int s = 0; s < seats; s++)
             {
                 occupants[s] = (int)near[VehicleHead + s] - 1;
             }
 
-            sim.Vehicles.ApplyServer(v, position, ya + turn * t, speed, steer, occupants[..seats], sim.Players, sim.LocalPlayerId);
+            sim.Vehicles.ApplyServer(v, position, orientation, speed, steer, rpm, (int)near[9] - 1, drive, near[11] != 0 ? 1f : 0f, slideFront,
+                slideRear, occupants[..seats], sim.Players, sim.LocalPlayerId, own);
         }
     }
+
+    private static Quaternion Orientation(ReadOnlySpan<uint> f) =>
+        VehiclePose.FromAngles(Quant.FromAngle(f[3], YawBits), Quant.FromRange(f[4], -MathF.PI * 0.5f, MathF.PI * 0.5f, PitchBits),
+            Quant.FromAngle(f[5], RollBits));
 
     /// <summary>The vehicle and seat <paramref name="playerId"/> is in as <paramref name="fields"/> have it, or (−1, −1).</summary>
     public (int Vehicle, int Seat) SeatOf(ReadOnlySpan<uint> fields, int playerId)

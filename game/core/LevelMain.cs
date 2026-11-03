@@ -386,7 +386,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _doors.Build(_sim, _world.Materials);
         _vehicles = new VehicleViews { Name = "Vehicles" };
         AddChild(_vehicles);
-        _vehicles.Build(_sim, _level, _world.Materials);
+        _vehicles.Build(_sim, _level, _world.Materials, _view.VehicleView);
         var tracks = new TrackViews { Name = "Tracks" };
         AddChild(tracks);
         tracks.Build(_level, _world.Materials);
@@ -621,7 +621,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         else if (Args.Has("--vehicle-demo"))
         {
-            var demo = new VehicleDemo(this, _sim, _player, _vehicles, _hud,
+            var demo = new VehicleDemo(this, _sim, _player, _vehicles, _hud, _audio,
                 (state, at) => _pawns.FirstOrDefault(p => p.State == state)?.Teleport(at, state.Yaw));
             demo.Setup(int.TryParse(Args.Value("--vehicle"), out int which) ? which : null);
             _player.AutoPilot = demo;
@@ -1056,6 +1056,8 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
 
         _player.CorrectionOffset = () => round.CorrectionOffset;
+        // The vehicle this copy drives is drawn with the same easing out of a correction as you are (you sit in it).
+        _vehicles.DrawnOffset = i => i == _sim.PredictedVehicle ? round.CorrectionOffset : System.Numerics.Vector3.Zero;
         _driver.BeforeTick = () => round.BeginTick(_sim.Dt);
         _driver.AfterStep = () =>
         {
@@ -1578,6 +1580,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         _driver.AfterStep = null;
         _player.Predict = null;
         _player.CorrectionOffset = null;
+        _vehicles.DrawnOffset = null;
         if (_listening is not null)
         {
             _listening.Left -= OnPersonLeft;
