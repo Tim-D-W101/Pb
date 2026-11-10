@@ -1,0 +1,23 @@
+Pb for Android
+==============
+
+Pb.apk is the whole game for Android phones and tablets: 64-bit ARM (nearly every phone since 2017), Android 7.0 or
+later. It isn't in a store, so you install it yourself.
+
+Install it on the phone
+-----------------------
+1. Put Pb.apk on the phone (copy it to the Download folder over USB, or open this zip on the phone with the Files app).
+2. Tap Pb.apk. If Android asks, allow the app you opened it from (Files, or the browser) to install apps: tap
+   Settings, turn on "Allow from this source", go back.
+3. Tap Install. If Play Protect says it doesn't know the developer, tap More details, then Install anyway: the game
+   is signed with its own debug key, not a store's.
+4. Open Pb from your apps. It plays in landscape.
+
+Or, from a computer with Android's platform tools and USB debugging on:  adb install -r Pb.apk
+
+Updating
+--------
+Install a newer Pb.apk the same way, over the old one; your settings stay. If Android says it conflicts with the one
+already there (a build signed with another key), uninstall Pb first.
+
+More: docs/android.md in the repository (the controls, problems, building it yourself).

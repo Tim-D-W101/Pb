@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cg6p8br1a7mec"
 path.s3tc="res://.godot/imported/tiles_white_roughness.jpg-2d8c56c2b8fcdef92ec5cc18b09eca94.s3tc.ctex"
+path.etc2="res://.godot/imported/tiles_white_roughness.jpg-2d8c56c2b8fcdef92ec5cc18b09eca94.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/tiles_white_roughness.jpg"
-dest_files=["res://.godot/imported/tiles_white_roughness.jpg-2d8c56c2b8fcdef92ec5cc18b09eca94.s3tc.ctex"]
+dest_files=["res://.godot/imported/tiles_white_roughness.jpg-2d8c56c2b8fcdef92ec5cc18b09eca94.s3tc.ctex", "res://.godot/imported/tiles_white_roughness.jpg-2d8c56c2b8fcdef92ec5cc18b09eca94.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://jjcpqfhduydj"
 path.s3tc="res://.godot/imported/car_body_albedo.jpg-9b2897bb9f8a3e9a9f1a95655edc0ebf.s3tc.ctex"
+path.etc2="res://.godot/imported/car_body_albedo.jpg-9b2897bb9f8a3e9a9f1a95655edc0ebf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/car_body_albedo.jpg"
-dest_files=["res://.godot/imported/car_body_albedo.jpg-9b2897bb9f8a3e9a9f1a95655edc0ebf.s3tc.ctex"]
+dest_files=["res://.godot/imported/car_body_albedo.jpg-9b2897bb9f8a3e9a9f1a95655edc0ebf.s3tc.ctex", "res://.godot/imported/car_body_albedo.jpg-9b2897bb9f8a3e9a9f1a95655edc0ebf.etc2.ctex"]
 
 [params]
 

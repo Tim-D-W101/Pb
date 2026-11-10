@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://sgq23qml741p"
 path.s3tc="res://.godot/imported/tank_black_roughness.jpg-293133d0fc956447381b48f47db52352.s3tc.ctex"
+path.etc2="res://.godot/imported/tank_black_roughness.jpg-293133d0fc956447381b48f47db52352.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/tank_black_roughness.jpg"
-dest_files=["res://.godot/imported/tank_black_roughness.jpg-293133d0fc956447381b48f47db52352.s3tc.ctex"]
+dest_files=["res://.godot/imported/tank_black_roughness.jpg-293133d0fc956447381b48f47db52352.s3tc.ctex", "res://.godot/imported/tank_black_roughness.jpg-293133d0fc956447381b48f47db52352.etc2.ctex"]
 
 [params]
 

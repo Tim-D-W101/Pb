@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ckekfuk116p0d"
 path.s3tc="res://.godot/imported/lino_roughness.jpg-181c72ff82246c93b72766b4c3a2d359.s3tc.ctex"
+path.etc2="res://.godot/imported/lino_roughness.jpg-181c72ff82246c93b72766b4c3a2d359.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/lino_roughness.jpg"
-dest_files=["res://.godot/imported/lino_roughness.jpg-181c72ff82246c93b72766b4c3a2d359.s3tc.ctex"]
+dest_files=["res://.godot/imported/lino_roughness.jpg-181c72ff82246c93b72766b4c3a2d359.s3tc.ctex", "res://.godot/imported/lino_roughness.jpg-181c72ff82246c93b72766b4c3a2d359.etc2.ctex"]
 
 [params]
 

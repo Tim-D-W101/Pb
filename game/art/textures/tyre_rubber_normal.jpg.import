@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ckoaudw0s4fhn"
 path.s3tc="res://.godot/imported/tyre_rubber_normal.jpg-4eb8f13af21229b2ecd17329f05154e9.s3tc.ctex"
+path.etc2="res://.godot/imported/tyre_rubber_normal.jpg-4eb8f13af21229b2ecd17329f05154e9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/tyre_rubber_normal.jpg"
-dest_files=["res://.godot/imported/tyre_rubber_normal.jpg-4eb8f13af21229b2ecd17329f05154e9.s3tc.ctex"]
+dest_files=["res://.godot/imported/tyre_rubber_normal.jpg-4eb8f13af21229b2ecd17329f05154e9.s3tc.ctex", "res://.godot/imported/tyre_rubber_normal.jpg-4eb8f13af21229b2ecd17329f05154e9.etc2.ctex"]
 
 [params]
 

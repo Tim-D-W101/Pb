@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://mqo0m7l8ofv8"
 path.s3tc="res://.godot/imported/machinery_roughness.jpg-5e011c5277468029abc043dfbcf34db9.s3tc.ctex"
+path.etc2="res://.godot/imported/machinery_roughness.jpg-5e011c5277468029abc043dfbcf34db9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/machinery_roughness.jpg"
-dest_files=["res://.godot/imported/machinery_roughness.jpg-5e011c5277468029abc043dfbcf34db9.s3tc.ctex"]
+dest_files=["res://.godot/imported/machinery_roughness.jpg-5e011c5277468029abc043dfbcf34db9.s3tc.ctex", "res://.godot/imported/machinery_roughness.jpg-5e011c5277468029abc043dfbcf34db9.etc2.ctex"]
 
 [params]
 

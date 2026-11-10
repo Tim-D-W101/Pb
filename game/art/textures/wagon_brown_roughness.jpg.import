@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cho8rk4wf3r78"
 path.s3tc="res://.godot/imported/wagon_brown_roughness.jpg-c2a32ed714921ef5de3ab6c36585698a.s3tc.ctex"
+path.etc2="res://.godot/imported/wagon_brown_roughness.jpg-c2a32ed714921ef5de3ab6c36585698a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/wagon_brown_roughness.jpg"
-dest_files=["res://.godot/imported/wagon_brown_roughness.jpg-c2a32ed714921ef5de3ab6c36585698a.s3tc.ctex"]
+dest_files=["res://.godot/imported/wagon_brown_roughness.jpg-c2a32ed714921ef5de3ab6c36585698a.s3tc.ctex", "res://.godot/imported/wagon_brown_roughness.jpg-c2a32ed714921ef5de3ab6c36585698a.etc2.ctex"]
 
 [params]
 

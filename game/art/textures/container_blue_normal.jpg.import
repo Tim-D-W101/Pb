@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://vod1xofk6vad"
 path.s3tc="res://.godot/imported/container_blue_normal.jpg-6848c10522a0f661c85447d1af8105e6.s3tc.ctex"
+path.etc2="res://.godot/imported/container_blue_normal.jpg-6848c10522a0f661c85447d1af8105e6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/container_blue_normal.jpg"
-dest_files=["res://.godot/imported/container_blue_normal.jpg-6848c10522a0f661c85447d1af8105e6.s3tc.ctex"]
+dest_files=["res://.godot/imported/container_blue_normal.jpg-6848c10522a0f661c85447d1af8105e6.s3tc.ctex", "res://.godot/imported/container_blue_normal.jpg-6848c10522a0f661c85447d1af8105e6.etc2.ctex"]
 
 [params]
 

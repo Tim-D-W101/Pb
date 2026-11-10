@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bej583a81frkj"
 path.s3tc="res://.godot/imported/sandbag_albedo.jpg-9b8ac051e833ed0d9cc61cb601f25200.s3tc.ctex"
+path.etc2="res://.godot/imported/sandbag_albedo.jpg-9b8ac051e833ed0d9cc61cb601f25200.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/sandbag_albedo.jpg"
-dest_files=["res://.godot/imported/sandbag_albedo.jpg-9b8ac051e833ed0d9cc61cb601f25200.s3tc.ctex"]
+dest_files=["res://.godot/imported/sandbag_albedo.jpg-9b8ac051e833ed0d9cc61cb601f25200.s3tc.ctex", "res://.godot/imported/sandbag_albedo.jpg-9b8ac051e833ed0d9cc61cb601f25200.etc2.ctex"]
 
 [params]
 

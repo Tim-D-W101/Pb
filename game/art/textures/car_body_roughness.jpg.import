@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dgc0pokv0umkd"
 path.s3tc="res://.godot/imported/car_body_roughness.jpg-d814ef32e18374d89577b9a7fff9802d.s3tc.ctex"
+path.etc2="res://.godot/imported/car_body_roughness.jpg-d814ef32e18374d89577b9a7fff9802d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/car_body_roughness.jpg"
-dest_files=["res://.godot/imported/car_body_roughness.jpg-d814ef32e18374d89577b9a7fff9802d.s3tc.ctex"]
+dest_files=["res://.godot/imported/car_body_roughness.jpg-d814ef32e18374d89577b9a7fff9802d.s3tc.ctex", "res://.godot/imported/car_body_roughness.jpg-d814ef32e18374d89577b9a7fff9802d.etc2.ctex"]
 
 [params]
 

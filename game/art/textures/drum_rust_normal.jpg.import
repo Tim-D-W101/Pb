@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b0p5cykn3fkci"
 path.s3tc="res://.godot/imported/drum_rust_normal.jpg-4080cbbed51956cf09e08545ad687f35.s3tc.ctex"
+path.etc2="res://.godot/imported/drum_rust_normal.jpg-4080cbbed51956cf09e08545ad687f35.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/drum_rust_normal.jpg"
-dest_files=["res://.godot/imported/drum_rust_normal.jpg-4080cbbed51956cf09e08545ad687f35.s3tc.ctex"]
+dest_files=["res://.godot/imported/drum_rust_normal.jpg-4080cbbed51956cf09e08545ad687f35.s3tc.ctex", "res://.godot/imported/drum_rust_normal.jpg-4080cbbed51956cf09e08545ad687f35.etc2.ctex"]
 
 [params]
 

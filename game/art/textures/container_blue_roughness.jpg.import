@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cpyj75lrcbcig"
 path.s3tc="res://.godot/imported/container_blue_roughness.jpg-6b528473a653ef15bb6e36bf02673dcb.s3tc.ctex"
+path.etc2="res://.godot/imported/container_blue_roughness.jpg-6b528473a653ef15bb6e36bf02673dcb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/container_blue_roughness.jpg"
-dest_files=["res://.godot/imported/container_blue_roughness.jpg-6b528473a653ef15bb6e36bf02673dcb.s3tc.ctex"]
+dest_files=["res://.godot/imported/container_blue_roughness.jpg-6b528473a653ef15bb6e36bf02673dcb.s3tc.ctex", "res://.godot/imported/container_blue_roughness.jpg-6b528473a653ef15bb6e36bf02673dcb.etc2.ctex"]
 
 [params]
 

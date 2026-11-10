@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bed5p4jffgsyu"
 path.s3tc="res://.godot/imported/tarp_green_normal.jpg-dbf75d6952b09434b1d03efdf1e64ceb.s3tc.ctex"
+path.etc2="res://.godot/imported/tarp_green_normal.jpg-dbf75d6952b09434b1d03efdf1e64ceb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/tarp_green_normal.jpg"
-dest_files=["res://.godot/imported/tarp_green_normal.jpg-dbf75d6952b09434b1d03efdf1e64ceb.s3tc.ctex"]
+dest_files=["res://.godot/imported/tarp_green_normal.jpg-dbf75d6952b09434b1d03efdf1e64ceb.s3tc.ctex", "res://.godot/imported/tarp_green_normal.jpg-dbf75d6952b09434b1d03efdf1e64ceb.etc2.ctex"]
 
 [params]
 

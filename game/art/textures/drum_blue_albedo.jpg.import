@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://br887pkxh6d3f"
 path.s3tc="res://.godot/imported/drum_blue_albedo.jpg-8330580bda11b7e90109533ea42da519.s3tc.ctex"
+path.etc2="res://.godot/imported/drum_blue_albedo.jpg-8330580bda11b7e90109533ea42da519.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/drum_blue_albedo.jpg"
-dest_files=["res://.godot/imported/drum_blue_albedo.jpg-8330580bda11b7e90109533ea42da519.s3tc.ctex"]
+dest_files=["res://.godot/imported/drum_blue_albedo.jpg-8330580bda11b7e90109533ea42da519.s3tc.ctex", "res://.godot/imported/drum_blue_albedo.jpg-8330580bda11b7e90109533ea42da519.etc2.ctex"]
 
 [params]
 

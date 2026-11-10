@@ -2,6 +2,9 @@
   <!-- Godot game project (presentation, input, engine glue). Gameplay rules live in src/Pb.Sim. -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
+    <!-- Android exports run on .NET 9: Godot's Android export template only takes net9.0 (the desktop builds stay
+         on .NET 8). Building it needs the .NET 9 SDK (tools/package/android-build.sh). -->
+    <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>Pb.Game</RootNamespace>
     <AssemblyName>Pb</AssemblyName>

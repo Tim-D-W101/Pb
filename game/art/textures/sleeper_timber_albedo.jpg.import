@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://obovbhjk0v1v"
 path.s3tc="res://.godot/imported/sleeper_timber_albedo.jpg-ed79a1520041b2915ef82b5f6873b806.s3tc.ctex"
+path.etc2="res://.godot/imported/sleeper_timber_albedo.jpg-ed79a1520041b2915ef82b5f6873b806.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/sleeper_timber_albedo.jpg"
-dest_files=["res://.godot/imported/sleeper_timber_albedo.jpg-ed79a1520041b2915ef82b5f6873b806.s3tc.ctex"]
+dest_files=["res://.godot/imported/sleeper_timber_albedo.jpg-ed79a1520041b2915ef82b5f6873b806.s3tc.ctex", "res://.godot/imported/sleeper_timber_albedo.jpg-ed79a1520041b2915ef82b5f6873b806.etc2.ctex"]
 
 [params]
 

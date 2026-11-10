@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bvn2ey24gwyoc"
 path.s3tc="res://.godot/imported/wood_pallet_normal.jpg-8fbbd61de6cdafcfaccdae0435a246f2.s3tc.ctex"
+path.etc2="res://.godot/imported/wood_pallet_normal.jpg-8fbbd61de6cdafcfaccdae0435a246f2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/wood_pallet_normal.jpg"
-dest_files=["res://.godot/imported/wood_pallet_normal.jpg-8fbbd61de6cdafcfaccdae0435a246f2.s3tc.ctex"]
+dest_files=["res://.godot/imported/wood_pallet_normal.jpg-8fbbd61de6cdafcfaccdae0435a246f2.s3tc.ctex", "res://.godot/imported/wood_pallet_normal.jpg-8fbbd61de6cdafcfaccdae0435a246f2.etc2.ctex"]
 
 [params]
 

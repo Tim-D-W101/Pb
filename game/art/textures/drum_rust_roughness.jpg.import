@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://big1oovsir5uu"
 path.s3tc="res://.godot/imported/drum_rust_roughness.jpg-6fca233aeb47747bbac96731579ca1ea.s3tc.ctex"
+path.etc2="res://.godot/imported/drum_rust_roughness.jpg-6fca233aeb47747bbac96731579ca1ea.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/drum_rust_roughness.jpg"
-dest_files=["res://.godot/imported/drum_rust_roughness.jpg-6fca233aeb47747bbac96731579ca1ea.s3tc.ctex"]
+dest_files=["res://.godot/imported/drum_rust_roughness.jpg-6fca233aeb47747bbac96731579ca1ea.s3tc.ctex", "res://.godot/imported/drum_rust_roughness.jpg-6fca233aeb47747bbac96731579ca1ea.etc2.ctex"]
 
 [params]
 

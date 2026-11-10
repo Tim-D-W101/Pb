@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dbmrkf1urm3hf"
 path.s3tc="res://.godot/imported/asphalt_cracked_albedo.jpg-0191886826fe2343c846bda774b9f4ef.s3tc.ctex"
+path.etc2="res://.godot/imported/asphalt_cracked_albedo.jpg-0191886826fe2343c846bda774b9f4ef.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/asphalt_cracked_albedo.jpg"
-dest_files=["res://.godot/imported/asphalt_cracked_albedo.jpg-0191886826fe2343c846bda774b9f4ef.s3tc.ctex"]
+dest_files=["res://.godot/imported/asphalt_cracked_albedo.jpg-0191886826fe2343c846bda774b9f4ef.s3tc.ctex", "res://.godot/imported/asphalt_cracked_albedo.jpg-0191886826fe2343c846bda774b9f4ef.etc2.ctex"]
 
 [params]
 
