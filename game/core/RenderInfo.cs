@@ -12,6 +12,12 @@ public static class RenderInfo
 {
     public static string Line(Viewport viewport)
     {
+        if (DisplayServer.GetName() == "headless")
+        {
+            // Nothing's drawn (CI, a dedicated server): Godot still names the project's renderer, but it isn't running.
+            return string.Create(CultureInfo.InvariantCulture, $"RENDER: none, headless; {OS.GetName()} {OS.GetVersion()}, {OS.GetModelName()}");
+        }
+
         string scaling = viewport.Scaling3DMode switch
         {
             Viewport.Scaling3DModeEnum.Fsr => "FSR 1.0",
@@ -26,7 +32,7 @@ public static class RenderInfo
             Viewport.Msaa.Msaa4X => "4x",
             _ => viewport.Msaa3D.ToString(),
         };
-        Vector2I window = DisplayServer.GetName() == "headless" ? Vector2I.Zero : DisplayServer.WindowGetSize();
+        Vector2I window = DisplayServer.WindowGetSize();
         float contentScale = viewport is Window w ? w.ContentScaleFactor : 1f;
         return string.Create(CultureInfo.InvariantCulture,
             $"RENDER: {RenderingServer.GetCurrentRenderingMethod()} renderer ({RenderingServer.GetCurrentRenderingDriverName()}) on " +

@@ -1905,7 +1905,8 @@ Tim's first install (M6.3's APK) stayed grey after Start, the desktop's CONTROLS
 - **The log line.** `RenderInfo.Line`: `RENDER: <method> renderer (<driver>) on <GPU> by <vendor> (<API version>); 3D at
   <scale> % (FSR 1.0 | FSR 2 | bilinear), MSAA <off | 2x | 4x>; window W × H, interface × F; <OS> <version>, <model>`, as
   the menu starts (after the .NET runtime's line, which now names the runtime too), as each level starts (with the
-  preset) and on the training ground. On a phone, `adb logcat -s godot` shows it.
+  preset) and on the training ground; headless (CI, a dedicated server) it says `RENDER: none, headless`, as nothing's
+  drawn. On a phone, `adb logcat -s godot` shows it.
 - **The help** (`Hud.HelpText`, the keyboard's and mouse's controls) isn't shown on a phone (`TouchUi.Phone`).
 - **Checked without a phone** on Mesa's OpenGL ES 3.2 (llvmpipe) under xvfb, `--rendering-method gl_compatibility
   --rendering-driver opengl3_es`: the cold store, Thornwick Woods and Oxbarrow Works drawn with the mobile preset and the
