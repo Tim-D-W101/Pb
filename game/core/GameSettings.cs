@@ -58,6 +58,20 @@ public sealed partial class GameSettings
     /// <summary>Your changes to input.jsonc's bindings, by action.</summary>
     public Dictionary<string, BindingOverride> Bindings { get; set; } = new();
 
+    // ---- Touch screens (Phase 6)
+
+    /// <summary>How far dragging a finger turns you: degrees for each centimetre it goes on the screen.</summary>
+    public float TouchLookDegPerCm { get; set; }
+
+    /// <summary>The touch buttons' size, as a share of presentation.jsonc's (their places spread with them).</summary>
+    public float TouchButtonScale { get; set; }
+
+    /// <summary>How solid the touch controls are drawn (lower: more see-through).</summary>
+    public float TouchOpacity { get; set; }
+
+    /// <summary>The touch controls' sides swapped: the move stick on the right, the buttons and looking on the left.</summary>
+    public bool TouchLeftHanded { get; set; }
+
     // ---- Video
 
     public string WindowMode { get; set; } = "windowed";
@@ -205,6 +219,9 @@ public sealed partial class GameSettings
         InvertY = d.InvertY,
         StickSpeedDegps = d.StickSpeed,
         StickCurve = d.StickCurve,
+        TouchLookDegPerCm = d.TouchLook,
+        TouchButtonScale = d.TouchButtonScale,
+        TouchOpacity = d.TouchOpacity,
         Vsync = d.Vsync,
         GraphicsPreset = d.GraphicsPresets[0],
         RenderScale = d.RenderScales[0],
@@ -258,6 +275,9 @@ public sealed partial class GameSettings
         MouseSensitivityDegPerCount = Range(MouseSensitivityDegPerCount, 0.001f, 2f, d.MouseSensitivity);
         StickSpeedDegps = Range(StickSpeedDegps, 30f, 1000f, d.StickSpeed);
         StickCurve = Range(StickCurve, 1f, 4f, d.StickCurve);
+        TouchLookDegPerCm = Range(TouchLookDegPerCm, d.TouchLookRange[0], d.TouchLookRange[1], d.TouchLook);
+        TouchButtonScale = Range(TouchButtonScale, d.TouchButtonScaleRange[0], d.TouchButtonScaleRange[1], d.TouchButtonScale);
+        TouchOpacity = Range(TouchOpacity, d.TouchOpacityRange[0], d.TouchOpacityRange[1], d.TouchOpacity);
         Bindings = Bindings?.Where(b => d.Actions.Contains(b.Key) && b.Value is not null)
             .ToDictionary(b => b.Key, b => b.Value, StringComparer.Ordinal) ?? new Dictionary<string, BindingOverride>(StringComparer.Ordinal);
 
@@ -383,6 +403,21 @@ public sealed class SettingsDefaults
     public required float StickSpeed { get; init; }
 
     public required float StickCurve { get; init; }
+
+    /// <summary>The touch look speed (°/cm) and its [min, max].</summary>
+    public required float TouchLook { get; init; }
+
+    public required IReadOnlyList<float> TouchLookRange { get; init; }
+
+    /// <summary>The touch buttons' size (a share) and its [min, max].</summary>
+    public required float TouchButtonScale { get; init; }
+
+    public required IReadOnlyList<float> TouchButtonScaleRange { get; init; }
+
+    /// <summary>How solid the touch controls are, and its [min, max].</summary>
+    public required float TouchOpacity { get; init; }
+
+    public required IReadOnlyList<float> TouchOpacityRange { get; init; }
 
     public required bool Vsync { get; init; }
 

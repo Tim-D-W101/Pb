@@ -66,6 +66,8 @@ public partial class LobbyMain : Control
         _view = Jsonc.Load<PresentationDef>(source, PresentationDef.File);
         GameSettings settings = GameSettings.Load(_view);
         _view.UseTeamColors(settings.TeamColors);
+        TouchUi.ScaleInterface(GetTree().Root, _view.Touch);
+        bool phone = TouchUi.Phone;
 
         var background = new ColorRect { Name = "Background", Color = new Color(0.07f, 0.075f, 0.08f), MouseFilter = MouseFilterEnum.Ignore };
         background.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -74,12 +76,23 @@ public partial class LobbyMain : Control
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
         foreach (string side in new[] { "left", "right", "top", "bottom" })
         {
-            margin.AddThemeConstantOverride("margin_" + side, 36);
+            margin.AddThemeConstantOverride("margin_" + side, phone ? (int)TouchUi.PhoneMargin / 2 : 36);
         }
 
         AddChild(margin);
         VBoxContainer page = UiKit.Column(12);
-        margin.AddChild(page);
+        if (phone)
+        {
+            // On a phone the columns stack, and the page scrolls by dragging.
+            var scroll = new ScrollContainer { Name = "Page", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+            page.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            scroll.AddChild(page);
+            margin.AddChild(scroll);
+        }
+        else
+        {
+            margin.AddChild(page);
+        }
 
         // The game's name and what's happening, with Leave up in the corner.
         HBoxContainer header = UiKit.Row(16);
@@ -100,7 +113,7 @@ public partial class LobbyMain : Control
 
         // Who's in, the round, and you.
         // Three columns that fit a 1600-pixel-wide screen with the panels' own margins.
-        HBoxContainer columns = UiKit.Row(16);
+        BoxContainer columns = phone ? UiKit.Column(12) : UiKit.Row(16);
         columns.SizeFlagsVertical = SizeFlags.ExpandFill;
         _sides = UiKit.Column(10);
         columns.AddChild(Card("WHO'S IN", _sides, 440f));
@@ -126,7 +139,7 @@ public partial class LobbyMain : Control
         page.AddChild(columns);
 
         _chat = new ChatBox { Name = "Chat" };
-        _chat.Build(1380f, 3, teams: true, keepRoom: true);
+        _chat.Build(TouchUi.Room(1380f, TouchUi.PanelPadding), 3, teams: true, keepRoom: true);
         _chat.SideColor = SideColor;
         _chat.Send = (text, team) => _session.Say(text, team);
         page.AddChild(UiKit.Panel(_chat));
@@ -220,7 +233,13 @@ public partial class LobbyMain : Control
         content.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         scroll.AddChild(content);
         column.AddChild(scroll);
-        PanelContainer panel = UiKit.Panel(column, width);
+        if (TouchUi.Phone)
+        {
+            // Stacked on a phone's scrolling page, each keeps a height of its own to scroll in.
+            scroll.CustomMinimumSize = new Vector2(0, 230);
+        }
+
+        PanelContainer panel = UiKit.Panel(column, TouchUi.Room(width));
         panel.SizeFlagsVertical = SizeFlags.ExpandFill;
         return panel;
     }

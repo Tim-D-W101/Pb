@@ -74,6 +74,13 @@ template only takes net9.0, so `game/Pb.csproj` targets it when Godot builds for
 (ETC2/ASTC) as well, and the APK carries the art (no packs beside it). It's Godot's release template signed with
 `tools/package/android/debug.keystore` (password `android`), so each build installs over the last.
 
+Touch (Phase 6): on a phone the touch controls are up from the start (`game/ui/TouchControls.cs`; sizes in millimetres,
+presentation.jsonc `touch`) and the interface is drawn bigger by the screen's density (`TouchUi.ScaleInterface`).
+`-- --touch` makes a computer act as a phone (`--dpi=N` its density, `--safe-area=L,T,R,B` a notch in screen pixels; headless,
+`--screen=WxH`, 2400x1080 by default). `-- --touch-demo --level=thornwick_woods` plays a round by simulated fingers (the
+stick, looking, every button, a buggy driven and left, pause and the back button) and `-- --menu-touch-demo` (on the main
+scene) works the menus by taps and drags; both print SMOKE PASS or FAIL, and CI runs them at three phone shapes.
+
 Playing with others from the command line (Phase 4; the menu's Play with others does the same):
 - **Hosting and joining:** `-- --host` (on `--port=N`, with `--password=WORD`) or `-- --join=ADDRESS`, as `--name=NAME`
   playing character `--look=N`.

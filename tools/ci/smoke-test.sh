@@ -34,6 +34,13 @@
 #          streak and a splat is placed for each (drawn, it also looks for them on the screen)
 #   duel   (--duel-demo): you put an opponent out, then paint comes at you (past your head, breaking close by, on your
 #          mask); fails unless each shows its incoming-fire arc (drawn, it also looks for each on the screen)
+#   touch  (Phase 6, --touch-demo): a round on Thornwick Woods played by simulated fingers on a phone's screen (2400 x 1080
+#          at 400 dpi, a notch either side): tap Start, look by dragging, walk and sprint on the stick, jump, crouch, aim,
+#          fire, reload, get in a buggy, drive it (GAS and the stick), handbrake, fire from the wheel, brake, get out, the
+#          scores, pause by its button and the back button; then the same on a 16:9 phone with a notch on one side.
+#          Fails unless the sim did each, and every button sits inside the safe area, clear of the others
+#   menu-touch (--menu-touch-demo): the menus worked by taps and drags at three phone sizes; fails if a screen's wider
+#          than the phone, its buttons can't be reached, or a tap or a drag (to scroll) doesn't do its job
 #   art    (game/tools/ArtImport.cs): the art import's texture steps on a generated picture
 #   tools/ci/smoke-test.sh path/to/godot [range-ticks] [level-ticks]
 set -uo pipefail
@@ -102,5 +109,10 @@ fps=30 run gait-30fps res://scenes/Level.tscn -- --gait-demo --gait-check
 fps=15 run gait-15fps res://scenes/Level.tscn -- --gait-demo --gait-check
 run art-match res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15 --min-contact-marks=1 --min-feedback=1
 fps=15 run art-match-15fps res://scenes/Level.tscn -- --bot-match --time-limit=60 --mode=teams --size=5 --seed=5 --max-pop=15
+run touch res://scenes/Level.tscn -- --touch-demo --level=thornwick_woods --no-art --dpi=400 --safe-area=110,0,110,50
+run touch-16x9 res://scenes/Level.tscn -- --touch-demo --level=thornwick_woods --no-art --dpi=480 --screen=1920x1080 --safe-area=0,0,140,0
+run menu-touch res://scenes/Main.tscn -- --menu-touch-demo --dpi=400
+run menu-touch-16x9 res://scenes/Main.tscn -- --menu-touch-demo --dpi=480 --screen=1920x1080
+run menu-touch-small res://scenes/Main.tscn -- --menu-touch-demo --dpi=300 --screen=1600x720
 run art res://tools/ArtImport.tscn -- --selftest
 exit "$failed"

@@ -73,6 +73,9 @@ public partial class PauseMenu : CanvasLayer
     /// <summary>Whether opening the menu stops the game (not when playing with others: their round goes on).</summary>
     public bool PausesGame { get; set; } = true;
 
+    /// <summary>Whether you're playing by touch (Phase 6): then closing the menu doesn't take the mouse, there's none to take.</summary>
+    public Func<bool>? Touching { get; set; }
+
     public void Toggle()
     {
         if (Open)
@@ -93,7 +96,23 @@ public partial class PauseMenu : CanvasLayer
     {
         _root.Visible = false;
         GetTree().Paused = false;
-        Input.MouseMode = Input.MouseModeEnum.Captured;
+        if (Touching?.Invoke() != true)
+        {
+            Input.MouseMode = Input.MouseModeEnum.Captured;
+        }
+    }
+
+    /// <summary>A step back (a phone's back button): from the settings to the menu, from the menu back to the round.</summary>
+    public void Back()
+    {
+        if (_settings.Visible)
+        {
+            ShowSettings(false);
+        }
+        else
+        {
+            Close();
+        }
     }
 
     public override void _UnhandledInput(InputEvent e)

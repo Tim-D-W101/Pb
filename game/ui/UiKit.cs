@@ -69,15 +69,26 @@ public static class UiKit
         return row;
     }
 
-    /// <summary>A padded panel around <paramref name="content"/>.</summary>
+    /// <summary>
+    /// A padded panel around <paramref name="content"/>. On a phone it lets touches through to what holds it, so a drag
+    /// on it scrolls the page it's on (a panel stops them otherwise).
+    /// </summary>
     public static PanelContainer Panel(Control content, float minWidth = 0f)
     {
         var panel = new PanelContainer { CustomMinimumSize = new Vector2(minWidth, 0f) };
+        if (TouchUi.Phone)
+        {
+            panel.MouseFilter = Control.MouseFilterEnum.Pass;
+        }
+
         panel.AddChild(content);
         return panel;
     }
 
-    /// <summary>A full-screen layer that centres its child, over an optional dimmed backdrop.</summary>
+    /// <summary>
+    /// A full-screen layer that centres its child, over an optional dimmed backdrop. On a phone a card taller (or wider)
+    /// than the screen scrolls by dragging, so nothing on it is out of reach.
+    /// </summary>
     public static Control Overlay(Control child, float dim = 0.55f)
     {
         var root = new Control { MouseFilter = Control.MouseFilterEnum.Stop };
@@ -87,9 +98,22 @@ public static class UiKit
         backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(backdrop);
         var centre = new CenterContainer();
-        centre.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         centre.AddChild(child);
-        root.AddChild(centre);
+        if (TouchUi.Phone)
+        {
+            var scroll = new ScrollContainer { Name = "Scroll" };
+            scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            centre.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            centre.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            scroll.AddChild(centre);
+            root.AddChild(scroll);
+        }
+        else
+        {
+            centre.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            root.AddChild(centre);
+        }
+
         return root;
     }
 
@@ -151,10 +175,11 @@ public static class UiKit
     {
         HBoxContainer row = Row(10);
         Label label = Body(name);
-        label.CustomMinimumSize = new Vector2(150, 0);
+        label.CustomMinimumSize = new Vector2(TouchUi.Phone ? 120 : 150, 0);
         row.AddChild(label);
         Container holder = row;
-        if (wrap)
+        // On a phone the choices wrap onto more lines where the screen's too narrow for them all.
+        if (wrap || TouchUi.Phone)
         {
             var flow = new HFlowContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
             flow.AddThemeConstantOverride("h_separation", 10);

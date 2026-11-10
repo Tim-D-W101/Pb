@@ -38,6 +38,9 @@ public partial class RangeMain : Node3D, ISimEventListener
     private SmokeTest? _smoke;
     private DemoTour? _demo;
     private PauseMenu _pause = null!;
+
+    /// <summary>The touch screen's controls (Phase 6), as in a round.</summary>
+    private TouchControls _touch = null!;
     private bool _ready;
 
     public override void _Ready()
@@ -74,6 +77,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         _settings = GameSettings.Load(_view);
         InputSetup.Apply(_settings.Bindings);
         _view.UseTeamColors(_settings.TeamColors);
+        TouchUi.ScaleInterface(GetTree().Root, _view.Touch);
         Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
         Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
         _settings.ApplyWindow();
@@ -108,6 +112,18 @@ public partial class RangeMain : Node3D, ISimEventListener
         _pause = new PauseMenu { Name = "Pause" };
         AddChild(_pause);
         _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Effective(s.GraphicsPreset, s.Graphics)), restart: null, hudChanged: _ => _hud.ApplySettings());
+        _touch = new TouchControls { Name = "Touch" };
+        _touch.Build(_view.Touch, _settings, _player, _sim, pause: () =>
+        {
+            if (!_pause.Open)
+            {
+                _pause.Toggle();
+            }
+        }, chat: null);
+        _pause.Touching = () => _touch.Active;
+        _touch.Suspend = () => _pause.Open || _player.AutoPilot is not null;
+        AddChild(_touch);
+        _player.Touch = _touch;
 
         _driver.Initialize(_sim);
         _driver.AddDriver(_player);
@@ -137,12 +153,30 @@ public partial class RangeMain : Node3D, ISimEventListener
             AddChild(tour);
             tour.Start(_data.Range.Viewpoints, _hud, _player.ViewModel, _view.Camera.FarClip_m);
         }
-        else if (DisplayServer.GetName() != "headless")
+        else if (DisplayServer.GetName() != "headless" && !_touch.Active)
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
         }
 
         _ready = true;
+    }
+
+    /// <summary>A phone's back button: steps back in the pause menu (or closes it), else opens it.</summary>
+    public override void _Notification(int what)
+    {
+        if (what != NotificationWMGoBackRequest || !_ready)
+        {
+            return;
+        }
+
+        if (_pause.Open)
+        {
+            _pause.Back();
+        }
+        else if (_player.AutoPilot is null)
+        {
+            _pause.Toggle();
+        }
     }
 
     public override void _Process(double delta)
@@ -152,6 +186,7 @@ public partial class RangeMain : Node3D, ISimEventListener
             return;
         }
 
+        _hud.TouchLayout(_touch.Active ? _touch.HudCorner : null);
         // Targets move as a pure function of time; draw them at the interpolated render time.
         double renderTime = _sim.Time - _sim.Dt + Engine.GetPhysicsInterpolationFraction() * _sim.Dt;
         _world.UpdateTargets(renderTime);
@@ -184,7 +219,7 @@ public partial class RangeMain : Node3D, ISimEventListener
             return;
         }
 
-        if (e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured && _player.AutoPilot is null)
+        if (e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured && _player.AutoPilot is null && !_touch.Active)
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
             GetViewport().SetInputAsHandled();

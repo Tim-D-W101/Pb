@@ -44,7 +44,12 @@ public partial class SettingsMenu : VBoxContainer
         _hudChanged = hudChanged;
         AddThemeConstantOverride("separation", 12);
         AddChild(UiKit.Title("Settings", 34));
-        Tabs = new TabContainer { CustomMinimumSize = new Vector2(900, 560), Name = "Tabs" };
+        // On a phone the tabs are as big as the screen leaves them (each tab's page scrolls by dragging).
+        Tabs = new TabContainer
+        {
+            Name = "Tabs",
+            CustomMinimumSize = TouchUi.Phone ? new Vector2(TouchUi.Room(900f, TouchUi.PanelPadding), Math.Max(220f, TouchUi.Screen.Y - 210f)) : new Vector2(900, 560),
+        };
         AddChild(Tabs);
         Tabs.AddChild(Page("Controls", Controls));
         Tabs.AddChild(Page("Video", Video));
@@ -55,15 +60,30 @@ public partial class SettingsMenu : VBoxContainer
 
     private void Controls(VBoxContainer page)
     {
-        page.AddChild(UiKit.SliderRow("Mouse sensitivity", 0.01, 0.4, 0.005, _settings.MouseSensitivityDegPerCount, v => Set(() => _settings.MouseSensitivityDegPerCount = (float)v),
-            v => $"{v:0.000}°"));
+        // A phone has no mouse and no keys to bind: its touch controls come first instead.
+        bool phone = TouchUi.Phone;
+        if (phone)
+        {
+            TouchRows(page);
+        }
+        else
+        {
+            page.AddChild(UiKit.SliderRow("Mouse sensitivity", 0.01, 0.4, 0.005, _settings.MouseSensitivityDegPerCount,
+                v => Set(() => _settings.MouseSensitivityDegPerCount = (float)v), v => $"{v:0.000}°"));
+        }
+
         page.AddChild(UiKit.CheckRow("Invert Y", _settings.InvertY, on => Set(() => _settings.InvertY = on)));
         page.AddChild(UiKit.SliderRow("Stick speed", 60, 600, 10, _settings.StickSpeedDegps, v => Set(() => _settings.StickSpeedDegps = (float)v), v => $"{v:0}°/s"));
         page.AddChild(UiKit.SliderRow("Stick response", 1, 4, 0.1, _settings.StickCurve, v => Set(() => _settings.StickCurve = (float)v),
             v => v < 1.3 ? "straight" : v < 2.4 ? "curved" : "fine"));
         page.AddChild(UiKit.CheckRow("Crouch toggles", _settings.CrouchToggle, on => Set(() => _settings.CrouchToggle = on)));
         page.AddChild(UiKit.CheckRow("Walk toggles", _settings.WalkToggle, on => Set(() => _settings.WalkToggle = on)));
-        if (InputSetup.Current is { } input)
+        if (!phone && DisplayServer.IsTouchscreenAvailable())
+        {
+            TouchRows(page);
+        }
+
+        if (!phone && InputSetup.Current is { } input)
         {
             page.AddChild(UiKit.Body("BINDINGS", 18, UiKit.Accent));
             _bindings = new BindingsList { Name = "Bindings" };
@@ -72,14 +92,33 @@ public partial class SettingsMenu : VBoxContainer
         }
     }
 
+    /// <summary>The touch controls (Phase 6): how fast a drag turns you, the buttons' size and how solid they are, and which hand.</summary>
+    private void TouchRows(VBoxContainer page)
+    {
+        TouchDef touch = _view.Touch;
+        page.AddChild(UiKit.Body("TOUCH SCREEN", 18, UiKit.Accent));
+        page.AddChild(UiKit.SliderRow("Look speed", touch.LookSpeedRange_degPerCm[0], touch.LookSpeedRange_degPerCm[1], 1, _settings.TouchLookDegPerCm,
+            v => Set(() => _settings.TouchLookDegPerCm = (float)v), v => $"{v:0}°/cm"));
+        page.AddChild(UiKit.SliderRow("Button size", touch.ButtonScaleRange[0], touch.ButtonScaleRange[1], 0.05, _settings.TouchButtonScale,
+            v => Set(() => _settings.TouchButtonScale = (float)v), v => $"{v * 100:0}%"));
+        page.AddChild(UiKit.SliderRow("Button opacity", touch.OpacityRange[0], touch.OpacityRange[1], 0.05, _settings.TouchOpacity,
+            v => Set(() => _settings.TouchOpacity = (float)v), v => $"{v * 100:0}%"));
+        page.AddChild(UiKit.CheckRow("Left-handed", _settings.TouchLeftHanded, on => Set(() => _settings.TouchLeftHanded = on)));
+    }
+
     private void Video(VBoxContainer page)
     {
-        string[] modes = { "Windowed", "Borderless full screen", "Full screen" };
-        page.AddChild(UiKit.OptionRow("Window", modes, Math.Max(0, Array.IndexOf(GameSettings.WindowModes, _settings.WindowMode)), i => Set(() =>
+        // A phone's game is always full screen.
+        if (!TouchUi.Phone)
         {
-            _settings.WindowMode = GameSettings.WindowModes[i];
-            _settings.ApplyWindow();
-        })));
+            string[] modes = { "Windowed", "Borderless full screen", "Full screen" };
+            page.AddChild(UiKit.OptionRow("Window", modes, Math.Max(0, Array.IndexOf(GameSettings.WindowModes, _settings.WindowMode)), i => Set(() =>
+            {
+                _settings.WindowMode = GameSettings.WindowModes[i];
+                _settings.ApplyWindow();
+            })));
+        }
+
         page.AddChild(UiKit.CheckRow("V-sync", _settings.Vsync, on => Set(() =>
         {
             _settings.Vsync = on;

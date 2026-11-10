@@ -57,6 +57,9 @@ public partial class Hud : CanvasLayer, ISimEventListener
     private Subtitles? _subtitles;
     private Label _prompt = null!;
 
+    /// <summary>Playing by touch (Phase 6): the prompts name the touch buttons, and where the gear panel's moved to (null: as on a computer).</summary>
+    private Vector2? _touchCorner;
+
     /// <summary>What the prompt under the crosshair says now (empty when it's hidden).</summary>
     public string PromptText => _prompt.Visible ? _prompt.Text : "";
     private HudDef? _hudDef;
@@ -176,6 +179,28 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _markers.Configure(view.Feedback.HitMarkers);
         _ring.Configure(view.Feedback.Arcs, () => ViewYaw?.Invoke() ?? _player.Yaw);
         _gear.Initialize(player.Marker, Color.FromHtml(view.TeamColors[player.Team % view.TeamColors.Length]), view.Hud.LowPaint);
+    }
+
+    /// <summary>
+    /// Playing by touch (Phase 6), or not (null): the prompts name the touch buttons, and the gear panel moves from the
+    /// bottom right, where the buttons are, to <paramref name="corner"/> (under the touch controls' top row).
+    /// </summary>
+    public void TouchLayout(Vector2? corner)
+    {
+        if (corner == _touchCorner)
+        {
+            return;
+        }
+
+        _touchCorner = corner;
+        if (corner is { } at)
+        {
+            Place(_gear, Control.LayoutPreset.TopLeft, at, GearPanel.PanelSize);
+        }
+        else
+        {
+            Place(_gear, Control.LayoutPreset.BottomRight, new Vector2(-GearPanel.PanelSize.X - 20f, -GearPanel.PanelSize.Y - 20f), GearPanel.PanelSize);
+        }
     }
 
     /// <summary>Switches to the match HUD: top bar (with <paramref name="clock"/>), kill feed, subtitles and pickup prompts.</summary>
@@ -578,6 +603,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
 
         // In a vehicle: how fast, how to drive it (or that you can fire from your seat), and how to get out when it's slow
         // enough; beside a free seat, how to get in.
+        bool touch = _touchCorner is not null;
         if (_sim.Vehicles.Of(_player) is { } vehicle)
         {
             Pb.Sim.Vehicles.VehicleParams kind = vehicle.Params;
@@ -585,12 +611,13 @@ public partial class Hud : CanvasLayer, ISimEventListener
             bool slow = MathF.Abs(vehicle.Speed) <= kind.ExitBelow;
             string gear = vehicle.Gear < 0 ? "R" : vehicle.Gear.ToString(System.Globalization.CultureInfo.InvariantCulture);
             string speed = $"{MathF.Abs(vehicle.Speed) * 3.6f:0} km/h · {gear}";
-            string how = driving
-                ? $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · go and brake · {InputSetup.KeyName("move_left")} / {InputSetup.KeyName("move_right")} · steer · {InputSetup.KeyName("jump")} · handbrake · fire one-handed"
-                : "you can fire from your seat";
-            string exit = slow ? $"{InputSetup.KeyName("interact")} · get out" : "slow down to get out";
+            // By touch the buttons say what they do, and a phone's screen is narrow: just how fast, and getting out.
+            string how = !driving ? "you can fire from your seat"
+                : touch ? ""
+                : $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · go and brake · {InputSetup.KeyName("move_left")} / {InputSetup.KeyName("move_right")} · steer · {InputSetup.KeyName("jump")} · handbrake · fire one-handed";
+            string exit = !slow ? "slow down to get out" : touch ? "GET OUT" : $"{InputSetup.KeyName("interact")} · get out";
             _prompt.Visible = true;
-            _prompt.Text = $"{kind.DisplayName} · {speed} · {how} · {exit}";
+            _prompt.Text = how.Length > 0 ? $"{kind.DisplayName} · {speed} · {how} · {exit}" : $"{kind.DisplayName} · {speed} · {exit}";
             _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
             return;
         }
@@ -601,7 +628,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
             Pb.Sim.Vehicles.VehicleState near = _sim.Vehicles[nearVehicle];
             bool drives = near.Params.Seats[nearSeat].Drives;
             _prompt.Visible = true;
-            _prompt.Text = $"{InputSetup.KeyName("interact")} · get in the {near.Params.DisplayName.ToLowerInvariant()} ({(drives ? "drive" : "ride and fire")})";
+            _prompt.Text = $"{(touch ? "GET IN" : InputSetup.KeyName("interact"))} · get in the {near.Params.DisplayName.ToLowerInvariant()} ({(drives ? "drive" : "ride and fire")})";
             _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
             return;
         }
@@ -610,7 +637,8 @@ public partial class Hud : CanvasLayer, ISimEventListener
         if (_player.OnLadder)
         {
             _prompt.Visible = true;
-            _prompt.Text = $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · climb up or down · {InputSetup.KeyName("jump")} · let go";
+            _prompt.Text = touch ? "the stick · climb up or down · JUMP · let go"
+                : $"{InputSetup.KeyName("move_forward")} / {InputSetup.KeyName("move_back")} · climb up or down · {InputSetup.KeyName("jump")} · let go";
             _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
             return;
         }
@@ -619,7 +647,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         if (ladder >= 0)
         {
             _prompt.Visible = true;
-            _prompt.Text = $"{InputSetup.KeyName("interact")} · {(fromTop ? "climb down the ladder" : "climb the ladder")}";
+            _prompt.Text = $"{(touch ? fromTop ? "CLIMB DOWN" : "CLIMB" : InputSetup.KeyName("interact"))} · {(fromTop ? "climb down the ladder" : "climb the ladder")}";
             _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
             return;
         }
@@ -630,7 +658,7 @@ public partial class Hud : CanvasLayer, ISimEventListener
         {
             bool shut = _sim.Doors.Target(door) < 0.5f;
             _prompt.Visible = true;
-            _prompt.Text = $"{InputSetup.KeyName("interact")} · {(shut ? "open the door (hold to ease it open)" : "shut the door")}";
+            _prompt.Text = $"{(touch ? shut ? "OPEN" : "SHUT" : InputSetup.KeyName("interact"))} · {(shut ? "open the door (hold to ease it open)" : "shut the door")}";
             _prompt.Modulate = new Color(0.95f, 0.92f, 0.8f);
             return;
         }
