@@ -28,4 +28,9 @@ void fragment() {
 	float t = 1.0 - smoothstep(0.0, reach, d);
 	float fade = 1.0 - smoothstep(fade_start, fade_end, length(VERTEX));
 	ALBEDO = vec3(1.0 - foot.w * t * fade);
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	// The Compatibility renderer (phones) multiplies what's under it in its sRGB output, where the same factor darkens
+	// more than in Forward+'s linear light (a contact shadow left 49 % of the floor there, 67 % here): lifted to match.
+	ALBEDO = pow(ALBEDO, vec3(0.56));
+#endif
 }

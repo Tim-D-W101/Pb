@@ -43,9 +43,17 @@ const int GLASS = 14;
 const int GRASS = 15;
 
 // A piece that moves (a door leaf) draws its pattern and stains in its own frame, placed where it hangs shut
-// (local_origin), so they stay on it as it swings instead of sliding across it.
+// (local_origin), so they stay on it as it swings instead of sliding across it. Set per instance; but the Compatibility
+// renderer (OpenGL ES: phones) keeps instance uniforms in one small buffer, which a level's walls and props overflowed
+// (Thornwick Woods: 2,000-odd instances, 4,096 slots, fewer on a phone), so there they're the material's and each door
+// leaf has a material of its own (DoorViews).
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+uniform bool local_pattern = false;
+uniform vec3 local_origin = vec3(0.0);
+#else
 instance uniform bool local_pattern = false;
 instance uniform vec3 local_origin = vec3(0.0);
+#endif
 
 varying vec3 world_pos;
 varying vec3 world_normal;

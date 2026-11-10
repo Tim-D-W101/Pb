@@ -68,17 +68,25 @@ and they're back at your next touch of the screen.
 
 ## Graphics
 
-A phone starts on the **Mobile** graphics preset, drawn by Godot's Mobile renderer (Vulkan; a phone without Vulkan
-falls back to OpenGL ES 3): one sun shadow, nearer and coarser; none of the desktop's costlier effects (ambient
-occlusion, glow, sunbeams, reflections); the trees drawn less far and made simpler sooner; fewer weeds; the 3D view
-drawn at 75 % of the screen and scaled up; and a cap of 30 frames a second, for a steady frame rate and a cooler phone.
-There's no 3D scene behind the menus. **Settings, Video** changes any of it: a fast phone can lift the cap to 60 or
-draw the view at 100 %; a phone that gets hot or stutters can drop it to 67 %.
+A phone starts on the **Mobile** graphics preset, drawn by Godot's Compatibility renderer (OpenGL ES 3, which every
+phone it runs on has): one sun shadow, nearer and coarser; none of the desktop's costlier effects (ambient occlusion,
+glow, sunbeams, reflections); the trees drawn less far and made simpler sooner; fewer weeds; the 3D view drawn at the
+screen's own resolution; and a cap of 30 frames a second, for a steady frame rate and a cooler phone. There's no 3D
+scene behind the menus.
+
+**Settings, Video** changes any of it. A fast phone can lift the **Frame cap** to 60. If a phone stutters or gets hot,
+keep the frame cap at 30 and set **Weeds** to **None** first. A lower **Render scale** comes last: it draws the view
+smaller and scales it up, so it looks softer, and it hasn't been tried on a phone yet.
 
 ## If something goes wrong
 
 With the phone on USB (as for adb above), `adb logcat -s godot` shows what the game prints while it runs, its errors
-among them; keep that when reporting a problem.
+among them; keep that when reporting a problem. Its `RENDER:` lines (one as the menu starts, one as each round starts)
+say what drew the game: the renderer (`gl_compatibility` on a phone), its driver and the phone's GPU, the 3D view's scale
+and how it's scaled up, MSAA, and the screen's size.
+
+If a round can't start, the screen says why instead of staying grey. Tap it to go back to the menu; the log has the
+whole report.
 
 ## Building it yourself
 

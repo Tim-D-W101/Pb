@@ -38,12 +38,15 @@ public partial class MainMenu : Control
 
     public override void _Ready()
     {
-        if (OS.HasFeature("template") && !_runtimeLogged)
+        if (!_runtimeLogged)
         {
-            // In the log a player sends: the runtime, and whether the export kept game/Pb.csproj's JIT switches.
+            // In the log a player sends: the runtime, whether the export kept game/Pb.csproj's JIT switches, and how the
+            // game's drawn (the renderer, its driver and the GPU: a phone's log shows what it ran on).
             _runtimeLogged = true;
-            GD.Print($".NET {System.Environment.Version}: TieredPGO={AppContext.GetData("System.Runtime.TieredPGO") ?? "default"}, "
-                + $"QuickJitForLoops={AppContext.GetData("System.Runtime.TieredCompilation.QuickJitForLoops") ?? "default"}");
+            GD.Print($".NET {System.Environment.Version} ({System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}): " +
+                     $"TieredPGO={AppContext.GetData("System.Runtime.TieredPGO") ?? "default"}, " +
+                     $"QuickJitForLoops={AppContext.GetData("System.Runtime.TieredCompilation.QuickJitForLoops") ?? "default"}");
+            GD.Print(RenderInfo.Line(GetViewport()));
         }
 
         if (Args.Has("--server") && !_skippedToLevel)

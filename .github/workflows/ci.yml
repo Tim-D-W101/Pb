@@ -95,7 +95,7 @@ jobs:
           retention-days: 14
 
   mobile-bench:
-    name: Mobile benchmark (Thornwick Woods, the mobile preset on the Mobile renderer, software Vulkan)
+    name: Mobile benchmark (Thornwick Woods, the mobile preset on the Compatibility renderer, software OpenGL ES)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -111,8 +111,8 @@ jobs:
       - name: Install Godot ${{ env.GODOT_VERSION }} (.NET)
         if: steps.cache-godot.outputs.cache-hit != 'true'
         run: tools/ci/install-godot.sh "$GODOT_VERSION" ~/.local/godot
-      - name: A virtual screen and Mesa's software Vulkan (lavapipe)
-        run: sudo apt-get update -q && sudo apt-get install -y -q xvfb mesa-vulkan-drivers
+      - name: A virtual screen and Mesa's software OpenGL ES (llvmpipe), as phones draw it (the Compatibility renderer)
+        run: sudo apt-get update -q && sudo apt-get install -y -q xvfb libegl1 libgles2 libegl-mesa0
       - name: Build game assembly
         run: dotnet build game/Pb.csproj -c Debug
       - name: Import project

@@ -26,4 +26,9 @@ void fragment() {
 	vec2 uv = vec2(v_right > 0.5 ? 1.0 - UV.x : UV.x, UV.y);
 	vec4 s = texture(sole, uv);
 	ALBEDO = mix(vec3(1.0), COLOR.rgb * s.rgb, s.a * COLOR.a * v_fade);
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	// The Compatibility renderer (phones) multiplies what's under it in its sRGB output, where the same factor darkens
+	// more than in Forward+'s linear light: lifted to match, as contact_shadows.gdshader is.
+	ALBEDO = pow(ALBEDO, vec3(0.56));
+#endif
 }

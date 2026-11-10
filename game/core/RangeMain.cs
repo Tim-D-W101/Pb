@@ -91,6 +91,7 @@ public partial class RangeMain : Node3D, ISimEventListener
         _world.Weeds?.Follow(_sim);
         Atmosphere.ApplyLighting(GetNode<WorldEnvironment>("WorldEnvironment"), GetNode<DirectionalLight3D>("Sun"), _view.Lighting);
         ApplyGraphics(_view.Graphics.Effective(_settings.GraphicsPreset, _settings.Graphics));
+        GD.Print(RenderInfo.Line(GetViewport()) + $"; preset {_settings.GraphicsPreset}");
         _player.Initialize(_sim, state, _view, _settings, teamColor);
         _player.BuildBody(_view.Characters, teamColor, look: 0);
         _balls.Initialize(_sim.Ballistics, _view, state.Id, _player.VisualMuzzlePosition, RenderBounds());

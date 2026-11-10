@@ -5,13 +5,14 @@
 #          get out
 #   round  a 4 v 4 team round, bots fighting each other and taking the buggies' wheels (a fixed seed on which they do),
 #          your slot played by a bot
-# Each is run twice: drawn, on Godot's Mobile renderer (on Mesa's software Vulkan, lavapipe, under a virtual screen where
-# there's no GPU), counting each frame's draw calls and triangles, which are what a phone's GPU is asked to draw, the same
-# on any GPU (the frame rate here means nothing: the CPU draws every pixel); and headless, timing the game's own work a
-# frame at 30 fps (drawn in software, Godot's process time takes in the wait for the frame).
+# Each is run twice: drawn, as a phone draws it, by Godot's Compatibility renderer on OpenGL ES (Mesa's software GLES,
+# llvmpipe, under a virtual screen where there's no GPU), counting each frame's draw calls and triangles, which are what a
+# phone's GPU is asked to draw, the same on any GPU (the frame rate here means nothing: the CPU draws every pixel); and
+# headless, timing the game's own work a frame at 30 fps (drawn in software, Godot's process time takes in the wait for
+# the frame).
 # A run fails on a non-zero exit, a missing "MOBILE BENCH PASS" or the scenario's own "SMOKE PASS", or an engine error.
 #   tools/ci/mobile-bench.sh path/to/godot [width] [height]
-# Needs xvfb-run and a Vulkan driver (apt-get install xvfb mesa-vulkan-drivers).
+# Needs xvfb-run and Mesa's EGL and GLES (apt-get install xvfb libegl1 libgles2 libegl-mesa0).
 set -uo pipefail
 godot="${1:?path to the Godot .NET binary}"
 width="${2:-1280}"
@@ -38,7 +39,7 @@ drawn() {
   local log
   log="$(mktemp)"
   echo "=== mobile bench: $name, drawn ==="
-  xvfb-run -a -s "-screen 0 ${width}x${height}x24" "$godot" --path "$root/game" --rendering-driver vulkan --rendering-method mobile \
+  xvfb-run -a -s "-screen 0 ${width}x${height}x24" "$godot" --path "$root/game" --rendering-method gl_compatibility --rendering-driver opengl3_es \
     --audio-driver Dummy --resolution "${width}x${height}" --fixed-fps 5 res://scenes/Level.tscn -- --level=thornwick_woods --mobile-bench "$@" \
     2>&1 | tee "$log"
   check "$name (drawn)" "${PIPESTATUS[0]}" "$log"

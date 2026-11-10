@@ -46,7 +46,17 @@ public static class JitWarmup
                 continue;
             }
 
-            foreach (MethodBase method in type.GetMethods(all).Cast<MethodBase>().Concat(type.GetConstructors(all)))
+            MethodBase[] methods;
+            try
+            {
+                methods = type.GetMethods(all).Cast<MethodBase>().Concat(type.GetConstructors(all)).ToArray();
+            }
+            catch (Exception e) when (e is TypeLoadException or FileNotFoundException or NotSupportedException)
+            {
+                continue; // a type the runtime can't fully load here (one of the engine's, say): its methods compile as they're called
+            }
+
+            foreach (MethodBase method in methods)
             {
                 if (method.IsAbstract || method.ContainsGenericParameters ||
                     (method.MethodImplementationFlags & MethodImplAttributes.InternalCall) != 0 || method.GetMethodBody() is null)
@@ -59,9 +69,11 @@ public static class JitWarmup
                     RuntimeHelpers.PrepareMethod(method.MethodHandle);
                     count++;
                 }
-                catch (Exception e) when (e is ArgumentException or InvalidOperationException or NotSupportedException or BadImageFormatException)
+                catch (Exception e) when (e is ArgumentException or InvalidOperationException or NotSupportedException or BadImageFormatException or
+                                              TypeLoadException or MissingMemberException or FileNotFoundException or InvalidProgramException)
                 {
-                    // Something the runtime can't compile ahead of a call: it compiles when it's called, as before.
+                    // Something the runtime can't compile ahead of a call (Android's runtime, Mono, turns down more than
+                    // .NET's own): it compiles when it's called, as before. Only a warm-up: it never stops the level.
                 }
             }
         }

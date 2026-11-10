@@ -1,7 +1,7 @@
 # Phase 6 — Pb on Android: plan
 
-> **Status: built (2026-11-10), in three stacked pull requests; what only a phone can show is listed in the
-> [report](reports/phase-6.md).** Tim's brief for this phase (below) says what to build and in what order, so it's taken
+> **Status: built (2026-11-10), in three stacked pull requests, and a fourth after Tim's first install on a phone (the
+> grey screen, below); what only a phone can show is listed in the [report](reports/phase-6.md).** Tim's brief for this phase (below) says what to build and in what order, so it's taken
 > as the go-ahead, with the defaults chosen here; each item lands as its own draft pull request, stacked on the one
 > before, with its own part of the [report](reports/phase-6.md). Technical design:
 > [architecture.md §19](architecture.md#19-phase-6-pb-on-android). Everything in [spec.md](spec.md) still applies: the
@@ -36,14 +36,34 @@ How I've read it:
 | Appear automatically on touch devices | Shown on a phone or tablet, and on a desktop as soon as a finger touches the screen (hidden again at a mouse click or a key, so a touch laptop works both ways). |
 | A sensitivity setting, a layout that fits the safe area | Settings, Controls: touch look speed, button size and how see-through they are, and left-handed (the sides swapped). Every control sits inside the screen's safe area (round a notch or a camera hole), sized in millimetres from the screen's density, so a button is the same size on any phone. |
 | Menus must work by touch | Every menu is checked by tapping: on a phone the interface is drawn bigger (by the screen's density), long pages scroll by dragging, text boxes bring up the phone's keyboard, and what only a desktop has (window modes, key bindings, mouse speed) is left out there. |
-| A mobile preset (Mobile or Compatibility renderer) | A "mobile" graphics preset, the default on a phone: the Mobile renderer (Vulkan), or Compatibility (OpenGL ES 3) where a phone has no Vulkan; one shadow cascade, smaller and nearer; no ambient occlusion, bounced light, reflections, fog volumes, glow or sunbeams; a shorter view distance and nearer level-of-detail switches for the woods; fewer weeds and no ground detail; the 3D view drawn at 75% and scaled up. |
+| A mobile preset (Mobile or Compatibility renderer) | A "mobile" graphics preset, the default on a phone: the Mobile renderer (Vulkan), or Compatibility (OpenGL ES 3) where a phone has no Vulkan (since M6.4, Compatibility on every phone, at the screen's own resolution); one shadow cascade, smaller and nearer; no ambient occlusion, bounced light, reflections, fog volumes, glow or sunbeams; a shorter view distance and nearer level-of-detail switches for the woods; fewer weeds and no ground detail; the 3D view drawn at 75% and scaled up. |
 | A steady 30+ fps on a mid-range phone, Thornwick with buggies | It can't be measured without a phone here, so the preset is held to budgets a mid-range phone meets at 30 fps (draw calls, triangles on screen, CPU time a frame), measured on Thornwick Woods with buggies driving. |
-| A benchmark or smoke test with the mobile preset | `--mobile-bench`: Thornwick Woods with the mobile preset on the Mobile renderer, a buggy driven along the tracks while bots fight, printing the draw calls, triangles and frame times, and failing past the budgets. CI runs it on a software Vulkan driver (frame rates mean nothing there, the counts do). |
+| A benchmark or smoke test with the mobile preset | `--mobile-bench`: Thornwick Woods with the mobile preset on the Mobile renderer, a buggy driven along the tracks while bots fight, printing the draw calls, triangles and frame times, and failing past the budgets. CI runs it on a software Vulkan driver (frame rates mean nothing there, the counts do). Since M6.4 it draws with the Compatibility renderer, as a phone does, on Mesa's software OpenGL ES. |
 | Docs: how to install the APK | [docs/android.md](android.md): getting the APK, installing it (from the phone, or over USB with adb), updating, the touch controls, and building it yourself; `HOW-TO-INSTALL.txt` beside the APK says the short version. |
 
 ## What can't be tested here
 
 There's no phone, no Android emulator (no hardware virtualisation in this container) and no GPU. So the APK is built
 and checked (signature, contents, manifest), the touch controls are driven by simulated touches, the menus are tapped
-by simulated touches, and the mobile renderer is run on a software Vulkan driver; what only a phone can show (the frame
-rate, the feel of the controls, the heat, a phone's own GPU drivers) is listed in the report.
+by simulated touches, and the mobile renderer is run on a software Vulkan driver (since M6.4, the Compatibility renderer on
+Mesa's software OpenGL ES); what only a phone can show (the frame rate, the feel of the controls, the heat, a phone's own
+GPU drivers) is listed in the report.
+
+## After the first install: the grey screen (M6.4)
+
+Tim installed M6.3's APK on his phone (2026-11-10): after Start, on Thornwick Woods at the cold store, the view stayed
+grey with the desktop's CONTROLS help over it, never fading, and a render scale of 100 % didn't change it. His brief for
+the fix, in short: draw the world on a real phone (the Compatibility renderer on mobile, the desktop staying on Forward+,
+no MSAA or occlusion culling on a phone, no FSR at a lower render scale there and a phone starting at full resolution),
+no desktop help on a phone, a log line saying how the game is drawn, the help's fade looked into, CI green with a new
+APK that installs over the old one, and the docs no longer suggesting 67 % as the first thing to try for a stutter.
+
+| You said | What it became |
+|---|---|
+| Make the 3D world appear on a real phone | The cause wasn't the renderer: Android's .NET runtime (Mono) threw as the level set the collector's latency mode, before the world, the camera or the HUD were built. `GcModes` leaves the mode alone where the runtime can't change it, a test keeps every other file from setting it, and a level that can't start now says why on the screen and goes back to the menu at a tap. |
+| `rendering_method.mobile` = `gl_compatibility`, desktop on Forward+, no MSAA 3D or occlusion culling on mobile | All in project.godot's `.mobile` overrides (and a 1024 px shadow atlas there). What drew differently under Compatibility is fixed: the weathered walls' instance uniforms (too many for its buffer on Thornwick), overlays that multiply (darker in its sRGB blending), and glow (it blacked out the ground's overlays). |
+| No FSR at a reduced scale on Android | A phone starts at 100 %, and a lower render scale is scaled up plainly (bilinear) on a phone or under Compatibility. |
+| Hide the desktop CONTROLS help on phones | Not shown when `TouchUi.Phone`. |
+| A startup log line: renderer, method, GPU, render scale, scaling mode | `RENDER:` lines as the menu and each level start (`adb logcat -s godot`). |
+| Why the help never faded; unpause if the tree stays paused | The HUD fades it in its `_Process`, which waits for `Initialize`, and the level stopped before that. The tree wasn't paused; the round's start unpauses it all the same. |
+| Docs: not 67 % first | android.md and the report point to the frame cap and the weeds first. |

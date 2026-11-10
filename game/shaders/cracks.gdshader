@@ -57,4 +57,9 @@ void fragment() {
 	vec3 grime = mix(vec3(1.0), halo_color, halo_darkness * band * band * k);
 	vec3 dark = mix(vec3(1.0), core_color, darkness * core * k);
 	ALBEDO = grime * dark * (1.0 + rim * edge * k);
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	// The Compatibility renderer (phones) multiplies what's under it in its sRGB output, where the same factor darkens
+	// more than in Forward+'s linear light: lifted to match, as contact_shadows.gdshader is.
+	ALBEDO = pow(ALBEDO, vec3(0.56));
+#endif
 }

@@ -89,7 +89,9 @@ public static class Atmosphere
         env.SdfgiUseOcclusion = true;
         env.VolumetricFogEnabled = p.VolumetricFog;
         env.SsrEnabled = p.Ssr;
-        env.GlowEnabled = p.Glow;
+        // Not under the Compatibility renderer (phones): there glow turned the ground's overlays (cracks, old paint, damp,
+        // markings) black.
+        env.GlowEnabled = p.Glow && RenderingServer.GetCurrentRenderingMethod() != "gl_compatibility";
         env.GlowIntensity = 0.35f;
         env.GlowBloom = 0.04f;
 
@@ -117,12 +119,17 @@ public static class Atmosphere
         };
     }
 
-    /// <summary>Draws the 3D view at <paramref name="scale"/> of the screen's resolution, upscaled with FSR 1.0 below 1.</summary>
+    /// <summary>
+    /// Draws the 3D view at <paramref name="scale"/> of the screen's resolution, upscaled below 1: with FSR 1.0 on a computer,
+    /// plainly (bilinear) on a phone or under the Compatibility renderer.
+    /// </summary>
     public static void ApplyRenderScale(Viewport viewport, float scale, GraphicsDef graphics)
     {
         bool scaled = scale < 0.999f;
-        // The Compatibility renderer (OpenGL, a phone without Vulkan) has no FSR: it scales the view up plainly.
-        bool fsr = scaled && RenderingServer.GetCurrentRenderingMethod() != "gl_compatibility";
+        // FSR only on a computer's Forward+: the Compatibility renderer (OpenGL, which phones run) has none, and on a phone
+        // a 3D view drawn smaller than the screen is scaled up plainly (FSR on Android has left the view a single grey on
+        // some phones: godotengine/godot#86621).
+        bool fsr = scaled && !OS.HasFeature("mobile") && RenderingServer.GetCurrentRenderingMethod() != "gl_compatibility";
         viewport.Scaling3DMode = fsr ? Viewport.Scaling3DModeEnum.Fsr : Viewport.Scaling3DModeEnum.Bilinear;
         viewport.Scaling3DScale = scaled ? scale : 1f;
         viewport.FsrSharpness = graphics.FsrSharpness;

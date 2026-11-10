@@ -147,6 +147,12 @@ public partial class Hud : CanvasLayer, ISimEventListener
         _arc.Modulate = new Color(1f, 0.95f, 0.55f);
         _help = MakeLabel(root, 18, Control.LayoutPreset.CenterLeft, new Vector2(24, -140));
         _help.Text = HelpText;
+        // A phone has none of these keys (its controls are on the screen): no keyboard and mouse help there.
+        if (TouchUi.Phone)
+        {
+            _help.Visible = false;
+            _helpTimer = 0;
+        }
         _toast = MakeLabel(root, 24, Control.LayoutPreset.CenterBottom, new Vector2(0, -170), HorizontalAlignment.Center);
         _warning = MakeLabel(root, 22, Control.LayoutPreset.CenterBottom, new Vector2(0, -210), HorizontalAlignment.Center);
         _warning.Modulate = new Color(1f, 0.55f, 0.35f);
@@ -323,12 +329,17 @@ public partial class Hud : CanvasLayer, ISimEventListener
         root.Size = screen / scale;
     }
 
-    /// <summary>Full-screen message shown instead of the game when data can't be loaded.</summary>
-    public void ShowFatal(string message)
+    /// <summary>
+    /// Why the level couldn't start (a data file's error, or anything else that stopped it part-built), shown full screen
+    /// instead of the game: <paramref name="title"/>, the reason, and what to do next.
+    /// </summary>
+    public void ShowFatal(string message, string title = "Could not start: data problem",
+        string next = "Fix the file and restart (or press F9 once the game is running).")
     {
-        _error.Text = "Could not start: data problem\n\n" + message + "\n\nFix the file and restart (or press F9 once the game is running).";
+        _error.Text = $"{title}\n\n{message}\n\n{next}";
         _error.Visible = true;
         _help.Visible = false;
+        _helpTimer = 0;
     }
 
     public void Toast(string message, double seconds = 2.0)
