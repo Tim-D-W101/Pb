@@ -15,6 +15,8 @@ Each part below is its own pull request, stacked on the one before.
   `tools/package/android/make-icon.py`; it's the desktop window's icon now too).
 - **C# on Android.** Godot's Android template only takes .NET 9, so the game targets net9.0 when it's built for Android
   and stays on .NET 8 everywhere else. The APK carries the Mono runtime and the game's three assemblies.
+- **Full screen stays full screen:** on a phone the settings' window mode (windowed, on a computer's first run) isn't
+  applied; asking Android for a window would bring its bars back.
 - **The art in the APK**, its textures in the phone formats: the project now imports each texture as ETC2/ASTC as well
   as S3TC/BPTC (each `.import` lists both; every export takes the ones its platform reads).
 - **`tools/package/android-build.sh`** makes `builds/android/Pb.apk`. It uses Godot's release template (the debug one
