@@ -1787,3 +1787,47 @@ time near the other areas'.
 - **CI** ("Android build", after the smoke test, like the Windows build): .NET 8 and 9, a JDK 17, the runner's Android
   SDK, Godot's `android_release.apk` template (cached), the import, the build, and the folder (`Pb.apk`,
   `HOW-TO-INSTALL.txt`) as the **Pb-android** artifact.
+
+### 19.2 Touch controls and menus by touch (as built, M6.2)
+
+- **Where they live.** `game/ui/TouchControls.cs`, a canvas layer (9) over the HUD and the cards over the round, under the
+  pause menu (10), built by the level (and the training ground) beside the pause menu. It follows each finger from where it
+  goes down (`_Input`, ahead of the GUI) and draws itself; the player (`PlayerController`) reads the stick and the
+  buttons from it each tick, as the same `InputCommand` the keys make, and the look turns the view as the fingers move
+  (`PlayerController.Turn`). Nothing the sim decides changes: a touch screen is another way of making commands.
+- **When they're up.** On a phone or tablet (`OS.HasFeature("mobile")`, or `--touch` on a computer) from the start; on a
+  computer from its screen's first touch, and away again at a real mouse click, a key or a pad (`InputEvent`'s device
+  tells a real click from one Godot made from a touch). While something else has the screen (the pause menu, a card over
+  the round, the chat being typed, a bot in your slot) they hide and let go of every finger; they run while the tree is
+  paused, to notice. Once you're out only the top row stays.
+- **Taps as clicks, or not.** Godot turns the first finger into mouse clicks (`Input.EmulateMouseFromTouch`), which is how
+  the menus and cards work by touch. While you play by touch that's turned off: made into clicks, the first finger would
+  fire (the left button fires) and the level would capture the mouse. Playing by touch the mouse is never captured.
+- **The layout** (presentation.jsonc `touch`, in millimetres from the screen's density, inside its safe area,
+  `DisplayServer.GetDisplaySafeArea`): the stick appears where the left thumb lands in the left 45 % (a faint ring
+  marks its place until then; pushed past 1.3 times its radius you sprint); dragging anywhere else on the right turns
+  you (degrees a centimetre, Settings), as does dragging on FIRE while you hold it. On foot: FIRE, AIM (a tap on, a tap
+  off: the view narrows to 80 % and the look slows, easing in; presentation only), JUMP, CROUCH (a tap down, a tap up),
+  RELOAD (the refill) and USE, which shows only when something's in reach and says what it'll do (GET IN, GET OUT, OPEN,
+  SHUT, CLIMB, CLIMB DOWN), from the same reach the HUD's prompts use. At the wheel: the stick steers (left and right only),
+  GAS and BRAKE make the throttle (BRAKE held once stopped reverses, as the back key does), HANDBRAKE is the jump button
+  as on the keys, FIRE fires from the wheel and GET OUT shows once you're slow enough; a passenger keeps the foot's
+  buttons less JUMP and CROUCH. Along the top: pause, the scoreboard while it's held, and the chat when playing with
+  others. A press shorter than a tick still reaches the sim (pressed buttons are held until the next tick takes them).
+- **Settings, Controls** (`GameSettings`): touch look speed (8–90 °/cm), button size (70–140 %, their places spreading
+  with them), opacity (20–100 %) and left-handed (the sides swapped). On a phone the mouse's sensitivity, the key bindings
+  and the window mode aren't offered (there's none of them), and the window mode isn't applied (a phone stays full screen).
+- **The interface on a phone** (`TouchUi.ScaleInterface`): drawn bigger by the screen's density, an interface pixel 0.13
+  mm on the screen, but at least 480 of them in its height and never smaller than on a computer (a 6.5-inch 2400 × 1080
+  phone gets about 1170 × 530). The menus fit that: narrow margins, panels no wider than the screen, the level card's two
+  columns one above the other, Play with others' hosting and joining likewise, choices that wrap, the title's buttons
+  beside its mark, the briefing's Start and Back first, and every card over the round in a page that scrolls. Panels let
+  touches through on a phone, so a drag on one scrolls its page (Godot only scrolls a page by drag on a touch screen).
+  The phone's back button (`NotificationWMGoBackRequest`, with `application/config/quit_on_go_back` off) is a screen's
+  Back in the menus and leaves the game from the title; in a round it leaves the chat, steps back in the pause menu or
+  opens it. HUD prompts name the touch buttons, and the gear panel moves up under the top row, out of the buttons' way.
+- **Checks.** `-- --touch-demo` (on Thornwick Woods) plays a round by simulated fingers through `Input.ParseInputEvent`,
+  as a phone sends them, and checks each step in the sim; `-- --menu-touch-demo` works the menus by taps and drags. Headless
+  there's no screen, so acting as a phone (`--touch` and the demos) the window gets a phone's, 2400 × 1080 unless
+  `--screen=WxH` says otherwise, at `--dpi`; `--safe-area=L,T,R,B` (screen pixels) makes a notch. CI runs both at three
+  phone shapes.

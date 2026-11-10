@@ -11,7 +11,8 @@ Install it on the phone
    Settings, turn on "Allow from this source", go back.
 3. Tap Install. If Play Protect says it doesn't know the developer, tap More details, then Install anyway: the game
    is signed with its own debug key, not a store's.
-4. Open Pb from your apps. It plays in landscape.
+4. Open Pb from your apps. It plays in landscape, by touch: a stick under your left thumb, drag on the right to look,
+   and the buttons by your right thumb (FIRE, AIM, JUMP, CROUCH, RELOAD, and GET IN by a buggy). A game pad works too.
 
 Or, from a computer with Android's platform tools and USB debugging on:  adb install -r Pb.apk
 

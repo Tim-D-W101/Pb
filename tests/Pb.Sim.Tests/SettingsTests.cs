@@ -14,6 +14,12 @@ public class SettingsTests
         InvertY = false,
         StickSpeed = 220f,
         StickCurve = 2f,
+        TouchLook = 30f,
+        TouchLookRange = new[] { 8f, 90f },
+        TouchButtonScale = 1f,
+        TouchButtonScaleRange = new[] { 0.7f, 1.4f },
+        TouchOpacity = 0.55f,
+        TouchOpacityRange = new[] { 0.2f, 1f },
         Vsync = true,
         GraphicsPresets = new[] { "medium", "low", "high", "ultra" },
         RenderScales = new[] { 1f, 0.85f, 0.75f, 0.67f, 0.5f },
@@ -88,7 +94,28 @@ public class SettingsTests
         Assert.Equal(1f, s.EffectsVolume);
         Assert.Equal("standard", s.TeamColors);
         Assert.Equal(1f, s.HudScale);
+        Assert.Equal(30f, s.TouchLookDegPerCm);
+        Assert.Equal(1f, s.TouchButtonScale);
+        Assert.Equal(0.55f, s.TouchOpacity);
+        Assert.False(s.TouchLeftHanded);
         Assert.Equal(GameSettings.CurrentVersion, s.Version);
+    }
+
+    [Fact]
+    public void The_touch_settings_are_kept_in_their_ranges()
+    {
+        const string touch = """
+            { "touchLookDegPerCm": 500, "touchButtonScale": 0.1, "touchOpacity": -2, "touchLeftHanded": true, "version": 2 }
+            """;
+        GameSettings s = GameSettings.FromJson(touch, Defaults, out string? problem);
+        Assert.Null(problem);
+        Assert.Equal(90f, s.TouchLookDegPerCm);
+        Assert.Equal(0.7f, s.TouchButtonScale);
+        Assert.Equal(0.55f, s.TouchOpacity); // nonsense (below nothing) goes back to the default
+        Assert.True(s.TouchLeftHanded);
+        GameSettings back = GameSettings.FromJson(s.ToJson(), Defaults, out problem);
+        Assert.Null(problem);
+        Assert.Equal(s.ToJson(), back.ToJson());
     }
 
     [Fact]

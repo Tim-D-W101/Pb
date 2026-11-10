@@ -38,11 +38,33 @@ signed with another key, made on someone's own machine), uninstall Pb first. To 
 
 ## Playing
 
-It starts on the main menu, in landscape, full screen; tap your way through it as with a mouse. **Play with others**
-works over Wi-Fi as on a computer: it lists the games on your network, or you join one by its address (a game hosted
-on a computer, or a dedicated server).
+It starts on the main menu, in landscape, full screen, drawn big enough to tap. Tap your way through it; a page that's
+longer than the screen scrolls when you drag it, and a text box (your name, an address) brings up the keyboard. The
+phone's **back** button goes back a screen, and on the title screen leaves the game.
 
-A game pad (Bluetooth or USB) plays it as on a computer, with the same buttons.
+In a round, the controls are drawn over the view:
+
+- **Moving:** put your left thumb down anywhere on the left of the screen and a stick appears under it; push it the way
+  you want to go. Push it out past its ring to sprint.
+- **Looking:** drag anywhere on the right that isn't a button. Dragging on **FIRE** while you hold it turns you too, so
+  you can follow what you're shooting at.
+- **Buttons** by your right thumb: **FIRE**, **AIM** (a tap to aim, a tap to stop: the view closes in a little and
+  turns slower, for a careful shot), **JUMP**, **CROUCH** (a tap to go down, a tap to stand), **RELOAD** (refills the
+  loader from a pod), and a button that appears when there's something to use and says what: **GET IN**, **OPEN**,
+  **SHUT**, **CLIMB**.
+- **In a buggy:** the stick steers, **GAS** and **BRAKE** (held once you've stopped, it reverses), the **HANDBRAKE**,
+  **FIRE** to shoot from the wheel, and **GET OUT** once you've slowed down. In a passenger's seat you shoot as on foot.
+- **Along the top:** pause (**II**), **SCORES** (the scoreboard, while you hold it) and, playing with others, **CHAT**.
+  The back button pauses too.
+
+In **Settings, Controls** (at the top on a phone): how fast dragging turns you, how big the buttons are and how
+see-through, and **Left-handed**, which swaps the sides. The buttons keep clear of a notch or a camera hole.
+
+**Play with others** works over Wi-Fi as on a computer: it lists the games on your network, or you join one by its
+address (a game hosted on a computer, or a dedicated server).
+
+A game pad (Bluetooth or USB) plays it as on a computer, with the same buttons: once you use it the touch controls go,
+and they're back at your next touch of the screen.
 
 ## If something goes wrong
 

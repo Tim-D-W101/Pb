@@ -85,15 +85,19 @@ public static class RoundScreens
         }
 
         column.AddChild(UiKit.Body($"{round.Line} · {Clock(tier.TimeLimit_s)} on the clock", 22, UiKit.Dim));
+        int buttonsAt = column.GetChildCount();
+        // On a phone the text is as wide as the screen leaves it, with the plan below.
+        float text = Math.Min(720f, TouchUi.Room(800f, TouchUi.PanelPadding));
         Label description = UiKit.Body(round.Place?.Description ?? round.Level.Description, 19, UiKit.Text, wrap: true);
-        description.CustomMinimumSize = new Vector2(720, 0);
+        description.CustomMinimumSize = new Vector2(text, 0);
         column.AddChild(description);
         column.AddChild(new HSeparator());
         var lines = new List<string>(objective is null ? Goal(round) : Goal(round.Mode, objective))
         {
             "One hit and you're out, them too. A bounce doesn't count.",
             $"You start with a full loader and {tier.StartPods} pod{(tier.StartPods == 1 ? "" : "s")}. " + Pickups(round),
-            "Crouch to move quietly, lean (Q/E) round corners, and swap shoulders (X) for left-hand edges.",
+            TouchUi.Phone ? "Crouch to move quietly, and AIM for a careful shot: the view narrows and the look slows."
+                : "Crouch to move quietly, lean (Q/E) round corners, and swap shoulders (X) for left-hand edges.",
         };
         if (round.Place is not null)
         {
@@ -102,7 +106,7 @@ public static class RoundScreens
         foreach (string line in lines)
         {
             Label l = UiKit.Body("·  " + line, 18, UiKit.Text, wrap: true);
-            l.CustomMinimumSize = new Vector2(720, 0);
+            l.CustomMinimumSize = new Vector2(text, 0);
             column.AddChild(l);
         }
 
@@ -126,9 +130,20 @@ public static class RoundScreens
         Button leave = UiKit.Button(waiting is null ? "Back" : "Leave", back, 200);
         buttons.AddChild(leave);
         column.AddChild(buttons);
+        if (TouchUi.Phone)
+        {
+            // A phone's screen is shorter than the card: Start and Back come first, where they're seen without scrolling.
+            column.MoveChild(buttons, buttonsAt);
+        }
+
         Control content = column;
-        float width = 800f;
-        if (map is not null)
+        float width = TouchUi.Room(800f);
+        if (map is not null && TouchUi.Phone)
+        {
+            column.AddChild(map);
+            map.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+        }
+        else if (map is not null)
         {
             HBoxContainer row = UiKit.Row(24);
             row.AddChild(column);

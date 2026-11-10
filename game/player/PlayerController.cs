@@ -55,6 +55,15 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
     public ICommandSource? AutoPilot { get; set; }
 
     /// <summary>
+    /// The touch screen's controls (Phase 6), where there are any: while you play by touch the stick, the buttons and the
+    /// look come from them instead of the keys, the mouse and a pad.
+    /// </summary>
+    public Pb.Game.Ui.TouchControls? Touch { get; set; }
+
+    /// <summary>How far in AIM is (0 out … 1 in): the view narrows by touch's aim, easing in and out.</summary>
+    private float _aim;
+
+    /// <summary>
     /// On a joining copy: turns the command sampled into the one the server will read (quantised and numbered), which
     /// the body then moves by, so the prediction and the server's moves agree.
     /// </summary>
@@ -157,6 +166,18 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
     /// <summary>A correction's replay: one of your earlier commands again, by the movement rules.</summary>
     void IPredictedBody.Move(in InputCommand command, float dt) => ApplyCommand(command, dt);
 
+    /// <summary>Turns the view by <paramref name="yaw"/> and <paramref name="pitch"/> (radians; left and up), as a finger drags it.</summary>
+    public void Turn(float yaw, float pitch)
+    {
+        if (AutoPilot is not null)
+        {
+            return;
+        }
+
+        _yaw += yaw;
+        _pitch = Math.Clamp(_pitch + pitch * (_settings.InvertY ? -1f : 1f), -Move.MaxPitch, Move.MaxPitch);
+    }
+
     public override void _UnhandledInput(InputEvent e)
     {
         if (AutoPilot is null && e is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured)
@@ -246,8 +267,14 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         _head.Rotation = new Vector3(_pitch, _yaw, -roll);
         float wider = Seat(eye) is { } seat ? seat : 0f;
 
+        // AIM on a touch screen narrows the view a little (presentation only: the sim aims where you look either way).
+        TouchAimDef aim = _view.Touch.Aim;
+        float step = aim.Ease_s > 0f ? (float)GetProcessDeltaTime() / aim.Ease_s : 1f;
+        _aim = Mathf.MoveToward(_aim, Touch?.Aiming == true ? 1f : 0f, step);
+        float narrow = Mathf.Lerp(1f, aim.FovScale, _aim);
+
         // Settings store horizontal FOV at 16:9; Godot's camera FOV is vertical. Wider screens gain width (Hor+).
-        float horizontal = Mathf.DegToRad(_settings.FovDeg + wider);
+        float horizontal = Mathf.DegToRad((_settings.FovDeg + wider) * narrow);
         Camera.Fov = Mathf.RadToDeg(2f * Mathf.Atan(Mathf.Tan(horizontal * 0.5f) * 9f / 16f));
     }
 
@@ -339,6 +366,20 @@ public partial class PlayerController : PawnBody, IPlayerDriver, IPredictedBody
         else
         {
             _rideYaw = null;
+        }
+
+        // Playing by touch: the stick, the buttons (and the look, as the fingers move) are the touch controls'.
+        if (Touch is { InControl: true } touch)
+        {
+            Vector2 stick = touch.Move;
+            return new InputCommand
+            {
+                Tick = tick,
+                Move = new System.Numerics.Vector2(stick.X, stick.Y),
+                Yaw = _yaw,
+                Pitch = _pitch,
+                Buttons = touch.TakeButtons(),
+            };
         }
 
         bool mouseCaptured = Input.MouseMode == Input.MouseModeEnum.Captured;

@@ -91,6 +91,9 @@ public partial class LevelMain : Node3D, ISimEventListener
     private RoundInfo _round = null!;
     private MatchState _match = null!;
     private PauseMenu _pause = null!;
+
+    /// <summary>The touch screen's controls (Phase 6): up on a phone, and on a computer once its screen is touched.</summary>
+    private TouchControls _touch = null!;
     private CanvasLayer _overlays = null!;
     private Control? _overlay;
     private SimWorld _sim = null!;
@@ -288,6 +291,7 @@ public partial class LevelMain : Node3D, ISimEventListener
 
         _settings = GameSettings.Load(_view);
         InputSetup.Apply(_settings.Bindings);
+        TouchUi.ScaleInterface(GetTree().Root, _view.Touch);
         _view.UseTeamColors(_settings.TeamColors);
         Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
         Pb.Game.Audio.UiSounds.Variations = _view.Audio.Variations;
@@ -300,11 +304,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         bool gaitDemo = Args.Has("--gait-demo");
         bool coverDemo = Args.Has("--cover-demo");
         bool ladderDemo = Args.Has("--ladder-demo");
+        bool touchDemo = Args.Has("--touch-demo");
         _botMatch = Args.Has("--bot-match");
         // Headless bot matches with the art on measure the characters' pops (CharacterPoser), printed with the result.
         Pb.Game.Player.CharacterPoser.TrackPops = _botMatch;
         _scripted = Args.Has("--shots") || Args.Has("--place-stills") || Args.Has("--posture-demo") || Args.Has("--splat-demo") || Args.Has("--duel-demo") || Args.Has("--smoke-test") || botDemo ||
-                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || _botMatch || Args.Has("--objective-demo") || Args.Has("--vehicle-demo");
+                    roleDemo is not null || gaitDemo || coverDemo || ladderDemo || _botMatch || Args.Has("--objective-demo") || Args.Has("--vehicle-demo") || touchDemo;
         bool roundTour = Args.Has("--round-tour");
         // Rounds played with others don't go in your records: they stay your bests alone.
         _counts = !_scripted && !roundTour && _net is null;
@@ -583,6 +588,13 @@ public partial class LevelMain : Node3D, ISimEventListener
         _pause.Build(_settings, _view, s => ApplyGraphics(_view.Graphics.Effective(s.GraphicsPreset, s.Graphics)),
             restart: _net is null ? () => GetTree().ReloadCurrentScene() : null, hudChanged: _ => _hud.ApplySettings(),
             quit: _net is null ? null : LeaveGame);
+        _touch = new TouchControls { Name = "Touch" };
+        _touch.Build(_view.Touch, _settings, _player, _sim, pause: OpenPause, chat: _chat is null ? null : () => OpenChat(teamOnly: false));
+        _pause.Touching = () => _touch.Active;
+        _touch.Suspend = () => _pause.Open || _overlay is not null || _chat?.Typing == true || _player.AutoPilot is not null || _summaryShown;
+        _touch.Out = () => _spectator is not null;
+        AddChild(_touch);
+        _player.Touch = _touch;
 
         _maskSpray = new MaskSprayOverlay { Name = "MaskSpray" };
         AddChild(_maskSpray);
@@ -642,7 +654,8 @@ public partial class LevelMain : Node3D, ISimEventListener
             WireNetwork(state);
         }
 
-        if (_scripted && _net is null)
+        // (The touch demo starts its round as you do, by tapping Start on the briefing.)
+        if (_scripted && _net is null && !touchDemo)
         {
             _sim.GoLive();
         }
@@ -777,6 +790,16 @@ public partial class LevelMain : Node3D, ISimEventListener
             AddChild(demo);
             demo.Start(roleDemo, _sim, _squad, _player, _pawns, _botDebug, _hud, _view.Camera.FarClip_m);
         }
+        else if (touchDemo)
+        {
+            ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective));
+            var demo = new TouchDemo { Name = "TouchDemo" };
+            AddChild(demo);
+            demo.Start(_sim, _player, _touch, _pause, _overlays, () => _scoreboard.Visible);
+            _driver.AddListener(demo);
+            _hud.ShowHelp = false;
+            _hud.ShowPerf = false;
+        }
         else if (roundTour)
         {
             ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective));
@@ -845,7 +868,7 @@ public partial class LevelMain : Node3D, ISimEventListener
             CloseOverlay();
             if (_spectator is null)
             {
-                Input.MouseMode = Input.MouseModeEnum.Captured;
+                CaptureMouse();
             }
         }
 
@@ -1831,7 +1854,62 @@ public partial class LevelMain : Node3D, ISimEventListener
     {
         CloseOverlay();
         _sim.GoLive();
-        Input.MouseMode = Input.MouseModeEnum.Captured;
+        CaptureMouse();
+    }
+
+    /// <summary>The mouse is the game's (held to the window), unless you play by touch: there's no pointer to hold then.</summary>
+    private void CaptureMouse()
+    {
+        if (_touch?.Active != true)
+        {
+            Input.MouseMode = Input.MouseModeEnum.Captured;
+        }
+    }
+
+    /// <summary>The pause menu, from the touch controls' button (also once you're out, to leave the round).</summary>
+    private void OpenPause()
+    {
+        if (!_pause.Open && _overlay is null && _player.AutoPilot is null)
+        {
+            _pause.Toggle();
+        }
+    }
+
+    /// <summary>Playing with others: typing in the chat (to everyone, or your side), your keys or fingers don't move you.</summary>
+    private void OpenChat(bool teamOnly)
+    {
+        if (_chat is not { Typing: false } chat || _overlay is not null || _pause.Open)
+        {
+            return;
+        }
+
+        _player.Muted = true;
+        chat.Open(teamOnly: teamOnly);
+    }
+
+    /// <summary>
+    /// A phone's back button (Godot's go-back request): leaves the chat, steps back in the pause menu (or closes it), and
+    /// otherwise opens it, as Esc does.
+    /// </summary>
+    public override void _Notification(int what)
+    {
+        if (what != NotificationWMGoBackRequest || !_ready)
+        {
+            return;
+        }
+
+        if (_chat is { Typing: true } chat)
+        {
+            chat.Close();
+        }
+        else if (_pause.Open)
+        {
+            _pause.Back();
+        }
+        else
+        {
+            OpenPause();
+        }
     }
 
     private void OnRoundEnded()
@@ -2201,7 +2279,9 @@ public partial class LevelMain : Node3D, ISimEventListener
         NetSummary(delta);
         ConnectionWarning(delta);
         Snap();
-        _scoreboard.Visible = (Input.IsActionPressed("scoreboard") || Args.Has("--show-scoreboard")) && _overlay is null && _chat?.Typing != true && !_pause.Open;
+        _hud.TouchLayout(_touch.Active ? _touch.HudCorner : null);
+        _scoreboard.Visible = (Input.IsActionPressed("scoreboard") || _touch.ScoresHeld || Args.Has("--show-scoreboard")) && _overlay is null && _chat?.Typing != true &&
+                              !_pause.Open;
         if (_net is not null && _chat is not null)
         {
             foreach (Pb.Net.Lobby.ChatLine line in _net.TakeChat())
@@ -2337,17 +2417,16 @@ public partial class LevelMain : Node3D, ISimEventListener
             return;
         }
 
-        if (_chat is { Typing: false } chat && _overlay is null && !_pause.Open && (e.IsActionPressed("chat") || e.IsActionPressed("chat_team")))
+        if (_chat is { Typing: false } && _overlay is null && !_pause.Open && (e.IsActionPressed("chat") || e.IsActionPressed("chat_team")))
         {
-            // Playing with others: typing, your keys don't move you.
-            _player.Muted = true;
-            chat.Open(teamOnly: e.IsActionPressed("chat_team"));
+            OpenChat(teamOnly: e.IsActionPressed("chat_team"));
             GetViewport().SetInputAsHandled();
             return;
         }
 
+        // A click gives the mouse back to the game; not a tap while you play by touch (it's a finger, not a pointer).
         bool playing = _overlay is null && _spectator is null && _player.AutoPilot is null;
-        if (playing && e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured)
+        if (playing && e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured && !_touch.Active)
         {
             Input.MouseMode = Input.MouseModeEnum.Captured;
             GetViewport().SetInputAsHandled();

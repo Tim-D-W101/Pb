@@ -54,11 +54,13 @@ public partial class PlayWithOthers : VBoxContainer
         AddChild(header);
         Label lead = UiKit.Body("Up to ten in a round: together against the bots, side against side, or everyone for themselves. Bots fill " +
                                 "the places nobody takes. Rounds with others don't go in your records.", 18, UiKit.Dim, wrap: true);
-        lead.CustomMinimumSize = new Vector2(1180, 0);
+        lead.CustomMinimumSize = new Vector2(Math.Min(1180f, TouchUi.Room(1260f) - TouchUi.PanelPadding), 0);
         AddChild(lead);
 
-        // You: your name and character.
-        HBoxContainer you = UiKit.Row(16);
+        // You: your name and character (on two lines where they don't fit one).
+        var you = new HFlowContainer();
+        you.AddThemeConstantOverride("h_separation", 16);
+        you.AddThemeConstantOverride("v_separation", 10);
         Label nameLabel = UiKit.Body("Your name");
         nameLabel.CustomMinimumSize = new Vector2(150, 0);
         you.AddChild(nameLabel);
@@ -76,7 +78,8 @@ public partial class PlayWithOthers : VBoxContainer
         ShowLooks();
         AddChild(you);
 
-        HBoxContainer columns = UiKit.Row(20);
+        // Hosting and joining side by side, or one above the other on a phone.
+        BoxContainer columns = TouchUi.Phone ? UiKit.Column(16) : UiKit.Row(20);
         AddChild(columns);
 
         // Hosting.
@@ -131,7 +134,7 @@ public partial class PlayWithOthers : VBoxContainer
         columns.AddChild(UiKit.Panel(join, 660f));
 
         _problem = UiKit.Body("", 18, UiKit.Bad, wrap: true);
-        _problem.CustomMinimumSize = new Vector2(1180, 0);
+        _problem.CustomMinimumSize = new Vector2(Math.Min(1180f, TouchUi.Room(1260f) - TouchUi.PanelPadding), 0);
         AddChild(_problem);
         string lag = settings.PretendLag_ms > 0f ? $"Pretend lag is on: {settings.PretendLag_ms:0} ms (Settings → Gameplay)." : "";
         if (lag.Length > 0)

@@ -80,6 +80,8 @@ public partial class MainMenu : Control
 
         _settings = GameSettings.Load(_view);
         InputSetup.Apply(_settings.Bindings);
+        // On a phone the interface is drawn bigger (by the screen's density) before any screen is laid out.
+        TouchUi.ScaleInterface(GetTree().Root, _view.Touch);
         Platforms.Attach(GetTree());
         _settings.ApplyWindow();
         Pb.Game.Audio.UiSounds.Volume_db = _view.Audio.Volume_db + _view.Audio.Mix.Menu;
@@ -148,6 +150,12 @@ public partial class MainMenu : Control
         {
             _tourFrame = 0;
         }
+        else if (Args.Has("--menu-touch-demo"))
+        {
+            var demo = new MenuTouchDemo { Name = "MenuTouchDemo" };
+            AddChild(demo);
+            demo.Start(_title, () => _levels, _settingsScreen, _others);
+        }
         else if ((Args.Has("--host") || Args.Has("--join")) && !_skippedToLevel)
         {
             // Playing with others from the command line (once): hosting, or joining the address given, then the lobby.
@@ -160,6 +168,35 @@ public partial class MainMenu : Control
             _skippedToLevel = true;
             Callable.From(() => GetTree().ChangeSceneToFile(GameSession.LevelScene)).CallDeferred();
         }
+    }
+
+    /// <summary>
+    /// A phone's back button (Godot's go-back request): a screen's Back, and on the title screen out of the game, as
+    /// phones do.
+    /// </summary>
+    public override void _Notification(int what)
+    {
+        if (what != NotificationWMGoBackRequest || _title is null)
+        {
+            return;
+        }
+
+        if (_title.Visible)
+        {
+            GetTree().QuitCleanly();
+            return;
+        }
+
+        foreach (Control screen in new[] { _levels, _settingsScreen, _others })
+        {
+            if (screen.Visible && screen.FindChild("Back", recursive: true, owned: false) is Button { Visible: true } back)
+            {
+                back.EmitSignal(BaseButton.SignalName.Pressed);
+                return;
+            }
+        }
+
+        Open(_title);
     }
 
     public override void _Process(double delta)
@@ -293,7 +330,13 @@ public partial class MainMenu : Control
         var title = new TitleMark { Name = "Title" };
         title.Configure("PB", UiKit.Accent);
         column.AddChild(title);
-        column.AddChild(UiKit.Body("First-person paintball in an abandoned compound", 22, UiKit.Dim));
+        Label tagline = UiKit.Body("First-person paintball in an abandoned compound", 22, UiKit.Dim, wrap: TouchUi.Phone);
+        if (TouchUi.Phone)
+        {
+            tagline.CustomMinimumSize = new Vector2(360, 0); // as wide as the mark, beside the buttons
+        }
+
+        column.AddChild(tagline);
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 26) });
         VBoxContainer buttons = UiKit.Column(14);
         buttons.CustomMinimumSize = new Vector2(380, 0);
@@ -305,7 +348,20 @@ public partial class MainMenu : Control
         buttons.AddChild(UiKit.Button("Training ground", () => Load(GameSession.RangeScene, "Training ground", "Setting out the targets…")));
         buttons.AddChild(UiKit.Button("Settings", () => Open(_settingsScreen)));
         buttons.AddChild(UiKit.Button("Quit", () => GetTree().QuitCleanly()));
-        column.AddChild(buttons);
+        // A phone's screen is wide and short: the buttons go beside the title, all of them in sight.
+        HBoxContainer? side = null;
+        if (TouchUi.Phone)
+        {
+            side = UiKit.Row(40);
+            side.AddChild(column);
+            buttons.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+            side.AddChild(buttons);
+        }
+        else
+        {
+            column.AddChild(buttons);
+        }
+
         if (GameSession.Notice is { } notice)
         {
             // Why the last game with others ended.
@@ -317,7 +373,7 @@ public partial class MainMenu : Control
 
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 20) });
         column.AddChild(UiKit.Body("Working title · Phase 4 build", 16, UiKit.Dim));
-        return Screen(column, left: true);
+        return Screen(side ?? (Control)column, left: true);
     }
 
     /// <summary>
@@ -359,8 +415,11 @@ public partial class MainMenu : Control
         return Screen(column, left: true);
     }
 
-    /// <summary>The card's width; its two columns are where in the area (left) and how to play it (right).</summary>
-    private const float CardWidth = 1300f;
+    /// <summary>
+    /// The card's width; its two columns are where in the area (left) and how to play it (right), one above the other on a
+    /// phone, where the card's as wide as the screen allows.
+    /// </summary>
+    private static float CardWidth => TouchUi.Room(1300f);
 
     private Control AreaCard(AreaEntryDef entry)
     {
@@ -428,7 +487,7 @@ public partial class MainMenu : Control
 
         TierDef tier = tiers[tierIndex];
 
-        HBoxContainer columns = UiKit.Row(36);
+        BoxContainer columns = TouchUi.Phone ? UiKit.Column(16) : UiKit.Row(36);
         VBoxContainer where = UiKit.Column(12);
         where.CustomMinimumSize = new Vector2(360, 0);
         VBoxContainer how = UiKit.Column(10);
@@ -553,7 +612,7 @@ public partial class MainMenu : Control
         var screen = new PlayWithOthers { Name = "Others" };
         screen.Build(_data, _view, _settings);
         screen.Back = () => Open(_title);
-        return Screen(UiKit.Panel(screen, 1260f), left: true);
+        return Screen(UiKit.Panel(screen, TouchUi.Room(1260f)), left: true);
     }
 
     private Control SettingsScreen()
@@ -563,8 +622,10 @@ public partial class MainMenu : Control
         // Graphics changes show from the next scene (the backdrop keeps the look it was built with).
         menu.Build(_settings, _view);
         column.AddChild(menu);
-        column.AddChild(UiKit.Button("Back", () => Open(_title), 200));
-        return Screen(UiKit.Panel(column, 940f), left: false);
+        Button back = UiKit.Button("Back", () => Open(_title), 200);
+        back.Name = "Back";
+        column.AddChild(back);
+        return Screen(UiKit.Panel(column, TouchUi.Room(940f)), left: false);
     }
 
     private void Play(AreaEntryDef entry, PlaceSpec place, GameMode mode, int size, ObjectiveChoice objective, TierDef tier)
@@ -626,14 +687,20 @@ public partial class MainMenu : Control
         return content.GetCombinedMinimumSize().Y - room;
     }
 
-    /// <summary>A screen laid out at the left third (title, lists) or centred (dialogs).</summary>
+    /// <summary>
+    /// A screen laid out at the left third (title, lists) or centred (dialogs). On a phone the margins are narrow, and
+    /// what's taller than the screen scrolls by dragging (as it does with the wheel).
+    /// </summary>
     private static Control Screen(Control content, bool left)
     {
         var margin = new MarginContainer();
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
-        margin.AddThemeConstantOverride("margin_left", left ? 120 : 0);
-        margin.AddThemeConstantOverride("margin_top", 80);
-        margin.AddThemeConstantOverride("margin_bottom", 60);
+        bool phone = TouchUi.Phone;
+        int edge = (int)TouchUi.PhoneMargin;
+        margin.AddThemeConstantOverride("margin_left", phone ? edge : left ? 120 : 0);
+        margin.AddThemeConstantOverride("margin_right", phone ? edge : 0);
+        margin.AddThemeConstantOverride("margin_top", phone ? edge * 3 / 4 : 80);
+        margin.AddThemeConstantOverride("margin_bottom", phone ? edge / 2 : 60);
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         var holder = left ? (Container)new VBoxContainer() : new CenterContainer();
         holder.SizeFlagsHorizontal = SizeFlags.ExpandFill;

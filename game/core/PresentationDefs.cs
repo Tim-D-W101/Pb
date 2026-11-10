@@ -44,6 +44,8 @@ public sealed class PresentationDef : IValidatable
 
     public LookDef Look { get; set; } = new();
 
+    public TouchDef Touch { get; set; } = new();
+
     public CrosshairDef Crosshair { get; set; } = new();
 
     public ArcPreviewDef ArcPreview { get; set; } = new();
@@ -183,6 +185,7 @@ public sealed class PresentationDef : IValidatable
         ViewModel.Validate(v.Scope(nameof(ViewModel)));
         MarkerModel.Validate(v.Scope(nameof(MarkerModel)));
         Look.Validate(v.Scope(nameof(Look)));
+        Touch.Validate(v.Scope(nameof(Touch)));
         Crosshair.Validate(v.Scope(nameof(Crosshair)));
         ArcPreview.Validate(v.Scope(nameof(ArcPreview)));
         Audio.Validate(v.Scope(nameof(Audio)));
@@ -490,6 +493,160 @@ public sealed class LookDef : IValidatable
         v.InRange(nameof(SensitivityStep), SensitivityStep, 0.0005, 0.5);
         v.InRange(nameof(StickSpeed_degps), StickSpeed_degps, 10, 2000);
         v.InRange(nameof(StickExponent), StickExponent, 0.5, 5);
+    }
+}
+
+/// <summary>
+/// The touch screen's controls (Phase 6): sizes and places in millimetres on the screen, inside its safe area
+/// (<see cref="Pb.Game.Ui.TouchControls"/>), and how much bigger the interface is drawn on a phone.
+/// </summary>
+public sealed class TouchDef : IValidatable
+{
+    /// <summary>The ids a button can have, and what each does.</summary>
+    public static readonly string[] ButtonIds = { "fire", "aim", "jump", "crouch", "reload", "use", "throttle", "brake", "handbrake" };
+
+    public static readonly string[] TopIds = { "pause", "scores", "chat" };
+
+    public float UiUnit_mm { get; set; }
+
+    public float MinUiHeight { get; set; }
+
+    public TouchStickDef Stick { get; set; } = new();
+
+    public float LookSpeed_degPerCm { get; set; }
+
+    public float[] LookSpeedRange_degPerCm { get; set; } = System.Array.Empty<float>();
+
+    public float MaxStep_deg { get; set; }
+
+    public TouchAimDef Aim { get; set; } = new();
+
+    public TouchButtonDef[] Buttons { get; set; } = System.Array.Empty<TouchButtonDef>();
+
+    public TouchButtonDef[] Driving { get; set; } = System.Array.Empty<TouchButtonDef>();
+
+    public TouchButtonDef[] Top { get; set; } = System.Array.Empty<TouchButtonDef>();
+
+    public float ButtonScale { get; set; }
+
+    public float[] ButtonScaleRange { get; set; } = System.Array.Empty<float>();
+
+    public float Opacity { get; set; }
+
+    public float[] OpacityRange { get; set; } = System.Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(UiUnit_mm), UiUnit_mm, 0.03, 0.5);
+        v.InRange(nameof(MinUiHeight), MinUiHeight, 240, 1080);
+        Stick.Validate(v.Scope(nameof(Stick)));
+        Range(v, nameof(LookSpeedRange_degPerCm), LookSpeedRange_degPerCm, 0.5, 400, LookSpeed_degPerCm, nameof(LookSpeed_degPerCm));
+        v.InRange(nameof(MaxStep_deg), MaxStep_deg, 1, 180);
+        Aim.Validate(v.Scope(nameof(Aim)));
+        Group(v, nameof(Buttons), Buttons, ButtonIds, "fire", "aim", "jump", "crouch", "reload", "use");
+        Group(v, nameof(Driving), Driving, ButtonIds, "throttle", "brake", "handbrake", "fire", "use");
+        Group(v, nameof(Top), Top, TopIds, "pause", "scores", "chat");
+        Range(v, nameof(ButtonScaleRange), ButtonScaleRange, 0.3, 3, ButtonScale, nameof(ButtonScale));
+        Range(v, nameof(OpacityRange), OpacityRange, 0.05, 1, Opacity, nameof(Opacity));
+    }
+
+    /// <summary>A [min, max] within the limits, with its default inside it.</summary>
+    private static void Range(Validator v, string property, float[] range, double min, double max, float value, string valueProperty)
+    {
+        if (range.Length != 2 || range[0] < min || range[1] > max || range[0] >= range[1])
+        {
+            v.Error(property, $"needs [min, max] with {min} <= min < max <= {max}");
+        }
+        else if (value < range[0] || value > range[1])
+        {
+            v.Error(valueProperty, $"needs to be inside {property} [{range[0]}, {range[1]}]");
+        }
+    }
+
+    /// <summary>Each button valid, with an id from <paramref name="ids"/>, once each, and the ones needed all there.</summary>
+    private static void Group(Validator v, string property, TouchButtonDef[] buttons, string[] ids, params string[] needed)
+    {
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            buttons[i].Validate(v.Item(property, i));
+            if (!ids.Contains(buttons[i].Id))
+            {
+                v.Item(property, i).Error(nameof(TouchButtonDef.Id), $"'{buttons[i].Id}' isn't one of {string.Join(", ", ids)}");
+            }
+        }
+
+        foreach (string id in needed)
+        {
+            if (buttons.Count(b => b.Id == id) != 1)
+            {
+                v.Error(property, $"needs one button '{id}'");
+            }
+        }
+    }
+}
+
+public sealed class TouchStickDef : IValidatable
+{
+    public float Zone { get; set; }
+
+    public float Radius_mm { get; set; }
+
+    public float Deadzone { get; set; }
+
+    public float SprintBeyond { get; set; }
+
+    public float[] RestAt_mm { get; set; } = System.Array.Empty<float>();
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(Zone), Zone, 0.2, 0.7);
+        v.InRange(nameof(Radius_mm), Radius_mm, 4, 30);
+        v.InRange(nameof(Deadzone), Deadzone, 0, 0.5);
+        v.InRange(nameof(SprintBeyond), SprintBeyond, 1.05, 3);
+        if (RestAt_mm.Length != 2 || RestAt_mm.Any(x => x < 0 || x > 120))
+        {
+            v.Error(nameof(RestAt_mm), "needs [x, y] in mm from the bottom left, each 0 to 120");
+        }
+    }
+}
+
+public sealed class TouchAimDef : IValidatable
+{
+    public float FovScale { get; set; }
+
+    public float LookScale { get; set; }
+
+    public float Ease_s { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(FovScale), FovScale, 0.3, 1);
+        v.InRange(nameof(LookScale), LookScale, 0.1, 1);
+        v.InRange(nameof(Ease_s), Ease_s, 0, 1);
+    }
+}
+
+public sealed class TouchButtonDef : IValidatable
+{
+    public string Id { get; set; } = "";
+
+    public string Label { get; set; } = "";
+
+    /// <summary>From the corner (bottom right for the buttons, top left for the top row) to the middle, in mm: x in, y in.</summary>
+    public float[] At_mm { get; set; } = System.Array.Empty<float>();
+
+    public float Size_mm { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.NotEmpty(nameof(Id), Id);
+        v.NotEmpty(nameof(Label), Label);
+        if (At_mm.Length != 2 || At_mm.Any(x => x < 0 || x > 150))
+        {
+            v.Error(nameof(At_mm), "needs [x, y] in mm from its corner, each 0 to 150");
+        }
+
+        v.InRange(nameof(Size_mm), Size_mm, 4, 30);
     }
 }
 
