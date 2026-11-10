@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ulfk0b7i66rc"
 path.s3tc="res://.godot/imported/hedge_albedo.jpg-57785530e14c95532601e26e786a785c.s3tc.ctex"
+path.etc2="res://.godot/imported/hedge_albedo.jpg-57785530e14c95532601e26e786a785c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/hedge_albedo.jpg"
-dest_files=["res://.godot/imported/hedge_albedo.jpg-57785530e14c95532601e26e786a785c.s3tc.ctex"]
+dest_files=["res://.godot/imported/hedge_albedo.jpg-57785530e14c95532601e26e786a785c.s3tc.ctex", "res://.godot/imported/hedge_albedo.jpg-57785530e14c95532601e26e786a785c.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bf65yv4lg7ake"
 path.s3tc="res://.godot/imported/sleeper_timber_roughness.jpg-81f46d1ee509558f092798531d7222f2.s3tc.ctex"
+path.etc2="res://.godot/imported/sleeper_timber_roughness.jpg-81f46d1ee509558f092798531d7222f2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/sleeper_timber_roughness.jpg"
-dest_files=["res://.godot/imported/sleeper_timber_roughness.jpg-81f46d1ee509558f092798531d7222f2.s3tc.ctex"]
+dest_files=["res://.godot/imported/sleeper_timber_roughness.jpg-81f46d1ee509558f092798531d7222f2.s3tc.ctex", "res://.godot/imported/sleeper_timber_roughness.jpg-81f46d1ee509558f092798531d7222f2.etc2.ctex"]
 
 [params]
 

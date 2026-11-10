@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ddu7wv6do38qh"
 path.s3tc="res://.godot/imported/wood_pallet_roughness.jpg-d37fd16deab5cab51c537c538f28bff5.s3tc.ctex"
+path.etc2="res://.godot/imported/wood_pallet_roughness.jpg-d37fd16deab5cab51c537c538f28bff5.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/wood_pallet_roughness.jpg"
-dest_files=["res://.godot/imported/wood_pallet_roughness.jpg-d37fd16deab5cab51c537c538f28bff5.s3tc.ctex"]
+dest_files=["res://.godot/imported/wood_pallet_roughness.jpg-d37fd16deab5cab51c537c538f28bff5.s3tc.ctex", "res://.godot/imported/wood_pallet_roughness.jpg-d37fd16deab5cab51c537c538f28bff5.etc2.ctex"]
 
 [params]
 

@@ -9,10 +9,10 @@ namespace Pb.Game.Core;
 /// Loads art from the import pipeline (<c>game/art</c>). A missing file gives null and the caller falls
 /// back (materials to their procedural look, props to greybox, opponents to their hitbox boxes), so the
 /// game never depends on the art. <c>-- --no-art</c> ignores all of it; CI's bot match runs that way to
-/// keep the fallbacks working. Exported builds carry the art in packs beside the game, one per asset
+/// keep the fallbacks working. Exported desktop builds carry the art in packs beside the game, one per asset
 /// (<see cref="PackFolder"/>, made by tools/package/art-packs.sh), so an update that changes only code
 /// or data doesn't download the art again, and new art costs just its own packs; they're mounted the
-/// first time anything asks for art.
+/// first time anything asks for art. The Android build carries it in the APK with the rest.
 /// </summary>
 public static class ArtFiles
 {
@@ -29,6 +29,12 @@ public static class ArtFiles
         if (Disabled || !OS.HasFeature("template"))
         {
             return; // the editor and `godot --path game` read game/art directly
+        }
+
+        if (OS.HasFeature("android"))
+        {
+            GD.Print("The art is in the game's own files (Android: the APK carries it)");
+            return; // an app has no folder beside it: tools/package/android-build.sh keeps art/ in the export
         }
 
         string home = OS.GetExecutablePath().GetBaseDir();

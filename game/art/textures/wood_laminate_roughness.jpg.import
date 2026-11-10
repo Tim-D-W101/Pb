@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://f3ceb05mwr8m"
 path.s3tc="res://.godot/imported/wood_laminate_roughness.jpg-f79aafe112a6ee1bd4038c92d2073923.s3tc.ctex"
+path.etc2="res://.godot/imported/wood_laminate_roughness.jpg-f79aafe112a6ee1bd4038c92d2073923.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/wood_laminate_roughness.jpg"
-dest_files=["res://.godot/imported/wood_laminate_roughness.jpg-f79aafe112a6ee1bd4038c92d2073923.s3tc.ctex"]
+dest_files=["res://.godot/imported/wood_laminate_roughness.jpg-f79aafe112a6ee1bd4038c92d2073923.s3tc.ctex", "res://.godot/imported/wood_laminate_roughness.jpg-f79aafe112a6ee1bd4038c92d2073923.etc2.ctex"]
 
 [params]
 

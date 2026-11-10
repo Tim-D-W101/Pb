@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8kkp4yunqypa"
 path.s3tc="res://.godot/imported/corrugated_grey_roughness.jpg-ffe7e0c6ca49881dc944886b13a6f0cf.s3tc.ctex"
+path.etc2="res://.godot/imported/corrugated_grey_roughness.jpg-ffe7e0c6ca49881dc944886b13a6f0cf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/corrugated_grey_roughness.jpg"
-dest_files=["res://.godot/imported/corrugated_grey_roughness.jpg-ffe7e0c6ca49881dc944886b13a6f0cf.s3tc.ctex"]
+dest_files=["res://.godot/imported/corrugated_grey_roughness.jpg-ffe7e0c6ca49881dc944886b13a6f0cf.s3tc.ctex", "res://.godot/imported/corrugated_grey_roughness.jpg-ffe7e0c6ca49881dc944886b13a6f0cf.etc2.ctex"]
 
 [params]
 

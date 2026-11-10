@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://o3ji3p33f020"
 path.s3tc="res://.godot/imported/door_wood_albedo.jpg-bd3980548be175cb32567f8e2e4b6d71.s3tc.ctex"
+path.etc2="res://.godot/imported/door_wood_albedo.jpg-bd3980548be175cb32567f8e2e4b6d71.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/door_wood_albedo.jpg"
-dest_files=["res://.godot/imported/door_wood_albedo.jpg-bd3980548be175cb32567f8e2e4b6d71.s3tc.ctex"]
+dest_files=["res://.godot/imported/door_wood_albedo.jpg-bd3980548be175cb32567f8e2e4b6d71.s3tc.ctex", "res://.godot/imported/door_wood_albedo.jpg-bd3980548be175cb32567f8e2e4b6d71.etc2.ctex"]
 
 [params]
 

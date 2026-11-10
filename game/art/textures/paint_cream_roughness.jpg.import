@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://clx1p4m5npa64"
 path.s3tc="res://.godot/imported/paint_cream_roughness.jpg-7a2a771e6113b94cadb8647c6598aeea.s3tc.ctex"
+path.etc2="res://.godot/imported/paint_cream_roughness.jpg-7a2a771e6113b94cadb8647c6598aeea.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/paint_cream_roughness.jpg"
-dest_files=["res://.godot/imported/paint_cream_roughness.jpg-7a2a771e6113b94cadb8647c6598aeea.s3tc.ctex"]
+dest_files=["res://.godot/imported/paint_cream_roughness.jpg-7a2a771e6113b94cadb8647c6598aeea.s3tc.ctex", "res://.godot/imported/paint_cream_roughness.jpg-7a2a771e6113b94cadb8647c6598aeea.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://depi8ib77q0xt"
 path.s3tc="res://.godot/imported/lino_albedo.jpg-2f85585b60a1e4261b78c9d02c92c1c1.s3tc.ctex"
+path.etc2="res://.godot/imported/lino_albedo.jpg-2f85585b60a1e4261b78c9d02c92c1c1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/lino_albedo.jpg"
-dest_files=["res://.godot/imported/lino_albedo.jpg-2f85585b60a1e4261b78c9d02c92c1c1.s3tc.ctex"]
+dest_files=["res://.godot/imported/lino_albedo.jpg-2f85585b60a1e4261b78c9d02c92c1c1.s3tc.ctex", "res://.godot/imported/lino_albedo.jpg-2f85585b60a1e4261b78c9d02c92c1c1.etc2.ctex"]
 
 [params]
 

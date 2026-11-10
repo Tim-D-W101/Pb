@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dywi82sfttrub"
 path.s3tc="res://.godot/imported/sleeper_timber_normal.jpg-ab5cc8e16f52002677bc8678b8113275.s3tc.ctex"
+path.etc2="res://.godot/imported/sleeper_timber_normal.jpg-ab5cc8e16f52002677bc8678b8113275.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/sleeper_timber_normal.jpg"
-dest_files=["res://.godot/imported/sleeper_timber_normal.jpg-ab5cc8e16f52002677bc8678b8113275.s3tc.ctex"]
+dest_files=["res://.godot/imported/sleeper_timber_normal.jpg-ab5cc8e16f52002677bc8678b8113275.s3tc.ctex", "res://.godot/imported/sleeper_timber_normal.jpg-ab5cc8e16f52002677bc8678b8113275.etc2.ctex"]
 
 [params]
 

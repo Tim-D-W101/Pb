@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://2dkedw167pfk"
 path.s3tc="res://.godot/imported/plaster_peeling_roughness.jpg-7023b8600e6af884bd2890c741e5a280.s3tc.ctex"
+path.etc2="res://.godot/imported/plaster_peeling_roughness.jpg-7023b8600e6af884bd2890c741e5a280.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/plaster_peeling_roughness.jpg"
-dest_files=["res://.godot/imported/plaster_peeling_roughness.jpg-7023b8600e6af884bd2890c741e5a280.s3tc.ctex"]
+dest_files=["res://.godot/imported/plaster_peeling_roughness.jpg-7023b8600e6af884bd2890c741e5a280.s3tc.ctex", "res://.godot/imported/plaster_peeling_roughness.jpg-7023b8600e6af884bd2890c741e5a280.etc2.ctex"]
 
 [params]
 

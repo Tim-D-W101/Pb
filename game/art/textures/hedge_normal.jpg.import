@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ce11xxooi8q13"
 path.s3tc="res://.godot/imported/hedge_normal.jpg-38b904aa92c0d5710d60444046a1d2b7.s3tc.ctex"
+path.etc2="res://.godot/imported/hedge_normal.jpg-38b904aa92c0d5710d60444046a1d2b7.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/hedge_normal.jpg"
-dest_files=["res://.godot/imported/hedge_normal.jpg-38b904aa92c0d5710d60444046a1d2b7.s3tc.ctex"]
+dest_files=["res://.godot/imported/hedge_normal.jpg-38b904aa92c0d5710d60444046a1d2b7.s3tc.ctex", "res://.godot/imported/hedge_normal.jpg-38b904aa92c0d5710d60444046a1d2b7.etc2.ctex"]
 
 [params]
 

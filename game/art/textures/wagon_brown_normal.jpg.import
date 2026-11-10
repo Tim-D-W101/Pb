@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bbcxmlgoohsia"
 path.s3tc="res://.godot/imported/wagon_brown_normal.jpg-af7290283d40815cdee5f05c00a299f0.s3tc.ctex"
+path.etc2="res://.godot/imported/wagon_brown_normal.jpg-af7290283d40815cdee5f05c00a299f0.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/wagon_brown_normal.jpg"
-dest_files=["res://.godot/imported/wagon_brown_normal.jpg-af7290283d40815cdee5f05c00a299f0.s3tc.ctex"]
+dest_files=["res://.godot/imported/wagon_brown_normal.jpg-af7290283d40815cdee5f05c00a299f0.s3tc.ctex", "res://.godot/imported/wagon_brown_normal.jpg-af7290283d40815cdee5f05c00a299f0.etc2.ctex"]
 
 [params]
 

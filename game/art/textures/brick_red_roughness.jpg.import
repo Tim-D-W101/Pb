@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bwdqj455wfhru"
 path.s3tc="res://.godot/imported/brick_red_roughness.jpg-073c53cd9f52c3e6bcbac86d81fb2ede.s3tc.ctex"
+path.etc2="res://.godot/imported/brick_red_roughness.jpg-073c53cd9f52c3e6bcbac86d81fb2ede.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/brick_red_roughness.jpg"
-dest_files=["res://.godot/imported/brick_red_roughness.jpg-073c53cd9f52c3e6bcbac86d81fb2ede.s3tc.ctex"]
+dest_files=["res://.godot/imported/brick_red_roughness.jpg-073c53cd9f52c3e6bcbac86d81fb2ede.s3tc.ctex", "res://.godot/imported/brick_red_roughness.jpg-073c53cd9f52c3e6bcbac86d81fb2ede.etc2.ctex"]
 
 [params]
 

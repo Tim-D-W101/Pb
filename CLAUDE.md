@@ -39,6 +39,7 @@ tools/ci/import.sh godot && tools/ci/smoke-test.sh godot   # headless end-to-end
 tools/package/windows-build.sh godot                  # ready-to-run Windows build (CI artifact "Pb-windows"), art in art/*.pck
 git tag v0.5.0 && git push origin v0.5.0              # CI makes a numbered GitHub Release of it (zip, servers, HOW-TO-PLAY.txt)
 tools/package/server-build.sh godot                   # then the dedicated servers: Pb-server-linux.tar.gz, Pb-server-windows.zip
+tools/package/android-build.sh godot                  # the Android build, builds/android/Pb.apk (CI artifact "Pb-android"; docs/android.md)
 godot --headless --path game -- --server              # a dedicated server from the source (game/data/server.jsonc; docs/hosting.md)
 tools/ci/net-round.sh godot                           # CI's networked rounds: a dedicated server and five players over UDP, two of them cheating
 tools/ci/wine-join.sh builds/server/linux/Pb-server builds/windows/Pb   # the Windows build plays a round on the Linux server under Wine
@@ -65,6 +66,13 @@ mounts in exported builds, and the release lists every game file's SHA-256 so `P
 The Windows build runs headless under Wine (`apt-get install wine`), the way to catch faults only the Windows .NET
 runtime has: `WINEDLLOVERRIDES=dinput8=d wine Pb.exe --headless -- --level=ID --bot-match --no-art` (Wine's DirectInput
 crashes Godot; exported builds take no scene path, and the menu's `--smoke-test` comes first).
+
+The Android build (Phase 6) needs `tools/package/fetch-templates.py 4.7.2 android_release.apk`, the Android SDK's build
+tools (`ANDROID_HOME`; `sdkmanager "build-tools;35.0.0" platform-tools`), a JDK and the .NET 9 SDK: Godot's Android
+template only takes net9.0, so `game/Pb.csproj` targets it when Godot builds for Android (the desktop stays on .NET 8;
+`global.json` rolls forward to the newest SDK installed). The project imports every texture in its phone formats
+(ETC2/ASTC) as well, and the APK carries the art (no packs beside it). It's Godot's release template signed with
+`tools/package/android/debug.keystore` (password `android`), so each build installs over the last.
 
 Playing with others from the command line (Phase 4; the menu's Play with others does the same):
 - **Hosting and joining:** `-- --host` (on `--port=N`, with `--password=WORD`) or `-- --join=ADDRESS`, as `--name=NAME`

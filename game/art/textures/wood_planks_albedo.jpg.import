@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bdt2mkmutt77n"
 path.s3tc="res://.godot/imported/wood_planks_albedo.jpg-23c2edc71404f3bd9b6ff5d4849a576b.s3tc.ctex"
+path.etc2="res://.godot/imported/wood_planks_albedo.jpg-23c2edc71404f3bd9b6ff5d4849a576b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/wood_planks_albedo.jpg"
-dest_files=["res://.godot/imported/wood_planks_albedo.jpg-23c2edc71404f3bd9b6ff5d4849a576b.s3tc.ctex"]
+dest_files=["res://.godot/imported/wood_planks_albedo.jpg-23c2edc71404f3bd9b6ff5d4849a576b.s3tc.ctex", "res://.godot/imported/wood_planks_albedo.jpg-23c2edc71404f3bd9b6ff5d4849a576b.etc2.ctex"]
 
 [params]
 

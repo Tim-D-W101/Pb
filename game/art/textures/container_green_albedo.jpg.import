@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://pn0hwp3b7ey7"
 path.s3tc="res://.godot/imported/container_green_albedo.jpg-3d9d25b5a90cf41a86336bc80ee6949d.s3tc.ctex"
+path.etc2="res://.godot/imported/container_green_albedo.jpg-3d9d25b5a90cf41a86336bc80ee6949d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/container_green_albedo.jpg"
-dest_files=["res://.godot/imported/container_green_albedo.jpg-3d9d25b5a90cf41a86336bc80ee6949d.s3tc.ctex"]
+dest_files=["res://.godot/imported/container_green_albedo.jpg-3d9d25b5a90cf41a86336bc80ee6949d.s3tc.ctex", "res://.godot/imported/container_green_albedo.jpg-3d9d25b5a90cf41a86336bc80ee6949d.etc2.ctex"]
 
 [params]
 

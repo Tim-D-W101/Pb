@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bq1uvu6jswxs1"
 path.s3tc="res://.godot/imported/ballast_roughness.jpg-555b96f02758cd5c1af5dd99e7e44471.s3tc.ctex"
+path.etc2="res://.godot/imported/ballast_roughness.jpg-555b96f02758cd5c1af5dd99e7e44471.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/ballast_roughness.jpg"
-dest_files=["res://.godot/imported/ballast_roughness.jpg-555b96f02758cd5c1af5dd99e7e44471.s3tc.ctex"]
+dest_files=["res://.godot/imported/ballast_roughness.jpg-555b96f02758cd5c1af5dd99e7e44471.s3tc.ctex", "res://.godot/imported/ballast_roughness.jpg-555b96f02758cd5c1af5dd99e7e44471.etc2.ctex"]
 
 [params]
 

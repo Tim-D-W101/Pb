@@ -191,3 +191,54 @@ jobs:
             gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --title "Pb ${GITHUB_REF_NAME}" --notes "$notes"
           gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber builds/windows/release/Pb-windows.zip \
             builds/windows/Pb/HOW-TO-PLAY.txt builds/server/release/Pb-server-windows.zip builds/server/release/Pb-server-linux.tar.gz
+
+  android-build:
+    name: Android build (download it from the run's Artifacts)
+    needs: godot-smoke
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          # .NET 9 for the Android export (Godot's Android template only takes net9.0; game/Pb.csproj targets it there).
+          dotnet-version: |
+            8.0.x
+            9.0.x
+      # apksigner and zipalign come from the runner's Android SDK (ANDROID_HOME); they want a JDK.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux-x86_64
+      - name: Install Godot ${{ env.GODOT_VERSION }} (.NET)
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: tools/ci/install-godot.sh "$GODOT_VERSION" ~/.local/godot
+      - name: Cache the Android export template
+        id: cache-templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates
+          key: godot-templates-${{ env.GODOT_VERSION }}-mono-android
+      - name: Fetch the Android export template (just that, not the whole archive)
+        if: steps.cache-templates.outputs.cache-hit != 'true'
+        run: python3 tools/package/fetch-templates.py "$GODOT_VERSION" android_release.apk
+      - name: Build game assembly
+        run: dotnet build game/Pb.csproj -c Debug
+      - name: Import project
+        run: tools/ci/import.sh ~/.local/godot/godot
+      - name: Export the Android build (arm64, signed with the repository's debug key)
+        # Named by its commit; the version code is the run's number, so each build installs over the one before.
+        run: tools/package/android-build.sh ~/.local/godot/godot builds/android "$(echo "$HEAD_SHA" | cut -c1-7)" "$GITHUB_RUN_NUMBER"
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Offer it for download
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pb-android
+          path: builds/android
+          retention-days: 30

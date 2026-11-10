@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dq6g0uyukic4p"
 path.s3tc="res://.godot/imported/panel_white_normal.jpg-470d4b380ed6cdc02820024ec81970d8.s3tc.ctex"
+path.etc2="res://.godot/imported/panel_white_normal.jpg-470d4b380ed6cdc02820024ec81970d8.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/panel_white_normal.jpg"
-dest_files=["res://.godot/imported/panel_white_normal.jpg-470d4b380ed6cdc02820024ec81970d8.s3tc.ctex"]
+dest_files=["res://.godot/imported/panel_white_normal.jpg-470d4b380ed6cdc02820024ec81970d8.s3tc.ctex", "res://.godot/imported/panel_white_normal.jpg-470d4b380ed6cdc02820024ec81970d8.etc2.ctex"]
 
 [params]
 

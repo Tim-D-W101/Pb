@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c6cmvuh5pv2i"
 path.s3tc="res://.godot/imported/corrugated_grey_normal.jpg-fd63f40b0711448b760ea9d50d3996df.s3tc.ctex"
+path.etc2="res://.godot/imported/corrugated_grey_normal.jpg-fd63f40b0711448b760ea9d50d3996df.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/corrugated_grey_normal.jpg"
-dest_files=["res://.godot/imported/corrugated_grey_normal.jpg-fd63f40b0711448b760ea9d50d3996df.s3tc.ctex"]
+dest_files=["res://.godot/imported/corrugated_grey_normal.jpg-fd63f40b0711448b760ea9d50d3996df.s3tc.ctex", "res://.godot/imported/corrugated_grey_normal.jpg-fd63f40b0711448b760ea9d50d3996df.etc2.ctex"]
 
 [params]
 

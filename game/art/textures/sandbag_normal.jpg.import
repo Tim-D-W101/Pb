@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dy7vuthiv65fk"
 path.s3tc="res://.godot/imported/sandbag_normal.jpg-869f88866493d85cb7f73246ddda10e2.s3tc.ctex"
+path.etc2="res://.godot/imported/sandbag_normal.jpg-869f88866493d85cb7f73246ddda10e2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/sandbag_normal.jpg"
-dest_files=["res://.godot/imported/sandbag_normal.jpg-869f88866493d85cb7f73246ddda10e2.s3tc.ctex"]
+dest_files=["res://.godot/imported/sandbag_normal.jpg-869f88866493d85cb7f73246ddda10e2.s3tc.ctex", "res://.godot/imported/sandbag_normal.jpg-869f88866493d85cb7f73246ddda10e2.etc2.ctex"]
 
 [params]
 

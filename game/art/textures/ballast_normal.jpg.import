@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://usvo3jbruj0r"
 path.s3tc="res://.godot/imported/ballast_normal.jpg-10419a0fd7d90242d99c56cbc5ae4164.s3tc.ctex"
+path.etc2="res://.godot/imported/ballast_normal.jpg-10419a0fd7d90242d99c56cbc5ae4164.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/ballast_normal.jpg"
-dest_files=["res://.godot/imported/ballast_normal.jpg-10419a0fd7d90242d99c56cbc5ae4164.s3tc.ctex"]
+dest_files=["res://.godot/imported/ballast_normal.jpg-10419a0fd7d90242d99c56cbc5ae4164.s3tc.ctex", "res://.godot/imported/ballast_normal.jpg-10419a0fd7d90242d99c56cbc5ae4164.etc2.ctex"]
 
 [params]
 

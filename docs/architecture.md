@@ -1754,3 +1754,36 @@ time near the other areas'.
   - `ThornwickWoodsTests`: two hunters a side at the north and south gates take a buggy toward the other end; a bot
     boarding from a buggy's far side walks round it to the door; the grid builds in under 2.5 s (its landmarks after).
   - The smoke suite's 4 v 4 on Thornwick Woods needs at least one drive (`--min-drives=1`).
+
+## 19. Phase 6: Pb on Android
+
+> **Status: in progress (started 2026-11-10).** The plan is [phase-6.md](phase-6.md). The game is the same on a phone:
+> the sim, the data and every rule; what's new is how it's built, how it's played by touch and how it's drawn on a
+> phone's GPU. Nothing here changes who's out.
+
+### 19.1 The Android build (as built, M6.1)
+
+- **The preset** (`game/export_presets.cfg`, "Android"): 64-bit ARM only (arm64-v8a), no Gradle build (Godot's
+  prebuilt template), Android 7.0 (API 24) and up, target API 36. Landscape (`display/window/handheld/orientation`:
+  either way round, as the phone's held), immersive full screen, and the network permission for playing with others.
+  The package is `org.pbgame.pb`; its icon is `game/icon.png` (`tools/package/android/make-icon.py`: the title mark's
+  splat, "Pb" stencilled on it). It keeps `art/` (the desktop presets leave it out for their packs), so the APK carries
+  the art, and `ArtFiles` looks for no packs on Android. It isn't "runnable" (the editor's one-click deploy to a phone
+  on USB; tick it in the editor to use that): with a runnable Android preset, every headless editor run (the import,
+  each export) ends with an error as Godot's Android plugin reads an editor setting after the settings are gone, and
+  CI's scripts fail on errors.
+- **.NET 9 on Android.** Godot's Android export template only takes net9.0, so `game/Pb.csproj` targets net9.0 when
+  `GodotTargetPlatform` is `android` and net8.0 otherwise; the desktop builds, the sim and the tests are unchanged. The
+  export publishes the assemblies for android-arm64 with the Mono runtime from NuGet's runtime pack.
+- **Textures** import in the phone formats too (`rendering/textures/vram_compression/import_etc2_astc`): each `.import`
+  lists an ETC2/ASTC file beside its S3TC/BPTC one, and each export takes the ones its platform reads.
+- **The build** (`tools/package/android-build.sh`): stamps the build (`res://build.txt`, as on Windows), puts the
+  version name (the stamp) and code (CI's run number) into the preset for the export, and exports with Godot's
+  release template, signed with `tools/package/android/debug.keystore`. Then it drops the runtime pack's static
+  libraries (`lib/*/*.a`, 60 MB no phone loads), aligns the APK again (`zipalign -P 16`, for 16 KB memory pages),
+  signs it again with the same key and checks it: the signature, arm64 alone, the network permission, the version, the
+  engine, the Mono runtime, the game's three assemblies, its data, its stamp, and the textures in their phone formats.
+  The APK is about 230 MB.
+- **CI** ("Android build", after the smoke test, like the Windows build): .NET 8 and 9, a JDK 17, the runner's Android
+  SDK, Godot's `android_release.apk` template (cached), the import, the build, and the folder (`Pb.apk`,
+  `HOW-TO-INSTALL.txt`) as the **Pb-android** artifact.

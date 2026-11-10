@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b5g1iofjtafo"
 path.s3tc="res://.godot/imported/machinery_normal.jpg-cb1aabd43097aca2f595a35903c194ae.s3tc.ctex"
+path.etc2="res://.godot/imported/machinery_normal.jpg-cb1aabd43097aca2f595a35903c194ae.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/machinery_normal.jpg"
-dest_files=["res://.godot/imported/machinery_normal.jpg-cb1aabd43097aca2f595a35903c194ae.s3tc.ctex"]
+dest_files=["res://.godot/imported/machinery_normal.jpg-cb1aabd43097aca2f595a35903c194ae.s3tc.ctex", "res://.godot/imported/machinery_normal.jpg-cb1aabd43097aca2f595a35903c194ae.etc2.ctex"]
 
 [params]
 

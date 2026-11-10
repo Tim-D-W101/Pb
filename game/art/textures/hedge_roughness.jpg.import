@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bihu6cn7v3b8j"
 path.s3tc="res://.godot/imported/hedge_roughness.jpg-c6e25a397cf8b1b8c3bdf4ecc9e1d6ba.s3tc.ctex"
+path.etc2="res://.godot/imported/hedge_roughness.jpg-c6e25a397cf8b1b8c3bdf4ecc9e1d6ba.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/hedge_roughness.jpg"
-dest_files=["res://.godot/imported/hedge_roughness.jpg-c6e25a397cf8b1b8c3bdf4ecc9e1d6ba.s3tc.ctex"]
+dest_files=["res://.godot/imported/hedge_roughness.jpg-c6e25a397cf8b1b8c3bdf4ecc9e1d6ba.s3tc.ctex", "res://.godot/imported/hedge_roughness.jpg-c6e25a397cf8b1b8c3bdf4ecc9e1d6ba.etc2.ctex"]
 
 [params]
 

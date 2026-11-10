@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dx8s5x0fex1pj"
 path.s3tc="res://.godot/imported/plaster_peeling_normal.jpg-1ebbd9f13049c236ab3a1a7048a52900.s3tc.ctex"
+path.etc2="res://.godot/imported/plaster_peeling_normal.jpg-1ebbd9f13049c236ab3a1a7048a52900.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://art/textures/plaster_peeling_normal.jpg"
-dest_files=["res://.godot/imported/plaster_peeling_normal.jpg-1ebbd9f13049c236ab3a1a7048a52900.s3tc.ctex"]
+dest_files=["res://.godot/imported/plaster_peeling_normal.jpg-1ebbd9f13049c236ab3a1a7048a52900.s3tc.ctex", "res://.godot/imported/plaster_peeling_normal.jpg-1ebbd9f13049c236ab3a1a7048a52900.etc2.ctex"]
 
 [params]
 

@@ -75,6 +75,13 @@ public sealed partial class GameSettings
         }
 
         DisplayServer.WindowSetVsyncMode(Vsync ? DisplayServer.VSyncMode.Enabled : DisplayServer.VSyncMode.Disabled);
+        // A phone or tablet is always full screen (the Android preset's immersive mode): asking for a window there would
+        // bring the system's bars back.
+        if (OS.HasFeature("mobile"))
+        {
+            return;
+        }
+
         DisplayServer.WindowMode mode = WindowMode switch
         {
             "fullscreen" => DisplayServer.WindowMode.ExclusiveFullscreen,
