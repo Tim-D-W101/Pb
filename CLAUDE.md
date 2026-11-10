@@ -81,12 +81,20 @@ presentation.jsonc `touch`) and the interface is drawn bigger by the screen's de
 stick, looking, every button, a buggy driven and left, pause and the back button) and `-- --menu-touch-demo` (on the main
 scene) works the menus by taps and drags; both print SMOKE PASS or FAIL, and CI runs them at three phone shapes.
 
-A phone starts on the `mobile` graphics preset (presentation.jsonc `graphics`: one shadow split, the woods' ranges cut by
-`viewScale`, `lodThreshold_px`, no menu backdrop), at 75 % and capped at 30 fps. `--mobile-bench` on a Thornwick Woods run
-measures it against `graphics.mobileBudget` as the run quits: drawn (`--rendering-method mobile`) it counts draw calls and
-triangles, headless it times the game's own work a frame (`--bench-hide=NAME,...` hides nodes to see what they cost).
-`tools/ci/mobile-bench.sh godot` runs CI's four (the vehicle demo's drive and a team round, each drawn under lavapipe and
-timed headless; `apt-get install xvfb mesa-vulkan-drivers`).
+A phone draws with Godot's Compatibility renderer (OpenGL ES 3: project.godot's `.mobile` overrides, which also turn MSAA
+and occlusion culling off there; the desktop stays on Forward+) and starts on the `mobile` graphics preset (presentation.jsonc
+`graphics`: one shadow split, the woods' ranges cut by `viewScale`, `lodThreshold_px`, no menu backdrop), at full resolution
+(a lower render scale is scaled up plainly there, never with FSR) and capped at 30 fps. Shaders that differ under it test
+`CURRENT_RENDERER == RENDERER_COMPATIBILITY` (instance uniforms are scarce there, and blending is in sRGB). To see what a
+phone draws without one: `xvfb-run ... godot --path game --rendering-method gl_compatibility --rendering-driver opengl3_es
+...` (Mesa's OpenGL ES; `apt-get install xvfb libegl1 libgles2 libegl-mesa0`). Each start prints a `RENDER:` line (the
+renderer, the GPU, the 3D view's scale and how it's scaled up). Only `game/core/GcModes.cs` sets the collector's modes:
+Android's runtime (Mono) throws at any but its own, and a sim test holds every other file to that. If the level can't
+start, it says why on the screen and goes back to the menu at a tap (headless, the run fails).
+`--mobile-bench` on a Thornwick Woods run measures the mobile preset against `graphics.mobileBudget` as the run quits: drawn
+(`--rendering-method gl_compatibility --rendering-driver opengl3_es`) it counts draw calls and triangles, headless it times
+the game's own work a frame (`--bench-hide=NAME,...` hides nodes to see what they cost). `tools/ci/mobile-bench.sh godot`
+runs CI's four (the vehicle demo's drive and a team round, each drawn on Mesa's OpenGL ES and timed headless).
 
 Playing with others from the command line (Phase 4; the menu's Play with others does the same):
 - **Hosting and joining:** `-- --host` (on `--port=N`, with `--password=WORD`) or `-- --join=ADDRESS`, as `--name=NAME`
@@ -143,7 +151,8 @@ but the voices. To listen to them outside the game: `godot --headless --path gam
 
 A cloud container can render with Mesa's software Vulkan (lavapipe) under Xvfb (`apt-get install
 mesa-vulkan-drivers` if `vulkaninfo` finds no device; without it Godot falls back to OpenGL, which
-isn't what players see). Godot's Movie Maker writes frames you can inspect:
+isn't what a computer's players see; a phone's are drawn that way, see the Phase 6 notes above). Godot's Movie Maker
+writes frames you can inspect:
 
 ```bash
 # The compound level: hold each of the level's viewpoints for 10 frames, then quit.

@@ -9,9 +9,10 @@ namespace Pb.Game.Core;
 /// <c>-- --mobile-bench</c> (Phase 6): measures what the mobile graphics preset asks of a phone while the run it rides on
 /// plays (on Thornwick Woods, the vehicle demo's drive along the tracks, or a team round with bots fighting and driving), and
 /// as the run quits prints it (MOBILE BENCH lines) and fails the run past presentation.jsonc's
-/// <c>graphics.mobileBudget</c>. Drawn (the Mobile renderer, <c>--rendering-method mobile</c>; Mesa's software Vulkan where
-/// there's no GPU) it counts each frame's draw calls and triangles (shadows included): what a phone's GPU is asked to
-/// draw, the same on any GPU, though the frame rate there means nothing. Headless it times the game's own work for a frame
+/// <c>graphics.mobileBudget</c>. Drawn as a phone draws it (the Compatibility renderer, <c>--rendering-method
+/// gl_compatibility --rendering-driver opengl3_es</c>, Mesa's software OpenGL ES where there's no GPU; occlusion culling
+/// off) it counts each frame's draw calls and triangles (shadows included): what a phone's GPU is asked to draw, the same
+/// on any GPU, though the frame rate there means nothing. Headless it times the game's own work for a frame
 /// at 30 frames a second (the scripts, and the sim's ticks for a thirtieth of a second): drawn in software, Godot's
 /// process time takes in the wait for the frame being drawn, so it's timed where nothing's drawn.
 /// </summary>
@@ -32,6 +33,9 @@ public partial class MobileBench : Node
         _preset = preset;
         _headless = DisplayServer.GetName() == "headless";
         CleanExit.BeforeQuit = Report;
+        // As a phone draws it: project.godot turns occlusion culling off there (use_occlusion_culling.mobile), so the
+        // buildings' occluders hide nothing.
+        GetViewport().UseOcclusionCulling = false;
         if (_headless)
         {
             // The clock's edges, first and last of the whole scene in each pass.

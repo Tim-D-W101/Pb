@@ -178,12 +178,109 @@ tools/ci/mobile-bench.sh godot                                                  
 
 ### Known issues
 
-- The budget (700 draw calls, 750,000 triangles, 6 ms of the game's work a frame on the bench's machine) is what a
-  2023 mid-range phone's GPU and CPU should handle at 30 fps. It's an estimate from counts, not a frame rate measured
-  on one.
+- The budget (700 draw calls, 750,000 triangles, 6 ms of the game's work a frame on the bench's machine; 850 draw calls
+  since M6.4, on the Compatibility renderer) is what a 2023 mid-range phone's GPU and CPU should handle at 30 fps. It's
+  an estimate from counts, not a frame rate measured on one.
 - A phone's GPU cost is mostly filling pixels. The leaves and weeds are alpha-cut cards, the costliest thing for a
   phone's tile-based GPU, and only a phone can measure them. If Thornwick Woods doesn't hold 30 fps on a mid-range
-  phone, the first things to try are the render scale (67 %), fewer weeds, and a lower `viewScale`.
+  phone, the first things to try are keeping the frame cap at 30 and fewer weeds (Settings, Video, Weeds: None), then a
+  lower `viewScale`. A lower render scale comes last: since M6.4 it's scaled up plainly on a phone, never with FSR,
+  and it hasn't been tried on one.
+
+## M6.4 (D) — The grey screen on a phone
+
+**Branch:** `claude/eager-cannon-c05kkv-android-fix` (on M6.3)
+
+Tim installed M6.3's APK (CI's **Pb-android** from that pull request) on his phone. The menus worked, but after Start
+the view stayed grey with the desktop's CONTROLS help over it, and the help never faded. A render scale of 100 % made
+no difference.
+
+### What was wrong
+
+- **The level stopped as it started.** Android's .NET runtime is Mono, and Mono's garbage collector has a single
+  latency mode: asking it for any other throws `PlatformNotSupportedException`. Near the start of its setup the level
+  asked for low latency, to keep full collections out of a round (a Phase 5 fix for hitches on the desktop). That was
+  before it built the world, the camera or the HUD, so the throw left a grey view with the HUD's first frame on it.
+  .NET's own runtime, which every desktop build and CI run on, takes the call, so nothing here showed it.
+  Decompiling Android's `System.Private.CoreLib` (from the runtime pack the APK carries) confirms the throw.
+- **Why the help never faded:** the help fades in the HUD's frame update, which waits until the level has set the HUD
+  up, and the level never got that far. The game wasn't paused.
+
+### What was built
+
+- **The fix:** `GcModes` asks for low latency only where the runtime can give it. A new sim test fails if any other file
+  sets the collector's modes; it would have caught this. The up-front compiling (`JitWarmup`) skips anything Android's
+  runtime won't compile ahead of time, instead of throwing.
+- **No more silent grey:** if anything stops a level as it starts, the screen says what went wrong and the log has the
+  whole report. A tap or the back button (on a computer, a click or a key) goes back to the menu; in CI the run fails.
+  The round's start also unpauses the game, in case anything had paused it.
+- **The renderer:** a phone now draws with Godot's Compatibility renderer (OpenGL ES 3) instead of the Mobile renderer
+  on Vulkan, with no MSAA or occlusion culling and a 1024 px shadow atlas. The desktop is unchanged (Forward+, MSAA,
+  occlusion culling, 4096 px). Three things drew differently under Compatibility, checked on Mesa's OpenGL ES:
+  - Thornwick Woods' weathered walls and props asked for more per-object shader values than Compatibility holds (231
+    errors as it loaded). There those values come from the material, and each door gets its own copy.
+  - The overlays that darken what's under them (contact shadows, cracks, footprints, wet prints) came out darker,
+    because Compatibility blends in the screen's colours rather than in linear light. They're lifted there to match.
+  - Glow turned the ground's overlays black, so it's off under Compatibility (the mobile preset had it off anyway).
+- **Render scale:** a phone starts at 100 %, and a lower scale is scaled up plainly, never with FSR.
+- **The desktop's CONTROLS help** isn't shown on a phone.
+- **A `RENDER:` line in the log**, as the menu and each level start: the renderer, its driver, the GPU, the 3D view's
+  scale and how it's scaled up, MSAA, the window and the phone's model. `adb logcat -s godot` shows it.
+- **The benchmark** now draws the way a phone does: with the Compatibility renderer (on Mesa's OpenGL ES) and occlusion
+  culling off. The same frames take about 40 % more draw calls there than on the Mobile renderer, so the draw-call
+  budget is now 850 (it was 700). The triangles and the game's own work are much as before.
+- **Docs:** [android.md](../android.md) (the renderer; the frame cap and the weeds as the first things to change if a
+  phone stutters or gets hot, not the render scale; the `RENDER:` line), architecture §19.3–19.4, this report, the plan,
+  CLAUDE.md and the README.
+
+### How to run it
+
+```bash
+# What a phone draws, without a phone (apt-get install xvfb libegl1 libgles2 libegl-mesa0):
+xvfb-run -a -s "-screen 0 1600x900x24" godot --path game --rendering-method gl_compatibility --rendering-driver opengl3_es \
+  res://scenes/Level.tscn -- --level=cold_store --place=store --preset=mobile --touch
+tools/ci/mobile-bench.sh godot                     # CI's benchmark, on the Compatibility renderer
+adb logcat -s godot | grep -E "RENDER|ERROR"       # on a phone: what it draws with, and any errors
+```
+
+### Checks
+
+| Check | Result |
+|---|---|
+| The cause | Android's `System.Private.CoreLib`, decompiled: the `GCSettings.LatencyMode` setter throws `PlatformNotSupportedException` for any mode but its own. The new test flags the two lines in M6.3's level that set it, and none now. |
+| Drawn as a phone draws it (the Compatibility renderer on Mesa's OpenGL ES 3.2, the mobile preset, the touch controls) | The cold store from your own view as the round starts, Thornwick Woods and Oxbarrow Works: the world drawn and no errors; acting as a phone, no CONTROLS help (pictures below). Before the shader fix, Thornwick Woods logged 231 errors there. |
+| A level that can't start | Headless, `--level=nowhere` logs "Could not start: data problem: No area 'nowhere' …" and exits 1. Drawn, the screen says so and how to go back (below). |
+| The duel and splat demos on Compatibility | Both pass: the arcs on screen and HIT! once; 12 of 14 paint cards painted (Compatibility has no decals, so paint goes on cards there). |
+| Contact shadows on Compatibility | The floor under one measured 35.5 on Forward+ and 27.2 on Compatibility (mean pixel value); lifted, 36.2. |
+| The benchmark, drawn on Compatibility (occlusion culling off, as on a phone) | The drive: 751 draw calls at the 95th percentile (506 typically), 634,000 triangles. The round: 741 (417 typically), 615,000. Both within 850 and 750,000. With occlusion culling on, as a computer has it, they drew 740 and 729, so a phone loses little with it off. |
+| The benchmark, timed headless | The game's work: 3.5 ms a frame at 30 fps on the drive and 3.8 ms in the round, on average (4.6 and 5.5 at the 95th percentile): within 6 ms. |
+| `dotnet test` | 570 sim tests (one new: only `GcModes` sets the collector's modes) and 73 network tests pass. |
+| Smoke runs | 17 of CI's runs pass: the menu, the range, Oxbarrow Works' walk-through and a bot match, the cold store's and Thornwick Woods' walk-throughs, a Thornwick Woods bot match, the vehicle, splat and duel demos, an art match, the touch demo at two phone shapes, the menu-touch demo at three, and the art check. CI runs the whole suite. |
+| `tools/package/android-build.sh` | Builds and checks `Pb.apk`: 230 MB, `org.pbgame.pb`, arm64-v8a only, signed with the Pb debug key, 126 textures in their phone formats. Its manifest asks for OpenGL ES 3.0 and nothing of Vulkan, and its project settings carry the `.mobile` overrides (Compatibility, no MSAA, no occlusion culling, a 1024 px shadow atlas). |
+
+![The cold store, inside, drawn as a phone draws it: the round under way, the touch controls over it, no desktop help](phase-6/m6.4-1-cold-store.jpg)
+
+![Thornwick Woods from your own start, drawn the same way](phase-6/m6.4-2-thornwick-woods.jpg)
+
+![A level that can't start says why, and how to go back](phase-6/m6.4-3-cannot-start.jpg)
+
+### Known issues
+
+- **Not run on a phone yet.** The fix removes the cause found in the code (the one that leaves exactly that grey
+  view), checked against Android's own runtime library, but only a phone can show the world now appears. If anything
+  else stops a round on a phone, the screen now says what, and `adb logcat -s godot` has the whole report.
+- The new test covers the collector's modes. Any other call Android's runtime turns down would only show on a phone,
+  though now on the screen rather than as a grey view.
+- Compatibility has no decals (paint goes on cards, as it did before on Compatibility), no glow and no FSR. Its sun
+  shadow and its light are close to the Mobile renderer's but not the same, and they're judged here on Mesa's
+  software renderer, not a phone's GPU.
+- The draw-call budget went up with the renderer (850, from 700). It's still an estimate from counts. Draw calls cost a
+  phone's CPU, so if a round stutters with the frame cap at 30 and the weeds off, they're the next thing to look at.
+
+### What's next
+
+Tim installs this build over the last one: does a round start, with the world drawn? Its `RENDER:` line (`adb logcat
+-s godot`) says what it drew with; if a round still can't start, the screen says why.
 
 ## What couldn't be tested without a real device
 
@@ -192,16 +289,22 @@ phone:
 
 - the APK was built and checked: signature, contents, manifest and the art in its phone formats;
 - every touch was simulated with the same events a phone sends;
-- the Mobile renderer was drawn on Mesa's software Vulkan.
+- the Mobile renderer was drawn on Mesa's software Vulkan, and since M6.4 the Compatibility renderer (what a phone now
+  draws with) on Mesa's software OpenGL ES 3.2;
+- since M6.4, the call that stopped the level on Tim's phone was checked against Android's own runtime library
+  (decompiled), as no Android runtime runs here.
 
 What only a phone can show:
 
-- **That the APK starts and runs:** the .NET runtime on Android, the first launch's shader compiling, and loading
-  Thornwick Woods within a phone's memory.
+- **That a round now starts and the world appears** (M6.4's fix): Tim's phone ran the APK and its menus, so the .NET
+  runtime on Android, the first launch and the menus are known to work; loading Thornwick Woods within a phone's
+  memory isn't yet.
 - **The frame rate,** and whether it holds a steady 30 fps on a mid-range phone. The bench gives the counts and the
   game's CPU time, not a phone's GPU time, and the alpha-cut foliage and the full-screen passes are the unknowns.
 - **Heat and battery** over a long round (the 30 fps cap is there for them).
-- **A phone's own GPU drivers**, and the Compatibility fallback (OpenGL ES 3) on a phone without Vulkan.
+- **A phone's own OpenGL ES driver** (an Adreno's, a Mali's, a PowerVR's): the Compatibility renderer was drawn here on
+  Mesa's software one only, and phones' drivers differ in what they hold (the per-object shader values that overflowed
+  on Thornwick Woods, for one) and in their shader compilers.
 - **How the controls feel under a real thumb:** the look speed, the stick's size, and where the buttons sit (all
   adjustable in Settings).
 - **The phone's own keyboard, back button, safe area and notch:** simulated here, shown and sent by Android there.

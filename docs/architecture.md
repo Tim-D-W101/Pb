@@ -1834,9 +1834,10 @@ time near the other areas'.
 
 ### 19.3 The mobile preset and its benchmark (as built, M6.3)
 
-- **The renderer.** On a phone Godot runs its Mobile renderer (Vulkan; the project's `rendering_method.mobile` is Godot's
-  default) and falls back to Compatibility (OpenGL ES 3) where a phone has no Vulkan. The desktop stays on Forward+. The
-  render scale's FSR upscale needs Vulkan, so under Compatibility the 3D view is scaled up plainly.
+- **The renderer.** On a phone Godot runs its Compatibility renderer (OpenGL ES 3): since M6.4 project.godot's
+  `rendering_method.mobile` names it (§19.4). As built in M6.3 it was Godot's default there, the Mobile renderer on
+  Vulkan, falling back to Compatibility where a phone had no Vulkan. The desktop stays on Forward+. The render scale's
+  FSR upscale is never used on a phone or under Compatibility: a smaller view is scaled up plainly (bilinear).
 - **The "mobile" preset** (presentation.jsonc `graphics.presets`, the cheapest, first): one shadow split
   (`shadowSplits`, new: the others keep four) at 1024 px out to 40 m; no ambient occlusion, bounced light, reflections,
   fog volumes, glow, sunbeams, dust or window lights; a quarter of the weeds out to 18 m; nothing lying on the ground and
@@ -1844,20 +1845,69 @@ time near the other areas'.
   visibility ranges) and every mesh's detail dropped sooner (`lodThreshold_px`, new: Godot's mesh LOD threshold, 4 px
   rather than 1); and no 3D scene behind the main menu (`menuBackdrop`, new), which would keep the GPU busy in the menus.
 - **A phone's starting settings** (`GameSettings.DefaultsFrom` on `OS.HasFeature("mobile")`): the mobile preset
-  (`defaultPresetMobile`), the 3D view at 75 % (`renderScaleMobile`), and a 30 fps cap (`frameCapMobile`): steady rather
-  than swinging between 60 and 30, and cooler. Settings, Video changes any of them; saved choices are kept.
+  (`defaultPresetMobile`), the 3D view at the screen's own resolution (`renderScaleMobile`: 75 % as built in M6.3, 100 %
+  since M6.4), and a 30 fps cap (`frameCapMobile`): steady rather than swinging between 60 and 30, and cooler. Settings,
+  Video changes any of them; saved choices are kept.
 - **`--mobile-bench`** (`game/core/MobileBench.cs`) rides on a run on Thornwick Woods (the vehicle demo's drive, or a 4 v 4
   team round with bots fighting and driving) with the mobile preset and its render scale, and as the run quits prints what
-  it measured and fails it past `graphics.mobileBudget`. Drawn (the Mobile renderer; lavapipe in CI) it counts each frame's
-  draw calls and triangles, shadows included: what a phone's GPU is asked to draw, the same on any GPU. Headless it times
+  it measured and fails it past `graphics.mobileBudget`. Drawn (since M6.4 the Compatibility renderer, as on a phone, on
+  Mesa's software OpenGL ES in CI, with occlusion culling off as a phone has it; the Mobile renderer on lavapipe before)
+  it counts each frame's draw calls and triangles, shadows included: what a phone's GPU is asked to draw, the same on any
+  GPU. Headless it times
   the game's own work for a frame at 30 fps, between two `BenchClock` nodes that process first and last of the whole scene
   in each pass (scripts, the sim's ticks, animation); drawn in software, Godot's own process time takes in the wait for
   the frame, so it's timed where nothing's drawn. `CleanExit.BeforeQuit` lets it report and fail the run as it quits.
   `--bench-hide=NAME,...` hides nodes by name, to see what they cost.
-- **The budget** (95th percentile of the frames; the game's work on average): 700 draw calls, 750,000 triangles, 6 ms. As
-  set: the drive drew about 550 draw calls and 625,000 triangles at the 95th percentile (400 and 425,000 typically), the
-  round 545 and 620,000 (300 and 495,000), and the game's work was 3.1 and 3.4 ms a frame; the desktop's Medium preset on
-  Forward+ drew 1,040 and 1,240,000 on the same drive. Without the woods the drive drew about 130,000 fewer triangles
-  and much the same draw calls: the rest is the ground, the weeds, the characters, the buggies and the dressing.
-- **CI** ("Mobile benchmark"): xvfb and Mesa's lavapipe, then `tools/ci/mobile-bench.sh`: each scenario drawn at 5 fps
-  (`--fast`: the sim's ticks run on regardless) and timed headless at 30 fps.
+- **The budget** (95th percentile of the frames; the game's work on average): 850 draw calls, 750,000 triangles, 6 ms
+  (700 draw calls in M6.3, on the Mobile renderer). As set in M6.3, on the Mobile renderer: the drive drew about 550 draw
+  calls and 625,000 triangles at the 95th percentile (400 and 425,000 typically), the round 545 and 620,000 (300 and
+  495,000), and the game's work was 3.1 and 3.4 ms a frame; the desktop's Medium preset on Forward+ drew 1,040 and
+  1,240,000 on the same drive. Without the woods the drive drew about 130,000 fewer triangles and much the same draw
+  calls: the rest is the ground, the weeds, the characters, the buggies and the dressing. On the Compatibility renderer
+  (M6.4) the same frames take about 40 % more draw calls: the drive 751 at the 95th percentile (506 typically) and the
+  round 741 (417), with much the same triangles (634,000 and 615,000). The ground is the biggest single part of that
+  (without it the drive drew about 120 fewer).
+- **CI** ("Mobile benchmark"): xvfb and Mesa's software OpenGL ES (llvmpipe; lavapipe's Vulkan in M6.3), then
+  `tools/ci/mobile-bench.sh`: each scenario drawn at 5 fps (`--fast`: the sim's ticks run on regardless) and timed
+  headless at 30 fps.
+
+### 19.4 The grey screen on a phone (as built, M6.4)
+
+Tim's first install (M6.3's APK) stayed grey after Start, the desktop's CONTROLS help up and never fading.
+
+- **The cause.** Android's .NET runtime is Mono, not .NET's CoreCLR, and Mono's collector has one latency mode: setting
+  `GCSettings.LatencyMode` to any other throws `PlatformNotSupportedException` (Android's `System.Private.CoreLib`,
+  decompiled, says so). The level set it (sustained low latency, Phase 5's hitch fix) early in `_Ready`, before it built
+  the world, the camera or the HUD, so the throw left a grey view with the HUD's first frame over it. The help fades in
+  the HUD's `_Process`, which waits for the HUD's `Initialize`, so it never faded. The tree wasn't paused.
+- **The fix.** `game/core/GcModes.cs` is the one place that sets the collector's modes, and leaves them alone where the
+  runtime can't change them (Mono). A sim test (`AndroidRuntimeTests`) fails if any other file in `game/`, `src/` or
+  `tools/` sets the latency or large-object compaction mode, or starts a no-GC region or full-GC notifications.
+  `JitWarmup` skips a type or a method the runtime won't load or compile ahead of a call, instead of throwing.
+- **No more silent grey.** `LevelMain._Ready` runs the level's setup in a try. If anything throws, the HUD says what
+  (`Hud.ShowFatal`: the exception's type and message), the log has the whole report (`GD.PushError`), the touch controls
+  go, the tree is unpaused, and a tap, a click, a key or the back button goes back to the menu; headless (CI) the run
+  fails. A data file's error takes the same path. `BeginRound` unpauses the tree as the round goes live.
+- **The renderer** (§19.3): project.godot's `.mobile` overrides draw a phone with the Compatibility renderer (OpenGL ES
+  3), without MSAA or occlusion culling, and with a 1024 px sun shadow atlas; the desktop keeps Forward+, MSAA, occlusion
+  culling and its 4096 px atlas. Under Compatibility:
+  - **Instance uniforms** live in a small buffer (4,096 items under Mesa; a phone may have fewer), and Thornwick Woods'
+    weathered walls and props overflowed it (231 errors as the level loaded). There
+    `weathered.gdshaderinc` reads `local_pattern` and `local_origin` from the material instead (the shader tests
+    `CURRENT_RENDERER == RENDERER_COMPATIBILITY`), and `DoorViews` gives each door leaf's surfaces their own copy of the
+    material.
+  - **Blending** is in the sRGB output, where Forward+ blends in linear light, so the overlays that multiply what's under
+    them (contact shadows, cracks, footprints, wet prints) came out darker: they're lifted there (`pow(ALBEDO, 0.56)`),
+    and a contact shadow leaves the floor as light as on Forward+.
+  - **Glow** is off: it turned the ground's overlays black.
+  - **The render scale** scales up plainly (bilinear), never with FSR (on a phone, under any renderer), and a phone
+    starts at 100 %.
+- **The log line.** `RenderInfo.Line`: `RENDER: <method> renderer (<driver>) on <GPU> by <vendor> (<API version>); 3D at
+  <scale> % (FSR 1.0 | FSR 2 | bilinear), MSAA <off | 2x | 4x>; window W × H, interface × F; <OS> <version>, <model>`, as
+  the menu starts (after the .NET runtime's line, which now names the runtime too), as each level starts (with the
+  preset) and on the training ground; headless (CI, a dedicated server) it says `RENDER: none, headless`, as nothing's
+  drawn. On a phone, `adb logcat -s godot` shows it.
+- **The help** (`Hud.HelpText`, the keyboard's and mouse's controls) isn't shown on a phone (`TouchUi.Phone`).
+- **Checked without a phone** on Mesa's OpenGL ES 3.2 (llvmpipe) under xvfb, `--rendering-method gl_compatibility
+  --rendering-driver opengl3_es`: the cold store, Thornwick Woods and Oxbarrow Works drawn with the mobile preset and the
+  touch controls, the duel and splat demos, and the benchmark (§19.3).

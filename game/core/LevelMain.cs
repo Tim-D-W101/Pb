@@ -163,6 +163,12 @@ public partial class LevelMain : Node3D, ISimEventListener
     private bool _summaryShown;
     private bool _summaryEarly;
     private bool _ready;
+
+    /// <summary>
+    /// The level couldn't start: its reason is on the screen, and a tap, a click, a key or the back button goes back to the
+    /// menu (a phone has no console to show it on).
+    /// </summary>
+    private bool _failed;
     /// <summary>A real round (not a scripted run or a tour): it goes in your records when it ends.</summary>
     private bool _counts;
 
@@ -218,6 +224,40 @@ public partial class LevelMain : Node3D, ISimEventListener
     public bool Spectating => _spectator is not null;
 
     public override void _Ready()
+    {
+        try
+        {
+            Setup();
+        }
+        catch (Exception ex)
+        {
+            // Whatever stops the level part-built is shown, not left as a grey screen with the HUD's first frame on it: on
+            // a phone (Phase 6, Android's runtime turned down a call the computer's takes) nothing else would say why.
+            Fail("The round couldn't start", $"{ex.GetType().Name}: {ex.Message}", ex.ToString());
+        }
+    }
+
+    /// <summary>The level couldn't start: why, on the screen and in the log, and a way back to the menu.</summary>
+    private void Fail(string title, string message, string? detail = null)
+    {
+        GD.PushError($"{title}: {detail ?? message}");
+        _failed = true;
+        _ready = false;
+        _touch?.QueueFree(); // taps work as clicks again, to go back
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+        GetTree().Paused = false;
+        (_hud ?? GetNode<Hud>("Hud")).ShowFatal(message, title,
+            OS.HasFeature("mobile") || TouchUi.Phone
+                ? "Tap the screen to go back to the menu. (adb logcat -s godot shows the whole report.)"
+                : "Click or press a key to go back to the menu.");
+        // Headless, nobody can read the message and leave, so the run would wait for ever.
+        if (Args.Has("--smoke-test") || DisplayServer.GetName() == "headless")
+        {
+            GetTree().QuitCleanly(1);
+        }
+    }
+
+    private void Setup()
     {
         _hud = GetNode<Hud>("Hud");
         _driver = GetNode<SimDriver>("SimDriver");
@@ -278,14 +318,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         }
         catch (Exception ex) when (ex is DataException or InvalidOperationException)
         {
-            GD.PushError(ex.Message);
-            _hud.ShowFatal(ex.Message);
-            // Headless, nobody can read the message and leave, so the run would wait for ever.
-            if (Args.Has("--smoke-test") || DisplayServer.GetName() == "headless")
-            {
-                GetTree().QuitCleanly(1);
-            }
-
+            Fail("Could not start: data problem", ex.Message);
             return;
         }
 
@@ -663,7 +696,16 @@ public partial class LevelMain : Node3D, ISimEventListener
             _sim.GoLive();
         }
 
-        (int warmed, double warmMs) = warming.Result;
+        // The warm-up only spares the round some first-call stalls: if it stops, the round goes on without it.
+        (int warmed, double warmMs) = (0, 0.0);
+        try
+        {
+            (warmed, warmMs) = warming.Result;
+        }
+        catch (AggregateException ex)
+        {
+            GD.PushWarning($"Compiling up front stopped ({ex.InnerException?.GetType().Name}: {ex.InnerException?.Message}); methods compile as they're called");
+        }
         clock.Lap("characters, bots and the rest");
         GD.Print(clock.Line);
         if (Args.Ticks("--smoke-test", 1800) is { } ticks)
@@ -1663,11 +1705,24 @@ public partial class LevelMain : Node3D, ISimEventListener
     /// <summary>The network's turn comes off the tick (leaving, or going on to the next round).</summary>
     private void StopNetwork()
     {
-        _driver.BeforeTick = null;
-        _driver.AfterStep = null;
-        _player.Predict = null;
-        _player.CorrectionOffset = null;
-        _vehicles.DrawnOffset = null;
+        // (A level that couldn't start may not have got as far as all of these.)
+        if (_driver is not null)
+        {
+            _driver.BeforeTick = null;
+            _driver.AfterStep = null;
+        }
+
+        if (_player is not null)
+        {
+            _player.Predict = null;
+            _player.CorrectionOffset = null;
+        }
+
+        if (_vehicles is not null)
+        {
+            _vehicles.DrawnOffset = null;
+        }
+
         if (_listening is not null)
         {
             _listening.Left -= OnPersonLeft;
@@ -1683,7 +1738,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     public override void _ExitTree()
     {
         StopNetwork();
-        System.Runtime.GCSettings.LatencyMode = _latencyBefore;
+        GcModes.Restore(_latencyBefore);
     }
 
     /// <summary>
@@ -1693,8 +1748,7 @@ public partial class LevelMain : Node3D, ISimEventListener
     /// </summary>
     private void HoldOffCollections()
     {
-        _latencyBefore = System.Runtime.GCSettings.LatencyMode;
-        System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
+        _latencyBefore = GcModes.HoldOffFullCollections();
         for (int g = 0; g < 3; g++)
         {
             _collectionsAtLoad[g] = GC.CollectionCount(g);
@@ -1863,6 +1917,8 @@ public partial class LevelMain : Node3D, ISimEventListener
     private void BeginRound()
     {
         CloseOverlay();
+        // Nothing should have paused the tree at the briefing; if anything had, the round wouldn't run (Phase 6).
+        GetTree().Paused = false;
         _sim.GoLive();
         CaptureMouse();
     }
@@ -1903,6 +1959,13 @@ public partial class LevelMain : Node3D, ISimEventListener
     /// </summary>
     public override void _Notification(int what)
     {
+        if (what == NotificationWMGoBackRequest && _failed)
+        {
+            _failed = false; // once (a tap comes as a touch and as the click made from it)
+            BackToLevelSelect();
+            return;
+        }
+
         if (what != NotificationWMGoBackRequest || !_ready)
         {
             return;
@@ -2422,6 +2485,14 @@ public partial class LevelMain : Node3D, ISimEventListener
 
     public override void _UnhandledInput(InputEvent e)
     {
+        if (_failed && e is InputEventScreenTouch { Pressed: true } or InputEventMouseButton { Pressed: true } or InputEventKey { Pressed: true } or
+                InputEventJoypadButton { Pressed: true })
+        {
+            _failed = false; // once (a tap comes as a touch and as the click made from it)
+            BackToLevelSelect();
+            return;
+        }
+
         if (!_ready)
         {
             return;
@@ -2530,6 +2601,7 @@ public partial class LevelMain : Node3D, ISimEventListener
         Atmosphere.ApplyRenderScale(GetViewport(), scale, _view.Graphics);
         _world.ViewScale(preset.ViewScale);
         _weeds.ApplyPreset(preset);
+        GD.Print(RenderInfo.Line(GetViewport()) + $"; preset {preset.Name}");
         _groundDetail.Visible = preset.GroundDetail;
         if (_ripples is not null)
         {

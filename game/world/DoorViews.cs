@@ -27,6 +27,31 @@ public partial class DoorViews : Node3D
 
     public int Count => _leaves.Count;
 
+    /// <summary>
+    /// The leaf's weathering in its own frame: per instance, or under the Compatibility renderer (phones), whose instance
+    /// uniforms a level's walls and props would overflow, in a copy of each of its materials (weathered.gdshaderinc).
+    /// </summary>
+    private static void DrawInOwnFrame(MeshInstance3D leaf, ArrayMesh mesh, Vector3 origin)
+    {
+        if (RenderingServer.GetCurrentRenderingMethod() != "gl_compatibility")
+        {
+            leaf.SetInstanceShaderParameter("local_pattern", true);
+            leaf.SetInstanceShaderParameter("local_origin", origin);
+            return;
+        }
+
+        for (int s = 0; s < mesh.GetSurfaceCount(); s++)
+        {
+            if (mesh.SurfaceGetMaterial(s) is ShaderMaterial shared)
+            {
+                var own = (ShaderMaterial)shared.Duplicate();
+                own.SetShaderParameter("local_pattern", true);
+                own.SetShaderParameter("local_origin", origin);
+                leaf.SetSurfaceOverrideMaterial(s, own);
+            }
+        }
+    }
+
     public void Build(SimWorld sim, MaterialLibrary materials)
     {
         _doors = sim.Doors;
@@ -45,8 +70,7 @@ public partial class DoorViews : Node3D
 
             var leaf = new MeshInstance3D { Name = $"Door{i}", Mesh = mesh, Layers = RenderLayer };
             // Its pattern and stains drawn in its own frame, from where it hangs shut, so they swing with it.
-            leaf.SetInstanceShaderParameter("local_pattern", true);
-            leaf.SetInstanceShaderParameter("local_origin", spec.ShutCenter.ToGodot() + new Vector3(0f, spec.Height * 0.5f, 0f));
+            DrawInOwnFrame(leaf, mesh, spec.ShutCenter.ToGodot() + new Vector3(0f, spec.Height * 0.5f, 0f));
             AddChild(leaf);
             _leaves.Add(leaf);
 

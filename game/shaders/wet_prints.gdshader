@@ -31,4 +31,9 @@ void fragment() {
 	// Drying: the wet area shrinks towards where the most water is.
 	float wet = smoothstep(v_dry * 0.85, v_dry * 0.85 + 0.12, water);
 	ALBEDO = mix(vec3(1.0), COLOR.rgb, wet * COLOR.a);
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	// The Compatibility renderer (phones) multiplies what's under it in its sRGB output, where the same factor darkens
+	// more than in Forward+'s linear light: lifted to match, as contact_shadows.gdshader is.
+	ALBEDO = pow(ALBEDO, vec3(0.56));
+#endif
 }
