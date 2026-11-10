@@ -66,6 +66,15 @@ address (a game hosted on a computer, or a dedicated server).
 A game pad (Bluetooth or USB) plays it as on a computer, with the same buttons: once you use it the touch controls go,
 and they're back at your next touch of the screen.
 
+## Graphics
+
+A phone starts on the **Mobile** graphics preset, drawn by Godot's Mobile renderer (Vulkan; a phone without Vulkan
+falls back to OpenGL ES 3): one sun shadow, nearer and coarser; none of the desktop's costlier effects (ambient
+occlusion, glow, sunbeams, reflections); the trees drawn less far and made simpler sooner; fewer weeds; the 3D view
+drawn at 75 % of the screen and scaled up; and a cap of 30 frames a second, for a steady frame rate and a cooler phone.
+There's no 3D scene behind the menus. **Settings, Video** changes any of it: a fast phone can lift the cap to 60 or
+draw the view at 100 %; a phone that gets hot or stutters can drop it to 67 %.
+
 ## If something goes wrong
 
 With the phone on USB (as for adb above), `adb logcat -s godot` shows what the game prints while it runs, its errors

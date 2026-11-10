@@ -21,6 +21,7 @@ public class SettingsTests
         TouchOpacity = 0.55f,
         TouchOpacityRange = new[] { 0.2f, 1f },
         Vsync = true,
+        FrameCap = 0,
         GraphicsPresets = new[] { "medium", "low", "high", "ultra" },
         RenderScales = new[] { 1f, 0.85f, 0.75f, 0.67f, 0.5f },
         Fov = 90f,
@@ -99,6 +100,31 @@ public class SettingsTests
         Assert.Equal(0.55f, s.TouchOpacity);
         Assert.False(s.TouchLeftHanded);
         Assert.Equal(GameSettings.CurrentVersion, s.Version);
+    }
+
+    [Fact]
+    public void A_phone_starts_on_the_mobile_preset_its_render_scale_and_a_30_fps_cap()
+    {
+        // As GameSettings.DefaultsFrom gives them on a phone: the mobile preset and its render scale first, a frame cap.
+        var phone = new SettingsDefaults
+        {
+            MouseSensitivity = Defaults.MouseSensitivity, InvertY = Defaults.InvertY, StickSpeed = Defaults.StickSpeed, StickCurve = Defaults.StickCurve,
+            TouchLook = Defaults.TouchLook, TouchLookRange = Defaults.TouchLookRange, TouchButtonScale = Defaults.TouchButtonScale,
+            TouchButtonScaleRange = Defaults.TouchButtonScaleRange, TouchOpacity = Defaults.TouchOpacity, TouchOpacityRange = Defaults.TouchOpacityRange,
+            Vsync = Defaults.Vsync, FrameCap = 30, GraphicsPresets = new[] { "mobile", "medium", "low", "high", "ultra" },
+            RenderScales = new[] { 0.75f, 1f, 0.85f, 0.67f, 0.5f }, Fov = Defaults.Fov, FovMin = Defaults.FovMin, FovMax = Defaults.FovMax,
+            Master = Defaults.Master, Effects = Defaults.Effects, Voices = Defaults.Voices, Ambience = Defaults.Ambience, Menus = Defaults.Menus,
+            Crosshair = Defaults.Crosshair, HeadBob = Defaults.HeadBob, TeamColorSets = Defaults.TeamColorSets, Actions = Defaults.Actions,
+        };
+        GameSettings fresh = GameSettings.FromJson(null, phone, out _);
+        Assert.Equal("mobile", fresh.GraphicsPreset);
+        Assert.Equal(0.75f, fresh.RenderScale);
+        Assert.Equal(30, fresh.FrameCap);
+        // What a player chose stays theirs.
+        GameSettings chosen = GameSettings.FromJson("""{ "graphicsPreset": "low", "renderScale": 1, "frameCap": 60, "version": 2 }""", phone, out _);
+        Assert.Equal("low", chosen.GraphicsPreset);
+        Assert.Equal(1f, chosen.RenderScale);
+        Assert.Equal(60, chosen.FrameCap);
     }
 
     [Fact]

@@ -1,8 +1,9 @@
 # Phase 6 — Pb on Android: plan
 
-> **Status: in progress (started 2026-11-10).** Tim's brief for this phase (below) says what to build and in what
-> order, so it's taken as the go-ahead, with the defaults chosen here; each item lands as its own draft pull request,
-> stacked on the one before, with its own part of the [report](reports/phase-6.md). Technical design:
+> **Status: built (2026-11-10), in three stacked pull requests; what only a phone can show is listed in the
+> [report](reports/phase-6.md).** Tim's brief for this phase (below) says what to build and in what order, so it's taken
+> as the go-ahead, with the defaults chosen here; each item lands as its own draft pull request, stacked on the one
+> before, with its own part of the [report](reports/phase-6.md). Technical design:
 > [architecture.md §19](architecture.md#19-phase-6-pb-on-android). Everything in [spec.md](spec.md) still applies: the
 > sim decides every outcome, metric units, original IP, data files, tests.
 

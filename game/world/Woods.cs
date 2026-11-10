@@ -28,6 +28,30 @@ public partial class Woods : Node3D
 
     public int TreeCount { get; private set; }
 
+    /// <summary>The ranges the level's own stands were built with (null for the copses out beyond it).</summary>
+    private WoodsDef? _stands;
+
+    /// <summary>
+    /// The level's own stands drawn out to <paramref name="scale"/> of their ranges (the graphics preset's view scale):
+    /// their wood, and their leaves further.
+    /// </summary>
+    public void ViewScale(float scale)
+    {
+        if (_stands is not { } def)
+        {
+            return;
+        }
+
+        foreach (Node child in GetChildren())
+        {
+            if (child is GeometryInstance3D g && !g.IsQueuedForDeletion())
+            {
+                g.VisibilityRangeEnd = (child is MultiMeshInstance3D ? def.StandLeafRange_m : def.StandWoodRange_m) * scale;
+                g.VisibilityRangeEndMargin = def.StandFade_m * scale;
+            }
+        }
+    }
+
     /// <summary>
     /// Grows the copses round <paramref name="place"/> (a plan rectangle, x and z), keeping
     /// <paramref name="def"/>'s clearance from it and from the lines of <paramref name="scenery"/>.
@@ -168,6 +192,8 @@ public partial class Woods : Node3D
         {
             child.QueueFree();
         }
+
+        _stands = def;
 
         TreeCount = trees.Count;
         if (trees.Count == 0)

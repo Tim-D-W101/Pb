@@ -1136,6 +1136,18 @@ public sealed class GraphicsDef : IValidatable
 {
     public string DefaultPreset { get; set; } = "";
 
+    /// <summary>On a phone or tablet (Phase 6): the preset it starts on.</summary>
+    public string DefaultPresetMobile { get; set; } = "";
+
+    /// <summary>On a phone or tablet: the render scale it starts on (one of <see cref="RenderScales"/>).</summary>
+    public float RenderScaleMobile { get; set; }
+
+    /// <summary>On a phone or tablet: the frame cap it starts with (one of <see cref="GameSettings.FrameCaps"/>; 0: none).</summary>
+    public int FrameCapMobile { get; set; }
+
+    /// <summary>What <c>--mobile-bench</c> holds the mobile preset to.</summary>
+    public MobileBudgetDef MobileBudget { get; set; } = new();
+
     /// <summary>Whether v-sync starts on (players can turn it off).</summary>
     public bool Vsync { get; set; }
 
@@ -1247,6 +1259,51 @@ public sealed class GraphicsDef : IValidatable
         {
             v.Error(nameof(DefaultPreset), $"no preset named '{DefaultPreset}'");
         }
+
+        if (Presets.All(p => p.Name != DefaultPresetMobile))
+        {
+            v.Error(nameof(DefaultPresetMobile), $"no preset named '{DefaultPresetMobile}'");
+        }
+
+        if (!RenderScales.Contains(RenderScaleMobile))
+        {
+            v.Error(nameof(RenderScaleMobile), $"{RenderScaleMobile} isn't one of renderScales");
+        }
+
+        if (!GameSettings.FrameCaps.Contains(FrameCapMobile))
+        {
+            v.Error(nameof(FrameCapMobile), $"{FrameCapMobile} isn't one of the frame caps offered ({string.Join(", ", GameSettings.FrameCaps)})");
+        }
+
+        MobileBudget.Validate(v.Scope(nameof(MobileBudget)));
+    }
+}
+
+/// <summary>
+/// The mobile preset's budget (Phase 6): what a mid-range phone draws at a steady 30 frames a second, which
+/// <c>--mobile-bench</c> fails past. The counts are the same on any GPU; the CPU time is the game's own work a frame on
+/// the machine the bench runs on, which a phone's slower cores take a few times longer over.
+/// </summary>
+public sealed class MobileBudgetDef : IValidatable
+{
+    /// <summary>Draw calls in a frame (the 95th percentile of the frames measured).</summary>
+    public int DrawCalls { get; set; }
+
+    /// <summary>Triangles drawn in a frame, shadows included (95th percentile).</summary>
+    public int Triangles { get; set; }
+
+    /// <summary>The game's own work a frame (scripts and the sim's ticks), ms on average.</summary>
+    public float Cpu_ms { get; set; }
+
+    /// <summary>Frames left out at the start, while the place settles (shaders, the first shadows).</summary>
+    public int SkipFrames { get; set; }
+
+    public void Validate(Validator v)
+    {
+        v.InRange(nameof(DrawCalls), DrawCalls, 50, 20000);
+        v.InRange(nameof(Triangles), Triangles, 10000, 50000000);
+        v.InRange(nameof(Cpu_ms), Cpu_ms, 0.5, 100);
+        v.InRange(nameof(SkipFrames), SkipFrames, 0, 1000);
     }
 }
 
@@ -1311,6 +1368,25 @@ public sealed class GraphicsPresetDef : IValidatable
     [Optional]
     public bool Shadows { get; set; } = true;
 
+    /// <summary>How many splits (cascades) the sun's shadows are drawn in: 1, 2 or 4. Fewer is cheaper, coarser near by.</summary>
+    [Optional]
+    public int ShadowSplits { get; set; } = 4;
+
+    /// <summary>How far the level's trees are drawn, as a share of presentation.jsonc <c>woods</c>'s ranges.</summary>
+    [Optional]
+    public float ViewScale { get; set; } = 1f;
+
+    /// <summary>
+    /// How small a mesh's detail may get on the screen before a simpler version of it is drawn (Godot's mesh LOD
+    /// threshold, in pixels): higher drops detail nearer.
+    /// </summary>
+    [Optional]
+    public float LodThreshold_px { get; set; } = 1f;
+
+    /// <summary>Whether the level is drawn in 3D behind the main menu (off on a phone: it'd keep the GPU busy in the menus).</summary>
+    [Optional]
+    public bool MenuBackdrop { get; set; } = true;
+
     public GraphicsPresetDef Copy() => (GraphicsPresetDef)MemberwiseClone();
 
     public void Validate(Validator v)
@@ -1327,6 +1403,13 @@ public sealed class GraphicsPresetDef : IValidatable
         v.InRange(nameof(WeedDensity), WeedDensity, 0, 1);
         v.InRange(nameof(WeedDistance_m), WeedDistance_m, 5, 300);
         v.InRange(nameof(LightShafts), LightShafts, 0, 4);
+        if (ShadowSplits is not (1 or 2 or 4))
+        {
+            v.Error(nameof(ShadowSplits), $"{ShadowSplits} is not 1, 2 or 4");
+        }
+
+        v.InRange(nameof(ViewScale), ViewScale, 0.2, 2);
+        v.InRange(nameof(LodThreshold_px), LodThreshold_px, 0, 32);
     }
 }
 

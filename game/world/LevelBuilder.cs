@@ -59,6 +59,12 @@ public partial class LevelBuilder : Node3D
     /// <summary>How many trees stand out beyond the level (<see cref="Woods"/>).</summary>
     public int TreeCount { get; private set; }
 
+    /// <summary>The level's own woods (Thornwick's stands), if it has any.</summary>
+    private Woods? _stands;
+
+    /// <summary>The level's own woods drawn out to <paramref name="scale"/> of their ranges (the graphics preset's view scale).</summary>
+    public void ViewScale(float scale) => _stands?.ViewScale(scale);
+
     /// <summary>Where rain runs off the buildings' and walls' details down their faces, for <see cref="RunOff"/>.</summary>
     public List<Drip> Drips { get; } = new();
 
@@ -175,7 +181,7 @@ public partial class LevelBuilder : Node3D
             if (level.Trees.Count > 0)
             {
                 // The level's own woods, where the sim has their trunks.
-                var stands = new Woods { Name = "Stands" };
+                var stands = _stands = new Woods { Name = "Stands" };
                 AddChild(stands);
                 stands.BuildStands(level.Trees, woods);
                 TreeCount += stands.TreeCount;

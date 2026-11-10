@@ -13,6 +13,12 @@ public static class CleanExit
 {
     private static bool _quitting;
 
+    /// <summary>
+    /// Asked once as a run quits, with its exit code, for the code to quit with: <c>--mobile-bench</c> reports its numbers
+    /// then, and fails a run past its budget.
+    /// </summary>
+    public static Func<int, int>? BeforeQuit { get; set; }
+
     /// <summary>Quits with <paramref name="code"/> once the current scene is gone and the finalizers have run.</summary>
     public static void QuitCleanly(this SceneTree tree, int code = 0)
     {
@@ -22,6 +28,12 @@ public static class CleanExit
         }
 
         _quitting = true;
+        if (BeforeQuit is { } before)
+        {
+            BeforeQuit = null;
+            code = before(code);
+        }
+
         if (!string.IsNullOrEmpty(Engine.GetWriteMoviePath()))
         {
             // Writing a movie (a capture): quit on the scene as it is, so the last frame isn't the empty one after it's gone.

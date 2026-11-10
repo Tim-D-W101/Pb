@@ -95,6 +95,13 @@ public static class Atmosphere
 
         sun.ShadowEnabled = p.Shadows;
         sun.DirectionalShadowMaxDistance = p.ShadowDistance_m;
+        sun.DirectionalShadowMode = p.ShadowSplits switch
+        {
+            1 => DirectionalLight3D.ShadowMode.Orthogonal,
+            2 => DirectionalLight3D.ShadowMode.Parallel2Splits,
+            _ => DirectionalLight3D.ShadowMode.Parallel4Splits,
+        };
+        viewport.MeshLodThreshold = p.LodThreshold_px;
         RenderingServer.DirectionalShadowAtlasSetSize(p.ShadowSize, true);
         viewport.Msaa3D = p.Msaa switch
         {
@@ -114,7 +121,9 @@ public static class Atmosphere
     public static void ApplyRenderScale(Viewport viewport, float scale, GraphicsDef graphics)
     {
         bool scaled = scale < 0.999f;
-        viewport.Scaling3DMode = scaled ? Viewport.Scaling3DModeEnum.Fsr : Viewport.Scaling3DModeEnum.Bilinear;
+        // The Compatibility renderer (OpenGL, a phone without Vulkan) has no FSR: it scales the view up plainly.
+        bool fsr = scaled && RenderingServer.GetCurrentRenderingMethod() != "gl_compatibility";
+        viewport.Scaling3DMode = fsr ? Viewport.Scaling3DModeEnum.Fsr : Viewport.Scaling3DModeEnum.Bilinear;
         viewport.Scaling3DScale = scaled ? scale : 1f;
         viewport.FsrSharpness = graphics.FsrSharpness;
     }

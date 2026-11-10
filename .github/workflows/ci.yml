@@ -94,6 +94,32 @@ jobs:
           path: ${{ runner.temp }}/net-round
           retention-days: 14
 
+  mobile-bench:
+    name: Mobile benchmark (Thornwick Woods, the mobile preset on the Mobile renderer, software Vulkan)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Cache Godot
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux-x86_64
+      - name: Install Godot ${{ env.GODOT_VERSION }} (.NET)
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: tools/ci/install-godot.sh "$GODOT_VERSION" ~/.local/godot
+      - name: A virtual screen and Mesa's software Vulkan (lavapipe)
+        run: sudo apt-get update -q && sudo apt-get install -y -q xvfb mesa-vulkan-drivers
+      - name: Build game assembly
+        run: dotnet build game/Pb.csproj -c Debug
+      - name: Import project
+        run: tools/ci/import.sh ~/.local/godot/godot
+      - name: A buggy driven along the tracks, then a team round with bots fighting and driving, held to a phone's budget
+        run: tools/ci/mobile-bench.sh ~/.local/godot/godot
+
   windows-build:
     name: Windows build (download it from the run's Artifacts)
     needs: godot-smoke
