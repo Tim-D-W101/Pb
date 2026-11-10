@@ -1768,7 +1768,10 @@ time near the other areas'.
   either way round, as the phone's held), immersive full screen, and the network permission for playing with others.
   The package is `org.pbgame.pb`; its icon is `game/icon.png` (`tools/package/android/make-icon.py`: the title mark's
   splat, "Pb" stencilled on it). It keeps `art/` (the desktop presets leave it out for their packs), so the APK carries
-  the art, and `ArtFiles` looks for no packs on Android.
+  the art, and `ArtFiles` looks for no packs on Android. It isn't "runnable" (the editor's one-click deploy to a phone
+  on USB; tick it in the editor to use that): with a runnable Android preset, every headless editor run (the import,
+  each export) ends with an error as Godot's Android plugin reads an editor setting after the settings are gone, and
+  CI's scripts fail on errors.
 - **.NET 9 on Android.** Godot's Android export template only takes net9.0, so `game/Pb.csproj` targets net9.0 when
   `GodotTargetPlatform` is `android` and net8.0 otherwise; the desktop builds, the sim and the tests are unchanged. The
   export publishes the assemblies for android-arm64 with the Mono runtime from NuGet's runtime pack.

@@ -55,8 +55,7 @@ export GODOT_ANDROID_KEYSTORE_RELEASE_PATH="$keystore" GODOT_ANDROID_KEYSTORE_RE
   GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=android
 log="$(mktemp)"
 "$godot" --headless --path "$root/game" --export-release "Android" "$apk" 2>&1 | tee "$log"
-# A headless export reads an editor setting after the editor's settings are gone, as it quits; that line is harmless.
-if [ ! -f "$apk" ] || grep -E "^(SCRIPT )?ERROR" "$log" | grep -vq "EditorSettings not instantiated yet"; then
+if [ ! -f "$apk" ] || grep -qE "^(SCRIPT )?ERROR" "$log"; then
   echo "::error::The Android export failed (see log above)"
   exit 1
 fi
