@@ -191,6 +191,20 @@
   // fill lights.
   "graphics": {
     "defaultPreset": "medium",
+    // On a phone or tablet (Phase 6) it starts on the mobile preset, the 3D view drawn at 75 % of the screen and scaled up.
+    "defaultPresetMobile": "mobile",
+    "renderScaleMobile": 0.75,
+    // ...and capped at 30 frames a second: steady (a phone that can't hold 60 swings between 60 and 30, which judders)
+    // and cooler. Settings, Video lifts it (one of the frame caps offered, 0 for none).
+    "frameCapMobile": 30,
+    // What --mobile-bench holds the mobile preset to on Thornwick Woods (a buggy driven along the tracks, and a team
+    // round with bots fighting and driving): well within what a mid-range phone (a 2023 Snapdragon 7- or Dimensity
+    // 7000-class GPU) draws at 30 frames a second. Draw calls and triangles (shadows included) are the 95th percentile of
+    // the frames drawn, the same on any GPU; cpu_ms is the game's own work a frame at 30 fps (scripts, the sim's ticks,
+    // animation) on the bench's machine, on average: a phone's cores take about three times as long. Measured when it was
+    // set: about 550 draw calls and 625,000 triangles at the 95th percentile, 3.4 ms (the desktop's Medium on Forward+:
+    // 1,040 and 1,240,000).
+    "mobileBudget": { "drawCalls": 700, "triangles": 750000, "cpu_ms": 6, "skipFrames": 20 },
     // V-sync on by default: no tearing, and frames paced to the monitor. F8 (or the pause menu) turns
     // it off, to see the uncapped frame rate.
     "vsync": true,
@@ -200,6 +214,14 @@
     "renderScales": [1.0, 0.85, 0.75, 0.67, 0.5],
     "fsrSharpness": 0.2,
     "presets": [
+      // Phones and tablets (Phase 6), with Godot's Mobile renderer (Vulkan; OpenGL ES 3 where a phone has none): one
+      // shadow split, small and near; no ambient occlusion, bounced light, reflections, fog volumes, glow or sunbeams;
+      // the woods drawn to 60 % of their range and their detail dropped sooner; a quarter of the weeds, nearer; nothing
+      // lying on the ground, no old paint; and no 3D scene behind the menus.
+      { "name": "mobile", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
+        "ambientProbes": true, "shadowSize": 1024, "shadowDistance_m": 40, "shadowSplits": 1, "msaa": 0, "screenAa": "none",
+        "weedDensity": 0.25, "weedDistance_m": 18, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": false,
+        "oldPaint": false, "viewScale": 0.6, "lodThreshold_px": 4, "menuBackdrop": false },
       { "name": "low", "ssao": false, "ssil": false, "sdfgi": false, "volumetricFog": false, "ssr": false, "glow": false,
         "ambientProbes": true, "shadowSize": 2048, "shadowDistance_m": 60, "msaa": 0, "screenAa": "fxaa",
         "weedDensity": 0.35, "weedDistance_m": 28, "lightShafts": 0, "dust": false, "windowLights": false, "groundDetail": false, "oldPaint": false },

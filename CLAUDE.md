@@ -81,6 +81,13 @@ presentation.jsonc `touch`) and the interface is drawn bigger by the screen's de
 stick, looking, every button, a buggy driven and left, pause and the back button) and `-- --menu-touch-demo` (on the main
 scene) works the menus by taps and drags; both print SMOKE PASS or FAIL, and CI runs them at three phone shapes.
 
+A phone starts on the `mobile` graphics preset (presentation.jsonc `graphics`: one shadow split, the woods' ranges cut by
+`viewScale`, `lodThreshold_px`, no menu backdrop), at 75 % and capped at 30 fps. `--mobile-bench` on a Thornwick Woods run
+measures it against `graphics.mobileBudget` as the run quits: drawn (`--rendering-method mobile`) it counts draw calls and
+triangles, headless it times the game's own work a frame (`--bench-hide=NAME,...` hides nodes to see what they cost).
+`tools/ci/mobile-bench.sh godot` runs CI's four (the vehicle demo's drive and a team round, each drawn under lavapipe and
+timed headless; `apt-get install xvfb mesa-vulkan-drivers`).
+
 Playing with others from the command line (Phase 4; the menu's Play with others does the same):
 - **Hosting and joining:** `-- --host` (on `--port=N`, with `--password=WORD`) or `-- --join=ADDRESS`, as `--name=NAME`
   playing character `--look=N`.

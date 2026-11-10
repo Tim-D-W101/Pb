@@ -45,9 +45,9 @@ watching yourself walk off with your hand up); then the characters' own animatio
 sprinting and crouched each way, leaning, refilling, flinching, hands up), blended from how they move, their feet
 held where they land; then two team modes, capture the flag and VIP escort, with bots that play them; and Thornwick
 Woods, a woodsball site seven times the size of the works, with buggies to drive (bots drive them too).** **Phase 6, Pb on
-Android, is under way ([plan](docs/phase-6.md), [report](docs/reports/phase-6.md)): the Android build
-([installing it](docs/android.md)), touch controls (on foot and at the wheel) and menus that work by touch, then a
-graphics preset for phones.** Phase 2 is built
+Android, is built ([plan](docs/phase-6.md), [report](docs/reports/phase-6.md)): the Android build
+([installing it](docs/android.md)), touch controls (on foot and at the wheel) and menus that work by touch, and a
+graphics preset for phones on Godot's Mobile renderer, held to a phone's budget on Thornwick Woods.** Phase 2 is built
 ([report](docs/reports/phase-2.md), [plan](docs/phase-2.md)). Phase 1 built the ballistics sandbox, a
 range with real paintball ballistics, break/bounce, splats, a marker with loader, pods and air, and a 1,000-ball stress mode
 ([report](docs/reports/phase-1.md)). Phase 2 built the first compound, **Oxbarrow Works**: a

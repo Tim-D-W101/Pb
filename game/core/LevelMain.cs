@@ -393,7 +393,10 @@ public partial class LevelMain : Node3D, ISimEventListener
         Color teamColor = TeamColor(state.Team);
         _teamColor = teamColor;
 
-        GraphicsPresetDef preset = _view.Graphics.Effective(Args.Value("--preset") ?? _settings.GraphicsPreset, _settings.Graphics);
+        // The mobile bench measures the mobile preset (Phase 6), as a phone starts on it.
+        bool mobileBench = Args.Has("--mobile-bench");
+        GraphicsPresetDef preset = _view.Graphics.Effective(Args.Value("--preset") ?? (mobileBench ? _view.Graphics.DefaultPresetMobile : _settings.GraphicsPreset),
+            mobileBench ? new GraphicsParts() : _settings.Graphics);
         clock.Lap("starts");
         _world.Build(_level, new MaterialLibrary(_level.Materials), preset.AmbientProbes, _view.Horizon, _view.Woods, _view.TerrainView);
         clock.Lap($"the world ({_world.BuildTimes})");
@@ -822,6 +825,13 @@ public partial class LevelMain : Node3D, ISimEventListener
         else
         {
             ShowOverlay(RoundScreens.Briefing(_round, BeginRound, BackToLevelSelect, BriefingMap(), _match.Objective));
+        }
+
+        if (mobileBench)
+        {
+            var bench = new MobileBench { Name = "MobileBench" };
+            AddChild(bench);
+            bench.Start(_view.Graphics.MobileBudget, preset.Name, RenderScale());
         }
 
         GD.Print($"Level {_level.Id} ({_round.Line}, {_pawns.Count} {_tier.Bots} bots): {_level.Primitives.Count} primitives, " +
@@ -2516,9 +2526,9 @@ public partial class LevelMain : Node3D, ISimEventListener
     private void ApplyGraphics(GraphicsPresetDef preset)
     {
         Atmosphere.ApplyPreset(_environment, _sun, GetViewport(), preset);
-        float scale = float.TryParse(Args.Value("--render-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
-            out float given) ? given : _settings.RenderScale;
+        float scale = RenderScale();
         Atmosphere.ApplyRenderScale(GetViewport(), scale, _view.Graphics);
+        _world.ViewScale(preset.ViewScale);
         _weeds.ApplyPreset(preset);
         _groundDetail.Visible = preset.GroundDetail;
         if (_ripples is not null)
@@ -2537,6 +2547,12 @@ public partial class LevelMain : Node3D, ISimEventListener
         _contact.Visible = !preset.Ssao;
         _shafts.ApplyPreset(preset);
     }
+
+    /// <summary>The share of the screen the 3D view's drawn at: --render-scale, else (the mobile bench) a phone's, else yours.</summary>
+    private float RenderScale() =>
+        float.TryParse(Args.Value("--render-scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float given) ? given
+        : Args.Has("--mobile-bench") ? _view.Graphics.RenderScaleMobile
+        : _settings.RenderScale;
 
     /// <summary>The level's plan for the briefing, with where you and your team start.</summary>
     private LevelMap BriefingMap()

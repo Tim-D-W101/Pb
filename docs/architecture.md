@@ -1757,9 +1757,9 @@ time near the other areas'.
 
 ## 19. Phase 6: Pb on Android
 
-> **Status: in progress (started 2026-11-10).** The plan is [phase-6.md](phase-6.md). The game is the same on a phone:
-> the sim, the data and every rule; what's new is how it's built, how it's played by touch and how it's drawn on a
-> phone's GPU. Nothing here changes who's out.
+> **Status: built (2026-11-10); what only a phone can show is listed in the [report](reports/phase-6.md).** The plan is
+> [phase-6.md](phase-6.md). The game is the same on a phone: the sim, the data and every rule; what's new is how it's
+> built, how it's played by touch and how it's drawn on a phone's GPU. Nothing here changes who's out.
 
 ### 19.1 The Android build (as built, M6.1)
 
@@ -1831,3 +1831,33 @@ time near the other areas'.
   there's no screen, so acting as a phone (`--touch` and the demos) the window gets a phone's, 2400 × 1080 unless
   `--screen=WxH` says otherwise, at `--dpi`; `--safe-area=L,T,R,B` (screen pixels) makes a notch. CI runs both at three
   phone shapes.
+
+### 19.3 The mobile preset and its benchmark (as built, M6.3)
+
+- **The renderer.** On a phone Godot runs its Mobile renderer (Vulkan; the project's `rendering_method.mobile` is Godot's
+  default) and falls back to Compatibility (OpenGL ES 3) where a phone has no Vulkan. The desktop stays on Forward+. The
+  render scale's FSR upscale needs Vulkan, so under Compatibility the 3D view is scaled up plainly.
+- **The "mobile" preset** (presentation.jsonc `graphics.presets`, the cheapest, first): one shadow split
+  (`shadowSplits`, new: the others keep four) at 1024 px out to 40 m; no ambient occlusion, bounced light, reflections,
+  fog volumes, glow, sunbeams, dust or window lights; a quarter of the weeds out to 18 m; nothing lying on the ground and
+  no old paint; the level's woods drawn to 60 % of their ranges (`viewScale`, new: `Woods.ViewScale` scales the stands'
+  visibility ranges) and every mesh's detail dropped sooner (`lodThreshold_px`, new: Godot's mesh LOD threshold, 4 px
+  rather than 1); and no 3D scene behind the main menu (`menuBackdrop`, new), which would keep the GPU busy in the menus.
+- **A phone's starting settings** (`GameSettings.DefaultsFrom` on `OS.HasFeature("mobile")`): the mobile preset
+  (`defaultPresetMobile`), the 3D view at 75 % (`renderScaleMobile`), and a 30 fps cap (`frameCapMobile`): steady rather
+  than swinging between 60 and 30, and cooler. Settings, Video changes any of them; saved choices are kept.
+- **`--mobile-bench`** (`game/core/MobileBench.cs`) rides on a run on Thornwick Woods (the vehicle demo's drive, or a 4 v 4
+  team round with bots fighting and driving) with the mobile preset and its render scale, and as the run quits prints what
+  it measured and fails it past `graphics.mobileBudget`. Drawn (the Mobile renderer; lavapipe in CI) it counts each frame's
+  draw calls and triangles, shadows included: what a phone's GPU is asked to draw, the same on any GPU. Headless it times
+  the game's own work for a frame at 30 fps, between two `BenchClock` nodes that process first and last of the whole scene
+  in each pass (scripts, the sim's ticks, animation); drawn in software, Godot's own process time takes in the wait for
+  the frame, so it's timed where nothing's drawn. `CleanExit.BeforeQuit` lets it report and fail the run as it quits.
+  `--bench-hide=NAME,...` hides nodes by name, to see what they cost.
+- **The budget** (95th percentile of the frames; the game's work on average): 700 draw calls, 750,000 triangles, 6 ms. As
+  set: the drive drew about 550 draw calls and 625,000 triangles at the 95th percentile (400 and 425,000 typically), the
+  round 545 and 620,000 (300 and 495,000), and the game's work was 3.1 and 3.4 ms a frame; the desktop's Medium preset on
+  Forward+ drew 1,040 and 1,240,000 on the same drive. Without the woods the drive drew about 130,000 fewer triangles
+  and much the same draw calls: the rest is the ground, the weeds, the characters, the buggies and the dressing.
+- **CI** ("Mobile benchmark"): xvfb and Mesa's lavapipe, then `tools/ci/mobile-bench.sh`: each scenario drawn at 5 fps
+  (`--fast`: the sim's ticks run on regardless) and timed headless at 30 fps.

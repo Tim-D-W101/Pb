@@ -32,8 +32,10 @@ public sealed partial class GameSettings
         return settings;
     }
 
-    /// <summary>The defaults and choices presentation.jsonc gives.</summary>
-    public static SettingsDefaults DefaultsFrom(PresentationDef view) => new()
+    /// <summary>The defaults and choices presentation.jsonc gives (a phone or tablet starts on the mobile preset and its render scale).</summary>
+    public static SettingsDefaults DefaultsFrom(PresentationDef view) => DefaultsFrom(view, OS.HasFeature("mobile"));
+
+    private static SettingsDefaults DefaultsFrom(PresentationDef view, bool mobile) => new()
     {
         MouseSensitivity = view.Look.MouseSensitivity_degPerCount,
         InvertY = view.Look.InvertY,
@@ -46,8 +48,10 @@ public sealed partial class GameSettings
         TouchOpacity = view.Touch.Opacity,
         TouchOpacityRange = view.Touch.OpacityRange,
         Vsync = view.Graphics.Vsync,
-        GraphicsPresets = new[] { view.Graphics.DefaultPreset }.Concat(view.Graphics.Presets.Select(p => p.Name)).Distinct().ToArray(),
-        RenderScales = view.Graphics.RenderScales,
+        FrameCap = mobile ? view.Graphics.FrameCapMobile : 0,
+        GraphicsPresets = new[] { mobile ? view.Graphics.DefaultPresetMobile : view.Graphics.DefaultPreset }.Concat(view.Graphics.Presets.Select(p => p.Name))
+            .Distinct().ToArray(),
+        RenderScales = mobile ? new[] { view.Graphics.RenderScaleMobile }.Concat(view.Graphics.RenderScales).Distinct().ToArray() : view.Graphics.RenderScales,
         Fov = view.Camera.Fov_deg,
         FovMin = view.Camera.FovMin_deg,
         FovMax = view.Camera.FovMax_deg,

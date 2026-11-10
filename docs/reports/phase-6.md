@@ -125,3 +125,84 @@ a notch.
 ### What's next
 
 M6.3: a mobile graphics preset (the Mobile renderer, lower shadows, effects and view distance) and its benchmark.
+
+## M6.3 (C) — The mobile graphics preset and its benchmark
+
+**Branch:** `claude/eager-cannon-c05kkv-mobile` (on M6.2)
+
+### What was built
+
+- **A "mobile" graphics preset**, the one a phone starts on, drawn by Godot's **Mobile renderer** (Vulkan; a phone
+  without Vulkan falls back to Compatibility, OpenGL ES 3, where the view is scaled up plainly instead of with FSR):
+  - **shadows:** one split instead of four, 1024 px, out to 40 m;
+  - **effects:** no ambient occlusion, bounced light, reflections, fog volumes, glow, sunbeams, dust or window lights;
+  - **view distance:** the woods drawn to 60 % of their range, and every mesh's detail dropped sooner (Godot's LOD
+    threshold at 4 px rather than 1);
+  - **weeds and dressing:** a quarter of the weeds, out to 18 m; nothing lying on the ground, and no old paint;
+  - **menus:** no 3D scene behind the main menu.
+
+  Three of these are new parts of a preset (`shadowSplits`, `viewScale`, `lodThreshold_px`), and so is `menuBackdrop`.
+  The desktop presets are unchanged.
+- **A phone's starting settings:** the mobile preset, the 3D view drawn at 75 % and scaled up, and a 30 fps cap. The
+  cap keeps the frame rate steady (a phone that can't hold 60 swings between 60 and 30, which judders) and the phone
+  cooler. Settings, Video changes any of them.
+- **The benchmark, `--mobile-bench`:** it rides on a run on Thornwick Woods and, as the run quits, fails it past a
+  budget in presentation.jsonc (`graphics.mobileBudget`).
+  - **Drawn**, on the Mobile renderer, it counts each frame's draw calls and triangles, shadows included. That's what a
+    phone's GPU is asked to draw, the same on any GPU.
+  - **Headless** it times the game's own work for a frame at 30 fps: scripts, the sim's ticks and animation.
+  - `tools/ci/mobile-bench.sh` runs it on two scenarios: the vehicle demo (a buggy driven along the tracks, the
+    handbrake, a burst from the wheel) and a 4 v 4 team round with bots fighting and taking the buggies' wheels. Each
+    scenario runs both drawn and timed.
+  - CI's new **Mobile benchmark** job runs that script on Mesa's software Vulkan.
+
+### How to run it
+
+```bash
+xvfb-run -a -s "-screen 0 1280x720x24" godot --path game --rendering-driver vulkan --rendering-method mobile --resolution 1280x720 \
+  --fixed-fps 5 res://scenes/Level.tscn -- --level=thornwick_woods --vehicle-demo --fast --mobile-bench   # the counts
+godot --headless --path game --fixed-fps 30 res://scenes/Level.tscn -- --level=thornwick_woods --vehicle-demo --fast --mobile-bench
+tools/ci/mobile-bench.sh godot                                                                           # CI's four runs
+```
+
+### Checks
+
+| Check | Result |
+|---|---|
+| The drive, drawn (Mobile renderer, lavapipe) | 394 draw calls typically, 536 at the 95th percentile, 596 at most; 421,000 triangles typically, 621,000 at the 95th, 678,000 at most: within the budget (700, 750,000). |
+| The round, drawn | Bots fighting and driving: 283 draw calls typically, 517 at the 95th, 608 at most; 484,000 triangles typically, 612,000 at the 95th, 685,000 at most. |
+| The game's own work, timed headless | 2.9 ms a frame at 30 fps on the drive and 3.3 ms in the round, on average (3.9 and 4.4 at the 95th percentile): within 6 ms, so roughly 9–10 ms of a phone's 33 ms frame. |
+| Against the desktop | The desktop's Medium preset on Forward+ draws 1,040 draw calls and 1,240,000 triangles (95th percentile) on the same drive: the mobile preset halves both. Without the woods the drive draws about 130,000 fewer triangles and much the same draw calls; the rest is the ground, the weeds, the characters, the buggies and the dressing. |
+| `dotnet test` | 569 sim tests (one new: a phone starts on the mobile preset, at 75 % and capped at 30 fps, and keeps what its player chose) and 73 network tests pass. |
+| Smoke runs | The menu, the range, Oxbarrow Works' walk-through and a bot match, the vehicle, splat and duel demos, and the touch and menu-touch demos pass as before; CI runs the whole suite and the new Mobile benchmark job. |
+
+### Known issues
+
+- The budget (700 draw calls, 750,000 triangles, 6 ms of the game's work a frame on the bench's machine) is what a
+  2023 mid-range phone's GPU and CPU should handle at 30 fps. It's an estimate from counts, not a frame rate measured
+  on one.
+- A phone's GPU cost is mostly filling pixels. The leaves and weeds are alpha-cut cards, the costliest thing for a
+  phone's tile-based GPU, and only a phone can measure them. If Thornwick Woods doesn't hold 30 fps on a mid-range
+  phone, the first things to try are the render scale (67 %), fewer weeds, and a lower `viewScale`.
+
+## What couldn't be tested without a real device
+
+There's no phone here, no Android emulator (no hardware virtualisation) and no GPU. Everything was checked short of a
+phone:
+
+- the APK was built and checked: signature, contents, manifest and the art in its phone formats;
+- every touch was simulated with the same events a phone sends;
+- the Mobile renderer was drawn on Mesa's software Vulkan.
+
+What only a phone can show:
+
+- **That the APK starts and runs:** the .NET runtime on Android, the first launch's shader compiling, and loading
+  Thornwick Woods within a phone's memory.
+- **The frame rate,** and whether it holds a steady 30 fps on a mid-range phone. The bench gives the counts and the
+  game's CPU time, not a phone's GPU time, and the alpha-cut foliage and the full-screen passes are the unknowns.
+- **Heat and battery** over a long round (the 30 fps cap is there for them).
+- **A phone's own GPU drivers**, and the Compatibility fallback (OpenGL ES 3) on a phone without Vulkan.
+- **How the controls feel under a real thumb:** the look speed, the stick's size, and where the buttons sit (all
+  adjustable in Settings).
+- **The phone's own keyboard, back button, safe area and notch:** simulated here, shown and sent by Android there.
+- **Playing with others from a phone over Wi-Fi:** finding games on the network, and hosting on one.

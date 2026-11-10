@@ -103,9 +103,11 @@ public partial class MainMenu : Control
 
         Input.MouseMode = Input.MouseModeEnum.Visible;
 
-        // The compound behind the menu, where there's a screen to show it on (not in CI's headless runs):
-        // built a piece a frame behind the plain backdrop, which then fades to a shade over it.
-        if (DisplayServer.GetName() != "headless" && !Args.Has("--smoke-test") && !(Args.Has("--level") && !_skippedToLevel))
+        // The compound behind the menu, where there's a screen to show it on (not in CI's headless runs, nor where the
+        // graphics preset leaves it out: a phone's, which would keep the GPU busy in the menus): built a piece a frame
+        // behind the plain backdrop, which then fades to a shade over it.
+        if (DisplayServer.GetName() != "headless" && !Args.Has("--smoke-test") && !(Args.Has("--level") && !_skippedToLevel) &&
+            _view.Graphics.Effective(_settings.GraphicsPreset, _settings.Graphics).MenuBackdrop)
         {
             var shade = new TextureRect
             {

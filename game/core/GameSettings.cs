@@ -223,6 +223,7 @@ public sealed partial class GameSettings
         TouchButtonScale = d.TouchButtonScale,
         TouchOpacity = d.TouchOpacity,
         Vsync = d.Vsync,
+        FrameCap = d.FrameCap,
         GraphicsPreset = d.GraphicsPresets[0],
         RenderScale = d.RenderScales[0],
         FovDeg = d.Fov,
@@ -420,6 +421,9 @@ public sealed class SettingsDefaults
     public required IReadOnlyList<float> TouchOpacityRange { get; init; }
 
     public required bool Vsync { get; init; }
+
+    /// <summary>The frame cap a new player starts with (0: none; a phone's is 30).</summary>
+    public required int FrameCap { get; init; }
 
     /// <summary>The graphics presets' names, the default first.</summary>
     public required IReadOnlyList<string> GraphicsPresets { get; init; }
